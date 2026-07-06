@@ -28,6 +28,7 @@ class AgentChatControllerTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(),
                 List.of()
         );
         mockMvc = MockMvcBuilders
@@ -64,6 +65,7 @@ class AgentChatControllerTest {
                 .andExpect(jsonPath("$.data.answer").value("这是 mock Agent 回复"))
                 .andExpect(jsonPath("$.data.cards").isArray())
                 .andExpect(jsonPath("$.data.pendingActions").isArray())
+                .andExpect(jsonPath("$.data.toolCalls").isArray())
                 .andExpect(jsonPath("$.data.dataSources").isArray())
                 .andExpect(jsonPath("$.data.warnings").isArray());
     }

@@ -266,6 +266,10 @@
                     <p id="warningsOutput" class="field-value">-</p>
                 </div>
                 <div>
+                    <span class="field-label">Tool Calls</span>
+                    <p id="toolCallsOutput" class="field-value">-</p>
+                </div>
+                <div>
                     <span class="field-label">Data Sources</span>
                     <p id="dataSourcesOutput" class="field-value">-</p>
                 </div>
@@ -290,6 +294,7 @@
         var answerOutput = document.getElementById("answerOutput");
         var traceIdOutput = document.getElementById("traceIdOutput");
         var warningsOutput = document.getElementById("warningsOutput");
+        var toolCallsOutput = document.getElementById("toolCallsOutput");
         var dataSourcesOutput = document.getElementById("dataSourcesOutput");
         var resultOutput = document.getElementById("resultOutput");
 
@@ -326,6 +331,7 @@
             answerOutput.textContent = formatValue(payload.answer);
             traceIdOutput.textContent = formatValue(payload.traceId);
             warningsOutput.textContent = formatValue(payload.warnings);
+            toolCallsOutput.textContent = formatValue(payload.toolCalls);
             dataSourcesOutput.textContent = formatValue(payload.dataSources);
         }
 

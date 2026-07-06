@@ -8,6 +8,7 @@ public record AgentRunResult(
         String answer,
         List<Object> cards,
         List<Object> pendingActions,
+        List<Object> toolCalls,
         List<Object> dataSources,
         List<String> warnings
 ) {

@@ -284,6 +284,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         return Map.of(
                 "cards", List.of(),
                 "pendingActions", List.of(),
+                "toolCalls", state.value("toolExecutions", List.of()),
                 "dataSources", dataSources(state, nodes),
                 "visitedNodes", nodes
         );
@@ -318,6 +319,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 state.value("answer", ""),
                 state.value("cards", List.of()),
                 state.value("pendingActions", List.of()),
+                state.value("toolCalls", List.of()),
                 state.value("dataSources", List.of()),
                 state.value("warnings", List.of())
         );
@@ -341,6 +343,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 result.answer(),
                 result.cards(),
                 result.pendingActions(),
+                result.toolCalls(),
                 result.dataSources(),
                 warnings
         );
@@ -383,6 +386,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 request.sessionId(),
                 request.traceId(),
                 answer,
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),

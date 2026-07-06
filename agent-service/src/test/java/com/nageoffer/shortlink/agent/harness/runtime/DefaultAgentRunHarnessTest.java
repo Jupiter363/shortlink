@@ -44,6 +44,7 @@ class DefaultAgentRunHarnessTest {
                     "分析结果",
                     List.of(),
                     List.of(),
+                    List.of(),
                     List.of(Map.of("type", "graph", "name", "campaign-analysis-graph")),
                     List.of()
             );
