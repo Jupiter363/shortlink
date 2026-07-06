@@ -42,6 +42,7 @@ class AgentConsoleStaticResourceTest {
                 .andExpect(content().string(containsString("/internal/short-link-agent/v1/chat")))
                 .andExpect(content().string(containsString("Trace ID")))
                 .andExpect(content().string(containsString("Warnings")))
+                .andExpect(content().string(containsString("Cards")))
                 .andExpect(content().string(containsString("Tool Calls")))
                 .andExpect(content().string(containsString("Data Sources")));
     }

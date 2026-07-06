@@ -227,6 +227,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
 
     private Map<String, Object> analyzeWithLlm(OverAllState state) {
         List<String> warnings = new ArrayList<>(state.value("toolWarnings", List.of()));
+        warnings.addAll(failedToolWarnings(state.value("toolExecutions", List.of())));
         Map<String, Object> llmDataSource = Map.of();
         String answer;
         try {
@@ -282,12 +283,198 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     private Map<String, Object> composeResponse(OverAllState state) {
         List<String> nodes = List.of(INTAKE_NODE, TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE, RESPONSE_COMPOSE_NODE);
         return Map.of(
-                "cards", List.of(),
+                "cards", buildCards(state),
                 "pendingActions", List.of(),
                 "toolCalls", state.value("toolExecutions", List.of()),
                 "dataSources", dataSources(state, nodes),
                 "visitedNodes", nodes
         );
+    }
+
+    private List<Object> buildCards(OverAllState state) {
+        List<Map<String, Object>> toolExecutions = state.value("toolExecutions", List.of());
+        List<Object> cards = new ArrayList<>();
+        for (Map<String, Object> execution : toolExecutions) {
+            cards.add(buildToolCard(execution));
+        }
+        return cards;
+    }
+
+    private Map<String, Object> buildToolCard(Map<String, Object> execution) {
+        String toolName = textValue(execution.get("name"));
+        if (!toolSucceeded(execution)) {
+            return toolWarningCard(execution);
+        }
+        return switch (toolName) {
+            case "list_groups" -> groupSummaryCard(execution);
+            case "page_short_links" -> shortLinkPageCard(execution);
+            case "get_short_link_stats", "get_group_stats" -> statsSummaryCard(execution);
+            case "get_group_access_records" -> accessRecordsCard(execution);
+            default -> genericToolResultCard(execution);
+        };
+    }
+
+    private Map<String, Object> groupSummaryCard(Map<String, Object> execution) {
+        Object data = execution.get("data");
+        List<Object> rows = rowsFrom(data);
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("groupCount", rows.size());
+        summary.put("shortLinkCount", sumLong(rows, "shortLinkCount", "shortLinkCnt", "linkCount"));
+
+        Map<String, Object> card = baseCard("group_summary", "Short link groups", execution);
+        card.put("summary", summary);
+        card.put("rows", rows);
+        card.put("rawData", data);
+        return card;
+    }
+
+    private Map<String, Object> shortLinkPageCard(Map<String, Object> execution) {
+        Object data = execution.get("data");
+        List<Object> rows = rowsFrom(data);
+        Map<String, Object> dataMap = mapValue(data);
+        Map<String, Object> summary = pagedSummary(rows, dataMap);
+
+        Map<String, Object> card = baseCard("short_link_page", "Short link page", execution);
+        card.put("summary", summary);
+        card.put("rows", rows);
+        card.put("rawData", data);
+        return card;
+    }
+
+    private Map<String, Object> statsSummaryCard(Map<String, Object> execution) {
+        Object data = execution.get("data");
+        Map<String, Object> stats = mapValue(data);
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        putIfPresent(metrics, stats, "pv");
+        putIfPresent(metrics, stats, "uv");
+        putIfPresent(metrics, stats, "uip");
+
+        Map<String, Object> card = baseCard("stats_summary", "Short link statistics", execution);
+        card.put("metrics", metrics);
+        card.put("rawData", data);
+        return card;
+    }
+
+    private Map<String, Object> accessRecordsCard(Map<String, Object> execution) {
+        Object data = execution.get("data");
+        List<Object> rows = rowsFrom(data);
+        Map<String, Object> dataMap = mapValue(data);
+        Map<String, Object> summary = pagedSummary(rows, dataMap);
+
+        Map<String, Object> card = baseCard("access_records", "Access records", execution);
+        card.put("summary", summary);
+        card.put("rows", rows);
+        card.put("rawData", data);
+        return card;
+    }
+
+    private Map<String, Object> pagedSummary(List<Object> rows, Map<String, Object> dataMap) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("recordCount", rows.size());
+        putIfPresent(summary, dataMap, "total");
+        putIfPresent(summary, dataMap, "current");
+        putIfPresent(summary, dataMap, "size");
+        return summary;
+    }
+
+    private Map<String, Object> toolWarningCard(Map<String, Object> execution) {
+        Map<String, Object> card = baseCard("tool_warning", "Tool call warning", execution);
+        card.put("severity", "warning");
+        card.put("message", failureMessage(execution));
+        return card;
+    }
+
+    private Map<String, Object> genericToolResultCard(Map<String, Object> execution) {
+        Map<String, Object> card = baseCard("tool_result", "Tool result", execution);
+        card.put("rawData", execution.get("data"));
+        return card;
+    }
+
+    private Map<String, Object> baseCard(String type, String title, Map<String, Object> execution) {
+        Map<String, Object> card = new LinkedHashMap<>();
+        card.put("type", type);
+        card.put("title", title);
+        card.put("sourceTool", textValue(execution.get("name")));
+        card.put("arguments", mapValue(execution.get("arguments")));
+        return card;
+    }
+
+    private List<String> failedToolWarnings(List<Map<String, Object>> toolExecutions) {
+        List<String> warnings = new ArrayList<>();
+        for (Map<String, Object> execution : toolExecutions) {
+            if (!toolSucceeded(execution)) {
+                warnings.add("Tool " + textValue(execution.get("name")) + " failed: " + failureMessage(execution));
+            }
+        }
+        return warnings;
+    }
+
+    private boolean toolSucceeded(Map<String, Object> execution) {
+        return Boolean.TRUE.equals(execution.get("success"));
+    }
+
+    private String failureMessage(Map<String, Object> execution) {
+        String message = textValue(execution.get("message"));
+        return message.isBlank() ? "unknown error" : message;
+    }
+
+    private List<Object> rowsFrom(Object data) {
+        if (data instanceof List<?> list) {
+            return new ArrayList<>(list);
+        }
+        Map<String, Object> dataMap = mapValue(data);
+        for (String key : List.of("records", "list", "rows")) {
+            Object value = dataMap.get(key);
+            if (value instanceof List<?> list) {
+                return new ArrayList<>(list);
+            }
+        }
+        return List.of();
+    }
+
+    private Map<String, Object> mapValue(Object value) {
+        if (!(value instanceof Map<?, ?> map)) {
+            return Map.of();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        map.forEach((key, item) -> result.put(String.valueOf(key), item));
+        return result;
+    }
+
+    private void putIfPresent(Map<String, Object> target, Map<String, Object> source, String key) {
+        if (source.containsKey(key)) {
+            target.put(key, source.get(key));
+        }
+    }
+
+    private long sumLong(List<Object> rows, String... keys) {
+        long sum = 0L;
+        for (Object row : rows) {
+            Map<String, Object> rowMap = mapValue(row);
+            for (String key : keys) {
+                Object value = rowMap.get(key);
+                if (value != null) {
+                    sum += longValue(value);
+                    break;
+                }
+            }
+        }
+        return sum;
+    }
+
+    private long longValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            return 0L;
+        }
+    }
+
+    private String textValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
     private List<Object> dataSources(OverAllState state, List<String> nodes) {

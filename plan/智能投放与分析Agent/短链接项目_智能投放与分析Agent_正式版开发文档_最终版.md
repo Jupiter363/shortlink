@@ -349,6 +349,44 @@ POST /internal/short-link-agent/v1/chat
 }
 ```
 
+#### cards 第一版结构
+
+第一阶段 cards 不新增强类型 DTO，沿用 `List<Object>` 返回 Map，便于控制台和后续前端快速渲染。
+
+通用字段：
+
+```json
+{
+  "type": "stats_summary",
+  "title": "Short link statistics",
+  "sourceTool": "get_group_stats",
+  "arguments": {
+    "gid": "g1",
+    "startDate": "2026-07-01",
+    "endDate": "2026-07-07"
+  }
+}
+```
+
+已实现卡片类型：
+
+| type | 触发工具 | 核心字段 |
+|---|---|---|
+| `group_summary` | `list_groups` | `summary.groupCount`、`summary.shortLinkCount`、`rows`、`rawData` |
+| `short_link_page` | `page_short_links` | `summary.recordCount/total/current/size`、`rows`、`rawData` |
+| `stats_summary` | `get_group_stats`、`get_short_link_stats` | `metrics.pv/uv/uip`、`rawData` |
+| `access_records` | `get_group_access_records` | `summary.recordCount/total/current/size`、`rows`、`rawData` |
+| `tool_warning` | 任意工具失败 | `severity`、`message` |
+
+约束：
+
+```text
+cards 中的数字指标只能来自工具返回 data；
+LLM 只负责解释，不得反向覆盖 cards 指标；
+工具失败时保留 answer 降级回复，同时返回 warnings 和 tool_warning card；
+rawData 保留原始工具数据快照，供前端和审计追溯。
+```
+
 #### 禁止事项
 
 ```text
