@@ -17,22 +17,32 @@ import com.nageoffer.shortlink.agent.infrastructure.llm.DeepSeekChatResponse;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmApiKeyNotConfiguredException;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmChatClient;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmChatClientException;
+import com.nageoffer.shortlink.agent.tool.core.AgentTool;
+import com.nageoffer.shortlink.agent.tool.core.ToolContext;
+import com.nageoffer.shortlink.agent.tool.core.ToolResult;
+import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGraphExecutor {
 
     private static final String SYSTEM_PROMPT = "你是短链接后台的智能投放与分析 Agent。当前阶段只做 API 联调和安全的分析解释，不直接执行写操作。";
     private static final String INTAKE_NODE = "intake";
+    private static final String TOOL_PLANNING_NODE = "tool_planning";
     private static final String LLM_ANALYSIS_NODE = "llm_analysis";
     private static final String RESPONSE_COMPOSE_NODE = "response_compose";
     private static final String CHECKPOINT_SAVE_FAILED_WARNING = "Graph checkpoint save failed";
+    private static final Pattern KEY_VALUE_PATTERN = Pattern.compile("(gid|fullShortUrl|startDate|endDate|current|size|orderTag)\\s*[=:：]\\s*([^\\s,，;；]+)");
+    private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -42,16 +52,20 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
 
     private final AgentProperties agentProperties;
 
+    private final AgentToolRegistry toolRegistry;
+
     private final CompiledGraph graph;
 
     public DefaultCampaignAnalysisGraphExecutor(
             LlmChatClient llmChatClient,
             GraphCheckpointStore checkpointStore,
-            AgentProperties agentProperties
+            AgentProperties agentProperties,
+            AgentToolRegistry toolRegistry
     ) {
         this.llmChatClient = llmChatClient;
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
+        this.toolRegistry = toolRegistry;
         this.graph = compileGraph(agentProperties.getGraph().getName());
     }
 
@@ -81,10 +95,12 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         try {
             return new StateGraph(graphName, Map::of)
                     .addNode(INTAKE_NODE, AsyncNodeAction.node_async(this::intake))
+                    .addNode(TOOL_PLANNING_NODE, AsyncNodeAction.node_async(this::planAndExecuteTools))
                     .addNode(LLM_ANALYSIS_NODE, AsyncNodeAction.node_async(this::analyzeWithLlm))
                     .addNode(RESPONSE_COMPOSE_NODE, AsyncNodeAction.node_async(this::composeResponse))
                     .addEdge(StateGraph.START, INTAKE_NODE)
-                    .addEdge(INTAKE_NODE, LLM_ANALYSIS_NODE)
+                    .addEdge(INTAKE_NODE, TOOL_PLANNING_NODE)
+                    .addEdge(TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE)
                     .addEdge(LLM_ANALYSIS_NODE, RESPONSE_COMPOSE_NODE)
                     .addEdge(RESPONSE_COMPOSE_NODE, StateGraph.END)
                     .compile();
@@ -101,15 +117,123 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         );
     }
 
-    private Map<String, Object> analyzeWithLlm(OverAllState state) {
+    private Map<String, Object> planAndExecuteTools(OverAllState state) {
+        String message = state.value("message", "");
+        String sessionId = state.value("sessionId", "");
+        String username = state.value("username", "");
+        List<Map<String, Object>> toolExecutions = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
+        for (ToolInvocation invocation : planToolInvocations(message)) {
+            Optional<AgentTool> toolOptional = toolRegistry.findByName(invocation.name());
+            if (toolOptional.isEmpty()) {
+                warnings.add("Agent tool not registered: " + invocation.name());
+                continue;
+            }
+            toolExecutions.add(executeTool(toolOptional.get(), invocation, sessionId, username));
+        }
+        return Map.of(
+                "toolExecutions", toolExecutions,
+                "toolWarnings", warnings,
+                "visitedNodes", List.of(INTAKE_NODE, TOOL_PLANNING_NODE)
+        );
+    }
+
+    private Map<String, Object> executeTool(AgentTool tool, ToolInvocation invocation, String sessionId, String username) {
+        Map<String, Object> execution = new LinkedHashMap<>();
+        execution.put("name", invocation.name());
+        execution.put("arguments", invocation.arguments());
+        try {
+            ToolResult result = tool.execute(new ToolContext(sessionId, username, invocation.arguments()));
+            execution.put("success", result.success());
+            if (result.success()) {
+                execution.put("data", result.data());
+            } else {
+                execution.put("message", result.message());
+            }
+        } catch (Exception ex) {
+            execution.put("success", false);
+            execution.put("message", ex.getMessage());
+        }
+        return execution;
+    }
+
+    private List<ToolInvocation> planToolInvocations(String message) {
+        Map<String, Object> arguments = extractArguments(message);
+        String normalized = message == null ? "" : message.toLowerCase(Locale.ROOT);
+        boolean hasGid = arguments.containsKey("gid");
+        boolean hasFullShortUrl = arguments.containsKey("fullShortUrl");
+        boolean hasDateRange = arguments.containsKey("startDate") && arguments.containsKey("endDate");
+        if (hasFullShortUrl && hasGid && hasDateRange && containsAny(normalized, "stats", "统计", "数据", "表现")) {
+            return List.of(new ToolInvocation("get_short_link_stats", arguments));
+        }
+        if (hasGid && hasDateRange && containsAny(normalized, "access", "record", "访问", "记录", "明细")) {
+            return List.of(new ToolInvocation("get_group_access_records", arguments));
+        }
+        if (hasGid && hasDateRange && containsAny(normalized, "stats", "统计", "分析", "表现", "数据")) {
+            return List.of(new ToolInvocation("get_group_stats", arguments));
+        }
+        if (hasGid && containsAny(normalized, "link", "短链", "短链接", "列表", "分页", "page")) {
+            return List.of(new ToolInvocation("page_short_links", arguments));
+        }
+        if (containsAny(normalized, "group", "分组", "gid", "有哪些")) {
+            return List.of(new ToolInvocation("list_groups", Map.of()));
+        }
+        return List.of();
+    }
+
+    private Map<String, Object> extractArguments(String message) {
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        if (message == null || message.isBlank()) {
+            return arguments;
+        }
+        Matcher keyValueMatcher = KEY_VALUE_PATTERN.matcher(message);
+        while (keyValueMatcher.find()) {
+            putArgument(arguments, keyValueMatcher.group(1), keyValueMatcher.group(2));
+        }
+        if (!arguments.containsKey("startDate") || !arguments.containsKey("endDate")) {
+            Matcher dateMatcher = DATE_PATTERN.matcher(message);
+            List<String> dates = new ArrayList<>();
+            while (dateMatcher.find()) {
+                dates.add(dateMatcher.group());
+            }
+            if (dates.size() >= 2) {
+                arguments.putIfAbsent("startDate", dates.get(0));
+                arguments.putIfAbsent("endDate", dates.get(1));
+            }
+        }
+        return arguments;
+    }
+
+    private void putArgument(Map<String, Object> arguments, String name, String value) {
+        if ("current".equals(name) || "size".equals(name)) {
+            try {
+                arguments.put(name, Long.parseLong(value));
+            } catch (NumberFormatException ex) {
+                arguments.put(name, value);
+            }
+            return;
+        }
+        arguments.put(name, value);
+    }
+
+    private boolean containsAny(String text, String... fragments) {
+        for (String fragment : fragments) {
+            if (text.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Map<String, Object> analyzeWithLlm(OverAllState state) {
+        List<String> warnings = new ArrayList<>(state.value("toolWarnings", List.of()));
         Map<String, Object> llmDataSource = Map.of();
         String answer;
         try {
             DeepSeekChatResponse chatResponse = llmChatClient.chat(new DeepSeekChatRequest(
                     List.of(
                             new DeepSeekChatRequest.Message("system", SYSTEM_PROMPT),
-                            new DeepSeekChatRequest.Message("user", state.value("message", ""))
+                            new DeepSeekChatRequest.Message("user", userPrompt(state))
                     ),
                     null,
                     null,
@@ -134,12 +258,29 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 "answer", answer,
                 "llmDataSource", llmDataSource,
                 "warnings", warnings,
-                "visitedNodes", List.of(INTAKE_NODE, LLM_ANALYSIS_NODE)
+                "visitedNodes", List.of(INTAKE_NODE, TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE)
         );
     }
 
+    private String userPrompt(OverAllState state) {
+        String message = state.value("message", "");
+        List<Map<String, Object>> toolExecutions = state.value("toolExecutions", List.of());
+        if (toolExecutions.isEmpty()) {
+            return message;
+        }
+        return message + "\n\nTool execution context:\n" + toJson(toolExecutions);
+    }
+
+    private String toJson(Object value) {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            return String.valueOf(value);
+        }
+    }
+
     private Map<String, Object> composeResponse(OverAllState state) {
-        List<String> nodes = List.of(INTAKE_NODE, LLM_ANALYSIS_NODE, RESPONSE_COMPOSE_NODE);
+        List<String> nodes = List.of(INTAKE_NODE, TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE, RESPONSE_COMPOSE_NODE);
         return Map.of(
                 "cards", List.of(),
                 "pendingActions", List.of(),
@@ -159,6 +300,13 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         Map<String, Object> llmDataSource = state.value("llmDataSource", Map.of());
         if (!llmDataSource.isEmpty()) {
             dataSources.add(llmDataSource);
+        }
+        List<Map<String, Object>> toolExecutions = state.value("toolExecutions", List.of());
+        if (!toolExecutions.isEmpty()) {
+            dataSources.add(Map.of(
+                    "type", "tool",
+                    "executions", toolExecutions
+            ));
         }
         return dataSources;
     }
@@ -222,6 +370,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         checkpoint.put("visitedNodes", state.value("visitedNodes", List.of()));
         checkpoint.put("answer", result.answer());
         checkpoint.put("warnings", result.warnings());
+        checkpoint.put("toolExecutions", state.value("toolExecutions", List.of()));
         try {
             return OBJECT_MAPPER.writeValueAsString(checkpoint);
         } catch (JsonProcessingException ex) {
@@ -239,5 +388,8 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 List.of(),
                 List.of(warning)
         );
+    }
+
+    private record ToolInvocation(String name, Map<String, Object> arguments) {
     }
 }
