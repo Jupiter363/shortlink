@@ -1,0 +1,59 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### Local runtime config ###
+**/src/main/resources/application*.yml
+**/src/main/resources/application*.yaml
+**/src/main/resources/bootstrap*.yml
+**/src/main/resources/bootstrap*.yaml
+**/src/main/resources/shardingsphere-config*.yml
+**/src/main/resources/shardingsphere-config*.yaml
+.env
+.env.*
+*.local.yml
+*.local.yaml
+
+### IntelliJ IDEA ###
+.idea/
+.idea/modules.xml
+.idea/jarRepositories.xml
+.idea/compiler.xml
+.idea/libraries/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Codex / local workspace ###
+.codebuddy/
+
+### Local bundled binaries ###
+nginx-nageoffer-1.25.4/
+nginx-nageoffer-1.25.4.zip
+__MACOSX/
+
+### Mac OS ###
+.DS_Store

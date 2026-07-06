@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Short Link Agent Console</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --muted: #64748b;
+            --line: #d7dee8;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --ok: #15803d;
+            --warn: #b45309;
+            --error: #b91c1c;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(1040px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 32px 0;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(26px, 4vw, 40px);
+            line-height: 1.1;
+            letter-spacing: 0;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 40px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--warn);
+        }
+
+        .status-dot.ok {
+            background: var(--ok);
+        }
+
+        .status-dot.error {
+            background: var(--error);
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        section {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        h2 {
+            margin: 0 0 14px;
+            font-size: 18px;
+            line-height: 1.3;
+            letter-spacing: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        textarea {
+            display: block;
+            width: 100%;
+            min-height: 180px;
+            resize: vertical;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 12px;
+            color: var(--text);
+            font: inherit;
+            line-height: 1.5;
+        }
+
+        textarea:focus,
+        button:focus-visible {
+            outline: 3px solid rgba(37, 99, 235, 0.2);
+            outline-offset: 2px;
+            border-color: var(--accent);
+        }
+
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        button {
+            min-height: 40px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 0 14px;
+            background: #ffffff;
+            color: var(--text);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 600;
+        }
+
+        button.primary {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        button:hover {
+            border-color: var(--accent);
+        }
+
+        button.primary:hover {
+            background: var(--accent-hover);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        .result-summary {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .field-label {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .field-value {
+            min-height: 24px;
+            margin: 0;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #f8fafc;
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        pre {
+            min-height: 180px;
+            max-height: 520px;
+            overflow: auto;
+            margin: 0;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font: 13px/1.5 Consolas, Monaco, "Courier New", monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        @media (max-width: 780px) {
+            main {
+                width: min(100% - 24px, 1040px);
+                padding: 20px 0;
+            }
+
+            header,
+            .workspace {
+                display: block;
+            }
+
+            .status {
+                margin-top: 14px;
+            }
+
+            section + section {
+                margin-top: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>Short Link Agent Console</h1>
+        <div class="status" aria-live="polite">
+            <span id="healthDot" class="status-dot" aria-hidden="true"></span>
+            <span id="healthText">Checking health...</span>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <section>
+            <h2>Chat</h2>
+            <form id="chatForm">
+                <label for="messageInput">Message</label>
+                <textarea id="messageInput" name="message" required
+                          placeholder="Analyze recent short link campaign performance"></textarea>
+                <div class="actions">
+                    <button id="healthButton" type="button">Check health</button>
+                    <button id="sendButton" class="primary" type="submit">Send</button>
+                </div>
+            </form>
+        </section>
+
+        <section>
+            <h2>Result</h2>
+            <div class="result-summary" aria-live="polite">
+                <div>
+                    <span class="field-label">Answer</span>
+                    <p id="answerOutput" class="field-value">Ready.</p>
+                </div>
+                <div>
+                    <span class="field-label">Trace ID</span>
+                    <p id="traceIdOutput" class="field-value">-</p>
+                </div>
+                <div>
+                    <span class="field-label">Warnings</span>
+                    <p id="warningsOutput" class="field-value">-</p>
+                </div>
+                <div>
+                    <span class="field-label">Data Sources</span>
+                    <p id="dataSourcesOutput" class="field-value">-</p>
+                </div>
+            </div>
+            <pre id="resultOutput" aria-live="polite">Ready.</pre>
+        </section>
+    </div>
+</main>
+
+<script>
+    (function () {
+        var healthEndpoint = "/internal/short-link-agent/v1/health";
+        var chatEndpoint = "/internal/short-link-agent/v1/chat";
+        var sessionKey = "shortLinkAgentConsoleSessionId";
+
+        var healthDot = document.getElementById("healthDot");
+        var healthText = document.getElementById("healthText");
+        var healthButton = document.getElementById("healthButton");
+        var sendButton = document.getElementById("sendButton");
+        var chatForm = document.getElementById("chatForm");
+        var messageInput = document.getElementById("messageInput");
+        var answerOutput = document.getElementById("answerOutput");
+        var traceIdOutput = document.getElementById("traceIdOutput");
+        var warningsOutput = document.getElementById("warningsOutput");
+        var dataSourcesOutput = document.getElementById("dataSourcesOutput");
+        var resultOutput = document.getElementById("resultOutput");
+
+        function sessionId() {
+            var existing = window.localStorage.getItem(sessionKey);
+            if (existing) {
+                return existing;
+            }
+            var created = "console-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+            window.localStorage.setItem(sessionKey, created);
+            return created;
+        }
+
+        function setHealth(state, text) {
+            healthDot.className = "status-dot " + state;
+            healthText.textContent = text;
+        }
+
+        function formatValue(value) {
+            if (value === undefined || value === null || value === "") {
+                return "-";
+            }
+            if (Array.isArray(value)) {
+                return value.length ? value.map(formatValue).join("\n") : "-";
+            }
+            if (typeof value === "object") {
+                return JSON.stringify(value, null, 2);
+            }
+            return String(value);
+        }
+
+        function showSummary(data) {
+            var payload = data && typeof data === "object" ? data : {};
+            answerOutput.textContent = formatValue(payload.answer);
+            traceIdOutput.textContent = formatValue(payload.traceId);
+            warningsOutput.textContent = formatValue(payload.warnings);
+            dataSourcesOutput.textContent = formatValue(payload.dataSources);
+        }
+
+        function showResult(value) {
+            var data = value && typeof value === "object" && value.result ? value.result.data : null;
+            if (!data && value && typeof value === "object" && value.data) {
+                data = value.data;
+            }
+            showSummary(data);
+            resultOutput.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+        }
+
+        async function requestJson(url, options) {
+            var response = await fetch(url, options);
+            var contentType = response.headers.get("content-type") || "";
+            var body = contentType.indexOf("application/json") >= 0
+                    ? await response.json()
+                    : await response.text();
+            if (!response.ok) {
+                throw new Error(typeof body === "string" ? body : JSON.stringify(body));
+            }
+            return body;
+        }
+
+        async function checkHealth() {
+            setHealth("", "Checking health...");
+            healthButton.disabled = true;
+            try {
+                var result = await requestJson(healthEndpoint, {method: "GET"});
+                var data = result && result.data ? result.data : {};
+                setHealth("ok", (data.service || "short-link-agent") + " " + (data.status || "OK"));
+            } catch (error) {
+                setHealth("error", "Health check failed");
+                showResult({error: error.message});
+            } finally {
+                healthButton.disabled = false;
+            }
+        }
+
+        async function sendMessage(event) {
+            event.preventDefault();
+            var message = messageInput.value.trim();
+            if (!message) {
+                messageInput.focus();
+                return;
+            }
+
+            sendButton.disabled = true;
+            showResult("Waiting for agent response...");
+            try {
+                var result = await requestJson(chatEndpoint, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        sessionId: sessionId(),
+                        username: "agent-console",
+                        message: message
+                    })
+                });
+                showResult(result);
+            } catch (error) {
+                showResult({error: error.message});
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        healthButton.addEventListener("click", checkHealth);
+        chatForm.addEventListener("submit", sendMessage);
+        checkHealth();
+    }());
+</script>
+</body>
+</html>
