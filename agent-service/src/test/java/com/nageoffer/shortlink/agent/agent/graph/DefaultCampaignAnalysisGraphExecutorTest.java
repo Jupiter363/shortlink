@@ -200,6 +200,97 @@ class DefaultCampaignAnalysisGraphExecutorTest {
     }
 
     @Test
+    void executePlansComposableToolsForChineseCampaignAnalysisRequest() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "中文投放分析",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        CapturingAgentTool listGroupsTool = new CapturingAgentTool(
+                "list_groups",
+                ToolResult.success(List.of(Map.of("gid", "g1", "name", "营销活动", "shortLinkCount", 3)))
+        );
+        CapturingAgentTool pageTool = new CapturingAgentTool(
+                "page_short_links",
+                ToolResult.success(Map.of("records", List.of(Map.of("fullShortUrl", "nurl.ink/a"))))
+        );
+        CapturingAgentTool statsTool = new CapturingAgentTool(
+                "get_group_stats",
+                ToolResult.success(Map.of("pv", 35, "uv", 13, "uip", 1))
+        );
+        CapturingAgentTool recordsTool = new CapturingAgentTool(
+                "get_group_access_records",
+                ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1"))))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(listGroupsTool, pageTool, statsTool, recordsTool))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "请列出我的分组，并分页查看短链接，查询 gid=Q70DpK 从 2024-01-01 到 2026-12-31 的投放表现、统计数据和访问记录，current=1 size=3",
+                "trace-1"
+        ));
+
+        assertThat(result.toolCalls())
+                .extracting(each -> map(each).get("name"))
+                .containsExactly("list_groups", "page_short_links", "get_group_stats", "get_group_access_records");
+        assertThat(pageTool.context.arguments())
+                .containsEntry("gid", "Q70DpK")
+                .containsEntry("current", 1L)
+                .containsEntry("size", 3L);
+        assertThat(statsTool.context.arguments())
+                .containsEntry("startDate", "2024-01-01")
+                .containsEntry("endDate", "2026-12-31");
+        assertThat(recordsTool.context.arguments())
+                .containsEntry("size", 3L);
+    }
+
+    @Test
+    void executeTrimsTrailingSentencePunctuationFromNumericArguments() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "overview answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        CapturingAgentTool pageTool = new CapturingAgentTool(
+                "page_short_links",
+                ToolResult.success(Map.of("records", List.of(Map.of("fullShortUrl", "nurl.ink/a"))))
+        );
+        CapturingAgentTool recordsTool = new CapturingAgentTool(
+                "get_group_access_records",
+                ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1"))))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(pageTool, recordsTool))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "page short links and access records gid=g1 startDate=2026-07-01 endDate=2026-07-07 current=1 size=3.",
+                "trace-1"
+        ));
+
+        assertThat(result.toolCalls())
+                .extracting(each -> map(each).get("success"))
+                .containsExactly(true, true);
+        assertThat(pageTool.context.arguments()).containsEntry("size", 3L);
+        assertThat(recordsTool.context.arguments()).containsEntry("size", 3L);
+    }
+
+    @Test
     void executeKeepsSingleShortLinkStatsRequestToStatsToolOnly() {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",

@@ -330,7 +330,12 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 "group list",
                 "all groups",
                 "groups and",
-                "groups,"
+                "groups,",
+                "\u5217\u51fa\u5206\u7ec4",
+                "\u67e5\u770b\u5206\u7ec4",
+                "\u67e5\u8be2\u5206\u7ec4",
+                "\u5206\u7ec4\u5217\u8868",
+                "\u6211\u7684\u5206\u7ec4"
         );
         return explicitListGroups || (!hasGid && containsAny(normalized, "group", "groups", "gid", "\u5206\u7ec4", "\u6709\u54ea\u4e9b"));
     }
@@ -357,7 +362,13 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 "\u77ed\u94fe\u5217\u8868",
                 "\u77ed\u94fe\u63a5\u5217\u8868",
                 "\u77ed\u94fe\u5206\u9875",
-                "\u77ed\u94fe\u63a5\u5206\u9875"
+                "\u77ed\u94fe\u63a5\u5206\u9875",
+                "\u5206\u9875\u67e5\u770b\u77ed\u94fe",
+                "\u5206\u9875\u67e5\u770b\u77ed\u94fe\u63a5",
+                "\u67e5\u770b\u77ed\u94fe",
+                "\u67e5\u770b\u77ed\u94fe\u63a5",
+                "\u67e5\u8be2\u77ed\u94fe",
+                "\u67e5\u8be2\u77ed\u94fe\u63a5"
         );
     }
 
@@ -393,15 +404,23 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     }
 
     private void putArgument(Map<String, Object> arguments, String name, String value) {
+        String sanitizedValue = sanitizeArgumentValue(value);
         if ("current".equals(name) || "size".equals(name)) {
             try {
-                arguments.put(name, Long.parseLong(value));
+                arguments.put(name, Long.parseLong(sanitizedValue));
             } catch (NumberFormatException ex) {
-                arguments.put(name, value);
+                arguments.put(name, sanitizedValue);
             }
             return;
         }
-        arguments.put(name, value);
+        arguments.put(name, sanitizedValue);
+    }
+
+    private String sanitizeArgumentValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("[.。!！?？]+$", "");
     }
 
     private boolean containsAny(String text, String... fragments) {
