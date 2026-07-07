@@ -208,9 +208,13 @@
 - [ ] `agent-service` 提供独立 Agent Console。
 - [ ] Console 可发送对话请求并展示回答。
 - [ ] Console 可展示 `cards` 指标卡。
+- [ ] Console 可按 `traffic_anomaly` 和 `performance_insight` 渲染异常/洞察卡片。
 - [ ] Console 可展示 `pendingActions` 预览。
+- [ ] Console 可将 `access_records` 渲染为访问明细表。
 - [ ] Console 可展示 `dataSources`。
-- [ ] Console 可展示 Graph Trace 或节点流转摘要。
+- [ ] Console 将 `toolCalls`、`dataSources` 和完整响应放入 `Sanitized data` 折叠调试区。
+- [ ] Console 默认主视图不直接铺开完整 raw JSON。
+- [ ] Console 可展示 `traceId`、工具调用和数据来源脱敏调试信息；节点级 Graph Trace 待后端暴露节点事件后验收。
 - [ ] Console 生产模式不绕过 admin/Gateway 鉴权。
 - [ ] Console 不直接调用 admin 内部工具执行接口。
 

@@ -7,16 +7,19 @@
     <style>
         :root {
             color-scheme: light;
-            --bg: #f5f7fb;
+            --bg: #f4f6f8;
             --panel: #ffffff;
-            --text: #1f2937;
-            --muted: #64748b;
-            --line: #d7dee8;
-            --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --ok: #15803d;
-            --warn: #b45309;
-            --error: #b91c1c;
+            --panel-soft: #f8fafc;
+            --text: #172033;
+            --muted: #667085;
+            --line: #d8dee8;
+            --accent: #1f6feb;
+            --accent-hover: #1959bd;
+            --ok: #16803c;
+            --warn: #b15c00;
+            --error: #b42318;
+            --info: #087e8b;
+            --shadow: 0 10px 30px rgba(23, 32, 51, 0.08);
         }
 
         * {
@@ -32,9 +35,9 @@
         }
 
         main {
-            width: min(1040px, calc(100% - 32px));
+            width: min(1240px, calc(100% - 32px));
             margin: 0 auto;
-            padding: 32px 0;
+            padding: 28px 0;
         }
 
         header {
@@ -42,14 +45,30 @@
             align-items: center;
             justify-content: space-between;
             gap: 16px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin: 0;
+            letter-spacing: 0;
         }
 
         h1 {
-            margin: 0;
-            font-size: clamp(26px, 4vw, 40px);
+            font-size: clamp(26px, 4vw, 38px);
             line-height: 1.1;
-            letter-spacing: 0;
+        }
+
+        h2 {
+            font-size: 18px;
+            line-height: 1.3;
+        }
+
+        h3 {
+            font-size: 15px;
+            line-height: 1.3;
         }
 
         .status {
@@ -78,36 +97,43 @@
 
         .workspace {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+            grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
             gap: 16px;
-            align-items: stretch;
+            align-items: start;
         }
 
-        section {
+        section,
+        .panel,
+        .insight-card {
             background: var(--panel);
             border: 1px solid var(--line);
             border-radius: 8px;
-            padding: 20px;
         }
 
-        h2 {
-            margin: 0 0 14px;
-            font-size: 18px;
-            line-height: 1.3;
-            letter-spacing: 0;
+        section,
+        .panel {
+            padding: 18px;
+        }
+
+        .control-panel {
+            position: sticky;
+            top: 16px;
+            display: grid;
+            gap: 16px;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
+            margin: 14px 0 8px;
             color: var(--muted);
             font-size: 14px;
+            font-weight: 700;
         }
 
         textarea {
             display: block;
             width: 100%;
-            min-height: 180px;
+            min-height: 220px;
             resize: vertical;
             border: 1px solid var(--line);
             border-radius: 6px;
@@ -118,8 +144,9 @@
         }
 
         textarea:focus,
-        button:focus-visible {
-            outline: 3px solid rgba(37, 99, 235, 0.2);
+        button:focus-visible,
+        details:focus-visible {
+            outline: 3px solid rgba(31, 111, 235, 0.18);
             outline-offset: 2px;
             border-color: var(--accent);
         }
@@ -140,7 +167,7 @@
             color: var(--text);
             cursor: pointer;
             font: inherit;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         button.primary {
@@ -162,66 +189,334 @@
             opacity: 0.65;
         }
 
-        .result-summary {
+        .dashboard {
             display: grid;
-            gap: 12px;
-            margin-bottom: 14px;
+            gap: 14px;
         }
 
-        .field-label {
-            display: block;
-            margin-bottom: 4px;
+        .dashboard-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .meta {
+            margin-top: 6px;
             color: var(--muted);
             font-size: 13px;
-            font-weight: 700;
+            word-break: break-word;
         }
 
-        .field-value {
-            min-height: 24px;
-            margin: 0;
-            border: 1px solid var(--line);
-            border-radius: 6px;
-            padding: 8px 10px;
-            background: #f8fafc;
+        .answer-panel {
+            display: grid;
+            gap: 8px;
+            border-left: 4px solid var(--accent);
+            box-shadow: var(--shadow);
+        }
+
+        .answer-text {
+            min-height: 48px;
             color: var(--text);
-            font-size: 14px;
-            line-height: 1.45;
+            font-size: 15px;
+            line-height: 1.65;
             white-space: pre-wrap;
             word-break: break-word;
         }
 
+        .notice-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .warnings-panel {
+            display: grid;
+            gap: 10px;
+        }
+
+        .notice {
+            border: 1px solid #f1c27d;
+            border-left: 4px solid var(--warn);
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #fff8ed;
+            color: #763f00;
+            font-size: 14px;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .insight-card {
+            display: grid;
+            gap: 12px;
+            min-height: 148px;
+            padding: 14px;
+        }
+
+        .insight-card.warning {
+            border-color: #f1c27d;
+            border-top: 4px solid var(--warn);
+        }
+
+        .insight-card.info {
+            border-color: #a8dce1;
+            border-top: 4px solid var(--info);
+        }
+
+        .insight-card.error {
+            border-color: #f3aca6;
+            border-top: 4px solid var(--error);
+        }
+
+        .insight-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .badge {
+            flex: 0 0 auto;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            padding: 3px 8px;
+            background: var(--panel-soft);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge.warning {
+            border-color: #f1c27d;
+            background: #fff8ed;
+            color: var(--warn);
+        }
+
+        .badge.info {
+            border-color: #a8dce1;
+            background: #eefafb;
+            color: var(--info);
+        }
+
+        .badge.error {
+            border-color: #f3aca6;
+            background: #fff1f0;
+            color: var(--error);
+        }
+
+        .card-subtitle {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .metric-tile {
+            min-width: 0;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px;
+            background: var(--panel-soft);
+        }
+
+        .metric-label {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.3;
+            word-break: break-word;
+        }
+
+        .metric-value {
+            display: block;
+            margin-top: 4px;
+            color: var(--text);
+            font-size: 20px;
+            font-weight: 800;
+            line-height: 1.1;
+            word-break: break-word;
+        }
+
+        .kv-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px 10px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .kv-list dt {
+            font-weight: 700;
+        }
+
+        .kv-list dd {
+            margin: 0;
+            color: var(--text);
+            word-break: break-word;
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            border: 1px dashed var(--line);
+            border-radius: 8px;
+            padding: 18px;
+            background: var(--panel-soft);
+            color: var(--muted);
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .records-panel {
+            display: grid;
+            gap: 12px;
+        }
+
+        .pending-actions-panel {
+            display: grid;
+            gap: 12px;
+        }
+
+        .action-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .pending-action {
+            display: grid;
+            gap: 8px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--panel-soft);
+        }
+
+        .records-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            min-width: 760px;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid var(--line);
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: top;
+            word-break: break-word;
+        }
+
+        th {
+            background: var(--panel-soft);
+            color: var(--muted);
+            font-weight: 800;
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        details.debug-data {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+        }
+
+        details.debug-data summary {
+            cursor: pointer;
+            padding: 12px 14px;
+            color: var(--text);
+            font-weight: 800;
+        }
+
+        .debug-body {
+            display: grid;
+            gap: 12px;
+            padding: 0 14px 14px;
+        }
+
+        .debug-block {
+            display: grid;
+            gap: 6px;
+        }
+
+        .debug-label {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
         pre {
-            min-height: 180px;
-            max-height: 520px;
+            min-height: 90px;
+            max-height: 360px;
             overflow: auto;
             margin: 0;
             border: 1px solid var(--line);
             border-radius: 6px;
             padding: 12px;
-            background: #0f172a;
-            color: #e2e8f0;
+            background: #111827;
+            color: #e5e7eb;
             font: 13px/1.5 Consolas, Monaco, "Courier New", monospace;
             white-space: pre-wrap;
             word-break: break-word;
         }
 
-        @media (max-width: 780px) {
+        @media (max-width: 960px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .control-panel {
+                position: static;
+            }
+        }
+
+        @media (max-width: 680px) {
             main {
-                width: min(100% - 24px, 1040px);
+                width: min(100% - 24px, 1240px);
                 padding: 20px 0;
             }
 
             header,
-            .workspace {
+            .dashboard-head,
+            .records-head {
                 display: block;
             }
 
-            .status {
-                margin-top: 14px;
+            .status,
+            .meta {
+                margin-top: 12px;
             }
 
-            section + section {
-                margin-top: 16px;
+            .card-grid,
+            .metric-grid,
+            .kv-list {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -237,48 +532,96 @@
     </header>
 
     <div class="workspace">
-        <section>
-            <h2>Chat</h2>
-            <form id="chatForm">
-                <label for="messageInput">Message</label>
-                <textarea id="messageInput" name="message" required
-                          placeholder="Analyze recent short link campaign performance"></textarea>
-                <div class="actions">
-                    <button id="healthButton" type="button">Check health</button>
-                    <button id="sendButton" class="primary" type="submit">Send</button>
-                </div>
-            </form>
-        </section>
+        <div class="control-panel">
+            <section>
+                <h2>Chat</h2>
+                <form id="chatForm">
+                    <label for="messageInput">Message</label>
+                    <textarea id="messageInput" name="message" required
+                              placeholder="Analyze gid default from 2026-07-01 to 2026-07-07"></textarea>
+                    <div class="actions">
+                        <button id="healthButton" type="button">Check health</button>
+                        <button id="sendButton" class="primary" type="submit">Send</button>
+                    </div>
+                </form>
+            </section>
+        </div>
 
-        <section>
-            <h2>Result</h2>
-            <div class="result-summary" aria-live="polite">
+        <section class="dashboard">
+            <div class="dashboard-head">
                 <div>
-                    <span class="field-label">Answer</span>
-                    <p id="answerOutput" class="field-value">Ready.</p>
+                    <h2>Insight Dashboard</h2>
+                    <p id="traceIdOutput" class="meta">Trace ID: -</p>
                 </div>
-                <div>
-                    <span class="field-label">Trace ID</span>
-                    <p id="traceIdOutput" class="field-value">-</p>
-                </div>
-                <div>
-                    <span class="field-label">Warnings</span>
-                    <p id="warningsOutput" class="field-value">-</p>
-                </div>
-                <div>
-                    <span class="field-label">Cards</span>
-                    <p id="cardsOutput" class="field-value">-</p>
-                </div>
-                <div>
-                    <span class="field-label">Tool Calls</span>
-                    <p id="toolCallsOutput" class="field-value">-</p>
-                </div>
-                <div>
-                    <span class="field-label">Data Sources</span>
-                    <p id="dataSourcesOutput" class="field-value">-</p>
+                <p id="dashboardStatus" class="meta">Ready.</p>
+            </div>
+
+            <div class="panel answer-panel">
+                <h3>Answer</h3>
+                <p id="answerOutput" class="answer-text">Ready.</p>
+            </div>
+
+            <div id="warningsPanel" class="panel warnings-panel">
+                <h3>Warnings</h3>
+                <div id="warningsOutput" class="notice-list" aria-live="polite"></div>
+            </div>
+
+            <div id="cardsPanel" class="card-grid" aria-live="polite">
+                <div class="empty-state">No insight cards yet.</div>
+            </div>
+
+            <div id="pendingActionsPanel" class="panel pending-actions-panel">
+                <h3>Pending Actions</h3>
+                <div id="pendingActionsBody" class="action-list">
+                    <div class="empty-state">No pending actions.</div>
                 </div>
             </div>
-            <pre id="resultOutput" aria-live="polite">Ready.</pre>
+
+            <div id="accessRecordsPanel" class="panel records-panel">
+                <div class="records-head">
+                    <h3>Access records</h3>
+                    <p id="accessRecordsMeta" class="meta">-</p>
+                </div>
+                <div class="table-wrap">
+                    <table id="accessRecordsTable">
+                        <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Locale</th>
+                            <th>Device</th>
+                            <th>Browser</th>
+                            <th>OS</th>
+                            <th>Network</th>
+                            <th>IP</th>
+                            <th>Visitor</th>
+                        </tr>
+                        </thead>
+                        <tbody id="accessRecordsBody">
+                        <tr>
+                            <td colspan="8">No access records.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <details id="debugDataDetails" class="debug-data">
+                <summary>Sanitized data</summary>
+                <div class="debug-body">
+                    <div class="debug-block">
+                        <span class="debug-label">Tool Calls</span>
+                        <pre id="toolCallsOutput">-</pre>
+                    </div>
+                    <div class="debug-block">
+                        <span class="debug-label">Data Sources</span>
+                        <pre id="dataSourcesOutput">-</pre>
+                    </div>
+                    <div class="debug-block">
+                        <span class="debug-label">Full response</span>
+                        <pre id="resultOutput" aria-live="polite">Ready.</pre>
+                    </div>
+                </div>
+            </details>
         </section>
     </div>
 </main>
@@ -295,13 +638,52 @@
         var sendButton = document.getElementById("sendButton");
         var chatForm = document.getElementById("chatForm");
         var messageInput = document.getElementById("messageInput");
+        var dashboardStatus = document.getElementById("dashboardStatus");
         var answerOutput = document.getElementById("answerOutput");
         var traceIdOutput = document.getElementById("traceIdOutput");
         var warningsOutput = document.getElementById("warningsOutput");
-        var cardsOutput = document.getElementById("cardsOutput");
+        var cardsPanel = document.getElementById("cardsPanel");
+        var pendingActionsBody = document.getElementById("pendingActionsBody");
+        var accessRecordsMeta = document.getElementById("accessRecordsMeta");
+        var accessRecordsBody = document.getElementById("accessRecordsBody");
         var toolCallsOutput = document.getElementById("toolCallsOutput");
         var dataSourcesOutput = document.getElementById("dataSourcesOutput");
         var resultOutput = document.getElementById("resultOutput");
+
+        var accessRecordColumns = [
+            ["createTime", "Time"],
+            ["locale", "Locale"],
+            ["device", "Device"],
+            ["browser", "Browser"],
+            ["os", "OS"],
+            ["network", "Network"],
+            ["ip", "IP"],
+            ["uvType", "Visitor"]
+        ];
+
+        var metricLabels = {
+            pv: "PV",
+            uv: "UV",
+            uip: "UIP",
+            pvPerUv: "PV / UV",
+            uipShare: "UIP / PV",
+            topIpCount: "Top IP PV",
+            topIpShare: "Top IP share",
+            top3IpCount: "Top 3 IP PV",
+            top3IpShare: "Top 3 IP share",
+            latestPv: "Latest PV",
+            baselinePvAverage: "Baseline PV avg",
+            changeRatio: "Change ratio",
+            deltaPv: "Delta PV",
+            totalPv: "Total PV",
+            peakHour: "Peak hour",
+            peakHourPv: "Peak hour PV",
+            peakHourShare: "Peak hour share",
+            top3HourPv: "Top 3 hour PV",
+            top3HourShare: "Top 3 hour share",
+            cnt: "Count",
+            ratio: "Ratio"
+        };
 
         function sessionId() {
             var existing = window.localStorage.getItem(sessionKey);
@@ -318,12 +700,41 @@
             healthText.textContent = text;
         }
 
+        function clear(node) {
+            while (node.firstChild) {
+                node.removeChild(node.firstChild);
+            }
+        }
+
+        function el(tagName, className, text) {
+            var node = document.createElement(tagName);
+            if (className) {
+                node.className = className;
+            }
+            if (text !== undefined && text !== null) {
+                node.textContent = String(text);
+            }
+            return node;
+        }
+
+        function isObject(value) {
+            return value !== null && typeof value === "object" && !Array.isArray(value);
+        }
+
+        function asArray(value) {
+            return Array.isArray(value) ? value : [];
+        }
+
+        function asObject(value) {
+            return isObject(value) ? value : {};
+        }
+
         function formatValue(value) {
             if (value === undefined || value === null || value === "") {
                 return "-";
             }
             if (Array.isArray(value)) {
-                return value.length ? value.map(formatValue).join("\n") : "-";
+                return value.length ? JSON.stringify(value, null, 2) : "-";
             }
             if (typeof value === "object") {
                 return JSON.stringify(value, null, 2);
@@ -331,23 +742,259 @@
             return String(value);
         }
 
-        function showSummary(data) {
-            var payload = data && typeof data === "object" ? data : {};
-            answerOutput.textContent = formatValue(payload.answer);
-            traceIdOutput.textContent = formatValue(payload.traceId);
-            warningsOutput.textContent = formatValue(payload.warnings);
-            cardsOutput.textContent = formatValue(payload.cards);
+        function prettyKey(key) {
+            if (metricLabels[key]) {
+                return metricLabels[key];
+            }
+            return String(key)
+                    .replace(/([A-Z])/g, " $1")
+                    .replace(/_/g, " ")
+                    .replace(/^./, function (value) {
+                        return value.toUpperCase();
+                    });
+        }
+
+        function displayMetric(key, value) {
+            if (value === undefined || value === null || value === "") {
+                return "-";
+            }
+            if (typeof value === "number" && /(share|ratio)$/i.test(key) && value >= 0 && value <= 1) {
+                return (value * 100).toFixed(1) + "%";
+            }
+            return String(value);
+        }
+
+        function cardSeverity(card) {
+            var severity = String(card.severity || "").toLowerCase();
+            if (severity === "warning" || severity === "error" || severity === "info") {
+                return severity;
+            }
+            if (card.type === "traffic_anomaly" || card.type === "tool_warning") {
+                return "warning";
+            }
+            if (card.type === "performance_insight") {
+                return "info";
+            }
+            return "";
+        }
+
+        function cardSubtitle(card) {
+            var summary = asObject(card.summary);
+            var parts = [];
+            if (card.sourceTool) {
+                parts.push(card.sourceTool);
+            }
+            if (summary.reasonCode) {
+                parts.push(summary.reasonCode);
+            } else if (summary.category) {
+                parts.push(summary.category);
+            }
+            return parts.length ? parts.join(" / ") : String(card.type || "card");
+        }
+
+        function renderMetricGrid(cardNode, metrics) {
+            var metricMap = asObject(metrics);
+            var keys = Object.keys(metricMap);
+            if (!keys.length) {
+                return;
+            }
+            var grid = el("div", "metric-grid");
+            keys.forEach(function (key) {
+                var tile = el("div", "metric-tile");
+                tile.appendChild(el("span", "metric-label", prettyKey(key)));
+                tile.appendChild(el("span", "metric-value", displayMetric(key, metricMap[key])));
+                grid.appendChild(tile);
+            });
+            cardNode.appendChild(grid);
+        }
+
+        function renderKeyValues(cardNode, title, value) {
+            var map = asObject(value);
+            var keys = Object.keys(map);
+            if (!keys.length) {
+                return;
+            }
+            cardNode.appendChild(el("h3", "", title));
+            var list = el("dl", "kv-list");
+            keys.forEach(function (key) {
+                list.appendChild(el("dt", "", prettyKey(key)));
+                list.appendChild(el("dd", "", formatValue(map[key])));
+            });
+            cardNode.appendChild(list);
+        }
+
+        function renderInsightCard(card) {
+            var severity = cardSeverity(card);
+            var cardNode = el("article", "insight-card " + severity);
+            var head = el("div", "insight-head");
+            var titleWrap = el("div");
+            titleWrap.appendChild(el("h3", "", card.title || prettyKey(card.type || "Insight")));
+            titleWrap.appendChild(el("p", "card-subtitle", cardSubtitle(card)));
+            head.appendChild(titleWrap);
+            head.appendChild(el("span", "badge " + severity, severity || String(card.type || "card")));
+            cardNode.appendChild(head);
+
+            if (card.message) {
+                cardNode.appendChild(el("p", "card-subtitle", card.message));
+            }
+            renderMetricGrid(cardNode, card.metrics);
+            renderKeyValues(cardNode, "Evidence", card.evidence);
+            renderKeyValues(cardNode, "Summary", card.summary);
+            return cardNode;
+        }
+
+        function renderGenericCard(card) {
+            var cardNode = renderInsightCard(card);
+            var rows = asArray(card.rows);
+            if (rows.length) {
+                cardNode.appendChild(el("p", "card-subtitle", rows.length + " rows"));
+            }
+            return cardNode;
+        }
+
+        function renderCards(cards) {
+            clear(cardsPanel);
+            var visibleCards = asArray(cards).filter(function (card) {
+                return isObject(card) && card.type !== "access_records";
+            });
+            if (!visibleCards.length) {
+                cardsPanel.appendChild(el("div", "empty-state", "No insight cards yet."));
+                return;
+            }
+            visibleCards.forEach(function (card) {
+                var type = String(card.type || "");
+                if (type === "traffic_anomaly" || type === "performance_insight" || type === "stats_summary" || type === "tool_warning") {
+                    cardsPanel.appendChild(renderInsightCard(card));
+                    return;
+                }
+                cardsPanel.appendChild(renderGenericCard(card));
+            });
+        }
+
+        function renderPendingActions(pendingActions) {
+            clear(pendingActionsBody);
+            var actions = asArray(pendingActions).filter(isObject);
+            if (!actions.length) {
+                pendingActionsBody.appendChild(el("div", "empty-state", "No pending actions."));
+                return;
+            }
+            actions.forEach(function (action) {
+                var node = el("article", "pending-action");
+                var title = action.title || action.actionName || action.type || "Pending action";
+                node.appendChild(el("h3", "", title));
+                if (action.description || action.message) {
+                    node.appendChild(el("p", "card-subtitle", action.description || action.message));
+                }
+                renderKeyValues(node, "Details", {
+                    actionId: action.actionId || action.id,
+                    type: action.type,
+                    sourceTool: action.sourceTool || action.toolName,
+                    expiresAt: action.expiresAt
+                });
+                renderKeyValues(node, "Arguments", action.arguments);
+                pendingActionsBody.appendChild(node);
+            });
+        }
+
+        function accessRowsFrom(card) {
+            if (!card) {
+                return [];
+            }
+            return Array.isArray(card.rows) ? card.rows : [];
+        }
+
+        function renderAccessRecords(cards) {
+            var accessCard = asArray(cards).filter(function (card) {
+                return isObject(card) && card.type === "access_records";
+            }).pop();
+            var rows = accessRowsFrom(accessCard);
+            var summary = asObject(accessCard && accessCard.summary);
+            var total = summary.total !== undefined ? summary.total : rows.length;
+            var current = summary.current !== undefined ? summary.current : "-";
+            var size = summary.size !== undefined ? summary.size : "-";
+            accessRecordsMeta.textContent = rows.length ? "Rows " + rows.length + " / Total " + total + " / Page " + current + " / Size " + size : "-";
+
+            clear(accessRecordsBody);
+            if (!rows.length) {
+                var emptyRow = document.createElement("tr");
+                var emptyCell = document.createElement("td");
+                emptyCell.colSpan = accessRecordColumns.length;
+                emptyCell.textContent = "No access records.";
+                emptyRow.appendChild(emptyCell);
+                accessRecordsBody.appendChild(emptyRow);
+                return;
+            }
+            rows.forEach(function (row) {
+                var rowMap = asObject(row);
+                var tr = document.createElement("tr");
+                accessRecordColumns.forEach(function (column) {
+                    var td = document.createElement("td");
+                    td.textContent = formatValue(rowMap[column[0]]);
+                    tr.appendChild(td);
+                });
+                accessRecordsBody.appendChild(tr);
+            });
+        }
+
+        function renderWarnings(warnings) {
+            clear(warningsOutput);
+            var items = asArray(warnings);
+            if (!items.length) {
+                return;
+            }
+            items.forEach(function (item) {
+                warningsOutput.appendChild(el("div", "notice", formatValue(item)));
+            });
+        }
+
+        function renderDebugData(payload, fullValue) {
             toolCallsOutput.textContent = formatValue(payload.toolCalls);
             dataSourcesOutput.textContent = formatValue(payload.dataSources);
+            resultOutput.textContent = typeof fullValue === "string" ? fullValue : JSON.stringify(fullValue, null, 2);
+        }
+
+        function showSummary(data, fullValue) {
+            var payload = isObject(data) ? data : {};
+            answerOutput.textContent = formatValue(payload.answer);
+            traceIdOutput.textContent = "Trace ID: " + formatValue(payload.traceId);
+            dashboardStatus.textContent = payload.sessionId ? "Session: " + payload.sessionId : "Ready.";
+            renderWarnings(payload.warnings);
+            renderCards(payload.cards);
+            renderPendingActions(payload.pendingActions);
+            renderAccessRecords(payload.cards);
+            renderDebugData(payload, fullValue);
+        }
+
+        function showLoading(message) {
+            answerOutput.textContent = message;
+            dashboardStatus.textContent = "Running...";
+            renderWarnings([]);
+            renderCards([]);
+            renderPendingActions([]);
+            renderAccessRecords([]);
+            renderDebugData({toolCalls: [], dataSources: []}, message);
         }
 
         function showResult(value) {
+            if (typeof value === "string") {
+                showSummary({answer: value, cards: [], pendingActions: [], warnings: [], toolCalls: [], dataSources: []}, value);
+                return;
+            }
             var data = value && typeof value === "object" && value.result ? value.result.data : null;
             if (!data && value && typeof value === "object" && value.data) {
                 data = value.data;
             }
-            showSummary(data);
-            resultOutput.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+            if (!data && value && typeof value === "object" && value.error) {
+                data = {
+                    answer: "Request failed.",
+                    warnings: [value.error],
+                    cards: [],
+                    pendingActions: [],
+                    toolCalls: [],
+                    dataSources: []
+                };
+            }
+            showSummary(data, value);
         }
 
         async function requestJson(url, options) {
@@ -386,7 +1033,7 @@
             }
 
             sendButton.disabled = true;
-            showResult("Waiting for agent response...");
+            showLoading("Waiting for agent response...");
             try {
                 var result = await requestJson(chatEndpoint, {
                     method: "POST",

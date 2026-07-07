@@ -64,7 +64,7 @@ gateway/nginx 只做必要路由接入；
 | 权限隔离 | 用户不能通过 Agent 查询不属于自己的 gid |
 | 写操作安全 | 未确认的写操作不会执行 |
 | Graph 运行 | 关键节点、状态、工具调用和中断点可追溯 |
-| 独立 Agent Console | 可独立完成对话、指标卡、数据来源、PendingAction 预览和 Graph Trace 查看 |
+| 独立 Agent Console | 可独立完成对话、指标卡、异常洞察卡、访问明细表、PendingAction 预览、traceId 和脱敏调试数据查看；节点级 Graph Trace 在后端暴露节点事件后补齐 |
 
 ---
 
@@ -236,10 +236,22 @@ ErrorFallbackNode。
 ```text
 提供对话输入和结果展示；
 展示 answer/cards/pendingActions/dataSources/warnings；
-展示 Graph 节点流转和工具调用轨迹；
+展示 traceId、工具调用和数据来源摘要；
+后端暴露节点事件后，再展示 Graph 节点流转；
 支持 PendingAction 预览；
 支持本地开发环境测试用户配置；
 生产环境不绕过 admin/Gateway 鉴权。
+```
+
+第一版 Console 主界面必须优先展示结构化分析结果，而不是把完整 JSON 作为默认主视图：
+
+```text
+Insight Dashboard 展示 answer、traceId、warnings；
+cardsPanel 按 card type 渲染 stats_summary、traffic_anomaly、performance_insight、tool_warning；
+未知 card type 使用通用卡片 fallback，避免缺字段导致页面中断；
+pendingActionsPanel 展示待确认动作预览；
+accessRecordsPanel 将 access_records.rows 渲染为表格；
+toolCalls、dataSources 和 full response 只放在 Sanitized data 折叠调试区。
 ```
 
 建议技术形态：
@@ -1054,7 +1066,8 @@ Graph 能调用真实只读工具；
 Gateway/Nginx 路由可达；
 登录用户可使用 Agent；
 未登录用户不可访问；
-agent-service 独立 Console 可展示回答、指标卡、PendingAction 和 Graph Trace；
+agent-service 独立 Console 可展示回答、指标卡、异常洞察卡、访问明细表、PendingAction 和脱敏调试数据；
+节点级 Graph Trace 待后端输出节点事件后补齐；
 admin 前端可按需跳转或嵌入 Agent Console。
 ```
 
@@ -1113,5 +1126,5 @@ Graph checkpoint 第一版直接 MySQL 持久化。
 
 1. DeepSeek API Key 只通过 `DEEPSEEK_API_KEY` 或 `LLM_API_KEY` 注入。
 2. 不把 API Key 写入文档、代码、Git、Prompt、测试样例或日志。
-3. agent-service 独立 Console 可以先做轻量页面，优先服务 API 联调、Graph Trace 和 PendingAction 预览。
+3. agent-service 独立 Console 可以先做轻量页面，优先服务 API 联调、traceId/脱敏调试数据和 PendingAction 预览；节点级 Graph Trace 等后端节点事件能力补齐后再接入。
 4. 后续接入 admin 前端时，保持 admin/Gateway 鉴权为生产用户边界。
