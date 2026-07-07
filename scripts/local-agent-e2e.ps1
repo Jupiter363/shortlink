@@ -127,7 +127,12 @@ function Build-Modules {
 }
 
 function Build-ProjectClasspathArgfile {
-    mvn -pl project dependency:build-classpath "-Dmdep.outputFile=../target/e2e-logs/project.classpath"
+    mvn -pl project dependency:build-classpath "-Dmdep.outputFile=../target/e2e-logs/project.classpath" | ForEach-Object {
+        Write-Host $_
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to build project runtime classpath"
+    }
     $classpath = "target/classes;" + (Get-Content -Encoding UTF8 -Raw (Join-Path $script:LogDir "project.classpath"))
     $argFile = Join-Path $script:LogDir "project.args"
     $lines = @(
