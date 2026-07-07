@@ -45,6 +45,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final CampaignInsightCardFactory INSIGHT_CARD_FACTORY = new CampaignInsightCardFactory();
 
     private final LlmChatClient llmChatClient;
 
@@ -329,7 +330,15 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         if (toolExecutions.isEmpty()) {
             return message;
         }
-        return message + "\n\nTool execution context:\n" + toJson(toolExecutions);
+        List<Object> derivedInsightCards = INSIGHT_CARD_FACTORY.build(toolExecutions);
+        StringBuilder prompt = new StringBuilder(message)
+                .append("\n\nTool execution context:\n")
+                .append(toJson(INSIGHT_CARD_FACTORY.sanitizeForPrompt(toolExecutions)));
+        if (!derivedInsightCards.isEmpty()) {
+            prompt.append("\n\nDerived insight context:\n")
+                    .append(toJson(derivedInsightCards));
+        }
+        return prompt.toString();
     }
 
     private String toJson(Object value) {
@@ -357,6 +366,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         for (Map<String, Object> execution : toolExecutions) {
             cards.add(buildToolCard(execution));
         }
+        cards.addAll(INSIGHT_CARD_FACTORY.build(toolExecutions));
         return cards;
     }
 

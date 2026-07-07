@@ -191,6 +191,8 @@
 - [ ] Prompt Profile 有版本。
 - [ ] 模型输出结构不合法时能降级。
 - [ ] 模型上下文不包含完整敏感数据。
+- [ ] 模型上下文中的工具数据已对 `ip` 脱敏并去除 `user` 字段。
+- [ ] 模型上下文包含确定性 `Derived insight context`，用于约束异常解释。
 
 ### 4.5 Agent Console
 
@@ -263,6 +265,11 @@
 - [ ] 能识别 PV 高但 UV 低的可能刷量风险。
 - [ ] 能识别 Top IP 过度集中。
 - [ ] 能识别设备或地区高度集中。
+- [ ] `traffic_anomaly` card 覆盖 `high_repeat_visits`、`low_uip_share`、`top_ip_concentration`。
+- [ ] `performance_insight` card 覆盖 `daily_pv_spike/daily_pv_drop`、`hour_concentration`、`profile_concentration`。
+- [ ] `daily` 返回乱序时，`daily_pv_spike/daily_pv_drop` 仍按 `date` 最大的一天作为最新日。
+- [ ] 派生异常卡片中的 IP 只展示脱敏值。
+- [ ] 派生异常卡片不携带访问明细 `user` 或未脱敏 IP。
 - [ ] 输出必须标明“可能原因”，不得给出确定性安全结论。
 - [ ] 建议为低风险动作，如继续观察、拆分渠道、检查来源。
 

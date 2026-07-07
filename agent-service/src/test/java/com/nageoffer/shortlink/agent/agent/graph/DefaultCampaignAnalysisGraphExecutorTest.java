@@ -327,6 +327,159 @@ class DefaultCampaignAnalysisGraphExecutorTest {
     }
 
     @Test
+    void executeBuildsTrafficAnomalyCardsFromStatsTool() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "anomaly answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        Map<String, Object> stats = Map.of(
+                "pv", 120,
+                "uv", 20,
+                "uip", 18,
+                "topIpStats", List.of(
+                        Map.of("ip", "192.168.1.10", "cnt", 50),
+                        Map.of("ip", "10.0.0.8", "cnt", 8)
+                )
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_stats", ToolResult.success(stats))))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "trace-1"
+        ));
+
+        List<Map<String, Object>> anomalies = cardsOfType(result, "traffic_anomaly");
+        assertThat(anomalies)
+                .extracting(each -> map(each.get("summary")).get("reasonCode"))
+                .containsExactly("high_repeat_visits", "low_uip_share", "top_ip_concentration");
+        assertThat(anomalies)
+                .allSatisfy(each -> assertThat(each)
+                        .containsEntry("sourceTool", "get_group_stats")
+                        .containsEntry("severity", "warning"));
+        Map<String, Object> topIpCard = anomalies.get(2);
+        assertThat(map(topIpCard.get("evidence")))
+                .containsEntry("maskedTopIp", "192.168.*.*");
+        assertThat(topIpCard.toString()).doesNotContain("192.168.1.10");
+        assertThat(chatClient.request.messages().get(1).content())
+                .contains("Derived insight context")
+                .contains("traffic_anomaly")
+                .contains("high_repeat_visits")
+                .doesNotContain("192.168.1.10");
+    }
+
+    @Test
+    void executeBuildsPerformanceInsightCardsFromStatsTool() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "insight answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        Map<String, Object> stats = Map.of(
+                "pv", 170,
+                "uv", 80,
+                "uip", 70,
+                "daily", List.of(
+                        Map.of("date", "2026-07-01", "pv", 20),
+                        Map.of("date", "2026-07-02", "pv", 22),
+                        Map.of("date", "2026-07-03", "pv", 100)
+                ),
+                "hourStats", List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 50, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+                "deviceStats", List.of(Map.of("device", "Mobile", "cnt", 90, "ratio", 0.72))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(new CapturingAgentTool("get_short_link_stats", ToolResult.success(stats))))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "stats for short link fullShortUrl=nurl.ink/a gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "trace-1"
+        ));
+
+        List<Map<String, Object>> insights = cardsOfType(result, "performance_insight");
+        assertThat(insights)
+                .extracting(each -> map(each.get("summary")).get("reasonCode"))
+                .containsExactly("daily_pv_spike", "hour_concentration", "profile_concentration");
+        assertThat(insights)
+                .allSatisfy(each -> assertThat(each)
+                        .containsEntry("sourceTool", "get_short_link_stats")
+                        .containsEntry("severity", "info"));
+        assertThat(map(insights.get(0).get("metrics")))
+                .containsEntry("latestPv", 100L)
+                .containsEntry("deltaPv", 79L);
+        assertThat(map(insights.get(2).get("summary")))
+                .containsEntry("dimension", "device");
+        assertThat(map(insights.get(2).get("evidence")))
+                .containsEntry("label", "Mobile");
+        assertThat(chatClient.request.messages().get(1).content())
+                .contains("Derived insight context")
+                .contains("performance_insight")
+                .contains("daily_pv_spike");
+    }
+
+    @Test
+    void executeBuildsDailyTrendInsightFromLatestDateWhenDailyRowsAreUnordered() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "insight answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        Map<String, Object> stats = Map.of(
+                "pv", 163,
+                "uv", 90,
+                "uip", 70,
+                "daily", List.of(
+                        Map.of("date", "2026-07-04", "pv", 100),
+                        Map.of("date", "2026-07-01", "pv", 20),
+                        Map.of("date", "2026-07-03", "pv", 22),
+                        Map.of("date", "2026-07-02", "pv", 21)
+                )
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(new CapturingAgentTool("get_short_link_stats", ToolResult.success(stats))))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "stats for short link fullShortUrl=nurl.ink/a gid=g1 startDate=2026-07-01 endDate=2026-07-04",
+                "trace-1"
+        ));
+
+        List<Map<String, Object>> insights = cardsOfType(result, "performance_insight");
+        assertThat(insights)
+                .extracting(each -> map(each.get("summary")).get("reasonCode"))
+                .containsExactly("daily_pv_spike");
+        assertThat(map(insights.get(0).get("metrics")))
+                .containsEntry("latestPv", 100L)
+                .containsEntry("baselinePvAverage", 21.0D)
+                .containsEntry("deltaPv", 79L);
+        assertThat(map(insights.get(0).get("evidence")))
+                .containsEntry("date", "2026-07-04");
+    }
+
+    @Test
     void executeBuildsShortLinkPageCardFromPageTool() {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",
@@ -541,6 +694,13 @@ class DefaultCampaignAnalysisGraphExecutorTest {
     @SuppressWarnings("unchecked")
     private Map<String, Object> map(Object value) {
         return (Map<String, Object>) value;
+    }
+
+    private List<Map<String, Object>> cardsOfType(AgentRunResult result, String type) {
+        return result.cards().stream()
+                .map(this::map)
+                .filter(each -> type.equals(each.get("type")))
+                .toList();
     }
 
     private static class CapturingLlmChatClient implements LlmChatClient {

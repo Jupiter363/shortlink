@@ -377,6 +377,54 @@ POST /internal/short-link-agent/v1/chat
 | `stats_summary` | `get_group_stats`、`get_short_link_stats` | `metrics.pv/uv/uip`、`rawData` |
 | `access_records` | `get_group_access_records` | `summary.recordCount/total/current/size`、`rows`、`rawData` |
 | `tool_warning` | 任意工具失败 | `severity`、`message` |
+| `traffic_anomaly` | `get_group_stats`、`get_short_link_stats` 派生 | `severity`、`summary.reasonCode`、`metrics`、`thresholds`、`evidence` |
+| `performance_insight` | `get_group_stats`、`get_short_link_stats` 派生 | `severity`、`summary.reasonCode`、`metrics`、`thresholds`、`evidence` |
+
+派生洞察卡片示例：
+
+```json
+{
+  "type": "traffic_anomaly",
+  "title": "Traffic anomaly",
+  "sourceTool": "get_group_stats",
+  "arguments": {
+    "gid": "g1",
+    "startDate": "2026-07-01",
+    "endDate": "2026-07-07"
+  },
+  "severity": "warning",
+  "summary": {
+    "category": "traffic",
+    "reasonCode": "top_ip_concentration",
+    "signal": "ip_concentration"
+  },
+  "metrics": {
+    "pv": 120,
+    "topIpCount": 50,
+    "topIpShare": 0.4167
+  },
+  "thresholds": {
+    "topIpShareWarning": 0.3,
+    "top3IpShareWarning": 0.5
+  },
+  "evidence": {
+    "maskedTopIp": "192.168.*.*",
+    "topIpCount": 50
+  }
+}
+```
+
+派生规则第一版：
+
+| reasonCode | type | 规则 |
+|---|---|---|
+| `high_repeat_visits` | `traffic_anomaly` | `pv / uv >= 5` 且 `pv >= 50` |
+| `low_uip_share` | `traffic_anomaly` | `uip / pv <= 0.2` 且 `pv >= 50` |
+| `top_ip_concentration` | `traffic_anomaly` | Top1 IP / PV `>= 0.3` 或 Top3 IP / PV `>= 0.5` |
+| `daily_pv_spike` | `performance_insight` | `daily` 先按 `date` 升序排序；最大日期 PV 相对前最多 3 天均值 `>= 2x` 且差值 `>= 20` |
+| `daily_pv_drop` | `performance_insight` | `daily` 先按 `date` 升序排序；最大日期 PV 相对前最多 3 天均值 `<= 0.5x` 且差值 `>= 20` |
+| `hour_concentration` | `performance_insight` | Top1 小时 PV 占比 `>= 0.4` 或 Top3 小时 PV 占比 `>= 0.7` |
+| `profile_concentration` | `performance_insight` | 浏览器、OS、设备、网络或地区 Top1 `ratio >= 0.7` 且 `cnt >= 20` |
 
 约束：
 
@@ -384,7 +432,12 @@ POST /internal/short-link-agent/v1/chat
 cards 中的数字指标只能来自工具返回 data；
 LLM 只负责解释，不得反向覆盖 cards 指标；
 工具失败时保留 answer 降级回复，同时返回 warnings 和 tool_warning card；
-rawData 保留原始工具数据快照，供前端和审计追溯。
+rawData 保留原始工具数据快照，供前端和审计追溯；
+traffic_anomaly / performance_insight 属于派生卡片，不携带 rawData，只携带脱敏 evidence；
+daily 趋势判断不得依赖 SQL 或工具返回顺序，必须按 date 排序后取最大日期作为最新日；
+Top IP 在派生卡片和 LLM prompt 中必须脱敏，例如 192.168.*.*；
+LLM prompt 注入工具上下文时应去除 user 字段并脱敏 ip 字段；
+Derived insight context 应注入 LLM prompt，作为模型解释的事实锚点。
 ```
 
 #### 组合工具路由第一版
