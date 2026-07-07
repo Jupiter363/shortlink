@@ -378,6 +378,77 @@ class DefaultCampaignAnalysisGraphExecutorTest {
     }
 
     @Test
+    void executeAddsInsightExplanationContractWhenDerivedCardsExist() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "contract answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        Map<String, Object> stats = Map.of(
+                "pv", 120,
+                "uv", 20,
+                "uip", 18,
+                "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 50))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_stats", ToolResult.success(stats))))
+        );
+
+        executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "trace-1"
+        ));
+
+        assertThat(chatClient.request.messages().get(1).content())
+                .contains("Insight explanation contract")
+                .contains("Use Derived insight context as the factual source")
+                .contains("Do not recalculate, invent, or overwrite card metrics")
+                .contains("possibleCauses")
+                .contains("riskLevel")
+                .contains("evidenceReferences")
+                .contains("recommendedActions")
+                .contains("not a definitive security conclusion")
+                .doesNotContain("192.168.1.10");
+    }
+
+    @Test
+    void executeSkipsInsightExplanationContractWhenNoDerivedCardsExist() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "stats answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        Map<String, Object> stats = Map.of("pv", 10, "uv", 8, "uip", 7);
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_stats", ToolResult.success(stats))))
+        );
+
+        executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "trace-1"
+        ));
+
+        assertThat(chatClient.request.messages().get(1).content())
+                .contains("Tool execution context")
+                .doesNotContain("Insight explanation contract")
+                .doesNotContain("Derived insight context");
+    }
+
+    @Test
     void executeBuildsPerformanceInsightCardsFromStatsTool() {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",

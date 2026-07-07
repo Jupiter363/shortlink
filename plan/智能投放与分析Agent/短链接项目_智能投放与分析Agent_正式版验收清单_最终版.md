@@ -193,6 +193,11 @@
 - [ ] 模型上下文不包含完整敏感数据。
 - [ ] 模型上下文中的工具数据已对 `ip` 脱敏并去除 `user` 字段。
 - [ ] 模型上下文包含确定性 `Derived insight context`，用于约束异常解释。
+- [ ] 派生洞察上下文进入 Prompt 前再次经过统一脱敏。
+- [ ] 有派生洞察卡片时，Prompt 包含 `Insight explanation contract`。
+- [ ] 无派生洞察卡片时，Prompt 不注入 `Insight explanation contract`。
+- [ ] `Insight explanation contract` 要求模型输出 `possibleCauses`、`riskLevel`、`evidenceReferences`、`recommendedActions`。
+- [ ] `Insight explanation contract` 要求模型不得重新计算、编造或覆盖 cards 指标与证据。
 
 ### 4.5 Agent Console
 
@@ -271,6 +276,7 @@
 - [ ] 派生异常卡片中的 IP 只展示脱敏值。
 - [ ] 派生异常卡片不携带访问明细 `user` 或未脱敏 IP。
 - [ ] 输出必须标明“可能原因”，不得给出确定性安全结论。
+- [ ] `traffic_anomaly` 解释必须明确其不是确定性安全结论。
 - [ ] 建议为低风险动作，如继续观察、拆分渠道、检查来源。
 
 ### 6.4 报告生成

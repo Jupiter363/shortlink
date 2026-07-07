@@ -36,6 +36,16 @@ import java.util.regex.Pattern;
 public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGraphExecutor {
 
     private static final String SYSTEM_PROMPT = "You are the intelligent campaign delivery and analysis Agent for the short-link admin console. Current phase only performs API integration and safe read-only analysis; never execute write actions directly.";
+    private static final String INSIGHT_EXPLANATION_CONTRACT = """
+            Insight explanation contract:
+            - Use Derived insight context as the factual source for anomaly and performance explanations.
+            - Do not recalculate, invent, or overwrite card metrics, thresholds, evidence, type, sourceTool, or reasonCode.
+            - For each derived insight, explain possibleCauses, riskLevel, evidenceReferences, and recommendedActions.
+            - Keep riskLevel conservative: high only for multiple strong warning signals; otherwise medium or low.
+            - recommendedActions must be read-only or low-risk operational suggestions.
+            - State that this is not a definitive security conclusion when discussing traffic anomaly cards.
+            - Respond in the user's language unless the user explicitly asks otherwise.
+            """;
     private static final String INTAKE_NODE = "intake";
     private static final String TOOL_PLANNING_NODE = "tool_planning";
     private static final String LLM_ANALYSIS_NODE = "llm_analysis";
@@ -336,7 +346,9 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 .append(toJson(INSIGHT_CARD_FACTORY.sanitizeForPrompt(toolExecutions)));
         if (!derivedInsightCards.isEmpty()) {
             prompt.append("\n\nDerived insight context:\n")
-                    .append(toJson(derivedInsightCards));
+                    .append(toJson(INSIGHT_CARD_FACTORY.sanitizeForPrompt(derivedInsightCards)))
+                    .append("\n\n")
+                    .append(INSIGHT_EXPLANATION_CONTRACT);
         }
         return prompt.toString();
     }
