@@ -143,12 +143,30 @@
             line-height: 1.5;
         }
 
+        input {
+            display: block;
+            width: 100%;
+            min-height: 40px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 0 12px;
+            color: var(--text);
+            font: inherit;
+        }
+
         textarea:focus,
+        input:focus,
         button:focus-visible,
         details:focus-visible {
             outline: 3px solid rgba(31, 111, 235, 0.18);
             outline-offset: 2px;
             border-color: var(--accent);
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
         }
 
         .actions {
@@ -570,6 +588,7 @@
 
             .card-grid,
             .metric-grid,
+            .field-grid,
             .kv-list {
                 grid-template-columns: 1fr;
             }
@@ -591,6 +610,18 @@
             <section>
                 <h2>Chat</h2>
                 <form id="chatForm">
+                    <div class="field-grid">
+                        <div>
+                            <label for="sessionInput">Session</label>
+                            <input id="sessionInput" name="session" autocomplete="off">
+                        </div>
+                        <div>
+                            <label for="usernameInput">Username</label>
+                            <input id="usernameInput" name="username" autocomplete="username" placeholder="agent-console">
+                        </div>
+                    </div>
+                    <label for="internalTokenInput">Internal token</label>
+                    <input id="internalTokenInput" name="internalToken" type="password" autocomplete="off">
                     <label for="messageInput">Message</label>
                     <textarea id="messageInput" name="message" required
                               placeholder="Analyze gid default from 2026-07-01 to 2026-07-07"></textarea>
@@ -693,12 +724,17 @@
         var healthEndpoint = "/internal/short-link-agent/v1/health";
         var chatEndpoint = "/internal/short-link-agent/v1/chat";
         var sessionKey = "shortLinkAgentConsoleSessionId";
+        var usernameKey = "shortLinkAgentConsoleUsername";
+        var internalTokenKey = "shortLinkAgentConsoleInternalToken";
 
         var healthDot = document.getElementById("healthDot");
         var healthText = document.getElementById("healthText");
         var healthButton = document.getElementById("healthButton");
         var sendButton = document.getElementById("sendButton");
         var chatForm = document.getElementById("chatForm");
+        var sessionInput = document.getElementById("sessionInput");
+        var usernameInput = document.getElementById("usernameInput");
+        var internalTokenInput = document.getElementById("internalTokenInput");
         var messageInput = document.getElementById("messageInput");
         var dashboardStatus = document.getElementById("dashboardStatus");
         var answerOutput = document.getElementById("answerOutput");
@@ -748,14 +784,64 @@
             ratio: "Ratio"
         };
 
+        function createSessionId() {
+            return "console-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+        }
+
+        function setupContextInputs() {
+            sessionInput.value = window.localStorage.getItem(sessionKey) || createSessionId();
+            usernameInput.value = window.sessionStorage.getItem(usernameKey) || "agent-console";
+            internalTokenInput.value = window.sessionStorage.getItem(internalTokenKey) || "";
+        }
+
         function sessionId() {
-            var existing = window.localStorage.getItem(sessionKey);
-            if (existing) {
-                return existing;
+            var value = sessionInput.value.trim();
+            if (!value) {
+                value = createSessionId();
+                sessionInput.value = value;
             }
-            var created = "console-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-            window.localStorage.setItem(sessionKey, created);
-            return created;
+            window.localStorage.setItem(sessionKey, value);
+            return value;
+        }
+
+        function username() {
+            var value = usernameInput.value.trim() || "agent-console";
+            usernameInput.value = value;
+            window.sessionStorage.setItem(usernameKey, value);
+            return value;
+        }
+
+        function internalToken() {
+            var value = internalTokenInput.value.trim();
+            if (value) {
+                window.sessionStorage.setItem(internalTokenKey, value);
+            } else {
+                window.sessionStorage.removeItem(internalTokenKey);
+            }
+            return value;
+        }
+
+        function buildHeaders(headers) {
+            var merged = headers || {};
+            var token = internalToken();
+            if (token) {
+                merged["X-Agent-Internal-Token"] = token;
+            }
+            return merged;
+        }
+
+        function resetSessionIfBlank() {
+            if (!sessionInput.value.trim()) {
+                var created = createSessionId();
+                sessionInput.value = created;
+                window.localStorage.setItem(sessionKey, created);
+            }
+        }
+
+        function persistContextInputs() {
+            sessionId();
+            username();
+            internalToken();
         }
 
         function setHealth(state, text) {
@@ -1120,7 +1206,11 @@
             setHealth("", "Checking health...");
             healthButton.disabled = true;
             try {
-                var result = await requestJson(healthEndpoint, {method: "GET"});
+                persistContextInputs();
+                var result = await requestJson(healthEndpoint, {
+                    method: "GET",
+                    headers: buildHeaders()
+                });
                 var data = result && result.data ? result.data : {};
                 setHealth("ok", (data.service || "short-link-agent") + " " + (data.status || "OK"));
             } catch (error) {
@@ -1142,12 +1232,13 @@
             sendButton.disabled = true;
             showLoading("Waiting for agent response...");
             try {
+                persistContextInputs();
                 var result = await requestJson(chatEndpoint, {
                     method: "POST",
-                    headers: {"Content-Type": "application/json"},
+                    headers: buildHeaders({"Content-Type": "application/json"}),
                     body: JSON.stringify({
                         sessionId: sessionId(),
-                        username: "agent-console",
+                        username: username(),
                         message: message
                     })
                 });
@@ -1159,8 +1250,13 @@
             }
         }
 
+        sessionInput.addEventListener("blur", resetSessionIfBlank);
+        sessionInput.addEventListener("change", persistContextInputs);
+        usernameInput.addEventListener("change", persistContextInputs);
+        internalTokenInput.addEventListener("change", persistContextInputs);
         healthButton.addEventListener("click", checkHealth);
         chatForm.addEventListener("submit", sendMessage);
+        setupContextInputs();
         checkHealth();
     }());
 </script>
