@@ -788,7 +788,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         checkpoint.put("answer", result.answer());
         checkpoint.put("warnings", result.warnings());
         checkpoint.put("traceEvents", result.traceEvents());
-        checkpoint.put("toolExecutions", state.value("toolExecutions", List.of()));
+        checkpoint.put("toolExecutions", sanitizeForResponse(state.value("toolExecutions", List.of())));
         try {
             return OBJECT_MAPPER.writeValueAsString(checkpoint);
         } catch (JsonProcessingException ex) {
