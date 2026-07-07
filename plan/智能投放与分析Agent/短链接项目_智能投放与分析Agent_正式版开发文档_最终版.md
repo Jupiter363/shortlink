@@ -1180,3 +1180,34 @@ Graph checkpoint 第一版直接 MySQL 持久化。
 2. 不把 API Key 写入文档、代码、Git、Prompt、测试样例或日志。
 3. agent-service 独立 Console 可以先做轻量页面，优先服务 API 联调、traceId、Graph Trace、脱敏调试数据和 PendingAction 预览。
 4. 后续接入 admin 前端时，保持 admin/Gateway 鉴权为生产用户边界。
+
+---
+
+## 12. Admin/Gateway 正式入口接入
+
+本阶段正式入口先接 admin/gateway，不做 internal tool API。
+
+```text
+Browser/Admin Frontend
+  -> Gateway TokenValidate
+  -> admin /api/short-link/admin/v1/agent/chat
+  -> agent-service /internal/short-link-agent/v1/chat
+```
+
+实现边界：
+
+```text
+admin 从 UserContext 获取 username/userId/realName；
+前端 body 中的 username 被忽略；
+admin 通过 X-Agent-* 头向 agent-service 传递可信身份；
+agent-service 优先使用 X-Agent-Username，缺失时回退 body username 以支持本地 Console；
+agent-service internal token 为空时保留本地调试，非空时保护 /internal/short-link-agent/v1/**。
+```
+
+下一阶段再接：
+
+```text
+/internal/short-link-admin/** business tool API；
+ShortLinkBusinessGateway 改为调用 admin internal tool API；
+Tool Facade 统一脱敏、分页和错误契约。
+```

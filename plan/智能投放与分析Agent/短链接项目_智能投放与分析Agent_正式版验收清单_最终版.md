@@ -395,3 +395,17 @@
 - [ ] Graph checkpoint 策略明确。
 - [ ] 现有短链主链路无回归。
 - [ ] 用户确认安全风控 Agent 的风险等级、拦截策略和外部服务选型。
+
+---
+
+## 13. Admin/Gateway 正式入口验收
+
+- [ ] Gateway 仅向外暴露 `/api/short-link/admin/v1/agent/**`，不暴露 `/internal/short-link-agent/**`。
+- [ ] `/api/short-link/admin/v1/agent/chat` 必须经过 TokenValidate 鉴权。
+- [ ] admin Chat 入口只使用 `UserContext.getUsername()`，不信任前端 body 中的 `username`。
+- [ ] admin 调用 agent-service 时注入 `X-Agent-Username`、`X-Agent-UserId`、`X-Agent-RealName`。
+- [ ] admin 调用 agent-service 时注入 `X-Agent-Internal-Token`。
+- [ ] agent-service 在 `short-link.agent.security.internal-token` 为空时允许本地 Console 调试。
+- [ ] agent-service 在 internal token 非空时拒绝缺失或错误 token 的 internal 请求。
+- [ ] `AgentChatControllerTest`、`InternalAgentApiFilterTest`、`AgentControllerTest` 通过。
+- [ ] 本阶段不新增 `/internal/short-link-admin/**` business tool API。

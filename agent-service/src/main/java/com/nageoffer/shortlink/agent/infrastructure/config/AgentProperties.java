@@ -13,6 +13,8 @@ public class AgentProperties {
 
     private Business business = new Business();
 
+    private Security security = new Security();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -43,6 +45,14 @@ public class AgentProperties {
 
     public void setBusiness(Business business) {
         this.business = business;
+    }
+
+    public Security getSecurity() {
+        return security;
+    }
+
+    public void setSecurity(Security security) {
+        this.security = security;
     }
 
     public static class Graph {
@@ -131,6 +141,19 @@ public class AgentProperties {
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
+        }
+    }
+
+    public static class Security {
+
+        private String internalToken = "";
+
+        public String getInternalToken() {
+            return internalToken;
+        }
+
+        public void setInternalToken(String internalToken) {
+            this.internalToken = internalToken;
         }
     }
 }

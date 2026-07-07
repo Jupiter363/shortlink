@@ -619,3 +619,60 @@ created_at。
 | 安全 | internal token、gid 校验、脱敏、写确认 |
 | 测试 | Agent、Graph、Tool Facade、Business API、E2E、回归 |
 | 文档 | 架构、开发、配置、验收最终版 |
+
+---
+
+## 15. Admin/Gateway 正式入口配置
+
+本阶段新增正式入口：
+
+```text
+POST /api/short-link/admin/v1/agent/chat
+GET  /api/short-link/admin/v1/agent/health
+```
+
+正式入口只暴露在 admin/Gateway 边界，gateway 不直接暴露 `agent-service` 的 `/internal/short-link-agent/**`。
+
+admin 调用 agent-service internal API 时注入以下内部头：
+
+```text
+X-Agent-Internal-Token
+X-Agent-Username
+X-Agent-UserId
+X-Agent-RealName
+```
+
+配置项：
+
+```yaml
+short-link:
+  agent:
+    admin:
+      remote-url: ${SHORTLINK_AGENT_REMOTE_URL:}
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+    security:
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+```
+
+说明：
+
+```text
+short-link.agent.admin.* 属于 admin 模块；
+short-link.agent.security.internal-token 属于 agent-service 模块；
+admin 与 agent-service 应使用同一个 AGENT_INTERNAL_TOKEN；
+token 为空时 agent-service 保留本地 Console 调试能力；
+token 非空时 /internal/short-link-agent/v1/** 必须携带 X-Agent-Internal-Token。
+```
+
+Gateway 路由原则：
+
+```yaml
+- id: short-link-admin-agent
+  uri: lb://short-link-admin
+  predicates:
+    - Path=/api/short-link/admin/v1/agent/**
+  filters:
+    - name: TokenValidate
+```
+
+该路由也可以并入现有 admin 路由。不得将 `/internal/short-link-agent/**` 加入公网 gateway 路由。
