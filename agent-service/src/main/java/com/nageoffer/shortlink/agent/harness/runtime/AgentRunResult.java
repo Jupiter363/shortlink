@@ -10,6 +10,7 @@ public record AgentRunResult(
         List<Object> pendingActions,
         List<Object> toolCalls,
         List<Object> dataSources,
+        List<Object> traceEvents,
         List<String> warnings
 ) {
 }

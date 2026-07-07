@@ -64,7 +64,7 @@ gateway/nginx 只做必要路由接入；
 | 权限隔离 | 用户不能通过 Agent 查询不属于自己的 gid |
 | 写操作安全 | 未确认的写操作不会执行 |
 | Graph 运行 | 关键节点、状态、工具调用和中断点可追溯 |
-| 独立 Agent Console | 可独立完成对话、指标卡、异常洞察卡、访问明细表、PendingAction 预览、traceId 和脱敏调试数据查看；节点级 Graph Trace 在后端暴露节点事件后补齐 |
+| 独立 Agent Console | 可独立完成对话、指标卡、异常洞察卡、访问明细表、PendingAction 预览、traceId、Graph Trace timeline 和脱敏调试数据查看 |
 
 ---
 
@@ -235,9 +235,9 @@ ErrorFallbackNode。
 
 ```text
 提供对话输入和结果展示；
-展示 answer/cards/pendingActions/dataSources/warnings；
+展示 answer/cards/pendingActions/dataSources/traceEvents/warnings；
 展示 traceId、工具调用和数据来源摘要；
-后端暴露节点事件后，再展示 Graph 节点流转；
+展示 Graph 节点流转、节点状态、耗时和 checkpoint 保存结果；
 支持 PendingAction 预览；
 支持本地开发环境测试用户配置；
 生产环境不绕过 admin/Gateway 鉴权。
@@ -250,6 +250,7 @@ Insight Dashboard 展示 answer、traceId、warnings；
 cardsPanel 按 card type 渲染 stats_summary、traffic_anomaly、performance_insight、tool_warning；
 未知 card type 使用通用卡片 fallback，避免缺字段导致页面中断；
 pendingActionsPanel 展示待确认动作预览；
+graphTracePanel 展示 traceEvents 节点时间线；
 accessRecordsPanel 将 access_records.rows 渲染为表格；
 toolCalls、dataSources 和 full response 只放在 Sanitized data 折叠调试区。
 ```
@@ -356,7 +357,23 @@ POST /internal/short-link-agent/v1/chat
   "answer": "最近 7 天...",
   "cards": [],
   "pendingActions": [],
+  "toolCalls": [],
   "dataSources": [],
+  "traceEvents": [
+    {
+      "traceId": "trace_xxx",
+      "nodeName": "llm_analysis",
+      "status": "success",
+      "timing": {
+        "startEpochMs": 1783420000000,
+        "endEpochMs": 1783420000120,
+        "durationMs": 120
+      },
+      "summary": {
+        "warningCount": 0
+      }
+    }
+  ],
   "warnings": []
 }
 ```
@@ -466,6 +483,41 @@ access_records.rows/rawData 默认只展示脱敏 IP，例如 127.0.*.*；
 access_records.rows/rawData 默认移除 user 字段；
 统计、异常和洞察类 cards 仍保留聚合指标、阈值和脱敏 evidence；
 需要完整 IP 或 user 的排查能力，后续通过高权限明细入口单独设计，不从 Agent 默认分析响应透出。
+```
+
+#### Graph Trace 运行观测第一版
+
+第一版直接复用 Spring AI Alibaba Graph 的节点编排边界，在节点 wrapper 和 checkpoint 保存边界记录 `traceEvents`。不依赖框架内部日志或非公开 APM 接口，避免后续升级 Spring AI Alibaba 版本时被内部实现牵制。
+
+事件覆盖：
+
+```text
+intake;
+tool_planning;
+llm_analysis;
+response_compose;
+checkpoint_save。
+```
+
+事件字段：
+
+```text
+traceId: 与 AgentRunResult.traceId 一致；
+nodeName: 稳定节点名；
+status: success / failed；
+timing.durationMs: 节点耗时；
+summary: 节点安全摘要，例如 toolCount、warningCount、cardCount；
+checkpointVersion: checkpoint_save 成功时返回 MySQL checkpoint 版本；
+error: 失败时只返回安全错误摘要。
+```
+
+Console 展示规则：
+
+```text
+Graph Trace timeline 默认展示 nodeName、status、durationMs、checkpointVersion 和 summary；
+不展示未脱敏工具 rawData；
+不从 traceEvents 透出完整 ip/user；
+完整响应仍只进入 Sanitized data 折叠调试区。
 ```
 
 第一版脱敏规则：
@@ -1066,8 +1118,8 @@ Graph 能调用真实只读工具；
 Gateway/Nginx 路由可达；
 登录用户可使用 Agent；
 未登录用户不可访问；
-agent-service 独立 Console 可展示回答、指标卡、异常洞察卡、访问明细表、PendingAction 和脱敏调试数据；
-节点级 Graph Trace 待后端输出节点事件后补齐；
+agent-service 独立 Console 可展示回答、指标卡、异常洞察卡、访问明细表、PendingAction、Graph Trace timeline 和脱敏调试数据；
+节点级 Graph Trace 基于 AgentRunResult.traceEvents 验收；
 admin 前端可按需跳转或嵌入 Agent Console。
 ```
 
@@ -1126,5 +1178,5 @@ Graph checkpoint 第一版直接 MySQL 持久化。
 
 1. DeepSeek API Key 只通过 `DEEPSEEK_API_KEY` 或 `LLM_API_KEY` 注入。
 2. 不把 API Key 写入文档、代码、Git、Prompt、测试样例或日志。
-3. agent-service 独立 Console 可以先做轻量页面，优先服务 API 联调、traceId/脱敏调试数据和 PendingAction 预览；节点级 Graph Trace 等后端节点事件能力补齐后再接入。
+3. agent-service 独立 Console 可以先做轻量页面，优先服务 API 联调、traceId、Graph Trace、脱敏调试数据和 PendingAction 预览。
 4. 后续接入 admin 前端时，保持 admin/Gateway 鉴权为生产用户边界。

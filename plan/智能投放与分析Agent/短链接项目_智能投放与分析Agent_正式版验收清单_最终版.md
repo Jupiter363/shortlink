@@ -150,6 +150,15 @@
 - [ ] 第一版 checkpoint 必须落 MySQL。
 - [ ] 如果第一版未落 MySQL，Graph checkpoint 验收必须 FAIL。
 
+### 3.5 Graph Trace
+
+- [ ] Chat API 返回结构包含 `traceEvents`。
+- [ ] `traceEvents` 覆盖 `intake/tool_planning/llm_analysis/response_compose/checkpoint_save`。
+- [ ] 每个 trace event 包含 `traceId/nodeName/status/timing.durationMs`。
+- [ ] checkpoint 保存成功事件包含 `checkpointVersion`。
+- [ ] checkpoint 保存失败时返回 `checkpoint_save` 的 `failed` 事件，并保留用户可读 warning。
+- [ ] trace event 只包含运行观测摘要，不透出未脱敏 `ip/user` 或工具 raw response。
+
 ---
 
 ## 4. Agent Service 验收
@@ -168,7 +177,7 @@
 - [ ] `POST /internal/short-link-agent/v1/chat` 能接收用户消息。
 - [ ] 支持新建 session。
 - [ ] 支持续接 session。
-- [ ] 返回结构包含 `answer/cards/pendingActions/dataSources/warnings`。
+- [ ] 返回结构包含 `answer/cards/pendingActions/toolCalls/dataSources/traceEvents/warnings`。
 - [ ] 返回结构包含 `traceId`。
 - [ ] 无法识别意图时能追问或说明。
 
@@ -214,7 +223,10 @@
 - [ ] Console 可展示 `dataSources`。
 - [ ] Console 将 `toolCalls`、`dataSources` 和完整响应放入 `Sanitized data` 折叠调试区。
 - [ ] Console 默认主视图不直接铺开完整 raw JSON。
-- [ ] Console 可展示 `traceId`、工具调用和数据来源脱敏调试信息；节点级 Graph Trace 待后端暴露节点事件后验收。
+- [ ] Console 可展示 `traceId`、工具调用和数据来源脱敏调试信息。
+- [ ] Console 可展示 `Graph Trace` timeline。
+- [ ] Graph Trace timeline 可展示空态、成功节点、失败节点和耗时。
+- [ ] Graph Trace timeline 不展示未脱敏 `ip/user` 或工具 raw response。
 - [ ] Console 生产模式不绕过 admin/Gateway 鉴权。
 - [ ] Console 不直接调用 admin 内部工具执行接口。
 

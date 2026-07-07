@@ -311,6 +311,12 @@
             color: var(--error);
         }
 
+        .badge.success {
+            border-color: #9bd5ad;
+            background: #f0fbf3;
+            color: var(--ok);
+        }
+
         .card-subtitle {
             color: var(--muted);
             font-size: 13px;
@@ -386,6 +392,55 @@
         .pending-actions-panel {
             display: grid;
             gap: 12px;
+        }
+
+        .graph-trace-panel {
+            display: grid;
+            gap: 12px;
+        }
+
+        .trace-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .trace-event {
+            display: grid;
+            gap: 8px;
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--muted);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--panel-soft);
+        }
+
+        .trace-event.success {
+            border-left-color: var(--ok);
+        }
+
+        .trace-event.failed {
+            border-left-color: var(--error);
+        }
+
+        .trace-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .trace-meta {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        .trace-error {
+            color: var(--error);
+            font-size: 13px;
+            line-height: 1.45;
+            word-break: break-word;
         }
 
         .action-list {
@@ -577,6 +632,13 @@
                 </div>
             </div>
 
+            <div id="graphTracePanel" class="panel graph-trace-panel">
+                <h3>Graph Trace</h3>
+                <div id="graphTraceBody" class="trace-list">
+                    <div class="empty-state">No trace events.</div>
+                </div>
+            </div>
+
             <div id="accessRecordsPanel" class="panel records-panel">
                 <div class="records-head">
                     <h3>Access records</h3>
@@ -644,6 +706,7 @@
         var warningsOutput = document.getElementById("warningsOutput");
         var cardsPanel = document.getElementById("cardsPanel");
         var pendingActionsBody = document.getElementById("pendingActionsBody");
+        var graphTraceBody = document.getElementById("graphTraceBody");
         var accessRecordsMeta = document.getElementById("accessRecordsMeta");
         var accessRecordsBody = document.getElementById("accessRecordsBody");
         var toolCallsOutput = document.getElementById("toolCallsOutput");
@@ -896,6 +959,47 @@
             });
         }
 
+        function traceStatusClass(status) {
+            var normalized = String(status || "").toLowerCase();
+            if (normalized === "success" || normalized === "failed") {
+                return normalized;
+            }
+            return "";
+        }
+
+        function renderTraceEvents(traceEvents) {
+            clear(graphTraceBody);
+            var events = asArray(traceEvents).filter(isObject);
+            if (!events.length) {
+                graphTraceBody.appendChild(el("div", "empty-state", "No trace events."));
+                return;
+            }
+            events.forEach(function (event) {
+                var status = traceStatusClass(event.status);
+                var node = el("article", "trace-event " + status);
+                var head = el("div", "trace-head");
+                var titleWrap = el("div");
+                var timing = asObject(event.timing);
+                var metaParts = [];
+                if (timing.durationMs !== undefined) {
+                    metaParts.push("durationMs: " + formatValue(timing.durationMs));
+                }
+                if (event.checkpointVersion !== undefined) {
+                    metaParts.push("checkpointVersion: " + formatValue(event.checkpointVersion));
+                }
+                titleWrap.appendChild(el("h3", "", event.nodeName || "graph_node"));
+                titleWrap.appendChild(el("p", "trace-meta", metaParts.length ? metaParts.join(" / ") : "durationMs: -"));
+                head.appendChild(titleWrap);
+                head.appendChild(el("span", "badge " + status, event.status || "unknown"));
+                node.appendChild(head);
+                renderKeyValues(node, "Summary", event.summary);
+                if (event.error) {
+                    node.appendChild(el("p", "trace-error", formatValue(event.error)));
+                }
+                graphTraceBody.appendChild(node);
+            });
+        }
+
         function accessRowsFrom(card) {
             if (!card) {
                 return [];
@@ -961,6 +1065,7 @@
             renderWarnings(payload.warnings);
             renderCards(payload.cards);
             renderPendingActions(payload.pendingActions);
+            renderTraceEvents(payload.traceEvents);
             renderAccessRecords(payload.cards);
             renderDebugData(payload, fullValue);
         }
@@ -971,13 +1076,14 @@
             renderWarnings([]);
             renderCards([]);
             renderPendingActions([]);
+            renderTraceEvents([]);
             renderAccessRecords([]);
-            renderDebugData({toolCalls: [], dataSources: []}, message);
+            renderDebugData({toolCalls: [], dataSources: [], traceEvents: []}, message);
         }
 
         function showResult(value) {
             if (typeof value === "string") {
-                showSummary({answer: value, cards: [], pendingActions: [], warnings: [], toolCalls: [], dataSources: []}, value);
+                showSummary({answer: value, cards: [], pendingActions: [], warnings: [], toolCalls: [], dataSources: [], traceEvents: []}, value);
                 return;
             }
             var data = value && typeof value === "object" && value.result ? value.result.data : null;
@@ -991,7 +1097,8 @@
                     cards: [],
                     pendingActions: [],
                     toolCalls: [],
-                    dataSources: []
+                    dataSources: [],
+                    traceEvents: []
                 };
             }
             showSummary(data, value);

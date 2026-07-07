@@ -29,6 +29,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,7 +53,10 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     private static final String TOOL_PLANNING_NODE = "tool_planning";
     private static final String LLM_ANALYSIS_NODE = "llm_analysis";
     private static final String RESPONSE_COMPOSE_NODE = "response_compose";
+    private static final String CHECKPOINT_SAVE_NODE = "checkpoint_save";
     private static final String CHECKPOINT_SAVE_FAILED_WARNING = "Graph checkpoint save failed";
+    private static final String GRAPH_EXECUTION_FAILED_WARNING = "Graph execution failed";
+    private static final String GRAPH_NODE_EXECUTION_FAILED_WARNING = "Graph node execution failed";
     private static final Pattern KEY_VALUE_PATTERN = Pattern.compile("(gid|fullShortUrl|startDate|endDate|current|size|orderTag)\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
@@ -66,6 +72,8 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     private final AgentToolRegistry toolRegistry;
 
     private final CompiledGraph graph;
+
+    private final ConcurrentMap<String, List<Object>> inFlightTraceEvents = new ConcurrentHashMap<>();
 
     public DefaultCampaignAnalysisGraphExecutor(
             LlmChatClient llmChatClient,
@@ -88,6 +96,8 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         input.put("message", request.message());
         input.put("traceId", request.traceId());
 
+        String traceKey = traceKey(request.sessionId(), request.traceId());
+        inFlightTraceEvents.put(traceKey, new CopyOnWriteArrayList<>());
         try {
             Optional<OverAllState> state = graph.invoke(input, RunnableConfig.builder()
                     .threadId(request.sessionId())
@@ -98,17 +108,19 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
             AgentRunResult result = toRunResult(request, state.get());
             return saveCheckpointOrWarn(request, state.get(), result);
         } catch (Exception ex) {
-            return fallbackResult(request, "Campaign analysis graph failed.", ex.getMessage());
+            return fallbackResult(request, "Campaign analysis graph failed.", GRAPH_EXECUTION_FAILED_WARNING);
+        } finally {
+            inFlightTraceEvents.remove(traceKey);
         }
     }
 
     private CompiledGraph compileGraph(String graphName) {
         try {
             return new StateGraph(graphName, Map::of)
-                    .addNode(INTAKE_NODE, AsyncNodeAction.node_async(this::intake))
-                    .addNode(TOOL_PLANNING_NODE, AsyncNodeAction.node_async(this::planAndExecuteTools))
-                    .addNode(LLM_ANALYSIS_NODE, AsyncNodeAction.node_async(this::analyzeWithLlm))
-                    .addNode(RESPONSE_COMPOSE_NODE, AsyncNodeAction.node_async(this::composeResponse))
+                    .addNode(INTAKE_NODE, AsyncNodeAction.node_async(state -> tracedNode(INTAKE_NODE, state, this::intake)))
+                    .addNode(TOOL_PLANNING_NODE, AsyncNodeAction.node_async(state -> tracedNode(TOOL_PLANNING_NODE, state, this::planAndExecuteTools)))
+                    .addNode(LLM_ANALYSIS_NODE, AsyncNodeAction.node_async(state -> tracedNode(LLM_ANALYSIS_NODE, state, this::analyzeWithLlm)))
+                    .addNode(RESPONSE_COMPOSE_NODE, AsyncNodeAction.node_async(state -> tracedNode(RESPONSE_COMPOSE_NODE, state, this::composeResponse)))
                     .addEdge(StateGraph.START, INTAKE_NODE)
                     .addEdge(INTAKE_NODE, TOOL_PLANNING_NODE)
                     .addEdge(TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE)
@@ -118,6 +130,111 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         } catch (GraphStateException ex) {
             throw new IllegalStateException("Campaign analysis graph initialization failed", ex);
         }
+    }
+
+    private Map<String, Object> tracedNode(String nodeName, OverAllState state, GraphNode node) throws Exception {
+        long startEpochMs = System.currentTimeMillis();
+        try {
+            Map<String, Object> output = new LinkedHashMap<>(node.apply(state));
+            Map<String, Object> traceEvent = traceEvent(
+                    state.value("traceId", ""),
+                    nodeName,
+                    "success",
+                    startEpochMs,
+                    null,
+                    traceSummary(nodeName, output)
+            );
+            recordInFlightTraceEvent(state, traceEvent);
+            output.put("traceEvents", appendTraceEvent(state.value("traceEvents", List.of()), traceEvent));
+            return output;
+        } catch (Exception ex) {
+            recordInFlightTraceEvent(state, traceEvent(
+                    state.value("traceId", ""),
+                    nodeName,
+                    "failed",
+                    startEpochMs,
+                    GRAPH_NODE_EXECUTION_FAILED_WARNING,
+                    Map.of()
+            ));
+            throw ex;
+        }
+    }
+
+    private void recordInFlightTraceEvent(OverAllState state, Map<String, Object> traceEvent) {
+        List<Object> events = inFlightTraceEvents.get(traceKey(
+                state.value("sessionId", ""),
+                state.value("traceId", "")
+        ));
+        if (events != null) {
+            events.add(traceEvent);
+        }
+    }
+
+    private String traceKey(String sessionId, String traceId) {
+        return sessionId + ":" + traceId;
+    }
+
+    private List<Object> appendTraceEvent(List<Object> traceEvents, Map<String, Object> traceEvent) {
+        List<Object> appended = new ArrayList<>(traceEvents);
+        appended.add(traceEvent);
+        return appended;
+    }
+
+    private Map<String, Object> traceEvent(
+            String traceId,
+            String nodeName,
+            String status,
+            long startEpochMs,
+            String error,
+            Map<String, Object> metadata
+    ) {
+        long endEpochMs = System.currentTimeMillis();
+        Map<String, Object> event = new LinkedHashMap<>();
+        event.put("traceId", traceId);
+        event.put("nodeName", nodeName);
+        event.put("status", status);
+        event.put("timing", Map.of(
+                "startEpochMs", startEpochMs,
+                "endEpochMs", endEpochMs,
+                "durationMs", Math.max(0L, endEpochMs - startEpochMs)
+        ));
+        if (error != null && !error.isBlank()) {
+            event.put("error", error);
+        }
+        event.putAll(metadata);
+        return event;
+    }
+
+    private Map<String, Object> traceSummary(String nodeName, Map<String, Object> output) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        switch (nodeName) {
+            case INTAKE_NODE -> {
+                summary.put("graphName", output.get("graphName"));
+                summary.put("graphVersion", output.get("graphVersion"));
+            }
+            case TOOL_PLANNING_NODE -> {
+                summary.put("toolCount", listSize(output.get("toolExecutions")));
+                summary.put("warningCount", listSize(output.get("toolWarnings")));
+            }
+            case LLM_ANALYSIS_NODE -> {
+                summary.put("warningCount", listSize(output.get("warnings")));
+                summary.put("llmSource", !mapValue(output.get("llmDataSource")).isEmpty());
+            }
+            case RESPONSE_COMPOSE_NODE -> {
+                summary.put("cardCount", listSize(output.get("cards")));
+                summary.put("dataSourceCount", listSize(output.get("dataSources")));
+            }
+            default -> {
+            }
+        }
+        if (summary.isEmpty()) {
+            return Map.of();
+        }
+        return Map.of("summary", summary);
+    }
+
+    private int listSize(Object value) {
+        return value instanceof List<?> list ? list.size() : 0;
     }
 
     private Map<String, Object> intake(OverAllState state) {
@@ -594,16 +711,23 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 state.value("pendingActions", List.of()),
                 state.value("toolCalls", List.of()),
                 state.value("dataSources", List.of()),
+                state.value("traceEvents", List.of()),
                 state.value("warnings", List.of())
         );
     }
 
     private AgentRunResult saveCheckpointOrWarn(CampaignAnalysisGraphRequest request, OverAllState state, AgentRunResult result) {
+        long startEpochMs = System.currentTimeMillis();
         try {
-            saveCheckpoint(request, state, result);
-            return result;
+            Optional<Long> checkpointVersion = saveCheckpoint(request, state, result);
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            checkpointVersion.ifPresent(version -> metadata.put("checkpointVersion", version));
+            return withTraceEvent(result, traceEvent(request.traceId(), CHECKPOINT_SAVE_NODE, "success", startEpochMs, null, metadata));
         } catch (Exception ex) {
-            return withWarning(result, CHECKPOINT_SAVE_FAILED_WARNING);
+            return withTraceEvent(
+                    withWarning(result, CHECKPOINT_SAVE_FAILED_WARNING),
+                    traceEvent(request.traceId(), CHECKPOINT_SAVE_NODE, "failed", startEpochMs, CHECKPOINT_SAVE_FAILED_WARNING, Map.of())
+            );
         }
     }
 
@@ -618,23 +742,40 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 result.pendingActions(),
                 result.toolCalls(),
                 result.dataSources(),
+                result.traceEvents(),
                 warnings
         );
     }
 
-    private void saveCheckpoint(CampaignAnalysisGraphRequest request, OverAllState state, AgentRunResult result) {
+    private AgentRunResult withTraceEvent(AgentRunResult result, Map<String, Object> traceEvent) {
+        return new AgentRunResult(
+                result.sessionId(),
+                result.traceId(),
+                result.answer(),
+                result.cards(),
+                result.pendingActions(),
+                result.toolCalls(),
+                result.dataSources(),
+                appendTraceEvent(result.traceEvents(), traceEvent),
+                result.warnings()
+        );
+    }
+
+    private Optional<Long> saveCheckpoint(CampaignAnalysisGraphRequest request, OverAllState state, AgentRunResult result) {
         if (!agentProperties.getGraph().isCheckpointEnabled()) {
-            return;
+            return Optional.empty();
         }
+        long checkpointVersion = System.currentTimeMillis();
         checkpointStore.save(new GraphCheckpoint(
                 request.sessionId(),
                 request.traceId(),
                 agentProperties.getGraph().getName(),
                 agentProperties.getGraph().getVersion(),
                 checkpointJson(request, state, result),
-                System.currentTimeMillis(),
+                checkpointVersion,
                 "FINISHED"
         ));
+        return Optional.of(checkpointVersion);
     }
 
     private String checkpointJson(CampaignAnalysisGraphRequest request, OverAllState state, AgentRunResult result) {
@@ -646,6 +787,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         checkpoint.put("visitedNodes", state.value("visitedNodes", List.of()));
         checkpoint.put("answer", result.answer());
         checkpoint.put("warnings", result.warnings());
+        checkpoint.put("traceEvents", result.traceEvents());
         checkpoint.put("toolExecutions", state.value("toolExecutions", List.of()));
         try {
             return OBJECT_MAPPER.writeValueAsString(checkpoint);
@@ -655,6 +797,8 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     }
 
     private AgentRunResult fallbackResult(CampaignAnalysisGraphRequest request, String answer, String warning) {
+        List<Object> traceEvents = new ArrayList<>(inFlightTraceEvents.getOrDefault(traceKey(request.sessionId(), request.traceId()), List.of()));
+        traceEvents.add(traceEvent(request.traceId(), "graph_execution", "failed", System.currentTimeMillis(), warning, Map.of()));
         return new AgentRunResult(
                 request.sessionId(),
                 request.traceId(),
@@ -663,8 +807,15 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 List.of(),
                 List.of(),
                 List.of(),
+                traceEvents,
                 List.of(warning)
         );
+    }
+
+    @FunctionalInterface
+    private interface GraphNode {
+
+        Map<String, Object> apply(OverAllState state) throws Exception;
     }
 
     private record ToolInvocation(String name, Map<String, Object> arguments) {

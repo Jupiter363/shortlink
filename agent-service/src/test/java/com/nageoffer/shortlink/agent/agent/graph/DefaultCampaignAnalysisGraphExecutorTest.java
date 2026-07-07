@@ -713,6 +713,17 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         assertThat(result.dataSources().get(0).toString()).contains("llm_analysis");
         assertThat(result.dataSources().get(0).toString()).contains("response_compose");
         assertThat(result.warnings()).isEmpty();
+        List<Map<String, Object>> traceEvents = traceEvents(result);
+        assertThat(traceEvents)
+                .extracting(each -> each.get("nodeName"))
+                .containsExactly("intake", "tool_planning", "llm_analysis", "response_compose", "checkpoint_save");
+        assertThat(traceEvents)
+                .allSatisfy(each -> assertThat(each)
+                        .containsEntry("traceId", "trace-1")
+                        .containsEntry("status", "success"));
+        assertThat(traceEvents)
+                .allSatisfy(each -> assertThat(map(each.get("timing"))).containsKey("durationMs"));
+        assertThat(traceEvents.get(4)).containsKey("checkpointVersion");
         assertThat(checkpointStore.saved).hasSize(1);
         assertThat(checkpointStore.saved.get(0).threadId()).isEqualTo("session-1");
         assertThat(checkpointStore.saved.get(0).traceId()).isEqualTo("trace-1");
@@ -767,6 +778,47 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
         assertThat(result.answer()).isEqualTo("分析结果");
         assertThat(result.warnings()).contains("Graph checkpoint save failed");
+        List<Map<String, Object>> traceEvents = traceEvents(result);
+        assertThat(traceEvents)
+                .extracting(each -> each.get("nodeName"))
+                .contains("checkpoint_save");
+        assertThat(traceEvents.get(traceEvents.size() - 1))
+                .containsEntry("nodeName", "checkpoint_save")
+                .containsEntry("status", "failed")
+                .containsEntry("error", "Graph checkpoint save failed");
+        assertThat(result.toString()).doesNotContain("database unavailable");
+    }
+
+    @Test
+    void executeReturnsSafeFailureTraceWhenGraphNodeThrows() {
+        DefaultCampaignAnalysisGraphExecutor executor = newExecutor(request -> {
+            throw new RuntimeException("jdbc:mysql://internal-host:3306/secret");
+        });
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "hello",
+                "trace-1"
+        ));
+
+        assertThat(result.answer()).isEqualTo("Campaign analysis graph failed.");
+        assertThat(result.warnings())
+                .containsExactly("Graph execution failed");
+        assertThat(result.toString()).doesNotContain("jdbc:mysql://internal-host:3306/secret");
+        List<Map<String, Object>> traceEvents = traceEvents(result);
+        assertThat(traceEvents)
+                .extracting(each -> each.get("nodeName"))
+                .contains("intake", "tool_planning", "llm_analysis");
+        assertThat(traceEvents.get(traceEvents.size() - 1))
+                .containsEntry("nodeName", "graph_execution")
+                .containsEntry("status", "failed")
+                .containsEntry("error", "Graph execution failed");
+        assertThat(traceEvents)
+                .anySatisfy(each -> assertThat(each)
+                        .containsEntry("nodeName", "llm_analysis")
+                        .containsEntry("status", "failed")
+                        .containsEntry("error", "Graph node execution failed"));
     }
 
     private DefaultCampaignAnalysisGraphExecutor newExecutor(LlmChatClient chatClient) {
@@ -797,6 +849,15 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .map(this::map)
                 .filter(each -> type.equals(each.get("type")))
                 .toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> traceEvents(AgentRunResult result) {
+        try {
+            return (List<Map<String, Object>>) AgentRunResult.class.getMethod("traceEvents").invoke(result);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("AgentRunResult must expose traceEvents", ex);
+        }
     }
 
     private static class CapturingLlmChatClient implements LlmChatClient {

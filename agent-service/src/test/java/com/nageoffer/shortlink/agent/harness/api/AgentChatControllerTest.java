@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -29,6 +30,12 @@ class AgentChatControllerTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(Map.of(
+                        "traceId", "trace-test",
+                        "nodeName", "intake",
+                        "status", "success",
+                        "timing", Map.of("durationMs", 1L)
+                )),
                 List.of()
         );
         mockMvc = MockMvcBuilders
@@ -67,6 +74,8 @@ class AgentChatControllerTest {
                 .andExpect(jsonPath("$.data.pendingActions").isArray())
                 .andExpect(jsonPath("$.data.toolCalls").isArray())
                 .andExpect(jsonPath("$.data.dataSources").isArray())
+                .andExpect(jsonPath("$.data.traceEvents").isArray())
+                .andExpect(jsonPath("$.data.traceEvents[0].nodeName").value("intake"))
                 .andExpect(jsonPath("$.data.warnings").isArray());
     }
 }
