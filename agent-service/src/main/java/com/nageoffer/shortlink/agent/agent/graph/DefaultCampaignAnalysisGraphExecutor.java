@@ -35,13 +35,13 @@ import java.util.regex.Pattern;
 @Service
 public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGraphExecutor {
 
-    private static final String SYSTEM_PROMPT = "你是短链接后台的智能投放与分析 Agent。当前阶段只做 API 联调和安全的分析解释，不直接执行写操作。";
+    private static final String SYSTEM_PROMPT = "You are the intelligent campaign delivery and analysis Agent for the short-link admin console. Current phase only performs API integration and safe read-only analysis; never execute write actions directly.";
     private static final String INTAKE_NODE = "intake";
     private static final String TOOL_PLANNING_NODE = "tool_planning";
     private static final String LLM_ANALYSIS_NODE = "llm_analysis";
     private static final String RESPONSE_COMPOSE_NODE = "response_compose";
     private static final String CHECKPOINT_SAVE_FAILED_WARNING = "Graph checkpoint save failed";
-    private static final Pattern KEY_VALUE_PATTERN = Pattern.compile("(gid|fullShortUrl|startDate|endDate|current|size|orderTag)\\s*[=:：]\\s*([^\\s,，;；]+)");
+    private static final Pattern KEY_VALUE_PATTERN = Pattern.compile("(gid|fullShortUrl|startDate|endDate|current|size|orderTag)\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -163,22 +163,82 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         boolean hasGid = arguments.containsKey("gid");
         boolean hasFullShortUrl = arguments.containsKey("fullShortUrl");
         boolean hasDateRange = arguments.containsKey("startDate") && arguments.containsKey("endDate");
-        if (hasFullShortUrl && hasGid && hasDateRange && containsAny(normalized, "stats", "统计", "数据", "表现")) {
-            return List.of(new ToolInvocation("get_short_link_stats", arguments));
-        }
-        if (hasGid && hasDateRange && containsAny(normalized, "access", "record", "访问", "记录", "明细")) {
-            return List.of(new ToolInvocation("get_group_access_records", arguments));
-        }
-        if (hasGid && hasDateRange && containsAny(normalized, "stats", "统计", "分析", "表现", "数据")) {
-            return List.of(new ToolInvocation("get_group_stats", arguments));
-        }
-        if (hasGid && containsAny(normalized, "link", "短链", "短链接", "列表", "分页", "page")) {
-            return List.of(new ToolInvocation("page_short_links", arguments));
-        }
-        if (containsAny(normalized, "group", "分组", "gid", "有哪些")) {
-            return List.of(new ToolInvocation("list_groups", Map.of()));
+        List<ToolInvocation> composableInvocations = planComposableToolInvocations(normalized, arguments, hasGid, hasFullShortUrl, hasDateRange);
+        if (!composableInvocations.isEmpty()) {
+            return composableInvocations;
         }
         return List.of();
+    }
+
+    private List<ToolInvocation> planComposableToolInvocations(
+            String normalized,
+            Map<String, Object> arguments,
+            boolean hasGid,
+            boolean hasFullShortUrl,
+            boolean hasDateRange
+    ) {
+        List<ToolInvocation> invocations = new ArrayList<>();
+        if (wantsListGroups(normalized, hasGid)) {
+            invocations.add(new ToolInvocation("list_groups", Map.of()));
+        }
+        if (hasGid && wantsShortLinkPage(normalized)) {
+            invocations.add(new ToolInvocation("page_short_links", arguments));
+        }
+        if (hasGid && hasDateRange && wantsStats(normalized)) {
+            String toolName = hasFullShortUrl ? "get_short_link_stats" : "get_group_stats";
+            invocations.add(new ToolInvocation(toolName, arguments));
+        }
+        if (hasGid && hasDateRange && wantsAccessRecords(normalized)) {
+            invocations.add(new ToolInvocation("get_group_access_records", arguments));
+        }
+        return invocations;
+    }
+
+    private boolean wantsListGroups(String normalized, boolean hasGid) {
+        boolean explicitListGroups = containsAny(
+                normalized,
+                "list groups",
+                "show groups",
+                "group list",
+                "all groups",
+                "groups and",
+                "groups,"
+        );
+        return explicitListGroups || (!hasGid && containsAny(normalized, "group", "groups", "gid", "\u5206\u7ec4", "\u6709\u54ea\u4e9b"));
+    }
+
+    private boolean wantsShortLinkPage(String normalized) {
+        return containsAny(
+                normalized,
+                "link list",
+                "links list",
+                "list link",
+                "list links",
+                "short link list",
+                "short links list",
+                "link page",
+                "links page",
+                "page links",
+                "page short links",
+                "short link page",
+                "short links page",
+                "link paging",
+                "links paging",
+                "show links",
+                "all links",
+                "\u77ed\u94fe\u5217\u8868",
+                "\u77ed\u94fe\u63a5\u5217\u8868",
+                "\u77ed\u94fe\u5206\u9875",
+                "\u77ed\u94fe\u63a5\u5206\u9875"
+        );
+    }
+
+    private boolean wantsStats(String normalized) {
+        return containsAny(normalized, "stats", "statistics", "analysis", "analyze", "performance", "\u7edf\u8ba1", "\u5206\u6790", "\u8868\u73b0", "\u6570\u636e");
+    }
+
+    private boolean wantsAccessRecords(String normalized) {
+        return containsAny(normalized, "access", "record", "\u8bbf\u95ee", "\u8bb0\u5f55", "\u660e\u7ec6");
     }
 
     private Map<String, Object> extractArguments(String message) {

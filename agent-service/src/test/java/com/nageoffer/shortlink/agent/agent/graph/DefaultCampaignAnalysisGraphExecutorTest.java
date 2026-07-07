@@ -102,6 +102,186 @@ class DefaultCampaignAnalysisGraphExecutorTest {
     }
 
     @Test
+    void executePlansMultipleReadToolsForOverviewRequest() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "overview answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        CapturingAgentTool listGroupsTool = new CapturingAgentTool(
+                "list_groups",
+                ToolResult.success(List.of(Map.of("gid", "g1", "name", "Marketing", "shortLinkCount", 3)))
+        );
+        CapturingAgentTool pageTool = new CapturingAgentTool(
+                "page_short_links",
+                ToolResult.success(Map.of(
+                        "records", List.of(Map.of("fullShortUrl", "nurl.ink/a", "describe", "Launch")),
+                        "total", 1L,
+                        "current", 1L,
+                        "size", 10L
+                ))
+        );
+        CapturingAgentTool statsTool = new CapturingAgentTool(
+                "get_group_stats",
+                ToolResult.success(Map.of("pv", 120, "uv", 40, "uip", 30))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(listGroupsTool, pageTool, statsTool))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "show groups and link list and stats gid=g1 startDate=2026-07-01 endDate=2026-07-07 current=1 size=10",
+                "trace-1"
+        ));
+
+        assertThat(listGroupsTool.context).as("list_groups should be planned").isNotNull();
+        assertThat(pageTool.context).as("page_short_links should be planned").isNotNull();
+        assertThat(statsTool.context).as("get_group_stats should be planned").isNotNull();
+        assertThat(listGroupsTool.context.arguments()).isEmpty();
+        assertThat(pageTool.context.arguments())
+                .containsEntry("gid", "g1")
+                .containsEntry("current", 1L)
+                .containsEntry("size", 10L);
+        assertThat(statsTool.context.arguments())
+                .containsEntry("gid", "g1")
+                .containsEntry("startDate", "2026-07-01")
+                .containsEntry("endDate", "2026-07-07");
+        assertThat(result.toolCalls())
+                .extracting(each -> map(each).get("name"))
+                .containsExactly("list_groups", "page_short_links", "get_group_stats");
+        assertThat(result.cards())
+                .extracting(each -> map(each).get("type"))
+                .containsExactly("group_summary", "short_link_page", "stats_summary");
+        assertThat(chatClient.request.messages().get(1).content())
+                .contains("list_groups")
+                .contains("page_short_links")
+                .contains("get_group_stats");
+    }
+
+    @Test
+    void executeExtractsArgumentsWithFullwidthChineseDelimiters() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "stats answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        CapturingAgentTool statsTool = new CapturingAgentTool(
+                "get_group_stats",
+                ToolResult.success(Map.of("pv", 120, "uv", 40, "uip", 30))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(statsTool))
+        );
+
+        executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "\u7edf\u8ba1 gid\uff1ag1\uff0c startDate\uff1a2026-07-01\uff1b endDate\uff1a2026-07-07",
+                "trace-1"
+        ));
+
+        assertThat(statsTool.context).as("get_group_stats should be planned").isNotNull();
+        assertThat(statsTool.context.arguments())
+                .containsEntry("gid", "g1")
+                .containsEntry("startDate", "2026-07-01")
+                .containsEntry("endDate", "2026-07-07");
+    }
+
+    @Test
+    void executeKeepsSingleShortLinkStatsRequestToStatsToolOnly() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "short link stats answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        CapturingAgentTool pageTool = new CapturingAgentTool(
+                "page_short_links",
+                ToolResult.success(Map.of("records", List.of()))
+        );
+        CapturingAgentTool statsTool = new CapturingAgentTool(
+                "get_short_link_stats",
+                ToolResult.success(Map.of("pv", 12, "uv", 4, "uip", 3))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(pageTool, statsTool))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "stats for short link fullShortUrl=nurl.ink/a gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "trace-1"
+        ));
+
+        assertThat(pageTool.context).as("single short link stats should not request a page").isNull();
+        assertThat(statsTool.context).as("get_short_link_stats should be planned").isNotNull();
+        assertThat(result.toolCalls())
+                .extracting(each -> map(each).get("name"))
+                .containsExactly("get_short_link_stats");
+        assertThat(result.cards())
+                .extracting(each -> map(each).get("type"))
+                .containsExactly("stats_summary");
+    }
+
+    @Test
+    void executeKeepsAccessRecordsPageRequestToAccessRecordsToolOnly() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
+                "chat-1",
+                "deepseek-v4-flash",
+                "access records answer",
+                "stop",
+                new DeepSeekChatResponse.Usage(10, 20, 30)
+        ));
+        CapturingAgentTool pageTool = new CapturingAgentTool(
+                "page_short_links",
+                ToolResult.success(Map.of("records", List.of()))
+        );
+        CapturingAgentTool recordsTool = new CapturingAgentTool(
+                "get_group_access_records",
+                ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1"))))
+        );
+        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(pageTool, recordsTool))
+        );
+
+        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
+                "session-1",
+                "zhangsan",
+                "page access records gid=g1 startDate=2026-07-01 endDate=2026-07-07 current=1 size=10",
+                "trace-1"
+        ));
+
+        assertThat(pageTool.context).as("access records paging should not request short link page").isNull();
+        assertThat(recordsTool.context).as("get_group_access_records should be planned").isNotNull();
+        assertThat(result.toolCalls())
+                .extracting(each -> map(each).get("name"))
+                .containsExactly("get_group_access_records");
+        assertThat(result.cards())
+                .extracting(each -> map(each).get("type"))
+                .containsExactly("access_records");
+    }
+
+    @Test
     void executeBuildsStatsSummaryCardFromGroupStatsTool() {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",
@@ -130,6 +310,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 "trace-1"
         ));
 
+        assertThat(result.toolCalls()).hasSize(1);
         Map<String, Object> card = card(result, 0);
         assertThat(card)
                 .containsEntry("type", "stats_summary")

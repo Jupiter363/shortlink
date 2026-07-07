@@ -387,6 +387,35 @@ LLM 只负责解释，不得反向覆盖 cards 指标；
 rawData 保留原始工具数据快照，供前端和审计追溯。
 ```
 
+#### 组合工具路由第一版
+
+第一版 Graph 允许单次请求规划多个只读工具，解决“先看分组，再看某个 gid 的短链列表和统计表现”的闭环问题。
+
+规划顺序固定为：
+
+```text
+list_groups -> page_short_links -> get_group_stats/get_short_link_stats -> get_group_access_records
+```
+
+触发规则：
+
+| 工具 | 触发条件 |
+|---|---|
+| `list_groups` | 显式要求 group list / show groups / all groups，或未提供 gid 时询问 group/gid/分组 |
+| `page_short_links` | 已提供 gid，且问题包含明确短链分页或短链列表意图，如 link list / list links / link page / page short links / show links / 短链列表 / 短链分页；仅查询单条 fullShortUrl 统计或访问明细分页时不得触发短链分页 |
+| `get_group_stats` | 已提供 gid、startDate、endDate，且问题包含 stats / analysis / performance / 统计 / 分析 / 表现 |
+| `get_short_link_stats` | 在 `get_group_stats` 条件基础上额外提供 fullShortUrl |
+| `get_group_access_records` | 已提供 gid、startDate、endDate，且问题包含 access / record / 访问 / 记录 / 明细 |
+
+约束：
+
+```text
+只读工具可组合；
+写操作仍必须进入 PendingAction，不允许在组合路由中直接执行；
+多个工具结果统一进入 toolCalls、dataSources[type=tool].executions、cards，并注入 LLM prompt；
+单工具请求仍保持只调用一个最相关工具，避免无意义扩大业务 API 压力。
+```
+
 #### 禁止事项
 
 ```text
