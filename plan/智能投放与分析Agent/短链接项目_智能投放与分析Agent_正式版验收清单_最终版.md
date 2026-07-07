@@ -194,6 +194,10 @@
 - [ ] 模型上下文中的工具数据已对 `ip` 脱敏并去除 `user` 字段。
 - [ ] 模型上下文包含确定性 `Derived insight context`，用于约束异常解释。
 - [ ] 派生洞察上下文进入 Prompt 前再次经过统一脱敏。
+- [ ] Agent 默认响应中的 `cards` 不包含完整 `ip/user`。
+- [ ] Agent 默认响应中的 `toolCalls` 不包含完整 `ip/user`。
+- [ ] Agent 默认响应中的 `dataSources[type=tool].executions` 不包含完整 `ip/user`。
+- [ ] `access_records.rows/rawData` 默认只展示脱敏 IP，并移除 `user`。
 - [ ] 有派生洞察卡片时，Prompt 包含 `Insight explanation contract`。
 - [ ] 无派生洞察卡片时，Prompt 不注入 `Insight explanation contract`。
 - [ ] `Insight explanation contract` 要求模型输出 `possibleCauses`、`riskLevel`、`evidenceReferences`、`recommendedActions`。

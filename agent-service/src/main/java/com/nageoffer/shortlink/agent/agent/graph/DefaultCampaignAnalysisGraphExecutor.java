@@ -364,12 +364,16 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     private Map<String, Object> composeResponse(OverAllState state) {
         List<String> nodes = List.of(INTAKE_NODE, TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE, RESPONSE_COMPOSE_NODE);
         return Map.of(
-                "cards", buildCards(state),
+                "cards", sanitizeForResponse(buildCards(state)),
                 "pendingActions", List.of(),
-                "toolCalls", state.value("toolExecutions", List.of()),
-                "dataSources", dataSources(state, nodes),
+                "toolCalls", sanitizeForResponse(state.value("toolExecutions", List.of())),
+                "dataSources", sanitizeForResponse(dataSources(state, nodes)),
                 "visitedNodes", nodes
         );
+    }
+
+    private Object sanitizeForResponse(Object value) {
+        return INSIGHT_CARD_FACTORY.sanitizeForPrompt(value);
     }
 
     private List<Object> buildCards(OverAllState state) {

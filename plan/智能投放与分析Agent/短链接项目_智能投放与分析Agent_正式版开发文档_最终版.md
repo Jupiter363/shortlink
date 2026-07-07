@@ -444,6 +444,26 @@ Insight explanation contract 必须要求模型不得重新计算、编造或覆
 traffic_anomaly 的解释必须说明这不是确定性安全结论，只能给出基于现有访问统计的可能原因和低风险建议。
 ```
 
+#### Agent 响应展示视图隐私规则
+
+`AgentRunResult` 是 Agent Console 默认消费的数据结构。默认分析响应不直接暴露完整访问明细身份字段：
+
+```text
+cards、toolCalls、dataSources[type=tool].executions 在响应出站前必须统一脱敏；
+access_records.rows/rawData 默认只展示脱敏 IP，例如 127.0.*.*；
+access_records.rows/rawData 默认移除 user 字段；
+统计、异常和洞察类 cards 仍保留聚合指标、阈值和脱敏 evidence；
+需要完整 IP 或 user 的排查能力，后续通过高权限明细入口单独设计，不从 Agent 默认分析响应透出。
+```
+
+第一版脱敏规则：
+
+```text
+key == ip: 保留前两段 IPv4，例如 192.168.1.10 -> 192.168.*.*
+key == user: 移除
+嵌套 List/Map: 递归处理
+```
+
 #### 洞察解释契约第一版
 
 当 `traffic_anomaly` 或 `performance_insight` 存在时，Graph 在 `Derived insight context` 后追加稳定契约：

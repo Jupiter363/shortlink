@@ -599,7 +599,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 new DeepSeekChatResponse.Usage(10, 20, 30)
         ));
         List<Map<String, Object>> rows = List.of(
-                Map.of("ip", "127.0.0.1", "browser", "Chrome", "network", "WiFi")
+                Map.of("ip", "127.0.0.1", "user", "visitor-001", "browser", "Chrome", "network", "WiFi")
         );
         Map<String, Object> pageData = Map.of("records", rows, "total", 1L, "current", 1L, "size", 10L);
         DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
@@ -625,7 +625,27 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .containsEntry("total", 1L)
                 .containsEntry("current", 1L)
                 .containsEntry("size", 10L);
-        assertThat(card.get("rows")).isEqualTo(rows);
+        Map<String, Object> row = map(list(card.get("rows")).get(0));
+        assertThat(row)
+                .containsEntry("ip", "127.0.*.*")
+                .containsEntry("browser", "Chrome")
+                .containsEntry("network", "WiFi")
+                .doesNotContainKey("user");
+        Map<String, Object> rawRecord = map(list(map(card.get("rawData")).get("records")).get(0));
+        assertThat(rawRecord)
+                .containsEntry("ip", "127.0.*.*")
+                .doesNotContainKey("user");
+        assertThat(result.toolCalls().toString())
+                .contains("127.0.*.*")
+                .doesNotContain("127.0.0.1")
+                .doesNotContain("visitor-001");
+        assertThat(result.dataSources().toString())
+                .contains("127.0.*.*")
+                .doesNotContain("127.0.0.1")
+                .doesNotContain("visitor-001");
+        assertThat(result.toString())
+                .doesNotContain("127.0.0.1")
+                .doesNotContain("visitor-001");
     }
 
     @Test
@@ -765,6 +785,11 @@ class DefaultCampaignAnalysisGraphExecutorTest {
     @SuppressWarnings("unchecked")
     private Map<String, Object> map(Object value) {
         return (Map<String, Object>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> list(Object value) {
+        return (List<Object>) value;
     }
 
     private List<Map<String, Object>> cardsOfType(AgentRunResult result, String type) {
