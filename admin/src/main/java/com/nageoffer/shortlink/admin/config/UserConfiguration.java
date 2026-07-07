@@ -1,5 +1,6 @@
 package com.nageoffer.shortlink.admin.config;
 
+import com.nageoffer.shortlink.admin.common.biz.agent.AgentInternalToolApiFilter;
 import com.nageoffer.shortlink.admin.common.biz.user.UserFlowRiskControlFilter;
 import com.nageoffer.shortlink.admin.common.biz.user.UserTransmitFilter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -8,15 +9,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-/**
- * 用户配置自动装配
- */
 @Configuration
 public class UserConfiguration {
 
-    /**
-     * 用户信息传递过滤器
-     */
     @Bean
     public FilterRegistrationBean<UserTransmitFilter> globalUserTransmitFilter() {
         FilterRegistrationBean<UserTransmitFilter> registration = new FilterRegistrationBean<>();
@@ -26,9 +21,16 @@ public class UserConfiguration {
         return registration;
     }
 
-    /**
-     * 用户操作流量风控过滤器
-     */
+    @Bean
+    public FilterRegistrationBean<AgentInternalToolApiFilter> agentInternalToolApiFilter(
+            AgentAdminConfiguration agentAdminConfiguration) {
+        FilterRegistrationBean<AgentInternalToolApiFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new AgentInternalToolApiFilter(agentAdminConfiguration));
+        registration.addUrlPatterns("/internal/short-link-admin/v1/agent-tools/*");
+        registration.setOrder(1);
+        return registration;
+    }
+
     @Bean
     @ConditionalOnProperty(name = "short-link.flow-limit.enable", havingValue = "true")
     public FilterRegistrationBean<UserFlowRiskControlFilter> globalUserFlowRiskControlFilter(

@@ -10,4 +10,6 @@ import org.springframework.stereotype.Component;
 public class AgentAdminConfiguration {
 
     private String internalToken = "";
+
+    private boolean internalTokenDevMode = false;
 }

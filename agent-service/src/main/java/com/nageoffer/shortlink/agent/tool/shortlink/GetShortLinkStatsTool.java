@@ -45,7 +45,7 @@ public class GetShortLinkStatsTool extends AbstractShortLinkBusinessTool {
         queryParams.put("gid", gid);
         queryParams.put("startDate", startDate);
         queryParams.put("endDate", endDate);
-        return get("/api/short-link/admin/v1/stats", context, queryParams);
+        return get("/internal/short-link-admin/v1/agent-tools/short-link/stats", context, queryParams);
     }
 
     private static Map<String, Object> schema() {

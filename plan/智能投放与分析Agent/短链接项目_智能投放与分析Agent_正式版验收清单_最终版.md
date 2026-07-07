@@ -408,4 +408,25 @@
 - [ ] agent-service 在 `short-link.agent.security.internal-token` 为空时允许本地 Console 调试。
 - [ ] agent-service 在 internal token 非空时拒绝缺失或错误 token 的 internal 请求。
 - [ ] `AgentChatControllerTest`、`InternalAgentApiFilterTest`、`AgentControllerTest` 通过。
-- [ ] 本阶段不新增 `/internal/short-link-admin/**` business tool API。
+
+---
+
+## 14. Admin Internal Tool API 验收
+
+- [ ] admin 提供 `/internal/short-link-admin/v1/agent-tools/**` 只读工具 API。
+- [ ] `/internal/short-link-admin/v1/agent-tools/**` 不配置公网 gateway 路由。
+- [ ] admin internal tool API 在 `short-link.agent.admin.internal-token` 非空时拒绝缺失或错误 `X-Agent-Internal-Token`。
+- [ ] admin internal tool API 在 `short-link.agent.admin.internal-token` 为空且 `internal-token-dev-mode=false` 时拒绝请求。
+- [ ] admin internal tool API 仅在显式 `internal-token-dev-mode=true` 时允许本地空 token 调试。
+- [ ] admin internal tool API 缺少 `X-Agent-Username` 时返回 400。
+- [ ] admin internal filter 使用 `X-Agent-Username`、`X-Agent-UserId`、`X-Agent-RealName` 建立 `UserContext`，并在请求结束后清理。
+- [ ] admin internal tool API 在转发 page/stats/access-records 前校验 `gid` 属于当前可信用户。
+- [ ] 越权 `gid` 不会调用 project 远程统计/分页 API。
+- [ ] `list_groups` 调用 `/internal/short-link-admin/v1/agent-tools/groups`。
+- [ ] `page_short_links` 调用 `/internal/short-link-admin/v1/agent-tools/short-links/page`。
+- [ ] `get_short_link_stats` 调用 `/internal/short-link-admin/v1/agent-tools/short-link/stats`。
+- [ ] `get_group_stats` 调用 `/internal/short-link-admin/v1/agent-tools/group/stats`。
+- [ ] `get_group_access_records` 调用 `/internal/short-link-admin/v1/agent-tools/group/access-records`。
+- [ ] agent-service 出站业务请求携带 `X-Agent-Username`，配置 token 时携带 `X-Agent-Internal-Token`。
+- [ ] agent-service 不再向 admin 业务工具调用发送普通 `username` header。
+- [ ] `AgentInternalToolApiFilterTest`、`AgentToolInternalControllerTest`、`AgentToolInternalMvcTest`、`ShortLinkBusinessToolsTest`、`ShortLinkBusinessHttpGatewayTest`、`AgentPropertiesTest` 通过。

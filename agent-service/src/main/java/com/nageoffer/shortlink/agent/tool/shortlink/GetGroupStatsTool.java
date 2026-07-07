@@ -40,7 +40,7 @@ public class GetGroupStatsTool extends AbstractShortLinkBusinessTool {
         queryParams.put("gid", gid);
         queryParams.put("startDate", startDate);
         queryParams.put("endDate", endDate);
-        return get("/api/short-link/admin/v1/stats/group", context, queryParams);
+        return get("/internal/short-link-admin/v1/agent-tools/group/stats", context, queryParams);
     }
 
     private static Map<String, Object> schema() {

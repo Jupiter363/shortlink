@@ -50,7 +50,7 @@ public class GetGroupAccessRecordsTool extends AbstractShortLinkBusinessTool {
         queryParams.put("endDate", endDate);
         queryParams.put("current", current);
         queryParams.put("size", size);
-        return get("/api/short-link/admin/v1/stats/access-record/group", context, queryParams);
+        return get("/internal/short-link-admin/v1/agent-tools/group/access-records", context, queryParams);
     }
 
     private static Map<String, Object> schema() {

@@ -15,7 +15,8 @@ class AgentPropertiesTest {
         assertThat(agentProperties.getGraph().isCheckpointEnabled()).isTrue();
         assertThat(agentProperties.getConsole().isEnabled()).isTrue();
         assertThat(agentProperties.getConsole().getBasePath()).isEqualTo("/agent-console");
-        assertThat(agentProperties.getBusiness().getBaseUrl()).isEqualTo("http://127.0.0.1:8003");
+        assertThat(agentProperties.getBusiness().getBaseUrl()).isEqualTo("http://127.0.0.1:8002");
+        assertThat(agentProperties.getBusiness().getInternalToken()).isEmpty();
         assertThat(agentProperties.getSecurity().getInternalToken()).isEmpty();
         assertThat(deepSeekProperties.getBaseUrl()).isEqualTo("https://api.deepseek.com");
         assertThat(deepSeekProperties.getModel()).isEqualTo("deepseek-v4-flash");

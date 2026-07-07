@@ -21,6 +21,10 @@ import java.util.Map;
 @Component
 public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
 
+    private static final String INTERNAL_TOKEN_HEADER = "X-Agent-Internal-Token";
+
+    private static final String USERNAME_HEADER = "X-Agent-Username";
+
     private final AgentProperties agentProperties;
 
     private final RestTemplate restTemplate;
@@ -72,7 +76,11 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     private HttpHeaders headers(ToolContext context) {
         HttpHeaders headers = new HttpHeaders();
         if (context != null && StringUtils.hasText(context.username())) {
-            headers.add("username", context.username());
+            headers.add(USERNAME_HEADER, context.username());
+        }
+        String internalToken = agentProperties.getBusiness().getInternalToken();
+        if (StringUtils.hasText(internalToken)) {
+            headers.add(INTERNAL_TOKEN_HEADER, internalToken);
         }
         return headers;
     }

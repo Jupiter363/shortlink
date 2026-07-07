@@ -842,8 +842,14 @@ short-link:
       checkpoint-enabled: true
     admin:
       base-url: http://127.0.0.1:8002
-      internal-token: ${SHORTLINK_AGENT_INTERNAL_TOKEN:change-me}
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+      internal-token-dev-mode: ${AGENT_INTERNAL_TOKEN_DEV_MODE:false}
       tool-timeout-ms: 5000
+    business:
+      base-url: ${SHORT_LINK_BUSINESS_BASE_URL:http://127.0.0.1:8002}
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+    security:
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
     limit:
       max-batch-create-size: 20
       access-record-max-page-size: 100
@@ -868,7 +874,8 @@ short-link:
     enabled: true
     write-enabled: false
     service-url: http://127.0.0.1:8010
-    internal-token: ${SHORTLINK_AGENT_INTERNAL_TOKEN:change-me}
+    internal-token: ${AGENT_INTERNAL_TOKEN:}
+    internal-token-dev-mode: ${AGENT_INTERNAL_TOKEN_DEV_MODE:false}
     max-batch-create-size: 20
     tool-timeout-ms: 5000
     access-record-max-page-size: 100
@@ -1204,10 +1211,11 @@ agent-service 优先使用 X-Agent-Username，缺失时回退 body username 以�
 agent-service internal token 为空时保留本地调试，非空时保护 /internal/short-link-agent/v1/**。
 ```
 
-下一阶段再接：
+当前 internal tool API 阶段接入：
 
 ```text
-/internal/short-link-admin/** business tool API；
+/internal/short-link-admin/v1/agent-tools/** business tool API；
 ShortLinkBusinessGateway 改为调用 admin internal tool API；
-Tool Facade 统一脱敏、分页和错误契约。
+agent-service 出站业务请求使用 X-Agent-Username 和 X-Agent-Internal-Token；
+admin internal tool API 负责可信 UserContext 注入和请求结束清理。
 ```

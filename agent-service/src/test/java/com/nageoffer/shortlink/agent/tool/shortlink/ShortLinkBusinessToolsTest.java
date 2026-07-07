@@ -38,14 +38,14 @@ class ShortLinkBusinessToolsTest {
     }
 
     @Test
-    void listGroupsCallsAdminGroupEndpoint() {
+    void listGroupsCallsAdminInternalGroupsEndpoint() {
         CapturingGateway gateway = new CapturingGateway();
         ListGroupsTool tool = new ListGroupsTool(gateway);
 
         ToolResult result = tool.execute(context(Map.of()));
 
         assertThat(result.success()).isTrue();
-        assertThat(gateway.path).isEqualTo("/api/short-link/admin/v1/group");
+        assertThat(gateway.path).isEqualTo("/internal/short-link-admin/v1/agent-tools/groups");
         assertThat(gateway.queryParams).isEmpty();
         assertThat(gateway.context.username()).isEqualTo("zhangsan");
     }
@@ -67,7 +67,7 @@ class ShortLinkBusinessToolsTest {
         )));
 
         assertThat(result.success()).isTrue();
-        assertThat(gateway.path).isEqualTo("/api/short-link/admin/v1/page");
+        assertThat(gateway.path).isEqualTo("/internal/short-link-admin/v1/agent-tools/short-links/page");
         assertThat(gateway.queryParams)
                 .containsEntry("gid", "g1")
                 .containsEntry("orderTag", "todayPv")
@@ -85,7 +85,7 @@ class ShortLinkBusinessToolsTest {
                 "startDate", "2026-07-01",
                 "endDate", "2026-07-07"
         )));
-        assertThat(gateway.path).isEqualTo("/api/short-link/admin/v1/stats");
+        assertThat(gateway.path).isEqualTo("/internal/short-link-admin/v1/agent-tools/short-link/stats");
         assertThat(gateway.queryParams)
                 .containsEntry("fullShortUrl", "nurl.ink/a")
                 .containsEntry("gid", "g1")
@@ -97,7 +97,7 @@ class ShortLinkBusinessToolsTest {
                 "startDate", "2026-07-01",
                 "endDate", "2026-07-07"
         )));
-        assertThat(gateway.path).isEqualTo("/api/short-link/admin/v1/stats/group");
+        assertThat(gateway.path).isEqualTo("/internal/short-link-admin/v1/agent-tools/group/stats");
         assertThat(gateway.queryParams)
                 .containsEntry("gid", "g1")
                 .containsEntry("startDate", "2026-07-01")
@@ -108,7 +108,7 @@ class ShortLinkBusinessToolsTest {
                 "startDate", "2026-07-01",
                 "endDate", "2026-07-07"
         )));
-        assertThat(gateway.path).isEqualTo("/api/short-link/admin/v1/stats/access-record/group");
+        assertThat(gateway.path).isEqualTo("/internal/short-link-admin/v1/agent-tools/group/access-records");
         assertThat(gateway.queryParams)
                 .containsEntry("gid", "g1")
                 .containsEntry("startDate", "2026-07-01")

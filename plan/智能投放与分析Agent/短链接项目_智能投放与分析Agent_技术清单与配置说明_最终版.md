@@ -296,7 +296,8 @@ short-link:
       stream-enabled: false
     admin:
       base-url: ${SHORTLINK_ADMIN_BASE_URL:http://127.0.0.1:8002}
-      internal-token: ${SHORTLINK_AGENT_INTERNAL_TOKEN:change-me}
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+      internal-token-dev-mode: ${AGENT_INTERNAL_TOKEN_DEV_MODE:false}
       tool-timeout-ms: ${SHORTLINK_TOOL_TIMEOUT_MS:5000}
     limit:
       max-batch-create-size: ${SHORTLINK_MAX_BATCH_CREATE_SIZE:20}
@@ -310,6 +311,11 @@ short-link:
       enabled: true
       base-path: /agent-console
       dev-mode: ${AGENT_CONSOLE_DEV_MODE:true}
+    business:
+      base-url: ${SHORT_LINK_BUSINESS_BASE_URL:http://127.0.0.1:8002}
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+    security:
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
     trace:
       enabled: ${AGENT_TRACE_ENABLED:true}
       redact-sensitive: true
@@ -319,7 +325,8 @@ short-link:
 
 ```text
 SHORTLINK_ADMIN_BASE_URL=http://127.0.0.1:8002
-SHORTLINK_AGENT_INTERNAL_TOKEN=change-me
+SHORT_LINK_BUSINESS_BASE_URL=http://127.0.0.1:8002
+AGENT_INTERNAL_TOKEN=
 SHORTLINK_TOOL_TIMEOUT_MS=5000
 SHORTLINK_MAX_BATCH_CREATE_SIZE=20
 SHORTLINK_ACCESS_RECORD_MAX_PAGE_SIZE=100
@@ -358,7 +365,8 @@ short-link:
     enabled: false
     write-enabled: false
     service-url: ${SHORTLINK_AGENT_SERVICE_URL:http://127.0.0.1:8010}
-    internal-token: ${SHORTLINK_AGENT_INTERNAL_TOKEN:change-me}
+    internal-token: ${AGENT_INTERNAL_TOKEN:}
+    internal-token-dev-mode: ${AGENT_INTERNAL_TOKEN_DEV_MODE:false}
     tool-timeout-ms: 5000
     max-batch-create-size: 20
     access-record-max-page-size: 100
@@ -372,6 +380,7 @@ short-link:
 | `write-enabled` | 是否允许确认后的写操作 |
 | `service-url` | Agent Service 地址 |
 | `internal-token` | 内部调用鉴权 |
+| `internal-token-dev-mode` | 本地开发空 token 显式放行开关，生产必须为 false |
 | `tool-timeout-ms` | 工具调用超时 |
 | `max-batch-create-size` | 批量创建上限 |
 | `access-record-max-page-size` | 访问明细最大分页 |
@@ -650,6 +659,7 @@ short-link:
     admin:
       remote-url: ${SHORTLINK_AGENT_REMOTE_URL:}
       internal-token: ${AGENT_INTERNAL_TOKEN:}
+      internal-token-dev-mode: ${AGENT_INTERNAL_TOKEN_DEV_MODE:false}
     security:
       internal-token: ${AGENT_INTERNAL_TOKEN:}
 ```
@@ -660,7 +670,7 @@ short-link:
 short-link.agent.admin.* 属于 admin 模块；
 short-link.agent.security.internal-token 属于 agent-service 模块；
 admin 与 agent-service 应使用同一个 AGENT_INTERNAL_TOKEN；
-token 为空时 agent-service 保留本地 Console 调试能力；
+token 为空时 agent-service 入站 internal API 保留本地 Console 调试能力；
 token 非空时 /internal/short-link-agent/v1/** 必须携带 X-Agent-Internal-Token。
 ```
 
@@ -676,3 +686,65 @@ Gateway 路由原则：
 ```
 
 该路由也可以并入现有 admin 路由。不得将 `/internal/short-link-agent/**` 加入公网 gateway 路由。
+
+---
+
+## 16. Admin Internal Tool API 配置
+
+本阶段新增 Agent 业务工具内部入口：
+
+```text
+GET /internal/short-link-admin/v1/agent-tools/groups
+GET /internal/short-link-admin/v1/agent-tools/short-links/page
+GET /internal/short-link-admin/v1/agent-tools/short-link/stats
+GET /internal/short-link-admin/v1/agent-tools/group/stats
+GET /internal/short-link-admin/v1/agent-tools/group/access-records
+```
+
+调用方向：
+
+```text
+agent-service Java Tool Facade -> admin internal tool API -> admin service/remote -> project
+```
+
+agent-service 出站业务配置：
+
+```yaml
+short-link:
+  agent:
+    business:
+      base-url: ${SHORT_LINK_BUSINESS_BASE_URL:http://127.0.0.1:8002}
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+```
+
+admin 入站 internal tool API 配置：
+
+```yaml
+short-link:
+  agent:
+    admin:
+      internal-token: ${AGENT_INTERNAL_TOKEN:}
+      internal-token-dev-mode: ${AGENT_INTERNAL_TOKEN_DEV_MODE:false}
+```
+
+内部请求头：
+
+```text
+X-Agent-Internal-Token
+X-Agent-Username
+X-Agent-UserId
+X-Agent-RealName
+```
+
+说明：
+
+```text
+short-link.agent.business.* 属于 agent-service 出站调用 admin 的业务网关配置；
+short-link.agent.admin.internal-token 属于 admin 入站 internal tool API 鉴权配置；
+agent-service 与 admin 应使用同一个 AGENT_INTERNAL_TOKEN；
+admin internal tool API 默认 fail closed；仅显式配置 internal-token-dev-mode=true 时允许本地空 token 调试；
+X-Agent-Username 必填，用于在 admin 内部工具接口中建立 UserContext；
+X-Agent-UserId、X-Agent-RealName 可选；
+page/stats/access-records 等带 gid 的工具接口必须在转发 project 前校验 gid 属于当前可信用户；
+不得将 /internal/short-link-admin/** 配置到公网 gateway 路由。
+```

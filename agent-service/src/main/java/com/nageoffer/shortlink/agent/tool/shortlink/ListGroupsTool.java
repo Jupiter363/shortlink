@@ -21,6 +21,6 @@ public class ListGroupsTool extends AbstractShortLinkBusinessTool {
 
     @Override
     public ToolResult execute(ToolContext context) {
-        return get("/api/short-link/admin/v1/group", context, Map.of());
+        return get("/internal/short-link-admin/v1/agent-tools/groups", context, Map.of());
     }
 }

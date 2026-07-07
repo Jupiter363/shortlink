@@ -133,7 +133,9 @@ public class AgentProperties {
 
     public static class Business {
 
-        private String baseUrl = "http://127.0.0.1:8003";
+        private String baseUrl = "http://127.0.0.1:8002";
+
+        private String internalToken = "";
 
         public String getBaseUrl() {
             return baseUrl;
@@ -141,6 +143,14 @@ public class AgentProperties {
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
+        }
+
+        public String getInternalToken() {
+            return internalToken;
+        }
+
+        public void setInternalToken(String internalToken) {
+            this.internalToken = internalToken;
         }
     }
 

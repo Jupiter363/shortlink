@@ -41,7 +41,7 @@ public class PageShortLinksTool extends AbstractShortLinkBusinessTool {
         putIfText(queryParams, "orderTag", arguments.get("orderTag"));
         queryParams.put("current", current);
         queryParams.put("size", size);
-        return get("/api/short-link/admin/v1/page", context, queryParams);
+        return get("/internal/short-link-admin/v1/agent-tools/short-links/page", context, queryParams);
     }
 
     private static Map<String, Object> schema() {
