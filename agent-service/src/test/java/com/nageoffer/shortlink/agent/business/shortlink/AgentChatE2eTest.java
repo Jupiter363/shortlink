@@ -1,6 +1,6 @@
 package com.nageoffer.shortlink.agent.business.shortlink;
 
-import com.nageoffer.shortlink.agent.agent.graph.DefaultCampaignAnalysisGraphExecutor;
+import com.nageoffer.shortlink.agent.campaignanalysisagent.graph.DefaultCampaignAnalysisGraphExecutor;
 import com.nageoffer.shortlink.agent.harness.api.AgentChatController;
 import com.nageoffer.shortlink.agent.harness.runtime.DefaultAgentRunHarness;
 import com.nageoffer.shortlink.agent.harness.security.InternalAgentApiFilter;
@@ -64,7 +64,12 @@ class AgentChatE2eTest {
                 ))
         );
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new AgentChatController(new DefaultAgentRunHarness(graphExecutor)))
+                .standaloneSetup(new AgentChatController(new DefaultAgentRunHarness(
+                        graphExecutor,
+                        request -> {
+                            throw new AssertionError("Default E2E chat should route to campaign analysis agent");
+                        }
+                )))
                 .addFilters(new InternalAgentApiFilter(properties))
                 .build();
         expectListGroups(adminServer);

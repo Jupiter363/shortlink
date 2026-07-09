@@ -1,4 +1,4 @@
-package com.nageoffer.shortlink.agent.agent.graph;
+package com.nageoffer.shortlink.agent.campaignanalysisagent.graph;
 
 import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
 

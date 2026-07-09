@@ -1,4 +1,4 @@
-package com.nageoffer.shortlink.agent.agent.graph;
+package com.nageoffer.shortlink.agent.campaignanalysisagent.graph;
 
 import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpoint;
@@ -30,13 +30,13 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",
                 "deepseek-v4-flash",
-                "已结合分组数据分析",
+                "campaign answer",
                 "stop",
                 new DeepSeekChatResponse.Usage(10, 20, 30)
         ));
         CapturingAgentTool listGroupsTool = new CapturingAgentTool(
                 "list_groups",
-                ToolResult.success(List.of(Map.of("gid", "g1", "name", "营销活动", "shortLinkCount", 3)))
+                ToolResult.success(List.of(Map.of("gid", "g1", "name", "Marketing", "shortLinkCount", 3)))
         );
         DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
                 chatClient,
@@ -48,7 +48,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
                 "session-1",
                 "zhangsan",
-                "查看我的短链分组",
+                "show groups",
                 "trace-1"
         ));
 
@@ -57,7 +57,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         assertThat(chatClient.request.messages().get(1).content())
                 .contains("Tool execution context")
                 .contains("list_groups")
-                .contains("营销活动");
+                .contains("Marketing");
         assertThat(result.dataSources().toString())
                 .contains("tool")
                 .contains("list_groups")
@@ -204,13 +204,13 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",
                 "deepseek-v4-flash",
-                "中文投放分析",
+                "涓枃鎶曟斁鍒嗘瀽",
                 "stop",
                 new DeepSeekChatResponse.Usage(10, 20, 30)
         ));
         CapturingAgentTool listGroupsTool = new CapturingAgentTool(
                 "list_groups",
-                ToolResult.success(List.of(Map.of("gid", "g1", "name", "营销活动", "shortLinkCount", 3)))
+                ToolResult.success(List.of(Map.of("gid", "g1", "name", "钀ラ攢娲诲姩", "shortLinkCount", 3)))
         );
         CapturingAgentTool pageTool = new CapturingAgentTool(
                 "page_short_links",
@@ -234,7 +234,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
                 "session-1",
                 "zhangsan",
-                "请列出我的分组，并分页查看短链接，查询 gid=Q70DpK 从 2024-01-01 到 2026-12-31 的投放表现、统计数据和访问记录，current=1 size=3",
+                "show groups and page short links and stats and access records gid=Q70DpK startDate=2024-01-01 endDate=2026-12-31 current=1 size=3",
                 "trace-1"
         ));
 
@@ -776,7 +776,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",
                 "deepseek-v4-flash",
-                "分析结果",
+                "plain answer",
                 "stop",
                 new DeepSeekChatResponse.Usage(10, 20, 30)
         ));
@@ -791,13 +791,13 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
                 "session-1",
                 "zhangsan",
-                "分析最近7天数据",
+                "plain user message",
                 "trace-1"
         ));
 
         assertThat(result.sessionId()).isEqualTo("session-1");
         assertThat(result.traceId()).isEqualTo("trace-1");
-        assertThat(result.answer()).isEqualTo("分析结果");
+        assertThat(result.answer()).isEqualTo("plain answer");
         assertThat(result.dataSources()).hasSize(2);
         assertThat(result.dataSources().get(0).toString()).contains("campaign-analysis-graph");
         assertThat(result.dataSources().get(0).toString()).contains("intake");
@@ -819,11 +819,11 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         assertThat(checkpointStore.saved.get(0).threadId()).isEqualTo("session-1");
         assertThat(checkpointStore.saved.get(0).traceId()).isEqualTo("trace-1");
         assertThat(checkpointStore.saved.get(0).graphName()).isEqualTo("campaign-analysis-graph");
-        assertThat(checkpointStore.saved.get(0).checkpointJson()).contains("\"answer\":\"分析结果\"");
+        assertThat(checkpointStore.saved.get(0).checkpointJson()).contains("\"answer\":\"plain answer\"");
         assertThat(chatClient.request.messages())
                 .extracting(DeepSeekChatRequest.Message::role)
                 .containsExactly("system", "user");
-        assertThat(chatClient.request.messages().get(1).content()).isEqualTo("分析最近7天数据");
+        assertThat(chatClient.request.messages().get(1).content()).isEqualTo("plain user message");
     }
 
     @Test
@@ -849,7 +849,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
                 "chat-1",
                 "deepseek-v4-flash",
-                "分析结果",
+                "plain answer",
                 "stop",
                 new DeepSeekChatResponse.Usage(10, 20, 30)
         ));
@@ -863,11 +863,11 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
                 "session-1",
                 "zhangsan",
-                "分析最近7天数据",
+                "plain user message",
                 "trace-1"
         ));
 
-        assertThat(result.answer()).isEqualTo("分析结果");
+        assertThat(result.answer()).isEqualTo("plain answer");
         assertThat(result.warnings()).contains("Graph checkpoint save failed");
         List<Map<String, Object>> traceEvents = traceEvents(result);
         assertThat(traceEvents)

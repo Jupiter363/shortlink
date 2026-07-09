@@ -44,7 +44,7 @@ class AgentControllerMvcTest {
                 "trusted-user",
                 "1001",
                 "Trusted Name",
-                request("session-1", "analyze campaign")
+                request("session-1", "security-risk", "analyze campaign")
         )).thenReturn(Results.success(Map.of("sessionId", "session-1")));
 
         mockMvc.perform(post("/api/short-link/admin/v1/agent/chat")
@@ -55,6 +55,7 @@ class AgentControllerMvcTest {
                         .content("""
                                 {
                                   "sessionId": "session-1",
+                                  "agentType": "security-risk",
                                   "username": "spoofed-user",
                                   "message": "analyze campaign"
                                 }
@@ -72,6 +73,7 @@ class AgentControllerMvcTest {
                 requestCaptor.capture()
         );
         assertThat(requestCaptor.getValue().getSessionId()).isEqualTo("session-1");
+        assertThat(requestCaptor.getValue().getAgentType()).isEqualTo("security-risk");
         assertThat(requestCaptor.getValue().getMessage()).isEqualTo("analyze campaign");
         assertThat(UserContext.getUsername()).isNull();
     }
@@ -103,9 +105,10 @@ class AgentControllerMvcTest {
                 .build();
     }
 
-    private AgentChatReqDTO request(String sessionId, String message) {
+    private AgentChatReqDTO request(String sessionId, String agentType, String message) {
         AgentChatReqDTO request = new AgentChatReqDTO();
         request.setSessionId(sessionId);
+        request.setAgentType(agentType);
         request.setMessage(message);
         return request;
     }

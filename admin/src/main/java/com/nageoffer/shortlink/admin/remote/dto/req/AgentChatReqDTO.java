@@ -7,5 +7,7 @@ public class AgentChatReqDTO {
 
     private String sessionId;
 
+    private String agentType;
+
     private String message;
 }

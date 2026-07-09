@@ -124,4 +124,23 @@ class AgentChatControllerTest {
 
         assertThat(capturedRequest.get().username()).isEqualTo("agent-console");
     }
+
+    @Test
+    void chatPassesAgentTypeToHarness() throws Exception {
+        String requestBody = """
+                {
+                  "sessionId": "session-1",
+                  "username": "agent-console",
+                  "agentType": "security-risk",
+                  "message": "analyze security risk"
+                }
+                """;
+
+        mockMvc.perform(post("/internal/short-link-agent/v1/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isOk());
+
+        assertThat(capturedRequest.get().agentType()).isEqualTo("security-risk");
+    }
 }

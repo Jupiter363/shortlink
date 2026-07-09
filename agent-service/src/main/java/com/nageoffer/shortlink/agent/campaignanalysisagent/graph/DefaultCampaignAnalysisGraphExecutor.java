@@ -1,4 +1,4 @@
-package com.nageoffer.shortlink.agent.agent.graph;
+package com.nageoffer.shortlink.agent.campaignanalysisagent.graph;
 
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.OverAllState;
@@ -420,7 +420,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         if (value == null) {
             return "";
         }
-        return value.trim().replaceAll("[.。!！?？]+$", "");
+        return value.trim().replaceAll("[.。；;]+$", "");
     }
 
     private boolean containsAny(String text, String... fragments) {

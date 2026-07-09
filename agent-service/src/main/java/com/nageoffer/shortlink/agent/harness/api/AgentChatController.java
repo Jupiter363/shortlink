@@ -26,12 +26,13 @@ public class AgentChatController {
         String username = StringUtils.hasText(trustedUsername) ? trustedUsername : request.username();
         AgentRunRequest runRequest = new AgentRunRequest(
                 request.sessionId(),
+                request.agentType(),
                 username,
                 request.message()
         );
         return Result.success(agentRunHarness.run(runRequest));
     }
 
-    public record AgentChatRequest(String sessionId, String username, String message) {
+    public record AgentChatRequest(String sessionId, String username, String agentType, String message) {
     }
 }

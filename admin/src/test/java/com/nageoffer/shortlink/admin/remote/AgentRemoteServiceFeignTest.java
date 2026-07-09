@@ -62,6 +62,7 @@ class AgentRemoteServiceFeignTest {
     void chatSendsInternalPathTrustedHeadersAndBodyToAgentService() {
         AgentChatReqDTO request = new AgentChatReqDTO();
         request.setSessionId("session-1");
+        request.setAgentType("security-risk");
         request.setMessage("analyze campaign");
 
         Result<Object> result = agentRemoteService.chat(
@@ -81,6 +82,7 @@ class AgentRemoteServiceFeignTest {
         assertThat(SERVER.lastRequest.header("X-Agent-RealName")).isEqualTo("Trusted Name");
         assertThat(SERVER.lastRequest.body())
                 .contains("\"sessionId\":\"session-1\"")
+                .contains("\"agentType\":\"security-risk\"")
                 .contains("\"message\":\"analyze campaign\"")
                 .doesNotContain("username");
     }
