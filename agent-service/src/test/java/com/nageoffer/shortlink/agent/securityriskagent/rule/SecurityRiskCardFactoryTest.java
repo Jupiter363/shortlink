@@ -1,4 +1,4 @@
-package com.nageoffer.shortlink.agent.securityriskagent.graph;
+package com.nageoffer.shortlink.agent.securityriskagent.rule;
 
 import org.junit.jupiter.api.Test;
 
@@ -97,6 +97,33 @@ class SecurityRiskCardFactoryTest {
                 .doesNotContain("10.0.0.9")
                 .doesNotContain("visitor-001")
                 .doesNotContain("visitor-002");
+    }
+
+    @Test
+    void sanitizeForPromptUsesSharedSafetyRulesForIdentityAndSecrets() {
+        Object sanitized = factory.sanitizeForPrompt(Map.of(
+                "username", "admin",
+                "uid", "u-001",
+                "token", "internal-token",
+                "password", "db-password",
+                "message", "token=abc password:secret jdbc:mysql://127.0.0.1:3306/shortlink?user=root"
+        ));
+
+        String text = sanitized.toString();
+
+        assertThat(text)
+                .contains("token=***")
+                .contains("password:***")
+                .contains("jdbc:***")
+                .doesNotContain("admin")
+                .doesNotContain("u-001")
+                .doesNotContain("internal-token")
+                .doesNotContain("db-password")
+                .doesNotContain("abc")
+                .doesNotContain("secret")
+                .doesNotContain("127.0.0.1")
+                .doesNotContain("shortlink")
+                .doesNotContain("root");
     }
 
     @Test

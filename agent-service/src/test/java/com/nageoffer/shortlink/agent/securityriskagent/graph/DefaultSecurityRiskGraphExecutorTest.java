@@ -206,6 +206,79 @@ class DefaultSecurityRiskGraphExecutorTest {
         assertThat(result.pendingActions()).isEmpty();
     }
 
+    @Test
+    void executeKeepsResultAndReturnsSafeWarningWhenCheckpointSaveFails() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient();
+        CapturingAgentTool statsTool = new CapturingAgentTool(
+                "get_group_stats",
+                ToolResult.success(Map.of(
+                        "pv", 100,
+                        "uv", 80,
+                        "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 45))
+                ))
+        );
+        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+                chatClient,
+                new ThrowingGraphCheckpointStore("checkpoint failed ip=192.168.1.10 user=visitor-001 token=abc"),
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(statsTool))
+        );
+
+        AgentRunResult result = executor.execute(new SecurityRiskGraphRequest(
+                "session-5",
+                "zhangsan",
+                "check gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "trace-5"
+        ));
+
+        assertThat(result.answer()).isEqualTo("security risk answer");
+        assertThat(result.cards().toString()).contains("top_ip_concentration");
+        assertThat(result.warnings()).contains("Graph checkpoint save failed");
+        assertThat(result.traceEvents().toString())
+                .contains("checkpoint_save")
+                .contains("failed")
+                .contains("Graph checkpoint save failed")
+                .doesNotContain("192.168.1.10")
+                .doesNotContain("visitor-001")
+                .doesNotContain("abc");
+    }
+
+    @Test
+    void executeReturnsSafeFallbackWhenGraphNodeFails() {
+        LlmChatClient throwingChatClient = request -> {
+            throw new IllegalStateException("llm crashed ip=192.168.1.10 user=visitor-001 token=abc");
+        };
+        CapturingGraphCheckpointStore checkpointStore = new CapturingGraphCheckpointStore();
+        CapturingAgentTool statsTool = new CapturingAgentTool(
+                "get_group_stats",
+                ToolResult.success(Map.of("pv", 10, "uv", 10, "topIpStats", List.of()))
+        );
+        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+                throwingChatClient,
+                checkpointStore,
+                new AgentProperties(),
+                new AgentToolRegistry(List.of(statsTool))
+        );
+
+        AgentRunResult result = executor.execute(new SecurityRiskGraphRequest(
+                "session-6",
+                "zhangsan",
+                "check gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "trace-6"
+        ));
+
+        assertThat(result.answer()).isEqualTo("Security risk graph failed.");
+        assertThat(result.cards()).isEmpty();
+        assertThat(result.warnings()).containsExactly("Graph execution failed");
+        assertThat(result.traceEvents().toString())
+                .contains("graph_execution")
+                .contains("failed")
+                .doesNotContain("192.168.1.10")
+                .doesNotContain("visitor-001")
+                .doesNotContain("abc");
+        assertThat(checkpointStore.saved).isEmpty();
+    }
+
     private static class CapturingLlmChatClient implements LlmChatClient {
 
         private DeepSeekChatRequest request;
@@ -240,6 +313,25 @@ class DefaultSecurityRiskGraphExecutorTest {
         @Override
         public void save(GraphCheckpoint checkpoint) {
             saved.add(checkpoint);
+        }
+
+        @Override
+        public Optional<GraphCheckpoint> loadLatest(String threadId, String graphName, String graphVersion) {
+            return Optional.empty();
+        }
+    }
+
+    private static class ThrowingGraphCheckpointStore implements GraphCheckpointStore {
+
+        private final String message;
+
+        private ThrowingGraphCheckpointStore(String message) {
+            this.message = message;
+        }
+
+        @Override
+        public void save(GraphCheckpoint checkpoint) {
+            throw new IllegalStateException(message);
         }
 
         @Override
