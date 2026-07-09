@@ -3,7 +3,11 @@ package com.nageoffer.shortlink.agent.riskprofile;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.riskprofile.detector.ShortLinkRiskDetector;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
+import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
+import com.nageoffer.shortlink.agent.riskprofile.model.RiskTrendPoint;
+import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
+import com.nageoffer.shortlink.agent.riskprofile.service.GroupRiskProfileAggregator;
 import com.nageoffer.shortlink.agent.riskprofile.service.RiskProfileBatchResult;
 import com.nageoffer.shortlink.agent.riskprofile.service.RiskProfileBatchService;
 import com.nageoffer.shortlink.agent.riskprofile.service.ShortLinkRiskProfileService;
@@ -15,17 +19,19 @@ import org.mockito.ArgumentCaptor;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class RiskProfileBatchServiceTest {
 
@@ -53,6 +59,8 @@ class RiskProfileBatchServiceTest {
                 window(1800, 1500, 1200, null, null, null, null, null, null, null)
         ));
         JdbcShortLinkRiskProfileRepository repository = mock(JdbcShortLinkRiskProfileRepository.class);
+        JdbcGroupRiskProfileRepository groupRepository = mock(JdbcGroupRiskProfileRepository.class);
+        when(groupRepository.findTrend7d("gid-001", LocalDate.of(2026, 7, 10))).thenReturn(trend7d());
         ShortLinkRiskProfileService profileService = new ShortLinkRiskProfileService(
                 sourceGateway,
                 repository,
@@ -61,7 +69,13 @@ class RiskProfileBatchServiceTest {
         AgentProperties properties = new AgentProperties();
         properties.getRisk().getProfile().setActiveScanDays(7);
         properties.getRisk().getProfile().setTopCandidateSize(10);
-        RiskProfileBatchService batchService = new RiskProfileBatchService(sourceGateway, profileService, properties);
+        RiskProfileBatchService batchService = new RiskProfileBatchService(
+                sourceGateway,
+                profileService,
+                groupRepository,
+                new GroupRiskProfileAggregator(),
+                properties
+        );
 
         RiskProfileBatchResult result = batchService.runOnce(BATCH_NOW);
 
@@ -95,6 +109,13 @@ class RiskProfileBatchServiceTest {
                     assertThat(profile.metrics().pv7d()).isEqualTo(2100);
                     assertThat(profile.riskScore()).isGreaterThanOrEqualTo(80);
                 });
+
+        ArgumentCaptor<GroupRiskProfile> groupProfileCaptor = ArgumentCaptor.forClass(GroupRiskProfile.class);
+        verify(groupRepository).findTrend7d("gid-001", LocalDate.of(2026, 7, 10));
+        verify(groupRepository).save(groupProfileCaptor.capture());
+        assertThat(groupProfileCaptor.getValue().totalShortLinksScanned()).isEqualTo(3);
+        assertThat(groupProfileCaptor.getValue().topRiskShortLinks()).hasSize(3);
+        assertThat(groupProfileCaptor.getValue().riskTrend7d()).hasSize(7);
     }
 
     private ShortLinkActiveCandidate candidate(String shortUri) {
@@ -125,6 +146,13 @@ class RiskProfileBatchServiceTest {
                 peakHourShare,
                 repeatVisitRatio
         );
+    }
+
+    private List<RiskTrendPoint> trend7d() {
+        LocalDate start = LocalDate.of(2026, 7, 4);
+        return java.util.stream.IntStream.range(0, 7)
+                .mapToObj(index -> new RiskTrendPoint(start.plusDays(index), 40 + index, null))
+                .toList();
     }
 
     private record WindowFixture(
