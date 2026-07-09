@@ -143,19 +143,22 @@
             line-height: 1.5;
         }
 
-        input {
+        input,
+        select {
             display: block;
             width: 100%;
             min-height: 40px;
             border: 1px solid var(--line);
             border-radius: 6px;
             padding: 0 12px;
+            background: #fff;
             color: var(--text);
             font: inherit;
         }
 
         textarea:focus,
         input:focus,
+        select:focus,
         button:focus-visible,
         details:focus-visible {
             outline: 3px solid rgba(31, 111, 235, 0.18);
@@ -619,6 +622,13 @@
                             <label for="usernameInput">Username</label>
                             <input id="usernameInput" name="username" autocomplete="username" placeholder="agent-console">
                         </div>
+                        <div>
+                            <label for="agentTypeInput">Agent</label>
+                            <select id="agentTypeInput" name="agentType">
+                                <option value="campaign-analysis">Campaign Analysis</option>
+                                <option value="security-risk">Security Risk</option>
+                            </select>
+                        </div>
                     </div>
                     <label for="internalTokenInput">Internal token</label>
                     <input id="internalTokenInput" name="internalToken" type="password" autocomplete="off">
@@ -725,6 +735,7 @@
         var chatEndpoint = "/internal/short-link-agent/v1/chat";
         var sessionKey = "shortLinkAgentConsoleSessionId";
         var usernameKey = "shortLinkAgentConsoleUsername";
+        var agentTypeKey = "shortLinkAgentConsoleAgentType";
         var internalTokenKey = "shortLinkAgentConsoleInternalToken";
 
         var healthDot = document.getElementById("healthDot");
@@ -734,6 +745,7 @@
         var chatForm = document.getElementById("chatForm");
         var sessionInput = document.getElementById("sessionInput");
         var usernameInput = document.getElementById("usernameInput");
+        var agentTypeInput = document.getElementById("agentTypeInput");
         var internalTokenInput = document.getElementById("internalTokenInput");
         var messageInput = document.getElementById("messageInput");
         var dashboardStatus = document.getElementById("dashboardStatus");
@@ -791,6 +803,7 @@
         function setupContextInputs() {
             sessionInput.value = window.localStorage.getItem(sessionKey) || createSessionId();
             usernameInput.value = window.sessionStorage.getItem(usernameKey) || "agent-console";
+            agentTypeInput.value = window.sessionStorage.getItem(agentTypeKey) || "campaign-analysis";
             internalTokenInput.value = window.sessionStorage.getItem(internalTokenKey) || "";
         }
 
@@ -808,6 +821,13 @@
             var value = usernameInput.value.trim() || "agent-console";
             usernameInput.value = value;
             window.sessionStorage.setItem(usernameKey, value);
+            return value;
+        }
+
+        function agentType() {
+            var value = agentTypeInput.value || "campaign-analysis";
+            agentTypeInput.value = value;
+            window.sessionStorage.setItem(agentTypeKey, value);
             return value;
         }
 
@@ -841,6 +861,7 @@
         function persistContextInputs() {
             sessionId();
             username();
+            agentType();
             internalToken();
         }
 
@@ -1238,6 +1259,7 @@
                     headers: buildHeaders({"Content-Type": "application/json"}),
                     body: JSON.stringify({
                         sessionId: sessionId(),
+                        agentType: agentType(),
                         username: username(),
                         message: message
                     })
@@ -1253,6 +1275,7 @@
         sessionInput.addEventListener("blur", resetSessionIfBlank);
         sessionInput.addEventListener("change", persistContextInputs);
         usernameInput.addEventListener("change", persistContextInputs);
+        agentTypeInput.addEventListener("change", persistContextInputs);
         internalTokenInput.addEventListener("change", persistContextInputs);
         healthButton.addEventListener("click", checkHealth);
         chatForm.addEventListener("submit", sendMessage);
