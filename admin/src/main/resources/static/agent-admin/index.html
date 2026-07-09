@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Short Link Agent</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4f6f8;
+            --panel: #ffffff;
+            --soft: #f8fafc;
+            --text: #172033;
+            --muted: #667085;
+            --line: #d8dee8;
+            --accent: #1f6feb;
+            --accent-dark: #1959bd;
+            --ok: #16803c;
+            --warn: #b15c00;
+            --error: #b42318;
+            --info: #087e8b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(1280px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 24px 0;
+        }
+
+        header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin: 0;
+            letter-spacing: 0;
+        }
+
+        h1 {
+            font-size: 28px;
+            line-height: 1.2;
+        }
+
+        h2 {
+            font-size: 18px;
+            line-height: 1.3;
+        }
+
+        h3 {
+            font-size: 14px;
+            line-height: 1.3;
+        }
+
+        .status {
+            min-height: 36px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 8px 10px;
+            background: var(--panel);
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .status.ok {
+            border-color: #9bd5ad;
+            color: var(--ok);
+        }
+
+        .status.error {
+            border-color: #f3aca6;
+            color: var(--error);
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        section,
+        .panel,
+        .card {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+        }
+
+        section,
+        .panel {
+            padding: 18px;
+        }
+
+        .controls {
+            position: sticky;
+            top: 16px;
+            display: grid;
+            gap: 14px;
+        }
+
+        label {
+            display: block;
+            margin: 12px 0 7px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input,
+        select,
+        textarea {
+            display: block;
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text);
+            font: inherit;
+        }
+
+        input,
+        select {
+            min-height: 40px;
+            padding: 0 11px;
+        }
+
+        textarea {
+            min-height: 220px;
+            resize: vertical;
+            padding: 12px;
+            line-height: 1.5;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus,
+        button:focus-visible {
+            outline: 3px solid rgba(31, 111, 235, 0.18);
+            outline-offset: 2px;
+            border-color: var(--accent);
+        }
+
+        .field-grid,
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        button {
+            min-height: 40px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 0 14px;
+            background: #ffffff;
+            color: var(--text);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+
+        button.primary {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        button:hover {
+            border-color: var(--accent);
+        }
+
+        button.primary:hover {
+            background: var(--accent-dark);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        .compact {
+            min-height: 32px;
+            padding: 0 10px;
+            font-size: 13px;
+        }
+
+        .dashboard {
+            display: grid;
+            gap: 14px;
+        }
+
+        .meta {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 13px;
+            word-break: break-word;
+        }
+
+        .answer {
+            min-height: 64px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.65;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .card {
+            display: grid;
+            gap: 10px;
+            padding: 14px;
+            min-height: 120px;
+        }
+
+        .badge {
+            display: inline-flex;
+            width: fit-content;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 3px 8px;
+            background: var(--soft);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge.warning {
+            border-color: #f1c27d;
+            background: #fff8ed;
+            color: var(--warn);
+        }
+
+        .badge.error {
+            border-color: #f3aca6;
+            background: #fff1f0;
+            color: var(--error);
+        }
+
+        .badge.info {
+            border-color: #a8dce1;
+            background: #eefafb;
+            color: var(--info);
+        }
+
+        .list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .empty {
+            border: 1px dashed var(--line);
+            border-radius: 8px;
+            padding: 14px;
+            background: var(--soft);
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        pre {
+            min-height: 120px;
+            max-height: 360px;
+            overflow: auto;
+            margin: 0;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 12px;
+            background: #111827;
+            color: #e5e7eb;
+            font: 13px/1.5 Consolas, Monaco, "Courier New", monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        @media (max-width: 980px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                position: static;
+            }
+        }
+
+        @media (max-width: 680px) {
+            main {
+                width: min(100% - 24px, 1280px);
+                padding: 18px 0;
+            }
+
+            header {
+                display: grid;
+            }
+
+            .field-grid,
+            .preset-grid,
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <h1>Short Link Agent</h1>
+            <p id="sessionMeta" class="meta">Session: -</p>
+        </div>
+        <div id="authStatus" class="status">Checking sign-in state...</div>
+    </header>
+
+    <div class="workspace">
+        <section class="controls">
+            <h2>Agent Chat</h2>
+            <form id="chatForm">
+                <div class="field-grid">
+                    <div>
+                        <label for="sessionInput">Session</label>
+                        <input id="sessionInput" autocomplete="off">
+                    </div>
+                    <div>
+                        <label for="agentTypeInput">Agent</label>
+                        <select id="agentTypeInput">
+                            <option value="campaign-analysis">Campaign Analysis</option>
+                            <option value="security-risk">Security Risk</option>
+                        </select>
+                    </div>
+                </div>
+                <label>Preset prompts</label>
+                <div class="preset-grid">
+                    <button class="compact" type="button" data-agent-type="campaign-analysis"
+                            data-prompt="Analyze gid default from 2026-07-01 to 2026-07-07">Campaign 7d</button>
+                    <button class="compact" type="button" data-agent-type="campaign-analysis"
+                            data-prompt="Explain traffic anomaly for gid default from 2026-07-01 to 2026-07-07">Campaign anomaly</button>
+                    <button class="compact" type="button" data-agent-type="security-risk"
+                            data-prompt="Diagnose security risk for gid default in the last 24 hours">Risk 24h</button>
+                    <button class="compact" type="button" data-agent-type="security-risk"
+                            data-prompt="Check access risk for short link https://short.link/demo">Risk link</button>
+                </div>
+                <label for="messageInput">Message</label>
+                <textarea id="messageInput" required placeholder="Analyze gid default from 2026-07-01 to 2026-07-07"></textarea>
+                <div class="actions">
+                    <button id="healthButton" type="button">Check health</button>
+                    <button id="sendButton" class="primary" type="submit">Send</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="dashboard">
+            <div class="panel">
+                <h2>Answer</h2>
+                <p id="answerOutput" class="answer">Ready.</p>
+                <p id="traceOutput" class="meta">Trace ID: -</p>
+            </div>
+
+            <div id="cardsOutput" class="grid">
+                <div class="empty">No cards.</div>
+            </div>
+
+            <div class="panel">
+                <h2>Pending Actions</h2>
+                <div id="pendingActionsOutput" class="list">
+                    <div class="empty">No pending actions.</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Graph Trace</h2>
+                <div id="traceEventsOutput" class="list">
+                    <div class="empty">No trace events.</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Data Sources</h2>
+                <pre id="dataSourcesOutput">-</pre>
+            </div>
+
+            <div class="panel">
+                <h2>Full Response</h2>
+                <pre id="fullResponseOutput">Ready.</pre>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+    (function () {
+        var healthEndpoint = "/api/short-link/admin/v1/agent/health";
+        var chatEndpoint = "/api/short-link/admin/v1/agent/chat";
+        var sessionKey = "shortLinkAdminAgentSessionId";
+
+        var authStatus = document.getElementById("authStatus");
+        var chatForm = document.getElementById("chatForm");
+        var sessionInput = document.getElementById("sessionInput");
+        var agentTypeInput = document.getElementById("agentTypeInput");
+        var messageInput = document.getElementById("messageInput");
+        var healthButton = document.getElementById("healthButton");
+        var sendButton = document.getElementById("sendButton");
+        var sessionMeta = document.getElementById("sessionMeta");
+        var answerOutput = document.getElementById("answerOutput");
+        var traceOutput = document.getElementById("traceOutput");
+        var cardsOutput = document.getElementById("cardsOutput");
+        var pendingActionsOutput = document.getElementById("pendingActionsOutput");
+        var traceEventsOutput = document.getElementById("traceEventsOutput");
+        var dataSourcesOutput = document.getElementById("dataSourcesOutput");
+        var fullResponseOutput = document.getElementById("fullResponseOutput");
+        var presetButtons = document.querySelectorAll("[data-prompt][data-agent-type]");
+
+        function createSessionId() {
+            return "admin-agent-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+        }
+
+        function setupSession() {
+            sessionInput.value = window.localStorage.getItem(sessionKey) || createSessionId();
+            persistSession();
+        }
+
+        function sessionId() {
+            var value = sessionInput.value.trim();
+            if (!value) {
+                value = createSessionId();
+                sessionInput.value = value;
+            }
+            window.localStorage.setItem(sessionKey, value);
+            return value;
+        }
+
+        function persistSession() {
+            sessionMeta.textContent = "Session: " + sessionId();
+        }
+
+        function agentType() {
+            return agentTypeInput.value || "campaign-analysis";
+        }
+
+        function authHeaders(headers) {
+            headers = headers || {};
+            var token = window.localStorage.getItem("token") || "";
+            var username = window.localStorage.getItem("username") || "";
+            if (token) {
+                headers["Token"] = token;
+            }
+            if (username) {
+                headers["Username"] = username;
+            }
+            return headers;
+        }
+
+        function refreshAuthStatus() {
+            var token = window.localStorage.getItem("token") || "";
+            var username = window.localStorage.getItem("username") || "";
+            if (token && username) {
+                authStatus.className = "status ok";
+                authStatus.textContent = "Signed in as " + username;
+                return true;
+            }
+            authStatus.className = "status error";
+            authStatus.textContent = "Sign in required.";
+            return false;
+        }
+
+        function clear(node) {
+            while (node.firstChild) {
+                node.removeChild(node.firstChild);
+            }
+        }
+
+        function el(tagName, className, text) {
+            var node = document.createElement(tagName);
+            if (className) {
+                node.className = className;
+            }
+            if (text !== undefined && text !== null) {
+                node.textContent = String(text);
+            }
+            return node;
+        }
+
+        function isObject(value) {
+            return value !== null && typeof value === "object" && !Array.isArray(value);
+        }
+
+        function asArray(value) {
+            return Array.isArray(value) ? value : [];
+        }
+
+        function asObject(value) {
+            return isObject(value) ? value : {};
+        }
+
+        function formatValue(value) {
+            if (value === undefined || value === null || value === "") {
+                return "-";
+            }
+            if (typeof value === "object") {
+                return JSON.stringify(value, null, 2);
+            }
+            return String(value);
+        }
+
+        function prettyKey(key) {
+            return String(key)
+                    .replace(/([A-Z])/g, " $1")
+                    .replace(/_/g, " ")
+                    .replace(/^./, function (value) {
+                        return value.toUpperCase();
+                    });
+        }
+
+        function severityClass(value) {
+            var normalized = String(value || "").toLowerCase();
+            if (normalized === "warning" || normalized === "error" || normalized === "info") {
+                return normalized;
+            }
+            return "";
+        }
+
+        function renderKeyValues(parent, map) {
+            var source = asObject(map);
+            Object.keys(source).slice(0, 8).forEach(function (key) {
+                parent.appendChild(el("p", "meta", prettyKey(key) + ": " + formatValue(source[key])));
+            });
+        }
+
+        function renderCards(cards) {
+            clear(cardsOutput);
+            var items = asArray(cards).filter(isObject);
+            if (!items.length) {
+                cardsOutput.appendChild(el("div", "empty", "No cards."));
+                return;
+            }
+            items.forEach(function (card) {
+                var node = el("article", "card");
+                node.appendChild(el("span", "badge " + severityClass(card.severity || card.riskLevel), card.type || card.riskLevel || "card"));
+                node.appendChild(el("h3", "", card.title || prettyKey(card.type || "Insight")));
+                if (card.message) {
+                    node.appendChild(el("p", "meta", card.message));
+                }
+                renderKeyValues(node, card.metrics);
+                renderKeyValues(node, card.summary);
+                renderKeyValues(node, card.evidence);
+                cardsOutput.appendChild(node);
+            });
+        }
+
+        function renderPendingActions(pendingActions) {
+            clear(pendingActionsOutput);
+            var items = asArray(pendingActions).filter(isObject);
+            if (!items.length) {
+                pendingActionsOutput.appendChild(el("div", "empty", "No pending actions."));
+                return;
+            }
+            items.forEach(function (action) {
+                var node = el("article", "card");
+                node.appendChild(el("span", "badge warning", action.type || "pending"));
+                node.appendChild(el("h3", "", action.title || action.actionName || "Pending action"));
+                if (action.description || action.message) {
+                    node.appendChild(el("p", "meta", action.description || action.message));
+                }
+                renderKeyValues(node, action.arguments);
+                pendingActionsOutput.appendChild(node);
+            });
+        }
+
+        function renderTraceEvents(traceEvents) {
+            clear(traceEventsOutput);
+            var items = asArray(traceEvents).filter(isObject);
+            if (!items.length) {
+                traceEventsOutput.appendChild(el("div", "empty", "No trace events."));
+                return;
+            }
+            items.forEach(function (event) {
+                var node = el("article", "card");
+                node.appendChild(el("span", "badge " + severityClass(event.status), event.status || "unknown"));
+                node.appendChild(el("h3", "", event.nodeName || "graph_node"));
+                renderKeyValues(node, event.timing);
+                if (event.error) {
+                    node.appendChild(el("p", "meta", event.error));
+                }
+                traceEventsOutput.appendChild(node);
+            });
+        }
+
+        function renderDataSources(dataSources) {
+            dataSourcesOutput.textContent = formatValue(dataSources);
+        }
+
+        function showPayload(payload, fullValue) {
+            var data = asObject(payload);
+            answerOutput.textContent = formatValue(data.answer);
+            traceOutput.textContent = "Trace ID: " + formatValue(data.traceId);
+            renderCards(data.cards);
+            renderPendingActions(data.pendingActions);
+            renderTraceEvents(data.traceEvents);
+            renderDataSources(data.dataSources);
+            fullResponseOutput.textContent = typeof fullValue === "string" ? fullValue : JSON.stringify(fullValue, null, 2);
+        }
+
+        function showResult(value) {
+            var data = value && typeof value === "object" && value.data ? value.data : value;
+            showPayload(data, value);
+        }
+
+        function showError(error) {
+            showPayload({
+                answer: "Request failed.",
+                traceId: "",
+                cards: [],
+                pendingActions: [],
+                traceEvents: [],
+                dataSources: [],
+                warnings: [error.message]
+            }, {error: error.message});
+        }
+
+        async function requestJson(url, options) {
+            var response = await fetch(url, options);
+            var contentType = response.headers.get("content-type") || "";
+            var body = contentType.indexOf("application/json") >= 0
+                    ? await response.json()
+                    : await response.text();
+            if (!response.ok) {
+                throw new Error(typeof body === "string" ? body : JSON.stringify(body));
+            }
+            return body;
+        }
+
+        async function checkHealth() {
+            refreshAuthStatus();
+            healthButton.disabled = true;
+            try {
+                var result = await requestJson(healthEndpoint, {
+                    method: "GET",
+                    headers: authHeaders()
+                });
+                authStatus.className = "status ok";
+                authStatus.textContent = "Agent health OK.";
+                fullResponseOutput.textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                authStatus.className = "status error";
+                authStatus.textContent = "Agent health failed.";
+                showError(error);
+            } finally {
+                healthButton.disabled = false;
+            }
+        }
+
+        async function sendMessage(event) {
+            event.preventDefault();
+            var message = messageInput.value.trim();
+            if (!message) {
+                messageInput.focus();
+                return;
+            }
+            refreshAuthStatus();
+            persistSession();
+            sendButton.disabled = true;
+            answerOutput.textContent = "Waiting for agent response...";
+            try {
+                var result = await requestJson(chatEndpoint, {
+                    method: "POST",
+                    headers: authHeaders({"Content-Type": "application/json"}),
+                    body: JSON.stringify({
+                        sessionId: sessionId(),
+                        agentType: agentType(),
+                        message: message
+                    })
+                });
+                showResult(result);
+            } catch (error) {
+                showError(error);
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        function applyPreset(event) {
+            var button = event.currentTarget;
+            agentTypeInput.value = button.getAttribute("data-agent-type") || "campaign-analysis";
+            messageInput.value = button.getAttribute("data-prompt") || "";
+            messageInput.focus();
+        }
+
+        Array.prototype.forEach.call(presetButtons, function (button) {
+            button.addEventListener("click", applyPreset);
+        });
+        sessionInput.addEventListener("change", persistSession);
+        healthButton.addEventListener("click", checkHealth);
+        chatForm.addEventListener("submit", sendMessage);
+        setupSession();
+        refreshAuthStatus();
+    }());
+</script>
+</body>
+</html>
