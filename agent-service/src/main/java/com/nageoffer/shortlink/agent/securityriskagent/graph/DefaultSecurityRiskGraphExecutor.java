@@ -159,7 +159,9 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         long startEpochMs = System.currentTimeMillis();
         try {
             Optional<Long> checkpointVersion = saveCheckpoint(request, state, result);
-            return withTraceEvent(result, traceEvent(request.traceId(), CHECKPOINT_SAVE_NODE, "success", startEpochMs, null));
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            checkpointVersion.ifPresent(version -> metadata.put("checkpointVersion", version));
+            return withTraceEvent(result, traceEvent(request.traceId(), CHECKPOINT_SAVE_NODE, "success", startEpochMs, null, metadata));
         } catch (Exception ex) {
             List<String> warnings = new ArrayList<>(result.warnings());
             warnings.add("Graph checkpoint save failed");
@@ -205,6 +207,7 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         checkpoint.put("warnings", sanitizeForResponse(result.warnings()));
         checkpoint.put("cards", sanitizeForResponse(result.cards()));
         checkpoint.put("toolExecutions", sanitizeForResponse(state.value("toolExecutions", List.of())));
+        checkpoint.put("traceEvents", sanitizeForResponse(result.traceEvents()));
         try {
             return OBJECT_MAPPER.writeValueAsString(checkpoint);
         } catch (JsonProcessingException ex) {
@@ -237,6 +240,17 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
     }
 
     private Map<String, Object> traceEvent(String traceId, String nodeName, String status, long startEpochMs, String error) {
+        return traceEvent(traceId, nodeName, status, startEpochMs, error, Map.of());
+    }
+
+    private Map<String, Object> traceEvent(
+            String traceId,
+            String nodeName,
+            String status,
+            long startEpochMs,
+            String error,
+            Map<String, Object> metadata
+    ) {
         long endEpochMs = System.currentTimeMillis();
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("traceId", traceId);
@@ -250,6 +264,7 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         if (error != null && !error.isBlank()) {
             event.put("error", error);
         }
+        event.putAll(metadata);
         return event;
     }
 

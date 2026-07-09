@@ -9,6 +9,7 @@ import com.nageoffer.shortlink.agent.infrastructure.llm.DeepSeekChatRequest;
 import com.nageoffer.shortlink.agent.infrastructure.llm.DeepSeekChatResponse;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmChatClient;
 import com.nageoffer.shortlink.agent.infrastructure.persistence.JdbcGraphCheckpointStore;
+import com.nageoffer.shortlink.agent.securityriskagent.graph.DefaultSecurityRiskGraphExecutor;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import com.nageoffer.shortlink.agent.tool.shortlink.GetGroupAccessRecordsTool;
 import com.nageoffer.shortlink.agent.tool.shortlink.GetGroupStatsTool;
@@ -124,6 +125,90 @@ class AgentChatE2eTest {
                 .doesNotContain("127.0.0.1")
                 .doesNotContain("visitor-001");
         assertCheckpoint(jdbcTemplate);
+        adminServer.verify();
+    }
+
+    @Test
+    void chatRoutesSecurityRiskAgentThroughAdminInternalApiAndCheckpointEndToEnd() throws Exception {
+        AgentProperties properties = agentProperties();
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer adminServer = MockRestServiceServer.createServer(restTemplate);
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(h2DataSource());
+        JdbcGraphCheckpointStore checkpointStore = new JdbcGraphCheckpointStore(jdbcTemplate);
+        CapturingLlmChatClient llmChatClient = new CapturingLlmChatClient("E2E security risk answer");
+        ShortLinkBusinessHttpGateway businessGateway = new ShortLinkBusinessHttpGateway(properties, restTemplate);
+        DefaultSecurityRiskGraphExecutor securityRiskGraphExecutor = new DefaultSecurityRiskGraphExecutor(
+                llmChatClient,
+                checkpointStore,
+                properties,
+                new AgentToolRegistry(List.of(
+                        new GetGroupStatsTool(businessGateway),
+                        new GetGroupAccessRecordsTool(businessGateway)
+                ))
+        );
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new AgentChatController(new DefaultAgentRunHarness(
+                        request -> {
+                            throw new AssertionError("security-risk E2E chat should not route to campaign analysis agent");
+                        },
+                        securityRiskGraphExecutor
+                )))
+                .addFilters(new InternalAgentApiFilter(properties))
+                .build();
+        expectSecurityGroupStats(adminServer);
+        expectSecurityGroupAccessRecords(adminServer);
+
+        MvcResult mvcResult = mockMvc.perform(post("/internal/short-link-agent/v1/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Agent-Internal-Token", "internal-token")
+                        .header("X-Agent-Username", "trusted-user")
+                        .content("""
+                                {
+                                  "sessionId": "e2e-security-session-1",
+                                  "agentType": "security-risk",
+                                  "username": "spoofed-user",
+                                  "message": "analyze security risk gid=g1 startDate=2026-07-01 endDate=2026-07-07 access records current=1 size=10"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.sessionId").value("e2e-security-session-1"))
+                .andExpect(jsonPath("$.data.answer").value("E2E security risk answer"))
+                .andExpect(jsonPath("$.data.toolCalls[0].name").value("get_group_stats"))
+                .andExpect(jsonPath("$.data.toolCalls[1].name").value("get_group_access_records"))
+                .andExpect(jsonPath("$.data.cards[0].type").value("risk_signal"))
+                .andExpect(jsonPath("$.data.cards[0].summary.reasonCode").value("top_ip_concentration"))
+                .andExpect(jsonPath("$.data.pendingActions[0].type").value("review_security_risk"))
+                .andExpect(jsonPath("$.data.dataSources[0].name").value("security-risk-graph"))
+                .andExpect(jsonPath("$.data.dataSources[2].type").value("tool"))
+                .andExpect(jsonPath("$.data.traceEvents[0].nodeName").value("intake"))
+                .andExpect(jsonPath("$.data.traceEvents[1].nodeName").value("risk_tool_planning"))
+                .andExpect(jsonPath("$.data.traceEvents[2].nodeName").value("risk_scoring"))
+                .andExpect(jsonPath("$.data.traceEvents[3].nodeName").value("llm_explanation"))
+                .andExpect(jsonPath("$.data.traceEvents[4].nodeName").value("response_compose"))
+                .andExpect(jsonPath("$.data.traceEvents[5].nodeName").value("checkpoint_save"))
+                .andExpect(jsonPath("$.data.traceEvents[5].status").value("success"))
+                .andExpect(jsonPath("$.data.traceEvents[5].checkpointVersion").exists())
+                .andReturn();
+
+        String responseJson = mvcResult.getResponse().getContentAsString();
+        assertThat(responseJson)
+                .contains("192.168.*.*")
+                .doesNotContain("192.168.1.10")
+                .doesNotContain("visitor-001")
+                .doesNotContain("spoofed-user");
+        assertThat(llmChatClient.request.messages().get(1).content())
+                .contains("Risk signal context")
+                .contains("192.168.*.*")
+                .doesNotContain("192.168.1.10")
+                .doesNotContain("visitor-001");
+        assertCheckpoint(
+                jdbcTemplate,
+                "e2e-security-session-1",
+                "security-risk-graph",
+                "get_group_stats",
+                "get_group_access_records"
+        );
         adminServer.verify();
     }
 
@@ -251,6 +336,71 @@ class AgentChatE2eTest {
     }
 
     private void assertCheckpoint(JdbcTemplate jdbcTemplate) {
+        assertCheckpoint(
+                jdbcTemplate,
+                "e2e-session-1",
+                "campaign-analysis-graph",
+                "list_groups",
+                "page_short_links",
+                "get_group_stats",
+                "get_group_access_records"
+        );
+    }
+
+    private void expectSecurityGroupStats(MockRestServiceServer adminServer) {
+        adminServer.expect(requestTo("http://admin.test/internal/short-link-admin/v1/agent-tools/group/stats?gid=g1&startDate=2026-07-01&endDate=2026-07-07"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-Agent-Internal-Token", "internal-token"))
+                .andExpect(header("X-Agent-Username", "trusted-user"))
+                .andExpect(headerDoesNotExist("username"))
+                .andRespond(withSuccess("""
+                        {
+                          "code": "0",
+                          "message": "success",
+                          "data": {
+                            "pv": 120,
+                            "uv": 20,
+                            "uip": 12,
+                            "topIpStats": [
+                              {
+                                "ip": "192.168.1.10",
+                                "cnt": 60
+                              }
+                            ],
+                            "hourStats": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,90,30]
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+    }
+
+    private void expectSecurityGroupAccessRecords(MockRestServiceServer adminServer) {
+        adminServer.expect(requestTo("http://admin.test/internal/short-link-admin/v1/agent-tools/group/access-records?gid=g1&startDate=2026-07-01&endDate=2026-07-07&current=1&size=10"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-Agent-Internal-Token", "internal-token"))
+                .andExpect(header("X-Agent-Username", "trusted-user"))
+                .andExpect(headerDoesNotExist("username"))
+                .andRespond(withSuccess("""
+                        {
+                          "code": "0",
+                          "message": "success",
+                          "data": {
+                            "records": [
+                              {
+                                "ip": "192.168.1.10",
+                                "user": "visitor-001",
+                                "browser": "Chrome",
+                                "network": "WiFi"
+                              }
+                            ],
+                            "total": 1,
+                            "current": 1,
+                            "size": 10
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+    }
+
+    private void assertCheckpoint(JdbcTemplate jdbcTemplate, String sessionId, String graphName, String... expectedTools) {
         Map<String, Object> row = jdbcTemplate.queryForMap("""
                         select thread_id,
                                trace_id,
@@ -261,28 +411,37 @@ class AgentChatE2eTest {
                         from t_agent_graph_checkpoint
                         where thread_id = ?
                         """,
-                "e2e-session-1"
+                sessionId
         );
         assertThat(row)
-                .containsEntry("THREAD_ID", "e2e-session-1")
-                .containsEntry("GRAPH_NAME", "campaign-analysis-graph")
+                .containsEntry("THREAD_ID", sessionId)
+                .containsEntry("GRAPH_NAME", graphName)
                 .containsEntry("GRAPH_VERSION", "v1")
                 .containsEntry("STATUS", "FINISHED");
         assertThat(row.get("TRACE_ID")).isNotNull();
-        assertThat(String.valueOf(row.get("CHECKPOINT_JSON")))
+        String checkpointJson = String.valueOf(row.get("CHECKPOINT_JSON"));
+        assertThat(checkpointJson)
                 .contains("\"toolExecutions\"")
-                .contains("list_groups")
-                .contains("page_short_links")
-                .contains("get_group_stats")
-                .contains("get_group_access_records")
                 .contains("\"traceEvents\"")
                 .doesNotContain("127.0.0.1")
+                .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
+        assertThat(checkpointJson).contains(expectedTools);
     }
 
     private static class CapturingLlmChatClient implements LlmChatClient {
 
+        private final String answer;
+
         private DeepSeekChatRequest request;
+
+        private CapturingLlmChatClient() {
+            this("E2E campaign analysis answer");
+        }
+
+        private CapturingLlmChatClient(String answer) {
+            this.answer = answer;
+        }
 
         @Override
         public DeepSeekChatResponse chat(DeepSeekChatRequest request) {
@@ -290,7 +449,7 @@ class AgentChatE2eTest {
             return new DeepSeekChatResponse(
                     "chat-e2e",
                     "deepseek-v4-flash",
-                    "E2E campaign analysis answer",
+                    answer,
                     "stop",
                     new DeepSeekChatResponse.Usage(12, 8, 20)
             );
