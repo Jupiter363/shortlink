@@ -1,8 +1,8 @@
 package com.nageoffer.shortlink.agent.tool.shortlink;
 
 import com.nageoffer.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
-import com.nageoffer.shortlink.agent.tool.core.ToolContext;
-import com.nageoffer.shortlink.agent.tool.core.ToolResult;
+import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
+import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;

@@ -1,8 +1,8 @@
 package com.nageoffer.shortlink.agent.business.shortlink;
 
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
-import com.nageoffer.shortlink.agent.tool.core.ToolContext;
-import com.nageoffer.shortlink.agent.tool.core.ToolResult;
+import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
+import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;

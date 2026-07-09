@@ -17,9 +17,9 @@ import com.nageoffer.shortlink.agent.infrastructure.llm.DeepSeekChatResponse;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmApiKeyNotConfiguredException;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmChatClient;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmChatClientException;
-import com.nageoffer.shortlink.agent.tool.core.AgentTool;
-import com.nageoffer.shortlink.agent.tool.core.ToolContext;
-import com.nageoffer.shortlink.agent.tool.core.ToolResult;
+import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
+import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
+import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.springframework.stereotype.Service;
 

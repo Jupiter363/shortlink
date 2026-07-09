@@ -1,7 +1,7 @@
 package com.nageoffer.shortlink.agent.tool.registry;
 
-import com.nageoffer.shortlink.agent.tool.core.AgentTool;
-import com.nageoffer.shortlink.agent.tool.core.ToolDescriptor;
+import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
+import com.nageoffer.shortlink.agent.harness.tool.ToolDescriptor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

@@ -2,8 +2,8 @@ package com.nageoffer.shortlink.agent.business.shortlink;
 
 import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
-import com.nageoffer.shortlink.agent.tool.core.ToolContext;
-import com.nageoffer.shortlink.agent.tool.core.ToolResult;
+import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
+import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;

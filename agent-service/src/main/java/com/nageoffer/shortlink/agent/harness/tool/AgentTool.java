@@ -1,4 +1,4 @@
-package com.nageoffer.shortlink.agent.tool.core;
+package com.nageoffer.shortlink.agent.harness.tool;
 
 public interface AgentTool {
 

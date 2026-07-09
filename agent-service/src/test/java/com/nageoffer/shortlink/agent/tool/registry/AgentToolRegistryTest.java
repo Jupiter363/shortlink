@@ -1,9 +1,9 @@
 package com.nageoffer.shortlink.agent.tool.registry;
 
-import com.nageoffer.shortlink.agent.tool.core.AgentTool;
-import com.nageoffer.shortlink.agent.tool.core.ToolContext;
-import com.nageoffer.shortlink.agent.tool.core.ToolDescriptor;
-import com.nageoffer.shortlink.agent.tool.core.ToolResult;
+import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
+import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
+import com.nageoffer.shortlink.agent.harness.tool.ToolDescriptor;
+import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
