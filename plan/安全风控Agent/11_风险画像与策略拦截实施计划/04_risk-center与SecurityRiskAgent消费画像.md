@@ -15,7 +15,7 @@
 覆盖 Task 11 - Task 12。
 本批完成后，后台页面已经可以通过 internal API 查询风险分组、短链卡片、事件历史和审核记录。
 
-截至 2026-07-10，11-01 到 11-03 已完成并推送。本批从 Task 11 开始执行；Task 11 只实现 risk-center 查询、事件、快照、审核和策略撤销 API，不接 LLM，不调用 SecurityRisk Agent，不把风险查询封装成 Tool。
+截至 2026-07-10，11-01 到 11-03 已完成并推送，Task 11 已实现并验证。本批下一步从 Task 12 开始执行；Task 11 只实现 risk-center 查询、事件、快照、审核和策略撤销 API，不接 LLM，不调用 SecurityRisk Agent，不把风险查询封装成 Tool。
 
 ## 执行前检查
 
