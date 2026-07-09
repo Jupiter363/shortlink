@@ -5,8 +5,10 @@ import com.nageoffer.shortlink.agent.infrastructure.config.DeepSeekProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 @EnableConfigurationProperties({AgentProperties.class, DeepSeekProperties.class})
 public class ShortLinkAgentApplication {
 
