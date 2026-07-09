@@ -1,6 +1,7 @@
 package com.nageoffer.shortlink.agent.securityriskagent.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
 import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
@@ -53,7 +54,9 @@ public class ProfileCandidateLoadNode {
             return ProfileRiskAnalysisContext.empty();
         }
         Optional<GroupRiskProfile> groupProfile = groupRepository.findLatestByGid(gid);
-        List<ShortLinkRiskProfile> shortLinkProfiles = shortLinkRepository.findTopRiskByGid(gid, topCandidateSize);
+        List<ShortLinkRiskProfile> shortLinkProfiles = shortLinkRepository.findTopRiskByGid(gid, topCandidateSize).stream()
+                .filter(profile -> profile.riskLevel() != RiskLevel.LOW)
+                .toList();
         return new ProfileRiskAnalysisContext(gid, groupProfile.orElse(null), shortLinkProfiles);
     }
 
