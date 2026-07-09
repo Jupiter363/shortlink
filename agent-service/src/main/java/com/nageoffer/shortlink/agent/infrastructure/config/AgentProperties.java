@@ -147,6 +147,8 @@ public class AgentProperties {
 
         private String internalToken = "";
 
+        private String username = "";
+
         public String getBaseUrl() {
             return baseUrl;
         }
@@ -161,6 +163,14 @@ public class AgentProperties {
 
         public void setInternalToken(String internalToken) {
             this.internalToken = internalToken;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
         }
     }
 
