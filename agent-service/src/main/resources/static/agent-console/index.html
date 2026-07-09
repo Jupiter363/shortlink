@@ -179,6 +179,24 @@
             margin-top: 14px;
         }
 
+        .preset-prompts {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .preset-prompt-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .compact-button {
+            min-height: 32px;
+            padding: 0 10px;
+            font-size: 13px;
+        }
+
         button {
             min-height: 40px;
             border: 1px solid var(--line);
@@ -220,6 +238,26 @@
             align-items: flex-start;
             justify-content: space-between;
             gap: 16px;
+        }
+
+        .trace-row,
+        .debug-filter-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .trace-row {
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .debug-filter-row {
+            justify-content: space-between;
+        }
+
+        .debug-filter-row input {
+            width: min(260px, 100%);
         }
 
         .meta {
@@ -592,8 +630,14 @@
             .card-grid,
             .metric-grid,
             .field-grid,
+            .preset-prompt-grid,
             .kv-list {
                 grid-template-columns: 1fr;
+            }
+
+            .debug-filter-row {
+                align-items: stretch;
+                flex-direction: column;
             }
         }
     </style>
@@ -632,6 +676,19 @@
                     </div>
                     <label for="internalTokenInput">Internal token</label>
                     <input id="internalTokenInput" name="internalToken" type="password" autocomplete="off">
+                    <div id="presetPromptsPanel" class="preset-prompts">
+                        <h3>Preset prompts</h3>
+                        <div class="preset-prompt-grid">
+                            <button class="compact-button" type="button" data-agent-type="campaign-analysis"
+                                    data-prompt="Analyze gid default from 2026-07-01 to 2026-07-07">Campaign 7d</button>
+                            <button class="compact-button" type="button" data-agent-type="campaign-analysis"
+                                    data-prompt="Explain traffic anomaly for gid default from 2026-07-01 to 2026-07-07">Campaign anomaly</button>
+                            <button class="compact-button" type="button" data-agent-type="security-risk"
+                                    data-prompt="Diagnose security risk for gid default in the last 24 hours">Risk 24h</button>
+                            <button class="compact-button" type="button" data-agent-type="security-risk"
+                                    data-prompt="Check access risk for short link https://short.link/demo">Risk link</button>
+                        </div>
+                    </div>
                     <label for="messageInput">Message</label>
                     <textarea id="messageInput" name="message" required
                               placeholder="Analyze gid default from 2026-07-01 to 2026-07-07"></textarea>
@@ -647,7 +704,10 @@
             <div class="dashboard-head">
                 <div>
                     <h2>Insight Dashboard</h2>
-                    <p id="traceIdOutput" class="meta">Trace ID: -</p>
+                    <div class="trace-row">
+                        <p id="traceIdOutput" class="meta">Trace ID: -</p>
+                        <button id="copyTraceIdButton" class="compact-button" type="button" disabled>Copy trace</button>
+                    </div>
                 </div>
                 <p id="dashboardStatus" class="meta">Ready.</p>
             </div>
@@ -716,7 +776,10 @@
                         <pre id="toolCallsOutput">-</pre>
                     </div>
                     <div class="debug-block">
-                        <span class="debug-label">Data Sources</span>
+                        <div class="debug-filter-row">
+                            <span class="debug-label">Data Sources</span>
+                            <input id="toolDataSourceFilterInput" autocomplete="off" placeholder="Filter by tool name">
+                        </div>
                         <pre id="dataSourcesOutput">-</pre>
                     </div>
                     <div class="debug-block">
@@ -748,9 +811,11 @@
         var agentTypeInput = document.getElementById("agentTypeInput");
         var internalTokenInput = document.getElementById("internalTokenInput");
         var messageInput = document.getElementById("messageInput");
+        var presetPromptButtons = document.querySelectorAll("[data-prompt][data-agent-type]");
         var dashboardStatus = document.getElementById("dashboardStatus");
         var answerOutput = document.getElementById("answerOutput");
         var traceIdOutput = document.getElementById("traceIdOutput");
+        var copyTraceIdButton = document.getElementById("copyTraceIdButton");
         var warningsOutput = document.getElementById("warningsOutput");
         var cardsPanel = document.getElementById("cardsPanel");
         var pendingActionsBody = document.getElementById("pendingActionsBody");
@@ -759,7 +824,11 @@
         var accessRecordsBody = document.getElementById("accessRecordsBody");
         var toolCallsOutput = document.getElementById("toolCallsOutput");
         var dataSourcesOutput = document.getElementById("dataSourcesOutput");
+        var toolDataSourceFilterInput = document.getElementById("toolDataSourceFilterInput");
         var resultOutput = document.getElementById("resultOutput");
+        var currentTraceId = "";
+        var latestDebugPayload = {toolCalls: [], dataSources: []};
+        var latestFullValue = "Ready.";
 
         var accessRecordColumns = [
             ["createTime", "Time"],
@@ -863,6 +932,36 @@
             username();
             agentType();
             internalToken();
+        }
+
+        function applyPresetPrompt(event) {
+            var button = event.currentTarget;
+            agentTypeInput.value = button.getAttribute("data-agent-type") || "campaign-analysis";
+            messageInput.value = button.getAttribute("data-prompt") || "";
+            persistContextInputs();
+            messageInput.focus();
+        }
+
+        function setTraceId(value) {
+            currentTraceId = value ? String(value) : "";
+            traceIdOutput.textContent = "Trace ID: " + formatValue(currentTraceId);
+            copyTraceIdButton.disabled = !currentTraceId;
+        }
+
+        async function copyTraceId() {
+            if (!currentTraceId) {
+                return;
+            }
+            if (!navigator.clipboard || !navigator.clipboard.writeText) {
+                dashboardStatus.textContent = "Trace ID copy is unavailable.";
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(currentTraceId);
+                dashboardStatus.textContent = "Trace ID copied.";
+            } catch (error) {
+                dashboardStatus.textContent = "Trace ID copy failed.";
+            }
         }
 
         function setHealth(state, text) {
@@ -1158,16 +1257,56 @@
             });
         }
 
-        function renderDebugData(payload, fullValue) {
+        function executionToolText(execution) {
+            var item = asObject(execution);
+            return [
+                item.toolName,
+                item.name,
+                item.sourceTool
+            ].filter(function (value) {
+                return value !== undefined && value !== null && value !== "";
+            }).join(" ").toLowerCase();
+        }
+
+        function filteredDataSources(dataSources) {
+            var keyword = toolDataSourceFilterInput.value.trim().toLowerCase();
+            var sources = asArray(dataSources);
+            if (!keyword) {
+                return sources;
+            }
+            return sources.map(function (source) {
+                var sourceMap = asObject(source);
+                if (sourceMap.type !== "tool" || !Array.isArray(sourceMap.executions)) {
+                    return source;
+                }
+                var copy = {};
+                Object.keys(sourceMap).forEach(function (key) {
+                    copy[key] = sourceMap[key];
+                });
+                copy.executions = sourceMap.executions.filter(function (execution) {
+                    return executionToolText(execution).indexOf(keyword) >= 0;
+                });
+                return copy;
+            });
+        }
+
+        function renderFilteredDebugData() {
+            var payload = asObject(latestDebugPayload);
             toolCallsOutput.textContent = formatValue(payload.toolCalls);
-            dataSourcesOutput.textContent = formatValue(payload.dataSources);
-            resultOutput.textContent = typeof fullValue === "string" ? fullValue : JSON.stringify(fullValue, null, 2);
+            dataSourcesOutput.textContent = formatValue(filteredDataSources(payload.dataSources));
+            resultOutput.textContent = typeof latestFullValue === "string" ? latestFullValue : JSON.stringify(latestFullValue, null, 2);
+        }
+
+        function renderDebugData(payload, fullValue) {
+            latestDebugPayload = asObject(payload);
+            latestFullValue = fullValue;
+            renderFilteredDebugData();
         }
 
         function showSummary(data, fullValue) {
             var payload = isObject(data) ? data : {};
             answerOutput.textContent = formatValue(payload.answer);
-            traceIdOutput.textContent = "Trace ID: " + formatValue(payload.traceId);
+            setTraceId(payload.traceId);
             dashboardStatus.textContent = payload.sessionId ? "Session: " + payload.sessionId : "Ready.";
             renderWarnings(payload.warnings);
             renderCards(payload.cards);
@@ -1178,6 +1317,7 @@
         }
 
         function showLoading(message) {
+            setTraceId("");
             answerOutput.textContent = message;
             dashboardStatus.textContent = "Running...";
             renderWarnings([]);
@@ -1277,6 +1417,11 @@
         usernameInput.addEventListener("change", persistContextInputs);
         agentTypeInput.addEventListener("change", persistContextInputs);
         internalTokenInput.addEventListener("change", persistContextInputs);
+        Array.prototype.forEach.call(presetPromptButtons, function (button) {
+            button.addEventListener("click", applyPresetPrompt);
+        });
+        copyTraceIdButton.addEventListener("click", copyTraceId);
+        toolDataSourceFilterInput.addEventListener("input", renderFilteredDebugData);
         healthButton.addEventListener("click", checkHealth);
         chatForm.addEventListener("submit", sendMessage);
         setupContextInputs();
