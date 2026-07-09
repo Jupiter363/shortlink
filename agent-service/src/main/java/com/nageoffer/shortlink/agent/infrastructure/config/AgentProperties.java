@@ -178,12 +178,22 @@ public class AgentProperties {
 
         private String internalToken = "";
 
+        private boolean internalTokenDevMode = false;
+
         public String getInternalToken() {
             return internalToken;
         }
 
         public void setInternalToken(String internalToken) {
             this.internalToken = internalToken;
+        }
+
+        public boolean isInternalTokenDevMode() {
+            return internalTokenDevMode;
+        }
+
+        public void setInternalTokenDevMode(boolean internalTokenDevMode) {
+            this.internalTokenDevMode = internalTokenDevMode;
         }
     }
 

@@ -99,16 +99,18 @@ public class JdbcShortLinkRiskProfileRepository {
         );
     }
 
-    public Optional<ShortLinkRiskProfile> findLatest(String domain, String shortUri) {
+    public Optional<ShortLinkRiskProfile> findLatest(String gid, String domain, String shortUri) {
         List<ShortLinkRiskProfile> profiles = jdbcTemplate.query("""
                         select *
                         from t_agent_short_link_risk_profile
-                        where domain = ?
+                        where gid = ?
+                          and domain = ?
                           and short_uri = ?
                         order by profile_window_end desc, id desc
                         limit 1
                         """,
                 (rs, rowNum) -> mapProfile(rs),
+                gid,
                 domain,
                 shortUri
         );

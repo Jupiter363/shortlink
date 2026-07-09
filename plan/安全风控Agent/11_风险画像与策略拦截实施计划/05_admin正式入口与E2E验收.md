@@ -28,25 +28,50 @@
 **Files:**
 
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteService.java`
+- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskPolicyDisableReqDTO.java`
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskReviewReqDTO.java`
+- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskPageRespDTO.java`
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskGroupOverviewRespDTO.java`
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkCardRespDTO.java`
+- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkDetailRespDTO.java`
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskEventRespDTO.java`
+- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskReviewRespDTO.java`
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/service/RiskCenterFacadeService.java`
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/service/impl/RiskCenterFacadeServiceImpl.java`
 - Create: `admin/src/main/java/com/nageoffer/shortlink/admin/controller/RiskCenterController.java`
 - Create: `admin/src/test/java/com/nageoffer/shortlink/admin/controller/RiskCenterControllerTest.java`
 - Create: `admin/src/test/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteServiceTest.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/RiskCenterInternalController.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/service/RiskCenterService.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskprofile/repository/JdbcShortLinkRiskProfileRepository.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/service/RiskPolicyService.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilter.java`
+- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java`
+- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java`
+- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java`
+- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskprofile/RiskProfileRepositoryTest.java`
+- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilterTest.java`
 
-- [ ] **Step 1: 写 admin controller 失败测试**
+补充安全收口：
+
+```text
+1. GET /risk/short-links 需要 gid 参数，admin 先校验 gid 归属，再调用 agent-service。
+2. agent-service detail internal API 使用 `/risk/groups/{gid}/short-links/{domain}/{shortUri}`，repository 按 `gid + domain + shortUri` 查询，防止内部物化跨 gid 详情。
+3. POST /risk/policies/{policyId}/disable 请求体携带 gid，agent-service 用 policyId 的真实 gid 二次校验，防止跨租户禁用策略。
+4. agent-service internal token 默认 fail-closed；仅显式配置 `short-link.agent.security.internal-token-dev-mode=true` 时允许空 token 本地开发。
+```
+
+- [x] **Step 1: 写 admin controller 失败测试**
 
 正式 API：
 
 ```text
 GET /api/short-link/admin/v1/risk/groups/{gid}/overview
 GET /api/short-link/admin/v1/risk/groups/{gid}/short-links
-GET /api/short-link/admin/v1/risk/short-links?domain=nurl.ink&shortUri=abc123
-GET /api/short-link/admin/v1/risk/events
+GET /api/short-link/admin/v1/risk/short-links?gid=g1&domain=nurl.ink&shortUri=abc123
+GET /api/short-link/admin/v1/risk/events?gid=g1
 POST /api/short-link/admin/v1/risk/reviews
 POST /api/short-link/admin/v1/risk/policies/{policyId}/disable
 ```
@@ -60,11 +85,11 @@ POST /api/short-link/admin/v1/risk/policies/{policyId}/disable
 gid 必须属于当前用户。
 ```
 
-- [ ] **Step 2: 写 Feign remote 测试**
+- [x] **Step 2: 写 Feign remote 测试**
 
 参考现有 `AgentRemoteServiceFeignTest`，断言 mapping 和 header 名称正确。
 
-- [ ] **Step 3: 运行失败测试**
+- [x] **Step 3: 运行失败测试**
 
 Run:
 
@@ -74,7 +99,7 @@ mvn -pl admin -Dtest=RiskCenterControllerTest,AgentRiskRemoteServiceTest test
 
 Expected: FAIL，原因是 admin 风险入口不存在。
 
-- [ ] **Step 4: 实现 AgentRiskRemoteService**
+- [x] **Step 4: 实现 AgentRiskRemoteService**
 
 Feign mapping：
 
@@ -100,7 +125,7 @@ X-Agent-UserId
 X-Agent-RealName
 ```
 
-- [ ] **Step 5: 实现 RiskCenterFacadeService**
+- [x] **Step 5: 实现 RiskCenterFacadeService**
 
 职责：
 
@@ -112,11 +137,11 @@ X-Agent-RealName
 5. 透传 Result 失败信息。
 ```
 
-- [ ] **Step 6: 实现 RiskCenterController**
+- [x] **Step 6: 实现 RiskCenterController**
 
 Controller 不包含 LLM/Agent 调用，只调用 facade。
 
-- [ ] **Step 7: 运行通过测试**
+- [x] **Step 7: 运行通过测试**
 
 Run:
 
@@ -126,10 +151,20 @@ mvn -pl admin -Dtest=RiskCenterControllerTest,AgentRiskRemoteServiceTest test
 
 Expected: PASS。
 
-- [ ] **Step 8: 提交并推送**
+- [x] **Step 8: 提交并推送**
+
+提交前必须重新执行：
 
 ```bash
-git add admin/src/main/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteService.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskReviewReqDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskGroupOverviewRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkCardRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskEventRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/service/RiskCenterFacadeService.java admin/src/main/java/com/nageoffer/shortlink/admin/service/impl/RiskCenterFacadeServiceImpl.java admin/src/main/java/com/nageoffer/shortlink/admin/controller/RiskCenterController.java admin/src/test/java/com/nageoffer/shortlink/admin/controller/RiskCenterControllerTest.java admin/src/test/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteServiceTest.java
+mvn -pl admin test
+mvn -pl agent-service test
+git diff --check
+```
+
+并执行 diff-only 敏感信息扫描，确认没有真实密钥和原始 IP/user 明细进入新增返回体。
+
+```bash
+git add admin/src/main/java/com/nageoffer/shortlink/admin/controller/RiskCenterController.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteService.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskPolicyDisableReqDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskReviewReqDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskEventRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskGroupOverviewRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskPageRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskReviewRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkCardRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkDetailRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/service/RiskCenterFacadeService.java admin/src/main/java/com/nageoffer/shortlink/admin/service/impl/RiskCenterFacadeServiceImpl.java admin/src/test/java/com/nageoffer/shortlink/admin/controller/RiskCenterControllerTest.java admin/src/test/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteServiceTest.java agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilter.java agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/RiskCenterInternalController.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/service/RiskCenterService.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/service/RiskPolicyService.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskprofile/repository/JdbcShortLinkRiskProfileRepository.java agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilterTest.java agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java agent-service/src/test/java/com/nageoffer/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java agent-service/src/test/java/com/nageoffer/shortlink/agent/riskprofile/RiskProfileRepositoryTest.java plan/安全风控Agent/11_风险画像与策略拦截实施计划.md plan/安全风控Agent/11_风险画像与策略拦截实施计划/00_总控索引.md plan/安全风控Agent/11_风险画像与策略拦截实施计划/05_admin正式入口与E2E验收.md
 git commit -m "feat: expose admin risk center facade"
 git push
 ```

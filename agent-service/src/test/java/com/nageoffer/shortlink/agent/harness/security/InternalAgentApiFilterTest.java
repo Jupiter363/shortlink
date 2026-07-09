@@ -12,9 +12,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class InternalAgentApiFilterTest {
 
     @Test
-    void blankInternalTokenAllowsLocalInternalApiRequests() throws Exception {
+    void blankInternalTokenRejectsInternalApiRequestsByDefault() throws Exception {
         AgentProperties properties = new AgentProperties();
         properties.getSecurity().setInternalToken("");
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new HealthController())
+                .addFilters(new InternalAgentApiFilter(properties))
+                .build();
+
+        mockMvc.perform(get("/internal/short-link-agent/v1/health"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void blankInternalTokenAllowsLocalInternalApiRequestsOnlyInDevMode() throws Exception {
+        AgentProperties properties = new AgentProperties();
+        properties.getSecurity().setInternalToken("");
+        properties.getSecurity().setInternalTokenDevMode(true);
         MockMvc mockMvc = MockMvcBuilders
                 .standaloneSetup(new HealthController())
                 .addFilters(new InternalAgentApiFilter(properties))

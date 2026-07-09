@@ -31,15 +31,21 @@ public class InternalAgentApiFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        if (!isInternalAgentApi(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         String internalToken = agentProperties.getSecurity().getInternalToken();
-        if (!isInternalAgentApi(request) || !StringUtils.hasText(internalToken)) {
+        if (!StringUtils.hasText(internalToken) && !agentProperties.getSecurity().isInternalTokenDevMode()) {
+            writeError(response, HttpStatus.UNAUTHORIZED, "Internal token is not configured");
+            return;
+        }
+        if (!StringUtils.hasText(internalToken)) {
             filterChain.doFilter(request, response);
             return;
         }
         if (!internalToken.equals(request.getHeader(INTERNAL_TOKEN_HEADER))) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write("{\"success\":false,\"code\":\"401\",\"message\":\"Invalid internal token\"}");
+            writeError(response, HttpStatus.UNAUTHORIZED, "Invalid internal token");
             return;
         }
         filterChain.doFilter(request, response);
@@ -52,5 +58,12 @@ public class InternalAgentApiFilter extends OncePerRequestFilter {
             requestPath = requestPath.substring(contextPath.length());
         }
         return requestPath.startsWith(INTERNAL_API_PREFIX);
+    }
+
+    private void writeError(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write("{\"success\":false,\"code\":\"%s\",\"message\":\"%s\"}"
+                .formatted(status.value(), message));
     }
 }

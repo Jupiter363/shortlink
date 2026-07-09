@@ -40,12 +40,13 @@ public class RiskCenterInternalController {
         return Result.success(riskCenterService.listGroupShortLinkCards(gid));
     }
 
-    @GetMapping("/internal/short-link-agent/v1/risk/short-links/{domain}/{shortUri}")
+    @GetMapping("/internal/short-link-agent/v1/risk/groups/{gid}/short-links/{domain}/{shortUri}")
     public Result<RiskShortLinkDetailRespDTO> shortLinkDetail(
+            @PathVariable("gid") String gid,
             @PathVariable("domain") String domain,
             @PathVariable("shortUri") String shortUri
     ) {
-        return Result.success(riskCenterService.getShortLinkRisk(domain, shortUri));
+        return Result.success(riskCenterService.getShortLinkRisk(gid, domain, shortUri));
     }
 
     @GetMapping("/internal/short-link-agent/v1/risk/events")
@@ -77,7 +78,7 @@ public class RiskCenterInternalController {
             @PathVariable("policyId") String policyId,
             @RequestBody RiskPolicyDisableReqDTO request
     ) {
-        riskCenterService.disablePolicy(policyId, request.reviewer(), request.reason(), request.traceId());
+        riskCenterService.disablePolicy(policyId, request.gid(), request.reviewer(), request.reason(), request.traceId());
         return Result.success(Map.of("policyId", policyId, "disabled", true));
     }
 }

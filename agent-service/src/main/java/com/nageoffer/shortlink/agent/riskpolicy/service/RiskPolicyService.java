@@ -62,6 +62,9 @@ public class RiskPolicyService {
     public void disablePolicy(RiskPolicyDisableCommand command) {
         RiskPolicy policy = policyRepository.findByPolicyId(command.policyId())
                 .orElseThrow(() -> new IllegalArgumentException("Risk policy not found: " + command.policyId()));
+        if (command.gid() == null || !command.gid().equals(policy.gid())) {
+            throw new IllegalArgumentException("Risk policy is not owned by gid: " + command.gid());
+        }
         policyRepository.disable(command.policyId(), command.traceId());
         redisPublisher.revoke(policy);
         auditRepository.saveDisableAudit(policy, command.executor(), command.reason());

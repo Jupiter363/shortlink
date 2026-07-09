@@ -68,6 +68,7 @@ class RiskPolicyServiceTest {
 
         fixture.service.disablePolicy(new RiskPolicyDisableCommand(
                 "policy-001",
+                "gid-001",
                 "manual-user",
                 "false positive",
                 "trace-002"
@@ -76,6 +77,37 @@ class RiskPolicyServiceTest {
         assertThat(fixture.policyRepository.findByPolicyId("policy-001").get().status()).isEqualTo(RiskPolicyStatus.DISABLED);
         assertThat(fixture.auditRepository.countByPolicyId("policy-001")).isEqualTo(2);
         verify(fixture.stringRedisTemplate).delete(policy.policyKey());
+    }
+
+    @Test
+    void disablePolicyRejectsCommandGidDifferentFromPersistedPolicyGid() {
+        TestFixture fixture = fixture("risk_policy_disable_gid_guard", "risk-test-salt");
+        when(fixture.stringRedisTemplate.opsForValue()).thenReturn(fixture.valueOperations);
+        RiskPolicy policy = fixture.service.activatePolicy(RiskPolicyActivationCommand.shortLink(
+                "policy-guard-001",
+                RiskPolicyAction.LIMIT_RATE,
+                "owner-gid",
+                "nurl.ink",
+                "abc123",
+                "{\"action\":\"LIMIT_RATE\",\"limit\":60,\"windowSeconds\":60}",
+                RiskPolicySource.MANUAL_REVIEW,
+                "manual-user",
+                "confirmed high risk",
+                "trace-001",
+                "event-001"
+        ));
+
+        assertThatThrownBy(() -> fixture.service.disablePolicy(new RiskPolicyDisableCommand(
+                "policy-guard-001",
+                "other-gid",
+                "manual-user",
+                "false positive",
+                "trace-002"
+        ))).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Risk policy is not owned by gid: other-gid");
+
+        assertThat(fixture.policyRepository.findByPolicyId("policy-guard-001").get().status()).isEqualTo(RiskPolicyStatus.ACTIVE);
+        verify(fixture.stringRedisTemplate, never()).delete(policy.policyKey());
     }
 
     @Test

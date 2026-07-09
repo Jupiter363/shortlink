@@ -34,7 +34,7 @@ class RiskProfileRepositoryTest {
         repository.save(highRiskProfile("gid-001", "nurl.ink", "def456", 70, 220, LocalDateTime.of(2026, 7, 10, 2, 0)));
         repository.save(highRiskProfile("gid-001", "nurl.ink", "abc123", 81, 300, LocalDateTime.of(2026, 7, 9, 2, 0)));
 
-        assertThat(repository.findLatest("nurl.ink", "abc123"))
+        assertThat(repository.findLatest("gid-001", "nurl.ink", "abc123"))
                 .isPresent()
                 .get()
                 .extracting(ShortLinkRiskProfile::riskScore)
@@ -65,7 +65,7 @@ class RiskProfileRepositoryTest {
 
         repository.save(profile);
 
-        assertThat(repository.findLatest("nurl.ink", "manual1"))
+        assertThat(repository.findLatest("gid-001", "nurl.ink", "manual1"))
                 .isPresent()
                 .get()
                 .satisfies(saved -> {
@@ -73,6 +73,23 @@ class RiskProfileRepositoryTest {
                     assertThat(saved.latestPolicyActions()).containsExactly("DISABLE_SHORT_LINK", "LIMIT_TIME_WINDOW");
                     assertThat(saved.latestAgentSummary()).isEqualTo("agent summary without raw identifiers");
                 });
+    }
+
+    @Test
+    void findLatestIsScopedByGidDomainAndShortUri() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_gid_scoped_repository");
+        JdbcShortLinkRiskProfileRepository repository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+
+        repository.save(highRiskProfile("gid-001", "nurl.ink", "abc123", 92, 600, LocalDateTime.of(2026, 7, 10, 2, 0)));
+        repository.save(highRiskProfile("gid-002", "nurl.ink", "abc123", 41, 120, LocalDateTime.of(2026, 7, 10, 3, 0)));
+
+        assertThat(repository.findLatest("gid-001", "nurl.ink", "abc123"))
+                .isPresent()
+                .get()
+                .extracting(ShortLinkRiskProfile::riskScore)
+                .isEqualTo(92);
+        assertThat(repository.findLatest("gid-missing", "nurl.ink", "abc123"))
+                .isEmpty();
     }
 
     @Test

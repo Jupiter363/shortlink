@@ -138,9 +138,9 @@ public class RiskCenterService {
                 .toList();
     }
 
-    public RiskShortLinkDetailRespDTO getShortLinkRisk(String domain, String shortUri) {
-        ShortLinkRiskProfile profile = shortLinkProfileRepository.findLatest(domain, shortUri)
-                .orElseThrow(() -> new IllegalArgumentException("Risk profile not found: " + domain + "/" + shortUri));
+    public RiskShortLinkDetailRespDTO getShortLinkRisk(String gid, String domain, String shortUri) {
+        ShortLinkRiskProfile profile = shortLinkProfileRepository.findLatest(gid, domain, shortUri)
+                .orElseThrow(() -> new IllegalArgumentException("Risk profile not found: " + gid + "/" + domain + "/" + shortUri));
         List<RiskEventRespDTO> recentEvents = eventRepository.listEvents(
                         profile.gid(),
                         RiskTargetType.SHORT_LINK,
@@ -200,9 +200,10 @@ public class RiskCenterService {
         return toReviewResp(review);
     }
 
-    public void disablePolicy(String policyId, String reviewer, String reason, String traceId) {
+    public void disablePolicy(String policyId, String gid, String reviewer, String reason, String traceId) {
         riskPolicyService.disablePolicy(new RiskPolicyDisableCommand(
                 policyId,
+                gid,
                 valueOrDefault(reviewer, "unknown"),
                 valueOrDefault(reason, "manual risk policy disable"),
                 valueOrDefault(traceId, "risk-policy-disable-" + UUID.randomUUID())

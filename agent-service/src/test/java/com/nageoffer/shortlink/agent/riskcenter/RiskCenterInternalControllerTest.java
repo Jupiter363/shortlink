@@ -80,6 +80,7 @@ class RiskCenterInternalControllerTest {
         );
         AgentProperties properties = new AgentProperties();
         properties.getSecurity().setInternalToken("");
+        properties.getSecurity().setInternalTokenDevMode(true);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new RiskCenterInternalController(riskCenterService))
                 .addFilters(new InternalAgentApiFilter(properties))
@@ -101,7 +102,7 @@ class RiskCenterInternalControllerTest {
                 .andExpect(jsonPath("$.data[0].riskScore").value(92))
                 .andReturn();
 
-        MvcResult detail = mockMvc.perform(get("/internal/short-link-agent/v1/risk/short-links/nurl.ink/abc123"))
+        MvcResult detail = mockMvc.perform(get("/internal/short-link-agent/v1/risk/groups/gid-001/short-links/nurl.ink/abc123"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.card.shortUri").value("abc123"))
                 .andExpect(jsonPath("$.data.latestSnapshot.lastEventId").value("event-001"))
@@ -146,6 +147,7 @@ class RiskCenterInternalControllerTest {
 
         String disableBody = """
                 {
+                  "gid": "gid-001",
                   "reviewer": "risk-admin",
                   "reason": "manual revoke after review",
                   "traceId": "trace-disable"
@@ -161,6 +163,7 @@ class RiskCenterInternalControllerTest {
         ArgumentCaptor<RiskPolicyDisableCommand> commandCaptor = ArgumentCaptor.forClass(RiskPolicyDisableCommand.class);
         verify(riskPolicyService).disablePolicy(commandCaptor.capture());
         assertThat(commandCaptor.getValue().policyId()).isEqualTo("policy-001");
+        assertThat(commandCaptor.getValue().gid()).isEqualTo("gid-001");
         assertThat(commandCaptor.getValue().executor()).isEqualTo("risk-admin");
 
         assertNoSensitiveFields(events.getResponse().getContentAsString());
