@@ -1,0 +1,32 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: short-link-admin-api
+          uri: lb://short-link-admin
+          order: 0
+          predicates:
+            - Path=/api/short-link/admin/v1/**
+          filters:
+            - TokenValidate
+
+        - id: short-link-project-api
+          uri: lb://short-link-project
+          order: 1
+          predicates:
+            - Path=/api/short-link/v1/**
+
+        - id: short-link-redirect
+          uri: lb://short-link-project
+          order: 100
+          predicates:
+            - Path=/{shortUri}
+          filters:
+            - RiskPolicy
+
+short-link:
+  risk:
+    policy:
+      trusted-proxy-enabled: true
+      not-found-mode: status
+      hash-salt: ${RISK_HASH_SALT:}
