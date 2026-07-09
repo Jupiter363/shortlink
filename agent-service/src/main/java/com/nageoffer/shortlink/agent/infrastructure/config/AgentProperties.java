@@ -15,6 +15,8 @@ public class AgentProperties {
 
     private Security security = new Security();
 
+    private Risk risk = new Risk();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -53,6 +55,14 @@ public class AgentProperties {
 
     public void setSecurity(Security security) {
         this.security = security;
+    }
+
+    public Risk getRisk() {
+        return risk;
+    }
+
+    public void setRisk(Risk risk) {
+        this.risk = risk;
     }
 
     public static class Graph {
@@ -164,6 +174,138 @@ public class AgentProperties {
 
         public void setInternalToken(String internalToken) {
             this.internalToken = internalToken;
+        }
+    }
+
+    public static class Risk {
+
+        private String hashSalt = "";
+
+        private Profile profile = new Profile();
+
+        private AutoAction autoAction = new AutoAction();
+
+        private Redis redis = new Redis();
+
+        public String getHashSalt() {
+            return hashSalt;
+        }
+
+        public void setHashSalt(String hashSalt) {
+            this.hashSalt = hashSalt;
+        }
+
+        public Profile getProfile() {
+            return profile;
+        }
+
+        public void setProfile(Profile profile) {
+            this.profile = profile;
+        }
+
+        public AutoAction getAutoAction() {
+            return autoAction;
+        }
+
+        public void setAutoAction(AutoAction autoAction) {
+            this.autoAction = autoAction;
+        }
+
+        public Redis getRedis() {
+            return redis;
+        }
+
+        public void setRedis(Redis redis) {
+            this.redis = redis;
+        }
+    }
+
+    public static class Profile {
+
+        private int batchIntervalMinutes = 120;
+
+        private int activeScanDays = 7;
+
+        private int topCandidateSize = 10;
+
+        public int getBatchIntervalMinutes() {
+            return batchIntervalMinutes;
+        }
+
+        public void setBatchIntervalMinutes(int batchIntervalMinutes) {
+            this.batchIntervalMinutes = batchIntervalMinutes;
+        }
+
+        public int getActiveScanDays() {
+            return activeScanDays;
+        }
+
+        public void setActiveScanDays(int activeScanDays) {
+            this.activeScanDays = activeScanDays;
+        }
+
+        public int getTopCandidateSize() {
+            return topCandidateSize;
+        }
+
+        public void setTopCandidateSize(int topCandidateSize) {
+            this.topCandidateSize = topCandidateSize;
+        }
+    }
+
+    public static class AutoAction {
+
+        private boolean limitRateEnabled = true;
+
+        private int limitRateMinScore = 80;
+
+        private int limitRateLimit = 60;
+
+        private int limitRateWindowSeconds = 60;
+
+        public boolean isLimitRateEnabled() {
+            return limitRateEnabled;
+        }
+
+        public void setLimitRateEnabled(boolean limitRateEnabled) {
+            this.limitRateEnabled = limitRateEnabled;
+        }
+
+        public int getLimitRateMinScore() {
+            return limitRateMinScore;
+        }
+
+        public void setLimitRateMinScore(int limitRateMinScore) {
+            this.limitRateMinScore = limitRateMinScore;
+        }
+
+        public int getLimitRateLimit() {
+            return limitRateLimit;
+        }
+
+        public void setLimitRateLimit(int limitRateLimit) {
+            this.limitRateLimit = limitRateLimit;
+        }
+
+        public int getLimitRateWindowSeconds() {
+            return limitRateWindowSeconds;
+        }
+
+        public void setLimitRateWindowSeconds(int limitRateWindowSeconds) {
+            this.limitRateWindowSeconds = limitRateWindowSeconds;
+        }
+    }
+
+    public static class Redis {
+
+        private String keyPrefix = "risk";
+
+        public String getKeyPrefix() {
+            return keyPrefix;
+        }
+
+        public void setKeyPrefix(String keyPrefix) {
+            this.keyPrefix = keyPrefix;
         }
     }
 }
