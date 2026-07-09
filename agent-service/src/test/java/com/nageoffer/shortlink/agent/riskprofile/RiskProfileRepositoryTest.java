@@ -48,6 +48,34 @@ class RiskProfileRepositoryTest {
     }
 
     @Test
+    void preservesProfileSnapshotPolicyActionsAndSummaryWhenQuerying() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_snapshot_repository");
+        JdbcShortLinkRiskProfileRepository repository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        ShortLinkRiskProfile profile = riskProfile(
+                "gid-001",
+                "nurl.ink",
+                "manual1",
+                94,
+                620,
+                LocalDateTime.of(2026, 7, 10, 2, 0),
+                RiskWatchStatus.WATCHING,
+                List.of("DISABLE_SHORT_LINK", "LIMIT_TIME_WINDOW"),
+                "agent summary without raw identifiers"
+        );
+
+        repository.save(profile);
+
+        assertThat(repository.findLatest("nurl.ink", "manual1"))
+                .isPresent()
+                .get()
+                .satisfies(saved -> {
+                    assertThat(saved.watchStatus()).isEqualTo(RiskWatchStatus.WATCHING);
+                    assertThat(saved.latestPolicyActions()).containsExactly("DISABLE_SHORT_LINK", "LIMIT_TIME_WINDOW");
+                    assertThat(saved.latestAgentSummary()).isEqualTo("agent summary without raw identifiers");
+                });
+    }
+
+    @Test
     void savesAndQueriesGroupRiskProfilesAndTrend() {
         JdbcTemplate jdbcTemplate = jdbcTemplate("risk_group_profile_repository");
         JdbcGroupRiskProfileRepository repository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
@@ -78,6 +106,30 @@ class RiskProfileRepositoryTest {
             int pv2h,
             LocalDateTime profileWindowEnd
     ) {
+        return riskProfile(
+                gid,
+                domain,
+                shortUri,
+                riskScore,
+                pv2h,
+                profileWindowEnd,
+                RiskWatchStatus.NONE,
+                List.of("LIMIT_RATE"),
+                ""
+        );
+    }
+
+    private ShortLinkRiskProfile riskProfile(
+            String gid,
+            String domain,
+            String shortUri,
+            int riskScore,
+            int pv2h,
+            LocalDateTime profileWindowEnd,
+            RiskWatchStatus watchStatus,
+            List<String> latestPolicyActions,
+            String latestAgentSummary
+    ) {
         ShortLinkRiskMetrics metrics = new ShortLinkRiskMetrics(
                 pv2h,
                 50,
@@ -107,9 +159,9 @@ class RiskProfileRepositoryTest {
                 riskScore,
                 RiskLevel.fromScore(riskScore),
                 Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
-                RiskWatchStatus.NONE,
-                List.of("LIMIT_RATE"),
-                ""
+                watchStatus,
+                latestPolicyActions,
+                latestAgentSummary
         );
     }
 

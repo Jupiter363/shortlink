@@ -150,6 +150,7 @@ public class JdbcShortLinkRiskProfileRepository {
     }
 
     private ShortLinkRiskProfile mapProfile(ResultSet rs) throws SQLException {
+        Map<?, ?> snapshot = profileSnapshot(rs.getString("profile_json"));
         ShortLinkRiskMetrics metrics = new ShortLinkRiskMetrics(
                 rs.getInt("pv_2h"),
                 rs.getInt("uv_2h"),
@@ -179,9 +180,9 @@ public class JdbcShortLinkRiskProfileRepository {
                 rs.getInt("risk_score"),
                 RiskLevel.valueOf(rs.getString("risk_level")),
                 reasonCodes(rs.getString("reason_codes_json")),
-                RiskWatchStatus.NONE,
-                List.of(),
-                ""
+                watchStatus(snapshot),
+                stringList(snapshot.get("latestPolicyActions")),
+                stringValue(snapshot.get("latestAgentSummary"))
         );
     }
 
@@ -216,6 +217,43 @@ public class JdbcShortLinkRiskProfileRepository {
         snapshot.put("latestPolicyActions", profile.latestPolicyActions());
         snapshot.put("latestAgentSummary", profile.latestAgentSummary());
         return snapshot;
+    }
+
+    private Map<?, ?> profileSnapshot(String profileJson) {
+        if (profileJson == null || profileJson.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return jsonCodec.fromJson(profileJson, Map.class);
+        } catch (IllegalArgumentException ex) {
+            return Map.of();
+        }
+    }
+
+    private RiskWatchStatus watchStatus(Map<?, ?> snapshot) {
+        String value = stringValue(snapshot.get("watchStatus"));
+        if (value.isBlank()) {
+            return RiskWatchStatus.NONE;
+        }
+        try {
+            return RiskWatchStatus.valueOf(value);
+        } catch (IllegalArgumentException ex) {
+            return RiskWatchStatus.NONE;
+        }
+    }
+
+    private List<String> stringList(Object value) {
+        if (!(value instanceof List<?> values)) {
+            return List.of();
+        }
+        return values.stream()
+                .map(this::stringValue)
+                .filter(item -> !item.isBlank())
+                .toList();
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
     }
 
     private Double doubleValue(ResultSet rs, String columnName) throws SQLException {

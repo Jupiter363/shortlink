@@ -11,15 +11,38 @@ import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolDescriptor;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
+import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskEventRepository;
+import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskReviewRepository;
+import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskSnapshotRepository;
+import com.nageoffer.shortlink.agent.riskcenter.service.RiskCenterService;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskTargetType;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskWatchStatus;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
+import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
+import com.nageoffer.shortlink.agent.riskprofile.model.RiskTrendPoint;
+import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
+import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
+import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
+import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
+import javax.sql.DataSource;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 class DefaultSecurityRiskGraphExecutorTest {
 
@@ -277,6 +300,130 @@ class DefaultSecurityRiskGraphExecutorTest {
                 .doesNotContain("visitor-001")
                 .doesNotContain("abc");
         assertThat(checkpointStore.saved).isEmpty();
+    }
+
+    @Test
+    void executeConsumesRiskProfilesPersistsEventsAndTracesProfileNodes() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("security_risk_graph_profile");
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        JdbcRiskEventRepository eventRepository = new JdbcRiskEventRepository(jdbcTemplate);
+        JdbcRiskSnapshotRepository snapshotRepository = new JdbcRiskSnapshotRepository(jdbcTemplate);
+        JdbcRiskReviewRepository reviewRepository = new JdbcRiskReviewRepository(jdbcTemplate);
+        RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
+        RiskCenterService riskCenterService = new RiskCenterService(
+                eventRepository,
+                snapshotRepository,
+                reviewRepository,
+                shortLinkRepository,
+                groupRepository,
+                riskPolicyService
+        );
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        ShortLinkRiskProfile highProfile = profile("gid-001", "high001", 92, endTime);
+        shortLinkRepository.save(highProfile);
+        groupRepository.save(groupProfile("gid-001", endTime, List.of(highProfile)));
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient();
+        CapturingGraphCheckpointStore checkpointStore = new CapturingGraphCheckpointStore();
+        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+                chatClient,
+                checkpointStore,
+                new AgentProperties(),
+                new AgentToolRegistry(List.of()),
+                shortLinkRepository,
+                groupRepository,
+                riskCenterService,
+                riskPolicyService
+        );
+
+        AgentRunResult result = executor.execute(new SecurityRiskGraphRequest(
+                "session-profile",
+                "zhangsan",
+                "analyze profile gid=gid-001",
+                "trace-profile"
+        ));
+
+        List<String> nodeNames = result.traceEvents().stream()
+                .map(event -> String.valueOf(((Map<?, ?>) event).get("nodeName")))
+                .toList();
+        assertThat(nodeNames).containsExactly(
+                "intake",
+                "profile_candidate_load",
+                "risk_tool_planning",
+                "risk_scoring",
+                "llm_explanation",
+                "risk_event_persist",
+                "risk_auto_action",
+                "response_compose",
+                "checkpoint_save"
+        );
+        assertThat(result.dataSources().toString()).contains("risk_profile");
+        assertThat(result.cards().toString()).contains("risk_profile_short_link").contains("high001");
+        assertThat(eventRepository.listEvents("gid-001", RiskTargetType.SHORT_LINK, 1, 10))
+                .extracting(event -> event.shortUri())
+                .contains("high001");
+        assertThat(snapshotRepository.findByTarget(RiskTargetType.SHORT_LINK, "gid-001", "nurl.ink", "high001"))
+                .isPresent();
+        assertThat(checkpointStore.saved.get(0).checkpointJson())
+                .contains("profile_candidate_load")
+                .contains("risk_event_persist")
+                .contains("risk_auto_action");
+    }
+
+    private ShortLinkRiskProfile profile(String gid, String shortUri, int riskScore, LocalDateTime endTime) {
+        return new ShortLinkRiskProfile(
+                gid,
+                "nurl.ink",
+                shortUri,
+                "nurl.ink/" + shortUri,
+                endTime.minusHours(2),
+                endTime,
+                new ShortLinkRiskMetrics(600, 50, 900, 300, 2100, 1200, 8.0, 0.82, 0.78, 0.50, 0.65, 0.60, 12.0, 0.74, 0.88),
+                riskScore,
+                riskScore,
+                RiskLevel.fromScore(riskScore),
+                Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
+                RiskWatchStatus.NONE,
+                List.of(),
+                ""
+        );
+    }
+
+    private GroupRiskProfile groupProfile(String gid, LocalDateTime endTime, List<ShortLinkRiskProfile> topProfiles) {
+        return new GroupRiskProfile(
+                gid,
+                endTime.minusHours(2),
+                endTime,
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                92.0,
+                92,
+                92,
+                RiskLevel.HIGH,
+                List.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
+                topProfiles,
+                List.of(new RiskTrendPoint(endTime.toLocalDate(), 92, RiskLevel.HIGH)),
+                ""
+        );
+    }
+
+    private JdbcTemplate jdbcTemplate(String databaseName) {
+        DataSource dataSource = h2DataSource(databaseName);
+        new ResourceDatabasePopulator(new ClassPathResource("sql/agent_service_schema.sql")).execute(dataSource);
+        return new JdbcTemplate(dataSource);
+    }
+
+    private DataSource h2DataSource(String name) {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:" + name + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+        return dataSource;
     }
 
     private static class CapturingLlmChatClient implements LlmChatClient {

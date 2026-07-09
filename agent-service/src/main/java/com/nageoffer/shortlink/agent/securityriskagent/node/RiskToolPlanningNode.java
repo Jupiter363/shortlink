@@ -4,6 +4,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
+import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
 import com.nageoffer.shortlink.agent.securityriskagent.model.RiskToolInvocation;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
@@ -37,13 +38,26 @@ public class RiskToolPlanningNode {
         return planAndExecute(
                 state.value("message", ""),
                 state.value("sessionId", ""),
-                state.value("username", "")
+                state.value("username", ""),
+                state.value("profileRiskContext", ProfileRiskAnalysisContext.empty())
         );
     }
 
     public Map<String, Object> planAndExecute(String message, String sessionId, String username) {
+        return planAndExecute(message, sessionId, username, ProfileRiskAnalysisContext.empty());
+    }
+
+    public Map<String, Object> planAndExecute(
+            String message,
+            String sessionId,
+            String username,
+            ProfileRiskAnalysisContext profileContext
+    ) {
         List<Map<String, Object>> toolExecutions = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
+        if (profileContext != null && !profileContext.isEmpty()) {
+            toolExecutions.add(profileContext.toToolExecution());
+        }
         for (RiskToolInvocation invocation : planToolInvocations(message)) {
             Optional<AgentTool> toolOptional = toolRegistry.findByName(invocation.name());
             if (toolOptional.isEmpty()) {

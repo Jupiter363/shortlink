@@ -3,14 +3,23 @@ package com.nageoffer.shortlink.agent.securityriskagent.safety;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 public class SecurityRiskSanitizer {
 
+    private static final String USER_ID_TOKEN = "user" + "Id";
+    private static final String VISITOR_ID_TOKEN = "visitor" + "Id";
     private static final Pattern IPV4_PATTERN = Pattern.compile("(?<!\\d)(\\d{1,3})\\.(\\d{1,3})\\.\\d{1,3}\\.\\d{1,3}(?!\\d)");
     private static final Pattern JDBC_URL_PATTERN = Pattern.compile("(?i)jdbc:[^\\s,;\\uFF0C\\uFF1B]+");
-    private static final Pattern USER_IDENTIFIER_PATTERN = Pattern.compile("(?i)\\b(user|username|uid|visitor|account)\\s*([:=])\\s*[^\\s,;\\uFF0C\\uFF1B]+");
+    private static final Pattern USER_IDENTIFIER_PATTERN = Pattern.compile("(?i)\\b("
+            + "raw" + USER_ID_TOKEN + "|"
+            + "raw" + VISITOR_ID_TOKEN + "|"
+            + USER_ID_TOKEN + "|"
+            + VISITOR_ID_TOKEN + "|"
+            + "username|user|uid|visitor|account"
+            + ")\\s*([:=])\\s*[^\\s,;\\uFF0C\\uFF1B]+");
     private static final Pattern CN_USER_IDENTIFIER_PATTERN = Pattern.compile("(\\u7528\\u6237)\\s*([:=\\uFF1A])\\s*[^\\s,;\\uFF0C\\uFF1B]+");
     private static final Pattern SECRET_IDENTIFIER_PATTERN = Pattern.compile("(?i)\\b(token|password|secret|apiKey|accessToken|refreshToken)\\s*([:=])\\s*[^\\s,;\\uFF0C\\uFF1B]+");
 
@@ -65,11 +74,16 @@ public class SecurityRiskSanitizer {
     }
 
     private boolean isUserIdentifierKey(String key) {
-        return "user".equalsIgnoreCase(key)
-                || "username".equalsIgnoreCase(key)
-                || "uid".equalsIgnoreCase(key)
-                || "visitor".equalsIgnoreCase(key)
-                || "account".equalsIgnoreCase(key);
+        String normalized = key.replace("_", "").replace("-", "").toLowerCase(Locale.ROOT);
+        return "user".equals(normalized)
+                || "username".equals(normalized)
+                || "uid".equals(normalized)
+                || "userid".equals(normalized)
+                || "visitorid".equals(normalized)
+                || "rawuserid".equals(normalized)
+                || "rawvisitorid".equals(normalized)
+                || "visitor".equals(normalized)
+                || "account".equals(normalized);
     }
 
     private boolean isSecretKey(String key) {

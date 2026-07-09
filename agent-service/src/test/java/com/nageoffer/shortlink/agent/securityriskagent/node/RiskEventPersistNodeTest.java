@@ -1,0 +1,139 @@
+package com.nageoffer.shortlink.agent.securityriskagent.node;
+
+import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskEventRepository;
+import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskReviewRepository;
+import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskSnapshotRepository;
+import com.nageoffer.shortlink.agent.riskcenter.service.RiskCenterService;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskTargetType;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskWatchStatus;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
+import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
+import com.nageoffer.shortlink.agent.riskprofile.model.RiskTrendPoint;
+import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
+import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
+import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
+import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
+import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+
+import javax.sql.DataSource;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+
+class RiskEventPersistNodeTest {
+
+    @Test
+    void persistsEventsSnapshotsAndGroupSummaryForHighAndMediumProfiles() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_event_persist_node");
+        JdbcRiskEventRepository eventRepository = new JdbcRiskEventRepository(jdbcTemplate);
+        JdbcRiskSnapshotRepository snapshotRepository = new JdbcRiskSnapshotRepository(jdbcTemplate);
+        JdbcRiskReviewRepository reviewRepository = new JdbcRiskReviewRepository(jdbcTemplate);
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        GroupRiskProfile groupProfile = groupProfile("gid-001", endTime);
+        groupRepository.save(groupProfile);
+        RiskCenterService riskCenterService = new RiskCenterService(
+                eventRepository,
+                snapshotRepository,
+                reviewRepository,
+                shortLinkRepository,
+                groupRepository,
+                mock(RiskPolicyService.class)
+        );
+        RiskEventPersistNode node = new RiskEventPersistNode(riskCenterService, groupRepository);
+        ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
+                "gid-001",
+                groupProfile,
+                List.of(
+                        profile("gid-001", "high001", 92, endTime),
+                        profile("gid-001", "medium001", 55, endTime),
+                        profile("gid-001", "low001", 20, endTime)
+                )
+        );
+
+        Map<String, Object> output = node.persist(context, "trace-001", "session-001", "group risk summary");
+
+        assertThat(eventRepository.listEvents("gid-001", RiskTargetType.SHORT_LINK, 1, 10))
+                .extracting(event -> event.shortUri())
+                .containsExactly("medium001", "high001");
+        assertThat(snapshotRepository.findByTarget(RiskTargetType.SHORT_LINK, "gid-001", "nurl.ink", "high001"))
+                .isPresent()
+                .get()
+                .extracting(snapshot -> snapshot.riskScore())
+                .isEqualTo(92);
+        assertThat(groupRepository.findLatestByGid("gid-001"))
+                .isPresent()
+                .get()
+                .extracting(GroupRiskProfile::agentSummary)
+                .isEqualTo("group risk summary");
+        assertThat(output.get("persistedRiskEvents").toString()).contains("high001", "medium001");
+    }
+
+    private GroupRiskProfile groupProfile(String gid, LocalDateTime endTime) {
+        return new GroupRiskProfile(
+                gid,
+                endTime.minusHours(2),
+                endTime,
+                3,
+                1,
+                1,
+                1,
+                0,
+                0,
+                55.0,
+                92,
+                77,
+                RiskLevel.HIGH,
+                List.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
+                List.of(),
+                List.of(new RiskTrendPoint(endTime.toLocalDate(), 77, RiskLevel.HIGH)),
+                ""
+        );
+    }
+
+    private ShortLinkRiskProfile profile(String gid, String shortUri, int riskScore, LocalDateTime endTime) {
+        return new ShortLinkRiskProfile(
+                gid,
+                "nurl.ink",
+                shortUri,
+                "nurl.ink/" + shortUri,
+                endTime.minusHours(2),
+                endTime,
+                new ShortLinkRiskMetrics(600, 50, 900, 300, 2100, 1200, 8.0, 0.82, 0.78, 0.50, 0.65, 0.60, 12.0, 0.74, 0.88),
+                riskScore,
+                riskScore,
+                RiskLevel.fromScore(riskScore),
+                Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
+                RiskWatchStatus.NONE,
+                List.of(),
+                ""
+        );
+    }
+
+    private JdbcTemplate jdbcTemplate(String databaseName) {
+        DataSource dataSource = h2DataSource(databaseName);
+        new ResourceDatabasePopulator(new ClassPathResource("sql/agent_service_schema.sql")).execute(dataSource);
+        return new JdbcTemplate(dataSource);
+    }
+
+    private DataSource h2DataSource(String name) {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:" + name + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+        return dataSource;
+    }
+}

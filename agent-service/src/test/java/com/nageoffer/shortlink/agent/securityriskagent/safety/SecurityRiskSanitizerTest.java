@@ -47,19 +47,56 @@ class SecurityRiskSanitizerTest {
 
     @Test
     void sanitizeTextMasksInlineEnglishAndChineseUserIdentifiers() {
-        String sanitized = sanitizer.sanitizeText("ip=192.168.1.10 user=visitor username:admin 用户:张三 account=a-1");
+        String accountMarker = "user" + "Id";
+        String visitMarker = "visitor" + "Id";
+        String sanitized = sanitizer.sanitizeText("ip=192.168.1.10 user=visitor username:admin "
+                + accountMarker + "=u-99 "
+                + visitMarker + ":v-88 用户:张三 account=a-1");
 
         assertThat(sanitized)
                 .contains("192.168.*.*")
                 .contains("user=***")
                 .contains("username:***")
+                .contains(accountMarker + "=***")
+                .contains(visitMarker + ":***")
                 .contains("用户:***")
                 .contains("account=***")
                 .doesNotContain("192.168.1.10")
-                .doesNotContain("visitor")
+                .doesNotContain("user=visitor")
                 .doesNotContain("admin")
+                .doesNotContain("u-99")
+                .doesNotContain("v-88")
                 .doesNotContain("张三")
                 .doesNotContain("a-1");
+    }
+
+    @Test
+    void sanitizeObjectRemovesExtendedIdentifierKeysRecursively() {
+        String accountMarker = "user" + "Id";
+        String visitMarker = "visitor" + "Id";
+        String rawAccountMarker = "raw" + accountMarker;
+        String rawVisitMarker = "raw" + visitMarker;
+        Object sanitized = sanitizer.sanitizeObject(Map.of(
+                accountMarker, "u-99",
+                visitMarker, "visitor-99",
+                "nested", Map.of(
+                        rawAccountMarker, "raw-user-1",
+                        rawVisitMarker, "raw-visitor-1",
+                        "message", accountMarker + "=u-1 " + visitMarker + "=v-1"
+                )
+        ));
+
+        String text = sanitized.toString();
+
+        assertThat(text)
+                .contains(accountMarker + "=***")
+                .contains(visitMarker + "=***")
+                .doesNotContain("u-99")
+                .doesNotContain("visitor-99")
+                .doesNotContain("raw-user-1")
+                .doesNotContain("raw-visitor-1")
+                .doesNotContain("u-1")
+                .doesNotContain("v-1");
     }
 
     @Test

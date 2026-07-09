@@ -31,30 +31,60 @@ public class RiskResponseComposeNode {
         return compose(
                 state.value("riskCards", List.of()),
                 state.value("toolExecutions", List.of()),
-                state.value("llmDataSource", Map.of())
+                state.value("llmDataSource", Map.of()),
+                state.value("profileRiskDataSource", Map.of()),
+                state.value("activatedPolicies", List.of())
         );
     }
 
     public Map<String, Object> compose(List<Object> cards, List<Map<String, Object>> toolExecutions, Map<String, Object> llmDataSource) {
-        List<String> nodes = List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE, RISK_SCORING_NODE, LLM_EXPLANATION_NODE, RESPONSE_COMPOSE_NODE);
+        return compose(cards, toolExecutions, llmDataSource, Map.of(), List.of());
+    }
+
+    public Map<String, Object> compose(
+            List<Object> cards,
+            List<Map<String, Object>> toolExecutions,
+            Map<String, Object> llmDataSource,
+            Map<String, Object> profileRiskDataSource,
+            List<Object> activatedPolicies
+    ) {
+        List<String> nodes = List.of(
+                INTAKE_NODE,
+                "profile_candidate_load",
+                RISK_TOOL_PLANNING_NODE,
+                RISK_SCORING_NODE,
+                LLM_EXPLANATION_NODE,
+                "risk_event_persist",
+                "risk_auto_action",
+                RESPONSE_COMPOSE_NODE
+        );
         return Map.of(
                 "cards", sanitize(cards),
-                "pendingActions", pendingActions(cards),
+                "pendingActions", pendingActions(cards, activatedPolicies),
                 "toolCalls", sanitize(toolExecutions),
-                "dataSources", sanitize(dataSources(llmDataSource, toolExecutions, nodes)),
+                "dataSources", sanitize(dataSources(llmDataSource, profileRiskDataSource, activatedPolicies, toolExecutions, nodes)),
                 "visitedNodes", nodes
         );
     }
 
-    private List<Object> pendingActions(List<Object> cards) {
+    private List<Object> pendingActions(List<Object> cards, List<Object> activatedPolicies) {
+        List<Object> pendingActions = new ArrayList<>();
+        if (activatedPolicies != null && !activatedPolicies.isEmpty()) {
+            pendingActions.add(Map.of(
+                    "type", "auto_limit_rate",
+                    "title", "Auto LIMIT_RATE policy activated",
+                    "status", "executed",
+                    "policies", sanitize(activatedPolicies)
+            ));
+        }
         if (hasHighRiskCard(cards)) {
-            return List.of(Map.of(
+            pendingActions.add(Map.of(
                     "type", "review_security_risk",
                     "title", "Review high risk traffic signal",
                     "status", "pending_confirmation"
             ));
         }
-        return List.of();
+        return pendingActions;
     }
 
     private boolean hasHighRiskCard(List<Object> cards) {
@@ -64,7 +94,13 @@ public class RiskResponseComposeNode {
                 .anyMatch(card -> "high".equalsIgnoreCase(String.valueOf(card.get("riskLevel"))));
     }
 
-    private List<Object> dataSources(Map<String, Object> llmDataSource, List<Map<String, Object>> toolExecutions, List<String> nodes) {
+    private List<Object> dataSources(
+            Map<String, Object> llmDataSource,
+            Map<String, Object> profileRiskDataSource,
+            List<Object> activatedPolicies,
+            List<Map<String, Object>> toolExecutions,
+            List<String> nodes
+    ) {
         List<Object> dataSources = new ArrayList<>();
         dataSources.add(Map.of(
                 "type", "graph",
@@ -72,8 +108,17 @@ public class RiskResponseComposeNode {
                 "version", graphVersion,
                 "nodes", nodes
         ));
+        if (profileRiskDataSource != null && !profileRiskDataSource.isEmpty()) {
+            dataSources.add(profileRiskDataSource);
+        }
         if (llmDataSource != null && !llmDataSource.isEmpty()) {
             dataSources.add(llmDataSource);
+        }
+        if (activatedPolicies != null && !activatedPolicies.isEmpty()) {
+            dataSources.add(Map.of(
+                    "type", "risk_policy",
+                    "executions", sanitize(activatedPolicies)
+            ));
         }
         if (toolExecutions != null && !toolExecutions.isEmpty()) {
             dataSources.add(Map.of(

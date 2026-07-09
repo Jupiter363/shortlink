@@ -182,13 +182,16 @@ class AgentChatE2eTest {
                 .andExpect(jsonPath("$.data.dataSources[0].name").value("security-risk-graph"))
                 .andExpect(jsonPath("$.data.dataSources[2].type").value("tool"))
                 .andExpect(jsonPath("$.data.traceEvents[0].nodeName").value("intake"))
-                .andExpect(jsonPath("$.data.traceEvents[1].nodeName").value("risk_tool_planning"))
-                .andExpect(jsonPath("$.data.traceEvents[2].nodeName").value("risk_scoring"))
-                .andExpect(jsonPath("$.data.traceEvents[3].nodeName").value("llm_explanation"))
-                .andExpect(jsonPath("$.data.traceEvents[4].nodeName").value("response_compose"))
-                .andExpect(jsonPath("$.data.traceEvents[5].nodeName").value("checkpoint_save"))
-                .andExpect(jsonPath("$.data.traceEvents[5].status").value("success"))
-                .andExpect(jsonPath("$.data.traceEvents[5].checkpointVersion").exists())
+                .andExpect(jsonPath("$.data.traceEvents[1].nodeName").value("profile_candidate_load"))
+                .andExpect(jsonPath("$.data.traceEvents[2].nodeName").value("risk_tool_planning"))
+                .andExpect(jsonPath("$.data.traceEvents[3].nodeName").value("risk_scoring"))
+                .andExpect(jsonPath("$.data.traceEvents[4].nodeName").value("llm_explanation"))
+                .andExpect(jsonPath("$.data.traceEvents[5].nodeName").value("risk_event_persist"))
+                .andExpect(jsonPath("$.data.traceEvents[6].nodeName").value("risk_auto_action"))
+                .andExpect(jsonPath("$.data.traceEvents[7].nodeName").value("response_compose"))
+                .andExpect(jsonPath("$.data.traceEvents[8].nodeName").value("checkpoint_save"))
+                .andExpect(jsonPath("$.data.traceEvents[8].status").value("success"))
+                .andExpect(jsonPath("$.data.traceEvents[8].checkpointVersion").exists())
                 .andReturn();
 
         String responseJson = mvcResult.getResponse().getContentAsString();

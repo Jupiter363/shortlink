@@ -123,6 +123,31 @@ public class JdbcGroupRiskProfileRepository {
         return List.copyOf(latestByDate.values());
     }
 
+    public void updateAgentSummary(String gid, String agentSummary) {
+        List<Long> ids = jdbcTemplate.query("""
+                        select id
+                        from t_agent_group_risk_profile
+                        where gid = ?
+                        order by profile_window_end desc, id desc
+                        limit 1
+                        """,
+                (rs, rowNum) -> rs.getLong("id"),
+                gid
+        );
+        if (ids.isEmpty()) {
+            return;
+        }
+        jdbcTemplate.update("""
+                        update t_agent_group_risk_profile
+                        set agent_summary = ?,
+                            update_time = CURRENT_TIMESTAMP
+                        where id = ?
+                        """,
+                agentSummary == null ? "" : agentSummary,
+                ids.get(0)
+        );
+    }
+
     private GroupRiskProfile mapProfile(ResultSet rs) throws SQLException {
         return new GroupRiskProfile(
                 rs.getString("gid"),

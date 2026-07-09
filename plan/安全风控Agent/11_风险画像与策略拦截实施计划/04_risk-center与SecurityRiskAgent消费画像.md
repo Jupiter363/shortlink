@@ -15,7 +15,7 @@
 覆盖 Task 11 - Task 12。
 本批完成后，后台页面已经可以通过 internal API 查询风险分组、短链卡片、事件历史和审核记录。
 
-截至 2026-07-10，11-01 到 11-03 已完成并推送，Task 11 已实现并验证。本批下一步从 Task 12 开始执行；Task 11 只实现 risk-center 查询、事件、快照、审核和策略撤销 API，不接 LLM，不调用 SecurityRisk Agent，不把风险查询封装成 Tool。
+截至 2026-07-10，11-01 到 11-03 已完成并推送，Task 11 和 Task 12 已实现并验证。本批已完成；下一步进入 11-05 / Task 13：admin 正式入口与 E2E 验收。Task 11 只实现 risk-center 查询、事件、快照、审核和策略撤销 API，不接 LLM，不调用 SecurityRisk Agent，不把风险查询封装成 Tool。
 
 ## 执行前检查
 
@@ -154,7 +154,7 @@ git push
 - Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent/node/RiskAutoActionNodeTest.java`
 - Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutorTest.java`
 
-- [ ] **Step 1: 写画像加载节点失败测试**
+- [x] **Step 1: 写画像加载节点失败测试**
 
 输入：
 
@@ -171,7 +171,7 @@ ProfileCandidateLoadNode 输出 profileRiskContext。
 不包含 rawIp/user/visitor 明细。
 ```
 
-- [ ] **Step 2: 写事件持久化节点失败测试**
+- [x] **Step 2: 写事件持久化节点失败测试**
 
 断言：
 
@@ -181,7 +181,7 @@ RiskEventPersistNode 为每条 HIGH/MEDIUM 异常短链写 RiskEvent。
 组级 summary 写入 GroupRiskProfile.agentSummary。
 ```
 
-- [ ] **Step 3: 写自动 LIMIT_RATE 失败测试**
+- [x] **Step 3: 写自动 LIMIT_RATE 失败测试**
 
 断言：
 
@@ -191,7 +191,7 @@ assertThat(autoActionNode.apply(highScoreWithOneStrongReason()).activatedPolicie
 assertThat(autoActionNode.apply(disableRecommendation()).activatedPolicies()).isEmpty();
 ```
 
-- [ ] **Step 4: 运行失败测试**
+- [x] **Step 4: 运行失败测试**
 
 Run:
 
@@ -201,7 +201,7 @@ mvn -pl agent-service -Dtest=ProfileCandidateLoadNodeTest,RiskEventPersistNodeTe
 
 Expected: FAIL，原因是新节点不存在。
 
-- [ ] **Step 5: 扩展 Graph 节点顺序**
+- [x] **Step 5: 扩展 Graph 节点顺序**
 
 新顺序：
 
@@ -220,7 +220,7 @@ START
 
 `risk_tool_planning` 保留原只读工具能力，但优先使用 `profileRiskContext` 中的画像事实。
 
-- [ ] **Step 6: 修改 PromptBuilder**
+- [x] **Step 6: 修改 PromptBuilder**
 
 prompt 必须明确：
 
@@ -232,7 +232,7 @@ prompt 必须明确：
 5. LIMIT_RATE 只有满足确定性规则时才允许 autoAction。
 ```
 
-- [ ] **Step 7: 运行通过测试**
+- [x] **Step 7: 运行通过测试**
 
 Run:
 
@@ -242,7 +242,7 @@ mvn -pl agent-service -Dtest=ProfileCandidateLoadNodeTest,RiskEventPersistNodeTe
 
 Expected: PASS。
 
-- [ ] **Step 8: 敏感信息扫描**
+- [x] **Step 8: 敏感信息扫描**
 
 Run:
 
@@ -252,7 +252,7 @@ rg -n "rawIp|ipAddress|visitorId|access_records\\.rows|access_records\\.rawData|
 
 Expected: no output。
 
-- [ ] **Step 9: 提交并推送**
+- [x] **Step 9: 提交并推送**
 
 ```bash
 git add agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent

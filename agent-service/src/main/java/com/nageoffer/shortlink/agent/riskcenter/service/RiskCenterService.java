@@ -209,7 +209,30 @@ public class RiskCenterService {
         ));
     }
 
-    public void recordProfileBatchEvent(ShortLinkRiskProfile profile, String traceId) {
+    public RiskEvent recordProfileBatchEvent(ShortLinkRiskProfile profile, String traceId) {
+        return recordRiskEventFromProfile(profile, traceId, "", profile.latestAgentSummary(), RiskEventSource.PROFILE_BATCH);
+    }
+
+    public RiskEvent recordProfileBatchEvent(ShortLinkRiskProfile profile, String traceId, String sessionId, String agentSummary) {
+        return recordRiskEventFromProfile(profile, traceId, sessionId, agentSummary, RiskEventSource.PROFILE_BATCH);
+    }
+
+    public RiskEvent recordSecurityRiskAgentEvent(
+            ShortLinkRiskProfile profile,
+            String traceId,
+            String sessionId,
+            String agentSummary
+    ) {
+        return recordRiskEventFromProfile(profile, traceId, sessionId, agentSummary, RiskEventSource.SECURITY_RISK_AGENT);
+    }
+
+    private RiskEvent recordRiskEventFromProfile(
+            ShortLinkRiskProfile profile,
+            String traceId,
+            String sessionId,
+            String agentSummary,
+            RiskEventSource source
+    ) {
         RiskEvent event = new RiskEvent(
                 "risk-event-" + UUID.randomUUID(),
                 RiskTargetType.SHORT_LINK,
@@ -222,13 +245,14 @@ public class RiskCenterService {
                 List.copyOf(profile.reasonCodes()),
                 evidenceFromProfile(profile),
                 profile.latestPolicyActions(),
-                profile.latestAgentSummary(),
+                valueOrDefault(agentSummary, profile.latestAgentSummary()),
                 traceId,
-                "",
-                RiskEventSource.PROFILE_BATCH,
+                sessionId,
+                source,
                 profile.profileWindowEnd()
         );
         eventRepository.saveEvent(event);
+        return event;
     }
 
     public void upsertSnapshotFromProfile(ShortLinkRiskProfile profile, String eventId, String traceId) {
