@@ -55,7 +55,7 @@ class AgentProductionReadinessMigrationTest {
                 .getContentAsString(StandardCharsets.UTF_8);
         String migration = new ClassPathResource(
                 "sql/migration/V20260710__agent_production_readiness.sql"
-        ).getContentAsString(StandardCharsets.UTF_8);
+        ).getContentAsString(StandardCharsets.UTF_8).replace("\r\n", "\n");
 
         assertThat(schema)
                 .contains("KEY " + RECOVERY_INDEX);
