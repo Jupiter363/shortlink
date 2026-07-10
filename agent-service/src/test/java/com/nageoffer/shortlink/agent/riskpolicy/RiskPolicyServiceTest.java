@@ -156,6 +156,31 @@ class RiskPolicyServiceTest {
     }
 
     @Test
+    void repeatedActivationWithSamePolicyIdWritesOneActivationAudit() {
+        TestFixture fixture = fixture("risk_policy_activation_idempotency", "risk-test-salt");
+        when(fixture.stringRedisTemplate.opsForValue()).thenReturn(fixture.valueOperations);
+        RiskPolicyActivationCommand command = RiskPolicyActivationCommand.shortLink(
+                "policy-auto-stable",
+                RiskPolicyAction.LIMIT_RATE,
+                "gid-001",
+                "nurl.ink",
+                "abc123",
+                "{\"action\":\"LIMIT_RATE\",\"limit\":60,\"windowSeconds\":60}",
+                RiskPolicySource.AGENT_AUTO,
+                "security-risk-agent",
+                "automatic retry-safe activation",
+                "trace-stable",
+                "event-stable"
+        );
+
+        fixture.service.activatePolicy(command);
+        fixture.service.activatePolicy(command);
+
+        assertThat(fixture.policyRepository.findByPolicyId("policy-auto-stable")).isPresent();
+        assertThat(fixture.auditRepository.countByPolicyId("policy-auto-stable")).isEqualTo(1);
+    }
+
+    @Test
     void limitRateAutoActionRequiresHighRiskScoreAndTwoStrongReasons() {
         TestFixture fixture = fixture("risk_policy_auto", "risk-test-salt");
 

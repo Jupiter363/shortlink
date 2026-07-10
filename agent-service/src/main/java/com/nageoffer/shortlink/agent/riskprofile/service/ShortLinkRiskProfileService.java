@@ -1,12 +1,14 @@
 package com.nageoffer.shortlink.agent.riskprofile.service;
 
 import com.nageoffer.shortlink.agent.riskprofile.detector.ShortLinkRiskDetector;
+import com.nageoffer.shortlink.agent.riskprofile.batch.RiskProfileBatchLeaseLostException;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskSourceStats;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import com.nageoffer.shortlink.agent.riskprofile.source.RiskStatsSourceGateway;
 import com.nageoffer.shortlink.agent.riskprofile.source.ShortLinkActiveCandidate;
 import com.nageoffer.shortlink.agent.riskprofile.source.ShortLinkStatsWindow;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -14,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 @Service
 public class ShortLinkRiskProfileService {
@@ -26,6 +29,7 @@ public class ShortLinkRiskProfileService {
 
     private final ShortLinkRiskDetector riskDetector;
 
+    @Autowired
     public ShortLinkRiskProfileService(
             RiskStatsSourceGateway sourceGateway,
             JdbcShortLinkRiskProfileRepository profileRepository
@@ -43,7 +47,15 @@ public class ShortLinkRiskProfileService {
         this.riskDetector = riskDetector;
     }
 
-    public ShortLinkRiskProfile generateProfile(ShortLinkActiveCandidate candidate, Instant batchNow) {
+    public ShortLinkRiskProfile generateProfile(
+            ShortLinkActiveCandidate candidate,
+            Instant batchNow,
+            String batchId,
+            String ownerToken
+    ) {
+        if (ownerToken == null || ownerToken.isBlank()) {
+            throw new IllegalArgumentException("ownerToken must not be blank");
+        }
         Instant window2hStart = batchNow.minus(Duration.ofHours(2));
         ShortLinkStatsWindow stats2h = sourceGateway.loadStatsWindow(candidate, window2hStart, batchNow);
         ShortLinkStatsWindow stats24h = sourceGateway.loadStatsWindow(
@@ -78,9 +90,19 @@ public class ShortLinkRiskProfileService {
                 .profileWindowStart(toBusinessTime(window2hStart))
                 .profileWindowEnd(toBusinessTime(batchNow))
                 .build();
-        ShortLinkRiskProfile profile = riskDetector.detect(sourceStats);
-        profileRepository.save(profile);
+        ShortLinkRiskProfile profile = riskDetector.detect(sourceStats).withBatchId(batchId);
+        if (!profileRepository.saveIfLeaseOwned(
+                profile,
+                ownerToken,
+                LocalDateTime.now(BUSINESS_ZONE)
+        )) {
+            throw new RiskProfileBatchLeaseLostException(batchId);
+        }
         return profile;
+    }
+
+    public List<ShortLinkRiskProfile> findByBatchIdAndGid(String batchId, String gid) {
+        return profileRepository.findByBatchIdAndGid(batchId, gid);
     }
 
     private LocalDateTime toBusinessTime(Instant instant) {

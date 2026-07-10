@@ -75,6 +75,29 @@ class RiskStatsSourceGatewayTest {
     }
 
     @Test
+    void listActiveShortLinksRejectsMalformedDataShape() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+        AgentProperties properties = new AgentProperties();
+        properties.getBusiness().setBaseUrl("http://admin.test");
+        properties.getBusiness().setUsername("zhangsan");
+        ShortLinkBusinessRiskStatsGateway gateway = new ShortLinkBusinessRiskStatsGateway(properties, restTemplate);
+
+        server.expect(requestTo("http://admin.test/internal/short-link-admin/v1/agent-tools/risk/active-short-links?since=2026-07-03T00:00:00Z"))
+                .andRespond(withSuccess("""
+                        {
+                          "code": "0",
+                          "data": {}
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> gateway.listActiveShortLinks(Instant.parse("2026-07-03T00:00:00Z")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Risk stats active short links data must be a list");
+        server.verify();
+    }
+
+    @Test
     void loadStatsWindowMapsSanitizedAggregateFields() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
@@ -127,6 +150,39 @@ class RiskStatsSourceGatewayTest {
         assertThat(stats.topIpShare()).isLessThanOrEqualTo(1.0);
         assertThat(stats.topRegionShare()).isEqualTo(0.6);
         assertThat(stats.repeatVisitRatio()).isNull();
+        server.verify();
+    }
+
+    @Test
+    void loadStatsWindowRejectsMalformedDataShape() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
+        AgentProperties properties = new AgentProperties();
+        properties.getBusiness().setBaseUrl("http://admin.test");
+        properties.getBusiness().setUsername("zhangsan");
+        ShortLinkBusinessRiskStatsGateway gateway = new ShortLinkBusinessRiskStatsGateway(properties, restTemplate);
+        ShortLinkActiveCandidate candidate = new ShortLinkActiveCandidate(
+                "g1",
+                "nurl.ink",
+                "abc123",
+                "nurl.ink/abc123"
+        );
+
+        server.expect(requestTo("http://admin.test/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats?gid=g1&fullShortUrl=nurl.ink/abc123&startTime=2026-07-10T00:00:00Z&endTime=2026-07-10T02:00:00Z"))
+                .andRespond(withSuccess("""
+                        {
+                          "code": "0",
+                          "data": []
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> gateway.loadStatsWindow(
+                candidate,
+                Instant.parse("2026-07-10T00:00:00Z"),
+                Instant.parse("2026-07-10T02:00:00Z")
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Risk stats window data must be an object");
         server.verify();
     }
 }

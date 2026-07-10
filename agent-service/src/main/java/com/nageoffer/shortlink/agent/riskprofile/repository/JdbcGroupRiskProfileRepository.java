@@ -5,7 +5,9 @@ import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.model.RiskTrendPoint;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -25,6 +27,7 @@ public class JdbcGroupRiskProfileRepository {
     private final JdbcTemplate jdbcTemplate;
     private final RiskJsonCodec jsonCodec;
 
+    @Autowired
     public JdbcGroupRiskProfileRepository(JdbcTemplate jdbcTemplate) {
         this(jdbcTemplate, new RiskJsonCodec());
     }
@@ -34,9 +37,46 @@ public class JdbcGroupRiskProfileRepository {
         this.jsonCodec = jsonCodec;
     }
 
-    public void save(GroupRiskProfile profile) {
-        jdbcTemplate.update("""
+    public boolean saveIfLeaseOwned(
+            GroupRiskProfile profile,
+            String ownerToken,
+            LocalDateTime leaseCheckTime
+    ) {
+        if (ownerToken == null || ownerToken.isBlank()) {
+            throw new IllegalArgumentException("ownerToken must not be blank");
+        }
+        if (leaseCheckTime == null) {
+            throw new IllegalArgumentException("leaseCheckTime must not be null");
+        }
+        return saveInternal(profile, ownerToken, leaseCheckTime);
+    }
+
+    private boolean saveInternal(
+            GroupRiskProfile profile,
+            String ownerToken,
+            LocalDateTime leaseCheckTime
+    ) {
+        String reasonCodesJson = jsonCodec.toJson(reasonCodeNames(profile.groupReasonCodes()));
+        String topLinksJson = jsonCodec.toJson(profile.topRiskShortLinks().stream()
+                .map(this::shortLinkSnapshot)
+                .toList());
+        String trendJson = jsonCodec.toJson(profile.riskTrend7d().stream()
+                .map(this::trendSnapshot)
+                .toList());
+        if (updateExisting(
+                profile,
+                reasonCodesJson,
+                topLinksJson,
+                trendJson,
+                ownerToken,
+                leaseCheckTime
+        ) > 0) {
+            return true;
+        }
+        try {
+            int insertedRows = jdbcTemplate.update("""
                         insert into t_agent_group_risk_profile (
+                            batch_id,
                             gid,
                             profile_window_start,
                             profile_window_end,
@@ -55,8 +95,18 @@ public class JdbcGroupRiskProfileRepository {
                             risk_trend_7d_json,
                             agent_summary
                         )
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        select ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        where exists (
+                            select 1
+                            from t_agent_risk_profile_batch
+                            where batch_id = ?
+                              and owner_token = ?
+                              and status = ?
+                              and lease_until is not null
+                              and lease_until > ?
+                        )
                         """,
+                profile.batchId(),
                 profile.gid(),
                 Timestamp.valueOf(profile.profileWindowStart()),
                 Timestamp.valueOf(profile.profileWindowEnd()),
@@ -70,14 +120,89 @@ public class JdbcGroupRiskProfileRepository {
                 profile.maxRiskScore(),
                 profile.groupRiskScore(),
                 profile.groupRiskLevel().name(),
-                jsonCodec.toJson(reasonCodeNames(profile.groupReasonCodes())),
-                jsonCodec.toJson(profile.topRiskShortLinks().stream()
-                        .map(this::shortLinkSnapshot)
-                        .toList()),
-                jsonCodec.toJson(profile.riskTrend7d().stream()
-                        .map(this::trendSnapshot)
-                        .toList()),
-                profile.agentSummary()
+                reasonCodesJson,
+                topLinksJson,
+                trendJson,
+                profile.agentSummary(),
+                profile.batchId(),
+                ownerToken,
+                com.nageoffer.shortlink.agent.riskprofile.batch.RiskProfileBatchStatus.RUNNING.name(),
+                Timestamp.valueOf(leaseCheckTime)
+            );
+            return insertedRows > 0;
+        } catch (DuplicateKeyException ex) {
+            return updateExisting(
+                    profile,
+                    reasonCodesJson,
+                    topLinksJson,
+                    trendJson,
+                    ownerToken,
+                    leaseCheckTime
+            ) > 0;
+        }
+    }
+
+    private int updateExisting(
+            GroupRiskProfile profile,
+            String reasonCodesJson,
+            String topLinksJson,
+            String trendJson,
+            String ownerToken,
+            LocalDateTime leaseCheckTime
+    ) {
+        return jdbcTemplate.update("""
+                        update t_agent_group_risk_profile
+                        set profile_window_start = ?,
+                            profile_window_end = ?,
+                            total_short_links_scanned = ?,
+                            low_risk_count = ?,
+                            medium_risk_count = ?,
+                            high_risk_count = ?,
+                            watching_count = ?,
+                            disabled_count = ?,
+                            avg_risk_score = ?,
+                            max_risk_score = ?,
+                            group_risk_score = ?,
+                            group_risk_level = ?,
+                            group_reason_codes_json = ?,
+                            top_risk_short_links_json = ?,
+                            risk_trend_7d_json = ?,
+                            agent_summary = ?,
+                            update_time = CURRENT_TIMESTAMP
+                        where batch_id = ?
+                          and gid = ?
+                          and exists (
+                              select 1
+                              from t_agent_risk_profile_batch
+                              where batch_id = ?
+                                and owner_token = ?
+                                and status = ?
+                                and lease_until is not null
+                                and lease_until > ?
+                          )
+                        """,
+                Timestamp.valueOf(profile.profileWindowStart()),
+                Timestamp.valueOf(profile.profileWindowEnd()),
+                profile.totalShortLinksScanned(),
+                profile.lowRiskCount(),
+                profile.mediumRiskCount(),
+                profile.highRiskCount(),
+                profile.watchingCount(),
+                profile.disabledCount(),
+                profile.avgRiskScore(),
+                profile.maxRiskScore(),
+                profile.groupRiskScore(),
+                profile.groupRiskLevel().name(),
+                reasonCodesJson,
+                topLinksJson,
+                trendJson,
+                profile.agentSummary(),
+                profile.batchId(),
+                profile.gid(),
+                profile.batchId(),
+                ownerToken,
+                com.nageoffer.shortlink.agent.riskprofile.batch.RiskProfileBatchStatus.RUNNING.name(),
+                Timestamp.valueOf(leaseCheckTime)
         );
     }
 
@@ -90,6 +215,22 @@ public class JdbcGroupRiskProfileRepository {
                         limit 1
                         """,
                 (rs, rowNum) -> mapProfile(rs),
+                gid
+        );
+        return profiles.stream().findFirst();
+    }
+
+    public Optional<GroupRiskProfile> findByBatchIdAndGid(String batchId, String gid) {
+        List<GroupRiskProfile> profiles = jdbcTemplate.query("""
+                        select *
+                        from t_agent_group_risk_profile
+                        where batch_id = ?
+                          and gid = ?
+                        order by id desc
+                        limit 1
+                        """,
+                (rs, rowNum) -> mapProfile(rs),
+                batchId,
                 gid
         );
         return profiles.stream().findFirst();
@@ -123,28 +264,17 @@ public class JdbcGroupRiskProfileRepository {
         return List.copyOf(latestByDate.values());
     }
 
-    public void updateAgentSummary(String gid, String agentSummary) {
-        List<Long> ids = jdbcTemplate.query("""
-                        select id
-                        from t_agent_group_risk_profile
-                        where gid = ?
-                        order by profile_window_end desc, id desc
-                        limit 1
-                        """,
-                (rs, rowNum) -> rs.getLong("id"),
-                gid
-        );
-        if (ids.isEmpty()) {
-            return;
-        }
+    public void updateAgentSummary(String batchId, String gid, String agentSummary) {
         jdbcTemplate.update("""
                         update t_agent_group_risk_profile
                         set agent_summary = ?,
                             update_time = CURRENT_TIMESTAMP
-                        where id = ?
+                        where batch_id = ?
+                          and gid = ?
                         """,
                 agentSummary == null ? "" : agentSummary,
-                ids.get(0)
+                batchId,
+                gid
         );
     }
 
@@ -166,7 +296,8 @@ public class JdbcGroupRiskProfileRepository {
                 reasonCodes(rs.getString("group_reason_codes_json")),
                 List.of(),
                 trendPoints(rs.getString("risk_trend_7d_json")),
-                rs.getString("agent_summary")
+                rs.getString("agent_summary"),
+                rs.getString("batch_id")
         );
     }
 

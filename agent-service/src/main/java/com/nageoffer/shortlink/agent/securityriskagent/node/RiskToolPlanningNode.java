@@ -4,6 +4,8 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
+import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceClassifier;
+import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceStatus;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
 import com.nageoffer.shortlink.agent.securityriskagent.model.RiskToolInvocation;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
@@ -29,9 +31,12 @@ public class RiskToolPlanningNode {
 
     private final SecurityRiskSanitizer sanitizer;
 
+    private final RiskEvidenceClassifier evidenceClassifier;
+
     public RiskToolPlanningNode(AgentToolRegistry toolRegistry, SecurityRiskSanitizer sanitizer) {
         this.toolRegistry = toolRegistry;
         this.sanitizer = sanitizer;
+        this.evidenceClassifier = new RiskEvidenceClassifier();
     }
 
     public Map<String, Object> apply(OverAllState state) {
@@ -39,12 +44,13 @@ public class RiskToolPlanningNode {
                 state.value("message", ""),
                 state.value("sessionId", ""),
                 state.value("username", ""),
-                state.value("profileRiskContext", ProfileRiskAnalysisContext.empty())
+                state.value("profileRiskContext", ProfileRiskAnalysisContext.empty()),
+                state.value("analysisInput").isPresent()
         );
     }
 
     public Map<String, Object> planAndExecute(String message, String sessionId, String username) {
-        return planAndExecute(message, sessionId, username, ProfileRiskAnalysisContext.empty());
+        return planAndExecute(message, sessionId, username, ProfileRiskAnalysisContext.empty(), false);
     }
 
     public Map<String, Object> planAndExecute(
@@ -53,22 +59,52 @@ public class RiskToolPlanningNode {
             String username,
             ProfileRiskAnalysisContext profileContext
     ) {
+        return planAndExecute(message, sessionId, username, profileContext, false);
+    }
+
+    private Map<String, Object> planAndExecute(
+            String message,
+            String sessionId,
+            String username,
+            ProfileRiskAnalysisContext profileContext,
+            boolean structuredBatch
+    ) {
         List<Map<String, Object>> toolExecutions = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
-        if (profileContext != null && !profileContext.isEmpty()) {
+        boolean hasProfileContext = profileContext != null && !profileContext.isEmpty();
+        if (hasProfileContext) {
             toolExecutions.add(profileContext.toToolExecution());
         }
-        for (RiskToolInvocation invocation : planToolInvocations(message)) {
-            Optional<AgentTool> toolOptional = toolRegistry.findByName(invocation.name());
-            if (toolOptional.isEmpty()) {
-                warnings.add("Agent tool not registered: " + invocation.name());
-                continue;
+        List<RiskToolInvocation> plannedInvocations = structuredBatch
+                ? List.of()
+                : planToolInvocations(message);
+        if (!structuredBatch) {
+            for (RiskToolInvocation invocation : plannedInvocations) {
+                Optional<AgentTool> toolOptional = toolRegistry.findByName(invocation.name());
+                if (toolOptional.isEmpty()) {
+                    Map<String, Object> execution = failedExecution(invocation, "Agent tool is not registered");
+                    toolExecutions.add(execution);
+                    warnings.add(toolFailureWarning(invocation.name(), execution.get("message")));
+                    continue;
+                }
+                Map<String, Object> execution = executeTool(toolOptional.get(), invocation, sessionId, username);
+                toolExecutions.add(execution);
+                if (!Boolean.TRUE.equals(execution.get("success"))) {
+                    warnings.add(toolFailureWarning(invocation.name(), execution.get("message")));
+                }
             }
-            toolExecutions.add(executeTool(toolOptional.get(), invocation, sessionId, username));
         }
+        boolean evidenceRequested = structuredBatch || hasProfileContext || !plannedInvocations.isEmpty();
+        RiskEvidenceStatus evidenceStatus = evidenceClassifier.classify(
+                evidenceRequested,
+                toolExecutions,
+                List.of()
+        );
         return Map.of(
                 "toolExecutions", toolExecutions,
                 "toolWarnings", warnings,
+                "evidenceRequested", evidenceRequested,
+                "evidenceStatus", evidenceStatus.name(),
                 "visitedNodes", List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE)
         );
     }
@@ -79,10 +115,11 @@ public class RiskToolPlanningNode {
         execution.put("arguments", invocation.arguments());
         try {
             ToolResult result = tool.execute(new ToolContext(sessionId, username, invocation.arguments()));
-            execution.put("success", result.success());
             if (result.success()) {
+                execution.put("success", true);
                 execution.put("data", result.data());
             } else {
+                execution.put("success", false);
                 execution.put("message", sanitizer.sanitizeText(result.message()));
             }
         } catch (Exception ex) {
@@ -90,6 +127,20 @@ public class RiskToolPlanningNode {
             execution.put("message", sanitizer.sanitizeText(ex.getMessage()));
         }
         return execution;
+    }
+
+    private Map<String, Object> failedExecution(RiskToolInvocation invocation, String message) {
+        Map<String, Object> execution = new LinkedHashMap<>();
+        execution.put("name", invocation.name());
+        execution.put("arguments", invocation.arguments());
+        execution.put("success", false);
+        execution.put("message", sanitizer.sanitizeText(message));
+        return execution;
+    }
+
+    private String toolFailureWarning(String toolName, Object message) {
+        String detail = message == null ? "unknown failure" : String.valueOf(message);
+        return sanitizer.sanitizeText("Agent tool " + toolName + " failed: " + detail);
     }
 
     private List<RiskToolInvocation> planToolInvocations(String message) {

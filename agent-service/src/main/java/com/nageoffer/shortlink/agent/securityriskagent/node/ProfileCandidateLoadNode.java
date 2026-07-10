@@ -7,6 +7,8 @@ import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
+import com.nageoffer.shortlink.agent.securityriskagent.model.RiskAnalysisInput;
+import com.nageoffer.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -40,7 +42,15 @@ public class ProfileCandidateLoadNode {
     }
 
     public Map<String, Object> apply(OverAllState state) {
-        ProfileRiskAnalysisContext context = load(state.value("message", ""));
+        Object analysisInputState = state.value("analysisInput").orElse(null);
+        RiskAnalysisInput analysisInput = analysisInputState == null
+                ? null
+                : RiskAnalysisInput.fromStateValue(analysisInputState)
+                        .orElseThrow(() -> new IllegalStateException("Invalid structured risk analysis input"));
+        ProfileRiskAnalysisContext context = load(
+                state.value("message", ""),
+                analysisInput
+        );
         return Map.of(
                 "profileRiskContext", context,
                 "profileRiskDataSource", context.isEmpty() ? Map.of() : context.toDataSource(),
@@ -49,6 +59,13 @@ public class ProfileCandidateLoadNode {
     }
 
     public ProfileRiskAnalysisContext load(String message) {
+        return load(message, null);
+    }
+
+    public ProfileRiskAnalysisContext load(String message, RiskAnalysisInput analysisInput) {
+        if (analysisInput != null) {
+            return load(analysisInput);
+        }
         String gid = extractGid(message);
         if (!StringUtils.hasText(gid) || shortLinkRepository == null || groupRepository == null) {
             return ProfileRiskAnalysisContext.empty();
@@ -58,6 +75,41 @@ public class ProfileCandidateLoadNode {
                 .filter(profile -> profile.riskLevel() != RiskLevel.LOW)
                 .toList();
         return new ProfileRiskAnalysisContext(gid, groupProfile.orElse(null), shortLinkProfiles);
+    }
+
+    private ProfileRiskAnalysisContext load(RiskAnalysisInput analysisInput) {
+        if (shortLinkRepository == null || groupRepository == null) {
+            return ProfileRiskAnalysisContext.empty();
+        }
+        Optional<GroupRiskProfile> groupProfile = groupRepository.findByBatchIdAndGid(
+                analysisInput.batchId(),
+                analysisInput.gid()
+        );
+        List<ShortLinkRiskProfile> shortLinkProfiles = analysisInput.candidates().stream()
+                .limit(topCandidateSize)
+                .map(candidate -> loadStructuredCandidate(analysisInput, candidate))
+                .toList();
+        return new ProfileRiskAnalysisContext(
+                analysisInput.gid(),
+                groupProfile.orElse(null),
+                shortLinkProfiles
+        );
+    }
+
+    private ShortLinkRiskProfile loadStructuredCandidate(
+            RiskAnalysisInput analysisInput,
+            RiskProfileTargetRef candidate
+    ) {
+        ShortLinkRiskProfile profile = shortLinkRepository.findByBatchIdAndTarget(
+                analysisInput.batchId(),
+                analysisInput.gid(),
+                candidate.domain(),
+                candidate.shortUri()
+        ).orElseThrow(() -> new IllegalStateException("Structured risk profile candidate was not found"));
+        if (profile.riskLevel() == RiskLevel.LOW) {
+            throw new IllegalStateException("Structured risk profile candidate is not eligible");
+        }
+        return profile;
     }
 
     private String extractGid(String message) {

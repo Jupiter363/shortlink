@@ -8,6 +8,8 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.nageoffer.shortlink.admin.common.biz.user.UserContext;
 import com.nageoffer.shortlink.admin.common.convention.exception.ClientException;
+import com.nageoffer.shortlink.admin.common.convention.exception.RemoteException;
+import com.nageoffer.shortlink.admin.common.convention.result.Result;
 import com.nageoffer.shortlink.admin.common.database.BaseDO;
 import com.nageoffer.shortlink.admin.dao.entity.GroupDO;
 import com.nageoffer.shortlink.admin.dao.mapper.GroupMapper;
@@ -106,28 +108,23 @@ public class GroupServiceImpl extends ServiceImpl<GroupMapper, GroupDO> implemen
         List<GroupDO> groupDOList = baseMapper.selectList(queryWrapper);
 
         // 获取远程服务调用结果
-        List<ShortLinkGroupCountQueryRespDTO> listResult = shortLinkActualRemoteService
-                .listGroupShortLinkCount(groupDOList.stream().map(GroupDO::getGid).toList())
-                .getData();
+        Result<List<ShortLinkGroupCountQueryRespDTO>> countResult = shortLinkActualRemoteService
+                .listGroupShortLinkCount(groupDOList.stream().map(GroupDO::getGid).toList());
+        if (countResult == null || !countResult.isSuccess() || countResult.getData() == null) {
+            throw new RemoteException("Group short link count request failed");
+        }
+        List<ShortLinkGroupCountQueryRespDTO> listResult = countResult.getData();
 
         List<ShortLinkGroupRespDTO> results = BeanUtil.copyToList(groupDOList, ShortLinkGroupRespDTO.class);
 
-        // 添加空值检查
-        if (listResult != null) {
-            Map<String, Integer> counts = listResult.stream()
-                    .collect(Collectors.toMap(
-                            ShortLinkGroupCountQueryRespDTO::getGid,
-                            ShortLinkGroupCountQueryRespDTO::getShortLinkCount
-                    ));
-            return results.stream()
-                    .peek(result -> result.setShortLinkCount(counts.getOrDefault(result.getGid(), 0)))
-                    .toList();
-        } else {
-            // 如果远程调用返回null，则设置默认值0
-            return results.stream()
-                    .peek(result -> result.setShortLinkCount(0))
-                    .toList();
-        }
+        Map<String, Integer> counts = listResult.stream()
+                .collect(Collectors.toMap(
+                        ShortLinkGroupCountQueryRespDTO::getGid,
+                        ShortLinkGroupCountQueryRespDTO::getShortLinkCount
+                ));
+        return results.stream()
+                .peek(result -> result.setShortLinkCount(counts.getOrDefault(result.getGid(), 0)))
+                .toList();
     }
 
     @Override

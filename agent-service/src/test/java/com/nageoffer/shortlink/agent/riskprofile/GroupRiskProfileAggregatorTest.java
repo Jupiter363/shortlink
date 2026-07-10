@@ -68,7 +68,41 @@ class GroupRiskProfileAggregatorTest {
         assertThat(profile.riskTrend7d()).isEqualTo(historyTrend);
     }
 
+    @Test
+    void topRiskShortLinksUseDomainBeforeShortUriAsTheTieBreaker() {
+        List<ShortLinkRiskProfile> profiles = List.of(
+                profile("b.example", "same", 90, 500, RiskLevel.HIGH),
+                profile("a.example", "z-last", 90, 500, RiskLevel.HIGH),
+                profile("a.example", "a-first", 90, 500, RiskLevel.HIGH)
+        );
+
+        GroupRiskProfile groupProfile = new GroupRiskProfileAggregator().aggregate(
+                "gid-001",
+                profiles,
+                List.of()
+        );
+
+        assertThat(groupProfile.topRiskShortLinks())
+                .extracting(profile -> profile.domain() + "/" + profile.shortUri())
+                .containsExactly(
+                        "a.example/a-first",
+                        "a.example/z-last",
+                        "b.example/same"
+                );
+    }
+
     private ShortLinkRiskProfile profile(
+            String shortUri,
+            int riskScore,
+            int pv2h,
+            RiskLevel riskLevel,
+            RiskReasonCode... reasonCodes
+    ) {
+        return profile("nurl.ink", shortUri, riskScore, pv2h, riskLevel, reasonCodes);
+    }
+
+    private ShortLinkRiskProfile profile(
+            String domain,
             String shortUri,
             int riskScore,
             int pv2h,
@@ -77,9 +111,9 @@ class GroupRiskProfileAggregatorTest {
     ) {
         return new ShortLinkRiskProfile(
                 "gid-001",
-                "nurl.ink",
+                domain,
                 shortUri,
-                "nurl.ink/" + shortUri,
+                domain + "/" + shortUri,
                 LocalDateTime.of(2026, 7, 10, 8, 0),
                 LocalDateTime.of(2026, 7, 10, 10, 0),
                 metrics(pv2h),

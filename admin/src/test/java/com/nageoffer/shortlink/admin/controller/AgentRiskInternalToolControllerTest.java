@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.nageoffer.shortlink.admin.common.biz.agent.AgentInternalToolApiFilter;
 import com.nageoffer.shortlink.admin.common.biz.user.UserContext;
+import com.nageoffer.shortlink.admin.common.convention.result.Result;
 import com.nageoffer.shortlink.admin.common.convention.result.Results;
 import com.nageoffer.shortlink.admin.common.convention.web.GlobalExceptionHandler;
 import com.nageoffer.shortlink.admin.config.AgentAdminConfiguration;
@@ -104,6 +105,24 @@ class AgentRiskInternalToolControllerTest {
     }
 
     @Test
+    void activeShortLinksReturnsFailureWhenProjectPageQueryFails() throws Exception {
+        GroupService groupService = mock(GroupService.class);
+        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
+        when(groupService.listGroup()).thenReturn(List.of(group("g1")));
+        when(remoteService.pageShortLink("g1", "totalPv", 1L, 500L))
+                .thenReturn(failure("B000001", "project page query failed"));
+        MockMvc mockMvc = mockMvc(groupService, remoteService);
+
+        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/active-short-links")
+                        .header("X-Agent-Internal-Token", "internal-token")
+                        .header("X-Agent-Username", "zhangsan")
+                        .param("since", "2026-07-03T00:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("C000001"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
     void shortLinkWindowStatsRejectsGidOutsideTrustedUserGroups() throws Exception {
         GroupService groupService = mock(GroupService.class);
         ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
@@ -190,6 +209,48 @@ class AgentRiskInternalToolControllerTest {
         verify(remoteService).oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00");
     }
 
+    @Test
+    void shortLinkWindowStatsReturnsFailureWhenProjectBusinessResultFails() throws Exception {
+        GroupService groupService = mock(GroupService.class);
+        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
+        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
+        when(remoteService.oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00"))
+                .thenReturn(failure("B000001", "project stats query failed"));
+        MockMvc mockMvc = mockMvc(groupService, remoteService);
+
+        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
+                        .header("X-Agent-Internal-Token", "internal-token")
+                        .header("X-Agent-Username", "zhangsan")
+                        .param("gid", "g1")
+                        .param("fullShortUrl", "nurl.ink/abc123")
+                        .param("startTime", "2026-07-10T00:00:00")
+                        .param("endTime", "2026-07-10T02:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("C000001"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    void shortLinkWindowStatsReturnsFailureWhenProjectDataIsMissing() throws Exception {
+        GroupService groupService = mock(GroupService.class);
+        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
+        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
+        when(remoteService.oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00"))
+                .thenReturn(Results.success(null));
+        MockMvc mockMvc = mockMvc(groupService, remoteService);
+
+        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
+                        .header("X-Agent-Internal-Token", "internal-token")
+                        .header("X-Agent-Username", "zhangsan")
+                        .param("gid", "g1")
+                        .param("fullShortUrl", "nurl.ink/abc123")
+                        .param("startTime", "2026-07-10T00:00:00")
+                        .param("endTime", "2026-07-10T02:00:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("C000001"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
     private MockMvc mockMvc(GroupService groupService, ShortLinkActualRemoteService remoteService) {
         AgentAdminConfiguration configuration = new AgentAdminConfiguration();
         configuration.setInternalToken("internal-token");
@@ -233,5 +294,11 @@ class AgentRiskInternalToolControllerTest {
         link.setTodayPv(todayPv);
         link.setTotalPv(totalPv);
         return link;
+    }
+
+    private <T> Result<T> failure(String code, String message) {
+        return new Result<T>()
+                .setCode(code)
+                .setMessage(message);
     }
 }

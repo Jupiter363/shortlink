@@ -8,6 +8,7 @@ import com.nageoffer.shortlink.agent.riskprofile.model.RiskTrendPoint;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
+import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcRiskProfileBatchRepository;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -16,12 +17,16 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 import javax.sql.DataSource;
+import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveShortLinkProfile;
 
 class RiskProfileRepositoryTest {
 
@@ -30,9 +35,9 @@ class RiskProfileRepositoryTest {
         JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_repository");
         JdbcShortLinkRiskProfileRepository repository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
 
-        repository.save(highRiskProfile("gid-001", "nurl.ink", "abc123", 92, 600, LocalDateTime.of(2026, 7, 10, 2, 0)));
-        repository.save(highRiskProfile("gid-001", "nurl.ink", "def456", 70, 220, LocalDateTime.of(2026, 7, 10, 2, 0)));
-        repository.save(highRiskProfile("gid-001", "nurl.ink", "abc123", 81, 300, LocalDateTime.of(2026, 7, 9, 2, 0)));
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile("gid-001", "nurl.ink", "abc123", 92, 600, LocalDateTime.of(2026, 7, 10, 2, 0)));
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile("gid-001", "nurl.ink", "def456", 70, 220, LocalDateTime.of(2026, 7, 10, 2, 0)));
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile("gid-001", "nurl.ink", "abc123", 81, 300, LocalDateTime.of(2026, 7, 9, 2, 0)));
 
         assertThat(repository.findLatest("gid-001", "nurl.ink", "abc123"))
                 .isPresent()
@@ -45,6 +50,160 @@ class RiskProfileRepositoryTest {
         assertThat(repository.findTopRiskByGid("gid-001", 10))
                 .extracting(ShortLinkRiskProfile::shortUri)
                 .containsExactly("abc123", "def456");
+    }
+
+    @Test
+    void repeatedSaveForTheSameBatchAndTargetUpdatesOneProfileRow() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_batch_upsert");
+        JdbcShortLinkRiskProfileRepository repository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        ShortLinkRiskProfile first = highRiskProfile(
+                "gid-001",
+                "nurl.ink",
+                "abc123",
+                81,
+                400,
+                LocalDateTime.of(2026, 7, 10, 10, 0)
+        ).withBatchId("risk-profile:batch-001");
+        ShortLinkRiskProfile updated = highRiskProfile(
+                "gid-001",
+                "nurl.ink",
+                "abc123",
+                94,
+                700,
+                LocalDateTime.of(2026, 7, 10, 10, 0)
+        ).withBatchId("risk-profile:batch-001");
+
+        saveShortLinkProfile(jdbcTemplate, repository, first);
+        saveShortLinkProfile(jdbcTemplate, repository, updated);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from t_agent_short_link_risk_profile where batch_id = ?",
+                Long.class,
+                "risk-profile:batch-001"
+        )).isEqualTo(1L);
+        assertThat(repository.findLatest("gid-001", "nurl.ink", "abc123"))
+                .isPresent()
+                .get()
+                .satisfies(profile -> {
+                    assertThat(profile.batchId()).isEqualTo("risk-profile:batch-001");
+                    assertThat(profile.riskScore()).isEqualTo(94);
+                    assertThat(profile.metrics().pv2h()).isEqualTo(700);
+                });
+    }
+
+    @Test
+    void staleBatchOwnerCannotOverwriteShortLinkProfileAfterLeaseTakeover() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_fencing");
+        JdbcRiskProfileBatchRepository batchRepository = new JdbcRiskProfileBatchRepository(jdbcTemplate);
+        JdbcShortLinkRiskProfileRepository profileRepository =
+                new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        LocalDateTime now = databaseNow(jdbcTemplate);
+        String batchId = "risk-profile:batch-fenced";
+        batchRepository.tryAcquire(
+                batchId,
+                now.minusHours(2),
+                now,
+                "owner-a",
+                now,
+                Duration.ofMinutes(5)
+        );
+        assertThat(profileRepository.saveIfLeaseOwned(
+                highRiskProfile("gid-001", "nurl.ink", "abc123", 81, 400, now)
+                        .withBatchId(batchId),
+                "owner-a",
+                now
+        )).isTrue();
+        batchRepository.tryAcquire(
+                batchId,
+                now.minusHours(2),
+                now,
+                "owner-b",
+                now.plusMinutes(6),
+                Duration.ofMinutes(5)
+        );
+        assertThat(profileRepository.saveIfLeaseOwned(
+                highRiskProfile("gid-001", "nurl.ink", "abc123", 94, 700, now)
+                        .withBatchId(batchId),
+                "owner-b",
+                now.plusMinutes(6)
+        )).isTrue();
+
+        assertThat(profileRepository.saveIfLeaseOwned(
+                highRiskProfile("gid-001", "nurl.ink", "abc123", 20, 10, now)
+                        .withBatchId(batchId),
+                "owner-a",
+                now.plusMinutes(6)
+        )).isFalse();
+        assertThat(profileRepository.findLatest("gid-001", "nurl.ink", "abc123"))
+                .isPresent()
+                .get()
+                .extracting(ShortLinkRiskProfile::riskScore)
+                .isEqualTo(94);
+    }
+
+    @Test
+    void expiredBatchOwnerCannotInsertShortLinkProfileBeforeTakeover() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_expired_lease");
+        JdbcRiskProfileBatchRepository batchRepository = new JdbcRiskProfileBatchRepository(jdbcTemplate);
+        JdbcShortLinkRiskProfileRepository profileRepository =
+                new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        LocalDateTime databaseNow = databaseNow(jdbcTemplate);
+        LocalDateTime expiredLeaseStart = databaseNow.minusMinutes(10);
+        String batchId = "risk-profile:batch-expired-short-link";
+        assertThat(batchRepository.tryAcquire(
+                batchId,
+                databaseNow.minusHours(2),
+                databaseNow,
+                "owner-expired",
+                expiredLeaseStart,
+                Duration.ofMinutes(1)
+        )).isTrue();
+
+        assertThat(profileRepository.saveIfLeaseOwned(
+                highRiskProfile("gid-001", "nurl.ink", "abc123", 81, 400, databaseNow)
+                        .withBatchId(batchId),
+                "owner-expired",
+                databaseNow
+        )).isFalse();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from t_agent_short_link_risk_profile where batch_id = ?",
+                Long.class,
+                batchId
+        )).isZero();
+    }
+
+    @Test
+    void findsOnlyShortLinkProfilesFromTheRequestedBatchAndGroup() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_exact_batch");
+        JdbcShortLinkRiskProfileRepository repository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile(
+                "gid-001",
+                "nurl.ink",
+                "batch-a-link",
+                91,
+                600,
+                LocalDateTime.of(2026, 7, 10, 10, 0)
+        ).withBatchId("risk-profile:batch-a"));
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile(
+                "gid-001",
+                "nurl.ink",
+                "batch-b-link",
+                94,
+                700,
+                LocalDateTime.of(2026, 7, 10, 12, 0)
+        ).withBatchId("risk-profile:batch-b"));
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile(
+                "gid-002",
+                "nurl.ink",
+                "other-group-link",
+                96,
+                800,
+                LocalDateTime.of(2026, 7, 10, 10, 0)
+        ).withBatchId("risk-profile:batch-a"));
+
+        assertThat(repository.findByBatchIdAndGid("risk-profile:batch-a", "gid-001"))
+                .extracting(ShortLinkRiskProfile::shortUri)
+                .containsExactly("batch-a-link");
     }
 
     @Test
@@ -63,7 +222,7 @@ class RiskProfileRepositoryTest {
                 "agent summary without raw identifiers"
         );
 
-        repository.save(profile);
+        saveShortLinkProfile(jdbcTemplate, repository, profile);
 
         assertThat(repository.findLatest("gid-001", "nurl.ink", "manual1"))
                 .isPresent()
@@ -80,8 +239,8 @@ class RiskProfileRepositoryTest {
         JdbcTemplate jdbcTemplate = jdbcTemplate("risk_short_link_profile_gid_scoped_repository");
         JdbcShortLinkRiskProfileRepository repository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
 
-        repository.save(highRiskProfile("gid-001", "nurl.ink", "abc123", 92, 600, LocalDateTime.of(2026, 7, 10, 2, 0)));
-        repository.save(highRiskProfile("gid-002", "nurl.ink", "abc123", 41, 120, LocalDateTime.of(2026, 7, 10, 3, 0)));
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile("gid-001", "nurl.ink", "abc123", 92, 600, LocalDateTime.of(2026, 7, 10, 2, 0)));
+        saveShortLinkProfile(jdbcTemplate, repository, highRiskProfile("gid-002", "nurl.ink", "abc123", 41, 120, LocalDateTime.of(2026, 7, 10, 3, 0)));
 
         assertThat(repository.findLatest("gid-001", "nurl.ink", "abc123"))
                 .isPresent()
@@ -97,9 +256,9 @@ class RiskProfileRepositoryTest {
         JdbcTemplate jdbcTemplate = jdbcTemplate("risk_group_profile_repository");
         JdbcGroupRiskProfileRepository repository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
 
-        repository.save(groupProfile("gid-001", LocalDateTime.of(2026, 7, 8, 2, 0), 55, RiskLevel.MEDIUM));
-        repository.save(groupProfile("gid-001", LocalDateTime.of(2026, 7, 9, 2, 0), 74, RiskLevel.HIGH));
-        repository.save(groupProfile("gid-001", LocalDateTime.of(2026, 7, 10, 2, 0), 82, RiskLevel.HIGH));
+        saveGroupProfile(jdbcTemplate, repository, groupProfile("gid-001", LocalDateTime.of(2026, 7, 8, 2, 0), 55, RiskLevel.MEDIUM));
+        saveGroupProfile(jdbcTemplate, repository, groupProfile("gid-001", LocalDateTime.of(2026, 7, 9, 2, 0), 74, RiskLevel.HIGH));
+        saveGroupProfile(jdbcTemplate, repository, groupProfile("gid-001", LocalDateTime.of(2026, 7, 10, 2, 0), 82, RiskLevel.HIGH));
 
         assertThat(repository.findLatestByGid("gid-001"))
                 .isPresent()
@@ -113,6 +272,115 @@ class RiskProfileRepositoryTest {
                         LocalDate.of(2026, 7, 9),
                         LocalDate.of(2026, 7, 10)
                 );
+    }
+
+    @Test
+    void repeatedSaveForTheSameBatchAndGroupUpdatesOneProfileRow() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_group_profile_batch_upsert");
+        JdbcGroupRiskProfileRepository repository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        GroupRiskProfile first = groupProfile(
+                "gid-001",
+                LocalDateTime.of(2026, 7, 10, 10, 0),
+                72,
+                RiskLevel.HIGH
+        ).withBatchId("risk-profile:batch-001");
+        GroupRiskProfile updated = groupProfile(
+                "gid-001",
+                LocalDateTime.of(2026, 7, 10, 10, 0),
+                91,
+                RiskLevel.HIGH
+        ).withBatchId("risk-profile:batch-001");
+
+        saveGroupProfile(jdbcTemplate, repository, first);
+        saveGroupProfile(jdbcTemplate, repository, updated);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from t_agent_group_risk_profile where batch_id = ?",
+                Long.class,
+                "risk-profile:batch-001"
+        )).isEqualTo(1L);
+        assertThat(repository.findLatestByGid("gid-001"))
+                .isPresent()
+                .get()
+                .satisfies(profile -> {
+                    assertThat(profile.batchId()).isEqualTo("risk-profile:batch-001");
+                    assertThat(profile.groupRiskScore()).isEqualTo(91);
+                });
+    }
+
+    @Test
+    void staleBatchOwnerCannotOverwriteGroupProfileAfterLeaseTakeover() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_group_profile_fencing");
+        JdbcRiskProfileBatchRepository batchRepository = new JdbcRiskProfileBatchRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository profileRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime now = databaseNow(jdbcTemplate);
+        String batchId = "risk-profile:batch-fenced";
+        batchRepository.tryAcquire(
+                batchId,
+                now.minusHours(2),
+                now,
+                "owner-a",
+                now,
+                Duration.ofMinutes(5)
+        );
+        assertThat(profileRepository.saveIfLeaseOwned(
+                groupProfile("gid-001", now, 72, RiskLevel.HIGH).withBatchId(batchId),
+                "owner-a",
+                now
+        )).isTrue();
+        batchRepository.tryAcquire(
+                batchId,
+                now.minusHours(2),
+                now,
+                "owner-b",
+                now.plusMinutes(6),
+                Duration.ofMinutes(5)
+        );
+        assertThat(profileRepository.saveIfLeaseOwned(
+                groupProfile("gid-001", now, 91, RiskLevel.HIGH).withBatchId(batchId),
+                "owner-b",
+                now.plusMinutes(6)
+        )).isTrue();
+
+        assertThat(profileRepository.saveIfLeaseOwned(
+                groupProfile("gid-001", now, 20, RiskLevel.LOW).withBatchId(batchId),
+                "owner-a",
+                now.plusMinutes(6)
+        )).isFalse();
+        assertThat(profileRepository.findLatestByGid("gid-001"))
+                .isPresent()
+                .get()
+                .extracting(GroupRiskProfile::groupRiskScore)
+                .isEqualTo(91);
+    }
+
+    @Test
+    void expiredBatchOwnerCannotInsertGroupProfileBeforeTakeover() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_group_profile_expired_lease");
+        JdbcRiskProfileBatchRepository batchRepository = new JdbcRiskProfileBatchRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository profileRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime databaseNow = databaseNow(jdbcTemplate);
+        LocalDateTime expiredLeaseStart = databaseNow.minusMinutes(10);
+        String batchId = "risk-profile:batch-expired-group";
+        assertThat(batchRepository.tryAcquire(
+                batchId,
+                databaseNow.minusHours(2),
+                databaseNow,
+                "owner-expired",
+                expiredLeaseStart,
+                Duration.ofMinutes(1)
+        )).isTrue();
+
+        assertThat(profileRepository.saveIfLeaseOwned(
+                groupProfile("gid-001", databaseNow, 72, RiskLevel.HIGH).withBatchId(batchId),
+                "owner-expired",
+                databaseNow
+        )).isFalse();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from t_agent_group_risk_profile where batch_id = ?",
+                Long.class,
+                batchId
+        )).isZero();
     }
 
     private ShortLinkRiskProfile highRiskProfile(
@@ -213,6 +481,11 @@ class RiskProfileRepositoryTest {
         DataSource dataSource = h2DataSource(databaseName);
         new ResourceDatabasePopulator(new ClassPathResource("sql/agent_service_schema.sql")).execute(dataSource);
         return new JdbcTemplate(dataSource);
+    }
+
+    private LocalDateTime databaseNow(JdbcTemplate jdbcTemplate) {
+        Timestamp timestamp = jdbcTemplate.queryForObject("select CURRENT_TIMESTAMP", Timestamp.class);
+        return timestamp.toLocalDateTime();
     }
 
     private DataSource h2DataSource(String name) {

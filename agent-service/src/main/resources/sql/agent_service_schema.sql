@@ -13,6 +13,63 @@ CREATE TABLE IF NOT EXISTS t_agent_graph_checkpoint (
     CONSTRAINT uk_agent_graph_checkpoint UNIQUE (thread_id, graph_name, graph_version)
 );
 
+CREATE TABLE IF NOT EXISTS t_agent_schema_migration_history (
+    version VARCHAR(64) NOT NULL,
+    description VARCHAR(256) NOT NULL,
+    script_name VARCHAR(256) NOT NULL,
+    applied_by VARCHAR(256) NOT NULL,
+    applied_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (version)
+);
+
+CREATE TABLE IF NOT EXISTS t_agent_risk_profile_batch (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    batch_id VARCHAR(128) NOT NULL,
+    window_start TIMESTAMP NOT NULL,
+    window_end TIMESTAMP NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    owner_token VARCHAR(128) NOT NULL DEFAULT '',
+    lease_until TIMESTAMP,
+    scanned_count INTEGER NOT NULL DEFAULT 0,
+    generated_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    analysis_job_count INTEGER NOT NULL DEFAULT 0,
+    failures_json LONGTEXT NOT NULL,
+    error_summary VARCHAR(2048) NOT NULL DEFAULT '',
+    start_time TIMESTAMP,
+    finish_time TIMESTAMP,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_agent_risk_profile_batch_id UNIQUE (batch_id),
+    KEY idx_agent_risk_profile_batch_window (window_end, status),
+    KEY idx_agent_risk_profile_batch_lease (status, lease_until),
+    KEY idx_agent_risk_profile_batch_recovery (update_time, window_end, id, status, lease_until)
+);
+
+CREATE TABLE IF NOT EXISTS t_agent_risk_analysis_job (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    job_id VARCHAR(128) NOT NULL,
+    batch_id VARCHAR(128) NOT NULL,
+    gid VARCHAR(64) NOT NULL,
+    graph_name VARCHAR(128) NOT NULL,
+    graph_version VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_retry_time TIMESTAMP,
+    owner_token VARCHAR(128) NOT NULL DEFAULT '',
+    lease_until TIMESTAMP,
+    session_id VARCHAR(256) NOT NULL,
+    trace_id VARCHAR(128) NOT NULL DEFAULT '',
+    error_summary VARCHAR(2048) NOT NULL DEFAULT '',
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_agent_risk_analysis_job_id UNIQUE (job_id),
+    CONSTRAINT uk_agent_risk_analysis_job_scope UNIQUE (batch_id, gid, graph_name, graph_version),
+    KEY idx_agent_risk_analysis_job_claim (status, next_retry_time, lease_until)
+);
+
 CREATE TABLE IF NOT EXISTS t_agent_risk_event (
     id BIGINT NOT NULL AUTO_INCREMENT,
     event_id VARCHAR(128) NOT NULL,
@@ -64,6 +121,7 @@ CREATE TABLE IF NOT EXISTS t_agent_risk_snapshot (
 
 CREATE TABLE IF NOT EXISTS t_agent_short_link_risk_profile (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    batch_id VARCHAR(128) NOT NULL,
     gid VARCHAR(64) NOT NULL,
     domain VARCHAR(256) NOT NULL,
     short_uri VARCHAR(128) NOT NULL,
@@ -93,6 +151,7 @@ CREATE TABLE IF NOT EXISTS t_agent_short_link_risk_profile (
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
+    CONSTRAINT uk_agent_short_link_profile_batch_target UNIQUE (batch_id, gid, domain, short_uri),
     KEY idx_agent_short_link_profile_gid_time (gid, profile_window_end),
     KEY idx_agent_short_link_profile_target_time (domain, short_uri, profile_window_end),
     KEY idx_agent_short_link_profile_gid_score (gid, risk_score)
@@ -100,6 +159,7 @@ CREATE TABLE IF NOT EXISTS t_agent_short_link_risk_profile (
 
 CREATE TABLE IF NOT EXISTS t_agent_group_risk_profile (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    batch_id VARCHAR(128) NOT NULL,
     gid VARCHAR(64) NOT NULL,
     profile_window_start TIMESTAMP NOT NULL,
     profile_window_end TIMESTAMP NOT NULL,
@@ -120,6 +180,7 @@ CREATE TABLE IF NOT EXISTS t_agent_group_risk_profile (
     create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
+    CONSTRAINT uk_agent_group_profile_batch_gid UNIQUE (batch_id, gid),
     KEY idx_agent_group_profile_gid_time (gid, profile_window_end),
     KEY idx_agent_group_profile_gid_score (gid, group_risk_score)
 );

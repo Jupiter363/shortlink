@@ -21,6 +21,14 @@ public class Result<T> {
         return new Result<>(true, "0", "success", data);
     }
 
+    public static <T> Result<T> success(T data, String message) {
+        return new Result<>(true, "0", message, data);
+    }
+
+    public static <T> Result<T> failure(String code, String message, T data) {
+        return new Result<>(false, code, message, data);
+    }
+
     public boolean isSuccess() {
         return success;
     }

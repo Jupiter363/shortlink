@@ -2,6 +2,7 @@ package com.nageoffer.shortlink.agent.securityriskagent.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -34,5 +35,24 @@ class SecurityRiskModelTest {
         assertThat(snapshot.sourceTool()).isEqualTo("get_group_stats");
         assertThat(snapshot.arguments()).containsEntry("gid", "g1");
         assertThat(snapshot.stats()).containsEntry("pv", 100);
+    }
+
+    @Test
+    void riskAnalysisInputRoundTripsThroughGraphSafeMapState() {
+        RiskAnalysisInput input = new RiskAnalysisInput(
+                "risk-profile:batch-001",
+                "gid-001",
+                LocalDateTime.of(2026, 7, 10, 10, 0),
+                List.of(new RiskProfileTargetRef("nurl.ink", "abc123"))
+        );
+
+        Map<String, Object> stateValue = input.toStateValue();
+
+        assertThat(stateValue)
+                .containsEntry("batchId", "risk-profile:batch-001")
+                .containsEntry("gid", "gid-001")
+                .containsEntry("profileWindowEnd", "2026-07-10T10:00");
+        assertThat(stateValue.get("candidates")).isInstanceOf(List.class);
+        assertThat(RiskAnalysisInput.fromStateValue(stateValue)).contains(input);
     }
 }

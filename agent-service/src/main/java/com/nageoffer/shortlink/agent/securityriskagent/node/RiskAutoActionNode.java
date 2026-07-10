@@ -12,6 +12,7 @@ import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,7 @@ public class RiskAutoActionNode {
     ) {
         String eventId = eventIdsByTarget == null ? "" : eventIdsByTarget.getOrDefault(targetKey(profile), "");
         RiskPolicy policy = riskPolicyService.activatePolicy(RiskPolicyActivationCommand.shortLink(
-                "policy-auto-rate-" + UUID.randomUUID(),
+                autoPolicyId(profile, eventId, traceId),
                 RiskPolicyAction.LIMIT_RATE,
                 profile.gid(),
                 profile.domain(),
@@ -101,6 +102,14 @@ public class RiskAutoActionNode {
         activated.put("shortUri", profile.shortUri());
         activated.put("eventId", eventId);
         return activated;
+    }
+
+    private String autoPolicyId(ShortLinkRiskProfile profile, String eventId, String traceId) {
+        String sourceKey = eventId == null || eventId.isBlank()
+                ? "trace|" + traceId + "|" + targetKey(profile)
+                : "event|" + eventId;
+        String idempotencyKey = RiskPolicyAction.LIMIT_RATE.name() + "|" + sourceKey;
+        return "policy-auto-rate-" + UUID.nameUUIDFromBytes(idempotencyKey.getBytes(StandardCharsets.UTF_8));
     }
 
     private String policyPayloadJson(ShortLinkRiskProfile profile) {

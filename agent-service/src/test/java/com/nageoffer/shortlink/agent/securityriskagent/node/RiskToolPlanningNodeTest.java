@@ -7,9 +7,13 @@ import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,6 +42,7 @@ class RiskToolPlanningNodeTest {
 
         assertThat(output.get("visitedNodes")).isEqualTo(List.of("intake", "risk_tool_planning"));
         assertThat(output.get("toolWarnings")).isEqualTo(List.of());
+        assertThat(output.get("evidenceStatus")).isEqualTo("AVAILABLE");
         assertThat(output.get("toolExecutions").toString())
                 .contains("get_short_link_stats")
                 .contains("get_group_access_records");
@@ -66,7 +71,67 @@ class RiskToolPlanningNodeTest {
         Map<String, Object> output = node.planAndExecute("risk gid=g1", "session-1", "zhangsan");
 
         assertThat(output.get("toolExecutions")).isEqualTo(List.of());
+        assertThat(output.get("evidenceRequested")).isEqualTo(false);
+        assertThat(output.get("evidenceStatus")).isEqualTo("NOT_REQUESTED");
         assertThat(statsTool.context).isNull();
+    }
+
+    @Test
+    void planAndExecuteRecordsFailedExecutionWhenPlannedToolIsNotRegistered() {
+        RiskToolPlanningNode node = new RiskToolPlanningNode(
+                new AgentToolRegistry(List.of()),
+                new SecurityRiskSanitizer()
+        );
+
+        Map<String, Object> output = node.planAndExecute(
+                "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "session-1",
+                "zhangsan"
+        );
+
+        assertThat((List<?>) output.get("toolExecutions"))
+                .singleElement()
+                .satisfies(execution -> {
+                    Map<?, ?> executionMap = (Map<?, ?>) execution;
+                    assertThat(executionMap.get("name")).isEqualTo("get_group_stats");
+                    assertThat(executionMap.get("success")).isEqualTo(false);
+                    assertThat(executionMap.get("message")).isEqualTo("Agent tool is not registered");
+                });
+        assertThat(output.get("toolWarnings").toString())
+                .contains("Agent tool get_group_stats failed")
+                .contains("Agent tool is not registered");
+        assertThat(output.get("evidenceStatus")).isEqualTo("SOURCE_FAILURE");
+    }
+
+    @ParameterizedTest
+    @MethodSource("emptyToolData")
+    void planAndExecutePreservesSuccessfulEmptyToolDataAsNoDataEvidence(Object emptyData) {
+        CapturingAgentTool statsTool = new CapturingAgentTool(
+                "get_group_stats",
+                ToolResult.success(emptyData)
+        );
+        RiskToolPlanningNode node = new RiskToolPlanningNode(
+                new AgentToolRegistry(List.of(statsTool)),
+                new SecurityRiskSanitizer()
+        );
+
+        Map<String, Object> output = node.planAndExecute(
+                "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                "session-1",
+                "zhangsan"
+        );
+
+        assertThat((List<?>) output.get("toolExecutions"))
+                .singleElement()
+                .satisfies(execution -> {
+                    Map<?, ?> executionMap = (Map<?, ?>) execution;
+                    assertThat(executionMap.get("name")).isEqualTo("get_group_stats");
+                    assertThat(executionMap.get("success")).isEqualTo(true);
+                    assertThat(executionMap.get("data")).isEqualTo(emptyData);
+                    assertThat(executionMap.containsKey("message")).isFalse();
+                });
+        assertThat(output.get("toolWarnings")).isEqualTo(List.of());
+        assertThat(output.get("evidenceStatus")).isEqualTo("NO_DATA");
     }
 
     @Test
@@ -93,6 +158,24 @@ class RiskToolPlanningNodeTest {
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001")
                 .doesNotContain("abc");
+        assertThat(output.get("toolWarnings").toString())
+                .contains("Agent tool get_group_stats failed")
+                .contains("192.168.*.*")
+                .contains("user=***")
+                .contains("token=***")
+                .doesNotContain("192.168.1.10")
+                .doesNotContain("visitor-001")
+                .doesNotContain("abc");
+    }
+
+    private static Stream<Arguments> emptyToolData() {
+        return Stream.of(
+                Arguments.of((Object) null),
+                Arguments.of(Map.of()),
+                Arguments.of(List.of()),
+                Arguments.of("   "),
+                Arguments.of((Object) new Object[0])
+        );
     }
 
     private static class CapturingAgentTool implements AgentTool {

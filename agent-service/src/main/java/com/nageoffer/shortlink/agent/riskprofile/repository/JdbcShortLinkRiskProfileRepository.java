@@ -6,7 +6,9 @@ import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskWatchStatus;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -28,6 +30,7 @@ public class JdbcShortLinkRiskProfileRepository {
     private final JdbcTemplate jdbcTemplate;
     private final RiskJsonCodec jsonCodec;
 
+    @Autowired
     public JdbcShortLinkRiskProfileRepository(JdbcTemplate jdbcTemplate) {
         this(jdbcTemplate, new RiskJsonCodec());
     }
@@ -37,10 +40,42 @@ public class JdbcShortLinkRiskProfileRepository {
         this.jsonCodec = jsonCodec;
     }
 
-    public void save(ShortLinkRiskProfile profile) {
+    public boolean saveIfLeaseOwned(
+            ShortLinkRiskProfile profile,
+            String ownerToken,
+            LocalDateTime leaseCheckTime
+    ) {
+        if (ownerToken == null || ownerToken.isBlank()) {
+            throw new IllegalArgumentException("ownerToken must not be blank");
+        }
+        if (leaseCheckTime == null) {
+            throw new IllegalArgumentException("leaseCheckTime must not be null");
+        }
+        return saveInternal(profile, ownerToken, leaseCheckTime);
+    }
+
+    private boolean saveInternal(
+            ShortLinkRiskProfile profile,
+            String ownerToken,
+            LocalDateTime leaseCheckTime
+    ) {
         ShortLinkRiskMetrics metrics = profile.metrics();
-        jdbcTemplate.update("""
+        String reasonCodesJson = jsonCodec.toJson(reasonCodeNames(profile.reasonCodes()));
+        String profileJson = jsonCodec.toJson(profileSnapshot(profile));
+        if (updateExisting(
+                profile,
+                metrics,
+                reasonCodesJson,
+                profileJson,
+                ownerToken,
+                leaseCheckTime
+        ) > 0) {
+            return true;
+        }
+        try {
+            int insertedRows = jdbcTemplate.update("""
                         insert into t_agent_short_link_risk_profile (
+                            batch_id,
                             gid,
                             domain,
                             short_uri,
@@ -68,8 +103,18 @@ public class JdbcShortLinkRiskProfileRepository {
                             reason_codes_json,
                             profile_json
                         )
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        select ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        where exists (
+                            select 1
+                            from t_agent_risk_profile_batch
+                            where batch_id = ?
+                              and owner_token = ?
+                              and status = ?
+                              and lease_until is not null
+                              and lease_until > ?
+                        )
                         """,
+                profile.batchId(),
                 profile.gid(),
                 profile.domain(),
                 profile.shortUri(),
@@ -94,8 +139,105 @@ public class JdbcShortLinkRiskProfileRepository {
                 profile.anomalyScore(),
                 profile.riskScore(),
                 profile.riskLevel().name(),
-                jsonCodec.toJson(reasonCodeNames(profile.reasonCodes())),
-                jsonCodec.toJson(profileSnapshot(profile))
+                reasonCodesJson,
+                profileJson,
+                profile.batchId(),
+                ownerToken,
+                com.nageoffer.shortlink.agent.riskprofile.batch.RiskProfileBatchStatus.RUNNING.name(),
+                Timestamp.valueOf(leaseCheckTime)
+            );
+            return insertedRows > 0;
+        } catch (DuplicateKeyException ex) {
+            return updateExisting(
+                    profile,
+                    metrics,
+                    reasonCodesJson,
+                    profileJson,
+                    ownerToken,
+                    leaseCheckTime
+            ) > 0;
+        }
+    }
+
+    private int updateExisting(
+            ShortLinkRiskProfile profile,
+            ShortLinkRiskMetrics metrics,
+            String reasonCodesJson,
+            String profileJson,
+            String ownerToken,
+            LocalDateTime leaseCheckTime
+    ) {
+        return jdbcTemplate.update("""
+                        update t_agent_short_link_risk_profile
+                        set full_short_url = ?,
+                            profile_window_start = ?,
+                            profile_window_end = ?,
+                            pv_2h = ?,
+                            uv_2h = ?,
+                            pv_24h = ?,
+                            uv_24h = ?,
+                            pv_7d = ?,
+                            uv_7d = ?,
+                            pv_growth_2h_vs_24h_avg = ?,
+                            top_ip_share = ?,
+                            top_visitor_share = ?,
+                            top_region_share = ?,
+                            top_device_share = ?,
+                            top_browser_share = ?,
+                            pv_per_uv = ?,
+                            peak_hour_share = ?,
+                            repeat_visit_ratio = ?,
+                            anomaly_score = ?,
+                            risk_score = ?,
+                            risk_level = ?,
+                            reason_codes_json = ?,
+                            profile_json = ?,
+                            update_time = CURRENT_TIMESTAMP
+                        where batch_id = ?
+                          and gid = ?
+                          and domain = ?
+                          and short_uri = ?
+                          and exists (
+                              select 1
+                              from t_agent_risk_profile_batch
+                              where batch_id = ?
+                                and owner_token = ?
+                                and status = ?
+                                and lease_until is not null
+                                and lease_until > ?
+                          )
+                        """,
+                profile.fullShortUrl(),
+                Timestamp.valueOf(profile.profileWindowStart()),
+                Timestamp.valueOf(profile.profileWindowEnd()),
+                metrics.pv2h(),
+                metrics.uv2h(),
+                metrics.pv24h(),
+                metrics.uv24h(),
+                metrics.pv7d(),
+                metrics.uv7d(),
+                metrics.pvGrowth2hVs24hAvg(),
+                metrics.topIpShare(),
+                metrics.topVisitorShare(),
+                metrics.topRegionShare(),
+                metrics.topDeviceShare(),
+                metrics.topBrowserShare(),
+                metrics.pvPerUv(),
+                metrics.peakHourShare(),
+                metrics.repeatVisitRatio(),
+                profile.anomalyScore(),
+                profile.riskScore(),
+                profile.riskLevel().name(),
+                reasonCodesJson,
+                profileJson,
+                profile.batchId(),
+                profile.gid(),
+                profile.domain(),
+                profile.shortUri(),
+                profile.batchId(),
+                ownerToken,
+                com.nageoffer.shortlink.agent.riskprofile.batch.RiskProfileBatchStatus.RUNNING.name(),
+                Timestamp.valueOf(leaseCheckTime)
         );
     }
 
@@ -132,6 +274,45 @@ public class JdbcShortLinkRiskProfileRepository {
             latestByTarget.putIfAbsent(profile.domain() + "\n" + profile.shortUri(), profile);
         }
         return new ArrayList<>(latestByTarget.values());
+    }
+
+    public List<ShortLinkRiskProfile> findByBatchIdAndGid(String batchId, String gid) {
+        return jdbcTemplate.query("""
+                        select *
+                        from t_agent_short_link_risk_profile
+                        where batch_id = ?
+                          and gid = ?
+                        order by domain asc, short_uri asc, id desc
+                        """,
+                (rs, rowNum) -> mapProfile(rs),
+                batchId,
+                gid
+        );
+    }
+
+    public Optional<ShortLinkRiskProfile> findByBatchIdAndTarget(
+            String batchId,
+            String gid,
+            String domain,
+            String shortUri
+    ) {
+        List<ShortLinkRiskProfile> profiles = jdbcTemplate.query("""
+                        select *
+                        from t_agent_short_link_risk_profile
+                        where batch_id = ?
+                          and gid = ?
+                          and domain = ?
+                          and short_uri = ?
+                        order by id desc
+                        limit 1
+                        """,
+                (rs, rowNum) -> mapProfile(rs),
+                batchId,
+                gid,
+                domain,
+                shortUri
+        );
+        return profiles.stream().findFirst();
     }
 
     public List<ShortLinkRiskProfile> findTopRiskByGid(String gid, int limit) {
@@ -184,7 +365,8 @@ public class JdbcShortLinkRiskProfileRepository {
                 reasonCodes(rs.getString("reason_codes_json")),
                 watchStatus(snapshot),
                 stringList(snapshot.get("latestPolicyActions")),
-                stringValue(snapshot.get("latestAgentSummary"))
+                stringValue(snapshot.get("latestAgentSummary")),
+                rs.getString("batch_id")
         );
     }
 
@@ -218,6 +400,7 @@ public class JdbcShortLinkRiskProfileRepository {
         snapshot.put("watchStatus", profile.watchStatus().name());
         snapshot.put("latestPolicyActions", profile.latestPolicyActions());
         snapshot.put("latestAgentSummary", profile.latestAgentSummary());
+        snapshot.put("batchId", profile.batchId());
         return snapshot;
     }
 

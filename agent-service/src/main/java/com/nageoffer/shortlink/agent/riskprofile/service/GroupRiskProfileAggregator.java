@@ -60,8 +60,17 @@ public class GroupRiskProfileAggregator {
                 topReasonCodes(safeProfiles),
                 topRiskShortLinks(safeProfiles),
                 historyTrend == null ? List.of() : List.copyOf(historyTrend),
-                ""
+                "",
+                batchId(safeProfiles)
         );
+    }
+
+    private String batchId(List<ShortLinkRiskProfile> profiles) {
+        return profiles.stream()
+                .map(ShortLinkRiskProfile::batchId)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse("");
     }
 
     private int countByLevel(List<ShortLinkRiskProfile> profiles, RiskLevel riskLevel) {
@@ -97,21 +106,7 @@ public class GroupRiskProfileAggregator {
     }
 
     private List<ShortLinkRiskProfile> topRiskShortLinks(List<ShortLinkRiskProfile> profiles) {
-        return profiles.stream()
-                .sorted(candidateComparator())
-                .limit(TOP_RISK_SHORT_LINK_LIMIT)
-                .toList();
-    }
-
-    private Comparator<ShortLinkRiskProfile> candidateComparator() {
-        return Comparator
-                .comparingInt(ShortLinkRiskProfile::riskScore)
-                .reversed()
-                .thenComparing(
-                        profile -> profile.metrics() == null ? 0 : profile.metrics().pv2h(),
-                        Comparator.reverseOrder()
-                )
-                .thenComparing(ShortLinkRiskProfile::shortUri);
+        return RiskProfileCandidateSelector.top(profiles, TOP_RISK_SHORT_LINK_LIMIT);
     }
 
     private LocalDateTime minWindowStart(List<ShortLinkRiskProfile> profiles) {

@@ -23,7 +23,8 @@ public record GroupRiskProfile(
         List<RiskReasonCode> groupReasonCodes,
         List<ShortLinkRiskProfile> topRiskShortLinks,
         List<RiskTrendPoint> riskTrend7d,
-        String agentSummary
+        String agentSummary,
+        String batchId
 ) {
 
     public GroupRiskProfile {
@@ -42,10 +43,79 @@ public record GroupRiskProfile(
         topRiskShortLinks = topRiskShortLinks == null ? List.of() : List.copyOf(topRiskShortLinks);
         riskTrend7d = riskTrend7d == null ? List.of() : List.copyOf(riskTrend7d);
         agentSummary = agentSummary == null ? "" : agentSummary;
+        batchId = batchId == null ? "" : batchId;
+    }
+
+    public GroupRiskProfile(
+            String gid,
+            LocalDateTime profileWindowStart,
+            LocalDateTime profileWindowEnd,
+            int totalShortLinksScanned,
+            int lowRiskCount,
+            int mediumRiskCount,
+            int highRiskCount,
+            int watchingCount,
+            int disabledCount,
+            double avgRiskScore,
+            int maxRiskScore,
+            int groupRiskScore,
+            RiskLevel groupRiskLevel,
+            List<RiskReasonCode> groupReasonCodes,
+            List<ShortLinkRiskProfile> topRiskShortLinks,
+            List<RiskTrendPoint> riskTrend7d,
+            String agentSummary
+    ) {
+        this(
+                gid,
+                profileWindowStart,
+                profileWindowEnd,
+                totalShortLinksScanned,
+                lowRiskCount,
+                mediumRiskCount,
+                highRiskCount,
+                watchingCount,
+                disabledCount,
+                avgRiskScore,
+                maxRiskScore,
+                groupRiskScore,
+                groupRiskLevel,
+                groupReasonCodes,
+                topRiskShortLinks,
+                riskTrend7d,
+                agentSummary,
+                legacyBatchId(profileWindowEnd)
+        );
+    }
+
+    public GroupRiskProfile withBatchId(String newBatchId) {
+        return new GroupRiskProfile(
+                gid,
+                profileWindowStart,
+                profileWindowEnd,
+                totalShortLinksScanned,
+                lowRiskCount,
+                mediumRiskCount,
+                highRiskCount,
+                watchingCount,
+                disabledCount,
+                avgRiskScore,
+                maxRiskScore,
+                groupRiskScore,
+                groupRiskLevel,
+                groupReasonCodes,
+                topRiskShortLinks,
+                riskTrend7d,
+                agentSummary,
+                newBatchId
+        );
     }
 
     private static int nonNegative(int value) {
         return Math.max(0, value);
+    }
+
+    private static String legacyBatchId(LocalDateTime profileWindowEnd) {
+        return "legacy:" + (profileWindowEnd == null ? "" : profileWindowEnd);
     }
 
     private static int clampScore(int score) {

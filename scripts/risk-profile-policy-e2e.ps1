@@ -53,8 +53,16 @@ $batch = Invoke-RestMethod `
 Assert-AgentSuccess $batch "risk profile run-once"
 Show-Json $batch
 
-if ($batch.data.scannedShortLinks -le 0) {
-    Write-Warning "run-once scannedShortLinks is 0. Check project/admin data and whether recent 7-day access records exist."
+if ($batch.data.PSObject.Properties.Name -contains "scannedCount") {
+    $scannedCount = [int] $batch.data.scannedCount
+} elseif ($batch.data.PSObject.Properties.Name -contains "scannedShortLinks") {
+    $scannedCount = [int] $batch.data.scannedShortLinks
+} else {
+    throw "risk profile run-once returned no scan count"
+}
+
+if ($scannedCount -le 0) {
+    Write-Warning "run-once scannedCount is 0. Check project/admin data and whether recent 7-day access records exist."
 }
 
 Write-Host "3. query group risk overview"

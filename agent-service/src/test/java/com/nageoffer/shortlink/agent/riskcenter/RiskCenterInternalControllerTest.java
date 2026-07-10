@@ -41,6 +41,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveShortLinkProfile;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -65,8 +67,8 @@ class RiskCenterInternalControllerTest {
         riskPolicyService = mock(RiskPolicyService.class);
 
         ShortLinkRiskProfile shortLinkProfile = shortLinkProfile("gid-001", "nurl.ink", "abc123", 92);
-        shortLinkProfileRepository.save(shortLinkProfile);
-        groupProfileRepository.save(groupProfile(shortLinkProfile));
+        saveShortLinkProfile(jdbcTemplate, shortLinkProfileRepository, shortLinkProfile);
+        saveGroupProfile(jdbcTemplate, groupProfileRepository, groupProfile(shortLinkProfile));
         eventRepository.saveEvent(event("event-001", 92));
         snapshotRepository.upsertSnapshot(snapshot("event-001", 92));
 

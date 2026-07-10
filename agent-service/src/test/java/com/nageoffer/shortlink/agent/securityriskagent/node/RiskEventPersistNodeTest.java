@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
 import static org.mockito.Mockito.mock;
 
 class RiskEventPersistNodeTest {
@@ -43,7 +44,7 @@ class RiskEventPersistNodeTest {
         JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
         LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
         GroupRiskProfile groupProfile = groupProfile("gid-001", endTime);
-        groupRepository.save(groupProfile);
+        saveGroupProfile(jdbcTemplate, groupRepository, groupProfile);
         RiskCenterService riskCenterService = new RiskCenterService(
                 eventRepository,
                 snapshotRepository,
@@ -79,6 +80,83 @@ class RiskEventPersistNodeTest {
                 .extracting(GroupRiskProfile::agentSummary)
                 .isEqualTo("group risk summary");
         assertThat(output.get("persistedRiskEvents").toString()).contains("high001", "medium001");
+    }
+
+    @Test
+    void delayedBatchUpdatesOnlyItsOwnGroupProfileSummary() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_event_persist_exact_batch_summary");
+        JdbcRiskEventRepository eventRepository = new JdbcRiskEventRepository(jdbcTemplate);
+        JdbcRiskSnapshotRepository snapshotRepository = new JdbcRiskSnapshotRepository(jdbcTemplate);
+        JdbcRiskReviewRepository reviewRepository = new JdbcRiskReviewRepository(jdbcTemplate);
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime oldEndTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        String oldBatchId = "risk-profile:batch-old";
+        String newBatchId = "risk-profile:batch-new";
+        GroupRiskProfile oldGroupProfile = groupProfile("gid-001", oldEndTime).withBatchId(oldBatchId);
+        GroupRiskProfile newGroupProfile = groupProfile("gid-001", oldEndTime.plusHours(2)).withBatchId(newBatchId);
+        saveGroupProfile(jdbcTemplate, groupRepository, oldGroupProfile);
+        saveGroupProfile(jdbcTemplate, groupRepository, newGroupProfile);
+        RiskCenterService riskCenterService = new RiskCenterService(
+                eventRepository,
+                snapshotRepository,
+                reviewRepository,
+                shortLinkRepository,
+                groupRepository,
+                mock(RiskPolicyService.class)
+        );
+        RiskEventPersistNode node = new RiskEventPersistNode(riskCenterService, groupRepository);
+        ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
+                "gid-001",
+                oldGroupProfile,
+                List.of(profile("gid-001", "high001", 92, oldEndTime).withBatchId(oldBatchId))
+        );
+
+        node.persist(context, "trace-old", "session-old", "old batch summary");
+
+        assertThat(groupRepository.findByBatchIdAndGid(oldBatchId, "gid-001"))
+                .isPresent()
+                .get()
+                .extracting(GroupRiskProfile::agentSummary)
+                .isEqualTo("old batch summary");
+        assertThat(groupRepository.findByBatchIdAndGid(newBatchId, "gid-001")
+                .map(GroupRiskProfile::agentSummary))
+                .contains("");
+    }
+
+    @Test
+    void retryWithSameTraceUpsertsOneDeterministicRiskEvent() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("risk_event_persist_retry_idempotency");
+        JdbcRiskEventRepository eventRepository = new JdbcRiskEventRepository(jdbcTemplate);
+        JdbcRiskSnapshotRepository snapshotRepository = new JdbcRiskSnapshotRepository(jdbcTemplate);
+        JdbcRiskReviewRepository reviewRepository = new JdbcRiskReviewRepository(jdbcTemplate);
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        String batchId = "risk-profile:batch-retry";
+        GroupRiskProfile groupProfile = groupProfile("gid-001", endTime).withBatchId(batchId);
+        saveGroupProfile(jdbcTemplate, groupRepository, groupProfile);
+        RiskCenterService riskCenterService = new RiskCenterService(
+                eventRepository,
+                snapshotRepository,
+                reviewRepository,
+                shortLinkRepository,
+                groupRepository,
+                mock(RiskPolicyService.class)
+        );
+        RiskEventPersistNode node = new RiskEventPersistNode(riskCenterService, groupRepository);
+        ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
+                "gid-001",
+                groupProfile,
+                List.of(profile("gid-001", "high001", 92, endTime).withBatchId(batchId))
+        );
+
+        Map<String, Object> first = node.persist(context, "trace-retry", "session-retry", "risk summary");
+        Map<String, Object> second = node.persist(context, "trace-retry", "session-retry", "risk summary");
+
+        assertThat(eventRepository.listEvents("gid-001", RiskTargetType.SHORT_LINK, 1, 10))
+                .hasSize(1);
+        assertThat(first.get("eventIdsByTarget")).isEqualTo(second.get("eventIdsByTarget"));
     }
 
     private GroupRiskProfile groupProfile(String gid, LocalDateTime endTime) {

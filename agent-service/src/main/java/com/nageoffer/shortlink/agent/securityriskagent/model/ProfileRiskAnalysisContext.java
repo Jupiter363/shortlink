@@ -33,6 +33,9 @@ public record ProfileRiskAnalysisContext(
         Map<String, Object> dataSource = new LinkedHashMap<>();
         dataSource.put("type", "risk_profile");
         dataSource.put("gid", gid);
+        if (!batchId().isBlank()) {
+            dataSource.put("batchId", batchId());
+        }
         if (groupProfile != null) {
             dataSource.put("groupProfile", groupProfileMap(groupProfile));
         }
@@ -40,6 +43,17 @@ public record ProfileRiskAnalysisContext(
                 .map(this::shortLinkMap)
                 .toList());
         return dataSource;
+    }
+
+    public String batchId() {
+        if (groupProfile != null && groupProfile.batchId() != null && !groupProfile.batchId().isBlank()) {
+            return groupProfile.batchId();
+        }
+        return shortLinkProfiles.stream()
+                .map(ShortLinkRiskProfile::batchId)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse("");
     }
 
     public Map<String, Object> toToolExecution() {
@@ -69,6 +83,7 @@ public record ProfileRiskAnalysisContext(
 
     private Map<String, Object> groupProfileMap(GroupRiskProfile profile) {
         Map<String, Object> value = new LinkedHashMap<>();
+        value.put("batchId", profile.batchId());
         value.put("gid", profile.gid());
         value.put("profileWindowStart", profile.profileWindowStart() == null ? "" : profile.profileWindowStart().toString());
         value.put("profileWindowEnd", profile.profileWindowEnd() == null ? "" : profile.profileWindowEnd().toString());
@@ -98,6 +113,7 @@ public record ProfileRiskAnalysisContext(
 
     private Map<String, Object> shortLinkMap(ShortLinkRiskProfile profile) {
         Map<String, Object> value = new LinkedHashMap<>();
+        value.put("batchId", profile.batchId());
         value.put("gid", profile.gid());
         value.put("domain", profile.domain());
         value.put("shortUri", profile.shortUri());

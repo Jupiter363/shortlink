@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.nageoffer.shortlink.admin.common.biz.user.UserContext;
 import com.nageoffer.shortlink.admin.common.convention.exception.ClientException;
+import com.nageoffer.shortlink.admin.common.convention.exception.RemoteException;
 import com.nageoffer.shortlink.admin.common.convention.result.Result;
 import com.nageoffer.shortlink.admin.common.convention.result.Results;
 import com.nageoffer.shortlink.admin.dao.entity.GroupDO;
@@ -170,9 +171,6 @@ public class AgentToolInternalController {
                 formatProjectDateTime(windowStart),
                 formatProjectDateTime(windowEnd)
         ));
-        if (stats == null) {
-            stats = new ShortLinkStatsRespDTO();
-        }
         int pv = safeInt(stats.getPv());
         return Results.success(AgentRiskShortLinkStatsWindowRespDTO.builder()
                 .gid(gid)
@@ -205,8 +203,14 @@ public class AgentToolInternalController {
     }
 
     private <T> T data(Result<T> result) {
-        if (result == null || !result.isSuccess()) {
-            return null;
+        if (result == null) {
+            throw new RemoteException("Agent tool downstream response is missing");
+        }
+        if (!result.isSuccess()) {
+            throw new RemoteException("Agent tool downstream request failed");
+        }
+        if (result.getData() == null) {
+            throw new RemoteException("Agent tool downstream data is missing");
         }
         return result.getData();
     }

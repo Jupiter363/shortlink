@@ -22,6 +22,7 @@ import com.nageoffer.shortlink.agent.riskprofile.detector.ShortLinkRiskDetector;
 import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
+import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcRiskProfileBatchRepository;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import com.nageoffer.shortlink.agent.riskprofile.service.GroupRiskProfileAggregator;
 import com.nageoffer.shortlink.agent.riskprofile.service.RiskProfileBatchResult;
@@ -55,6 +56,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -66,6 +68,7 @@ class RiskProfilePolicyE2eTest {
     private static final Instant BATCH_NOW = Instant.parse("2026-07-10T02:00:00Z");
     private static final LocalDateTime BATCH_END_TIME = LocalDateTime.of(2026, 7, 10, 10, 0);
     private static final Clock CLOCK = Clock.fixed(BATCH_NOW, ZoneId.of("Asia/Shanghai"));
+    private static final String OWNER_TOKEN = "risk-profile-e2e-owner";
 
     @Test
     void profileBatchFeedsSecurityRiskAgentAndPublishesLimitRatePolicyWithoutSensitiveCheckpointData() {
@@ -79,7 +82,7 @@ class RiskProfilePolicyE2eTest {
         JdbcRiskActionAuditRepository auditRepository = new JdbcRiskActionAuditRepository(jdbcTemplate);
         JdbcGraphCheckpointStore checkpointStore = new JdbcGraphCheckpointStore(jdbcTemplate);
         AgentProperties properties = agentProperties();
-        seedSevenDayGroupTrend(groupRepository);
+        seedSevenDayGroupTrend(jdbcTemplate, groupRepository);
         FakeRiskStatsSourceGateway sourceGateway = new FakeRiskStatsSourceGateway(List.of(
                 candidate("high001"),
                 candidate("low001")
@@ -102,7 +105,18 @@ class RiskProfilePolicyE2eTest {
                 properties
         );
 
-        RiskProfileBatchResult batchResult = batchService.runOnce(BATCH_NOW);
+        JdbcRiskProfileBatchRepository batchRepository = new JdbcRiskProfileBatchRepository(jdbcTemplate);
+        LocalDateTime leaseNow = LocalDateTime.now(ZoneId.of("Asia/Shanghai"));
+        assertThat(batchRepository.tryAcquire(
+                "risk-profile:" + BATCH_NOW.getEpochSecond(),
+                BATCH_END_TIME.minusHours(2),
+                BATCH_END_TIME,
+                OWNER_TOKEN,
+                leaseNow,
+                Duration.ofDays(1)
+        )).isTrue();
+
+        RiskProfileBatchResult batchResult = batchService.runOnce(BATCH_NOW, OWNER_TOKEN);
 
         assertThat(sourceGateway.lastSince()).isEqualTo(BATCH_NOW.minus(Duration.ofDays(7)));
         assertThat(batchResult.scannedShortLinks()).isEqualTo(2);
@@ -172,6 +186,7 @@ class RiskProfilePolicyE2eTest {
                 .doesNotContain("visitor-001");
         assertThat(result.dataSources().toString())
                 .contains("risk_profile")
+                .contains("risk_policy")
                 .contains("high001")
                 .doesNotContain("low001");
         assertThat(result.cards().toString())
@@ -238,13 +253,16 @@ class RiskProfilePolicyE2eTest {
         return properties;
     }
 
-    private void seedSevenDayGroupTrend(JdbcGroupRiskProfileRepository groupRepository) {
+    private void seedSevenDayGroupTrend(
+            JdbcTemplate jdbcTemplate,
+            JdbcGroupRiskProfileRepository groupRepository
+    ) {
         LocalDate startDate = LocalDate.of(2026, 7, 4);
         for (int index = 0; index < 7; index++) {
             LocalDate date = startDate.plusDays(index);
             LocalDateTime endTime = date.atTime(index == 6 ? 8 : 10, 0);
             int score = 35 + index;
-            groupRepository.save(new GroupRiskProfile(
+            saveGroupProfile(jdbcTemplate, groupRepository, new GroupRiskProfile(
                     "gid-001",
                     endTime.minusHours(2),
                     endTime,

@@ -48,7 +48,7 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                 orderedParams("since", since.toString())
         );
         if (!(data instanceof List<?> rows)) {
-            return List.of();
+            throw new IllegalStateException("Risk stats active short links data must be a list");
         }
         return rows.stream()
                 .filter(Map.class::isInstance)
@@ -69,24 +69,7 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                 )
         );
         if (!(data instanceof Map<?, ?> row)) {
-            return new ShortLinkStatsWindow(
-                    candidate.gid(),
-                    candidate.domain(),
-                    candidate.shortUri(),
-                    candidate.fullShortUrl(),
-                    start,
-                    end,
-                    0,
-                    0,
-                    0,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
-            );
+            throw new IllegalStateException("Risk stats window data must be an object");
         }
         return statsWindow((Map<String, Object>) row, candidate, start, end);
     }

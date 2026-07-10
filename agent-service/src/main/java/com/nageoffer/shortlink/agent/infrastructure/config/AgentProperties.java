@@ -203,6 +203,8 @@ public class AgentProperties {
 
         private Profile profile = new Profile();
 
+        private Analysis analysis = new Analysis();
+
         private AutoAction autoAction = new AutoAction();
 
         private Redis redis = new Redis();
@@ -221,6 +223,14 @@ public class AgentProperties {
 
         public void setProfile(Profile profile) {
             this.profile = profile;
+        }
+
+        public Analysis getAnalysis() {
+            return analysis;
+        }
+
+        public void setAnalysis(Analysis analysis) {
+            this.analysis = analysis;
         }
 
         public AutoAction getAutoAction() {
@@ -248,6 +258,8 @@ public class AgentProperties {
 
         private int topCandidateSize = 10;
 
+        private int failedRecoveryLimit = 3;
+
         public int getBatchIntervalMinutes() {
             return batchIntervalMinutes;
         }
@@ -270,6 +282,67 @@ public class AgentProperties {
 
         public void setTopCandidateSize(int topCandidateSize) {
             this.topCandidateSize = topCandidateSize;
+        }
+
+        public int getFailedRecoveryLimit() {
+            return failedRecoveryLimit;
+        }
+
+        public void setFailedRecoveryLimit(int failedRecoveryLimit) {
+            this.failedRecoveryLimit = failedRecoveryLimit;
+        }
+    }
+
+    public static class Analysis {
+
+        private int jobLeaseMinutes = 5;
+
+        private int maxAttempts = 3;
+
+        private int retryInitialSeconds = 30;
+
+        private int retryMaxSeconds = 600;
+
+        private long workerIntervalMillis = 5000L;
+
+        public int getJobLeaseMinutes() {
+            return jobLeaseMinutes;
+        }
+
+        public void setJobLeaseMinutes(int jobLeaseMinutes) {
+            this.jobLeaseMinutes = jobLeaseMinutes;
+        }
+
+        public int getMaxAttempts() {
+            return maxAttempts;
+        }
+
+        public void setMaxAttempts(int maxAttempts) {
+            this.maxAttempts = maxAttempts;
+        }
+
+        public int getRetryInitialSeconds() {
+            return retryInitialSeconds;
+        }
+
+        public void setRetryInitialSeconds(int retryInitialSeconds) {
+            this.retryInitialSeconds = retryInitialSeconds;
+        }
+
+        public int getRetryMaxSeconds() {
+            return retryMaxSeconds;
+        }
+
+        public void setRetryMaxSeconds(int retryMaxSeconds) {
+            this.retryMaxSeconds = retryMaxSeconds;
+        }
+
+        public long getWorkerIntervalMillis() {
+            return workerIntervalMillis;
+        }
+
+        public void setWorkerIntervalMillis(long workerIntervalMillis) {
+            this.workerIntervalMillis = workerIntervalMillis;
         }
     }
 

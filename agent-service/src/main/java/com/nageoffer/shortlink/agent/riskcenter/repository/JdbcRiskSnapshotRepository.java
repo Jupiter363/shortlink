@@ -7,6 +7,7 @@ import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskWatchStatus;
 import com.nageoffer.shortlink.agent.riskcommon.safety.RiskSensitiveDataGuard;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -25,6 +26,7 @@ public class JdbcRiskSnapshotRepository {
     private final RiskJsonCodec jsonCodec;
     private final RiskSensitiveDataGuard sensitiveDataGuard;
 
+    @Autowired
     public JdbcRiskSnapshotRepository(JdbcTemplate jdbcTemplate) {
         this(jdbcTemplate, new RiskJsonCodec(), new RiskSensitiveDataGuard());
     }

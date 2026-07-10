@@ -27,11 +27,14 @@ import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,6 +44,8 @@ import java.util.UUID;
 @Service
 public class RiskCenterService {
 
+    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+
     private final JdbcRiskEventRepository eventRepository;
     private final JdbcRiskSnapshotRepository snapshotRepository;
     private final JdbcRiskReviewRepository reviewRepository;
@@ -49,6 +54,7 @@ public class RiskCenterService {
     private final RiskPolicyService riskPolicyService;
     private final Clock clock;
 
+    @Autowired
     public RiskCenterService(
             JdbcRiskEventRepository eventRepository,
             JdbcRiskSnapshotRepository snapshotRepository,
@@ -64,7 +70,7 @@ public class RiskCenterService {
                 shortLinkProfileRepository,
                 groupProfileRepository,
                 riskPolicyService,
-                Clock.systemDefaultZone()
+                Clock.system(SHANGHAI)
         );
     }
 
@@ -88,29 +94,10 @@ public class RiskCenterService {
 
     public RiskGroupOverviewRespDTO getGroupOverview(String gid) {
         GroupRiskProfile profile = groupProfileRepository.findLatestByGid(gid)
-                .orElse(null);
+                .orElseThrow(() -> new IllegalStateException("Group risk profile is not available"));
         List<RiskShortLinkCardRespDTO> topRiskShortLinks = shortLinkProfileRepository.findTopRiskByGid(gid, 10).stream()
                 .map(this::toCard)
                 .toList();
-        if (profile == null) {
-            return new RiskGroupOverviewRespDTO(
-                    valueOrEmpty(gid),
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0D,
-                    0,
-                    0,
-                    RiskLevel.LOW.name(),
-                    List.of(),
-                    topRiskShortLinks,
-                    List.of(),
-                    ""
-            );
-        }
         return new RiskGroupOverviewRespDTO(
                 profile.gid(),
                 profile.totalShortLinksScanned(),
@@ -211,11 +198,25 @@ public class RiskCenterService {
     }
 
     public RiskEvent recordProfileBatchEvent(ShortLinkRiskProfile profile, String traceId) {
-        return recordRiskEventFromProfile(profile, traceId, "", profile.latestAgentSummary(), RiskEventSource.PROFILE_BATCH);
+        return recordRiskEventFromProfile(
+                profile,
+                traceId,
+                "",
+                profile.latestAgentSummary(),
+                RiskEventSource.PROFILE_BATCH,
+                ""
+        );
     }
 
     public RiskEvent recordProfileBatchEvent(ShortLinkRiskProfile profile, String traceId, String sessionId, String agentSummary) {
-        return recordRiskEventFromProfile(profile, traceId, sessionId, agentSummary, RiskEventSource.PROFILE_BATCH);
+        return recordRiskEventFromProfile(
+                profile,
+                traceId,
+                sessionId,
+                agentSummary,
+                RiskEventSource.PROFILE_BATCH,
+                ""
+        );
     }
 
     public RiskEvent recordSecurityRiskAgentEvent(
@@ -224,7 +225,14 @@ public class RiskCenterService {
             String sessionId,
             String agentSummary
     ) {
-        return recordRiskEventFromProfile(profile, traceId, sessionId, agentSummary, RiskEventSource.SECURITY_RISK_AGENT);
+        return recordRiskEventFromProfile(
+                profile,
+                traceId,
+                sessionId,
+                agentSummary,
+                RiskEventSource.SECURITY_RISK_AGENT,
+                securityRiskEventId(profile, traceId)
+        );
     }
 
     private RiskEvent recordRiskEventFromProfile(
@@ -232,10 +240,11 @@ public class RiskCenterService {
             String traceId,
             String sessionId,
             String agentSummary,
-            RiskEventSource source
+            RiskEventSource source,
+            String eventId
     ) {
         RiskEvent event = new RiskEvent(
-                "risk-event-" + UUID.randomUUID(),
+                StringUtils.hasText(eventId) ? eventId : "risk-event-" + UUID.randomUUID(),
                 RiskTargetType.SHORT_LINK,
                 profile.gid(),
                 profile.domain(),
@@ -254,6 +263,21 @@ public class RiskCenterService {
         );
         eventRepository.saveEvent(event);
         return event;
+    }
+
+    private String securityRiskEventId(ShortLinkRiskProfile profile, String traceId) {
+        if (!StringUtils.hasText(traceId)) {
+            return "";
+        }
+        String idempotencyKey = String.join(
+                "|",
+                traceId,
+                profile.gid(),
+                profile.domain(),
+                profile.shortUri(),
+                profile.profileWindowEnd() == null ? "" : profile.profileWindowEnd().toString()
+        );
+        return "risk-event-" + UUID.nameUUIDFromBytes(idempotencyKey.getBytes(StandardCharsets.UTF_8));
     }
 
     public void upsertSnapshotFromProfile(ShortLinkRiskProfile profile, String eventId, String traceId) {

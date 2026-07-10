@@ -1,21 +1,26 @@
 package com.nageoffer.shortlink.agent.riskpolicy.service;
 
 import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Service
 public class RiskPolicyRedisPublisher {
 
+    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+
     private final StringRedisTemplate stringRedisTemplate;
     private final Clock clock;
 
+    @Autowired
     public RiskPolicyRedisPublisher(StringRedisTemplate stringRedisTemplate) {
-        this(stringRedisTemplate, Clock.systemDefaultZone());
+        this(stringRedisTemplate, Clock.system(SHANGHAI));
     }
 
     public RiskPolicyRedisPublisher(StringRedisTemplate stringRedisTemplate, Clock clock) {

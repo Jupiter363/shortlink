@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -92,6 +93,52 @@ class RiskAutoActionNodeTest {
 
         assertThat(output.get("activatedPolicies")).isEqualTo(List.of());
         verify(riskPolicyService, never()).activatePolicy(any());
+    }
+
+    @Test
+    void retryReusesDeterministicAutoPolicyId() {
+        RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
+        when(riskPolicyService.canAutoLimitRate(
+                RiskLevel.HIGH,
+                92,
+                Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION)
+        )).thenReturn(true);
+        when(riskPolicyService.activatePolicy(any())).thenAnswer(invocation -> {
+            RiskPolicyActivationCommand command = invocation.getArgument(0);
+            return RiskPolicy.shortLinkPolicy(
+                    command.policyId(),
+                    "risk:policy:short-link:rate-limit:nurl.ink:high001",
+                    command.action(),
+                    command.gid(),
+                    command.domain(),
+                    command.shortUri(),
+                    command.policyPayloadJson(),
+                    command.source(),
+                    command.traceId(),
+                    command.eventId()
+            );
+        });
+        RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
+        ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
+                "gid-001",
+                null,
+                List.of(profile(
+                        "high001",
+                        92,
+                        Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
+                        List.of()
+                ))
+        );
+
+        node.apply(context, Map.of("nurl.ink/high001", "event-stable"), "trace-stable");
+        node.apply(context, Map.of("nurl.ink/high001", "event-stable"), "trace-stable");
+
+        ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor =
+                ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
+        verify(riskPolicyService, times(2)).activatePolicy(commandCaptor.capture());
+        assertThat(commandCaptor.getAllValues())
+                .extracting(RiskPolicyActivationCommand::policyId)
+                .containsOnly(commandCaptor.getAllValues().get(0).policyId());
     }
 
     private ShortLinkRiskProfile profile(

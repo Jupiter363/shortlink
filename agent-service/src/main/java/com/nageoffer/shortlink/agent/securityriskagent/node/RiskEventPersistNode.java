@@ -56,7 +56,7 @@ public class RiskEventPersistNode {
                 .map(profile -> persistProfile(profile, traceId, sessionId, agentSummary, eventIdsByTarget))
                 .toList();
         if (groupRepository != null && context.groupProfile() != null && agentSummary != null && !agentSummary.isBlank()) {
-            groupRepository.updateAgentSummary(context.gid(), agentSummary);
+            groupRepository.updateAgentSummary(context.groupProfile().batchId(), context.gid(), agentSummary);
         }
         return Map.of(
                 "persistedRiskEvents", persistedEvents,

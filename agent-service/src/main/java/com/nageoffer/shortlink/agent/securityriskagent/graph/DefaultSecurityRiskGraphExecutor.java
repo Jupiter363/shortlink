@@ -41,8 +41,6 @@ import java.util.Optional;
 @Service
 public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecutor {
 
-    private static final String GRAPH_NAME = "security-risk-graph";
-    private static final String GRAPH_VERSION = "v1";
     private static final String INTAKE_NODE = "intake";
     private static final String PROFILE_CANDIDATE_LOAD_NODE = "profile_candidate_load";
     private static final String RISK_TOOL_PLANNING_NODE = "risk_tool_planning";
@@ -81,7 +79,10 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
-        this.intakeNode = new RiskIntakeNode(GRAPH_NAME, GRAPH_VERSION);
+        this.intakeNode = new RiskIntakeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION
+        );
         this.profileCandidateLoadNode = new ProfileCandidateLoadNode(
                 shortLinkRiskProfileRepository,
                 groupRiskProfileRepository,
@@ -92,7 +93,11 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         this.llmExplanationNode = new RiskLlmExplanationNode(llmChatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
         this.eventPersistNode = new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
         this.autoActionNode = new RiskAutoActionNode(riskPolicyService, agentProperties);
-        this.responseComposeNode = new RiskResponseComposeNode(GRAPH_NAME, GRAPH_VERSION, this.sanitizer);
+        this.responseComposeNode = new RiskResponseComposeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION,
+                this.sanitizer
+        );
         this.graph = compileGraph();
     }
 
@@ -105,14 +110,21 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
-        this.intakeNode = new RiskIntakeNode(GRAPH_NAME, GRAPH_VERSION);
+        this.intakeNode = new RiskIntakeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION
+        );
         this.profileCandidateLoadNode = ProfileCandidateLoadNode.noop();
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
         this.llmExplanationNode = new RiskLlmExplanationNode(llmChatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
         this.eventPersistNode = RiskEventPersistNode.noop();
         this.autoActionNode = RiskAutoActionNode.noop();
-        this.responseComposeNode = new RiskResponseComposeNode(GRAPH_NAME, GRAPH_VERSION, this.sanitizer);
+        this.responseComposeNode = new RiskResponseComposeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION,
+                this.sanitizer
+        );
         this.graph = compileGraph();
     }
 
@@ -123,23 +135,32 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         input.put("username", request.username());
         input.put("message", request.message());
         input.put("traceId", request.traceId());
+        if (request.analysisInput() != null) {
+            input.put("analysisInput", request.analysisInput().toStateValue());
+        }
         try {
             Optional<OverAllState> state = graph.invoke(input, RunnableConfig.builder()
                     .threadId(request.sessionId())
                     .build());
             if (state.isEmpty()) {
+                if (request.isBatchExecution()) {
+                    throw new IllegalStateException("Security risk graph produced no result");
+                }
                 return fallbackResult(request, "Security risk graph produced no result.", "Graph execution returned empty state");
             }
             AgentRunResult result = toRunResult(request, state.get());
             return saveCheckpointOrWarn(request, state.get(), result);
         } catch (Exception ex) {
+            if (request.isBatchExecution()) {
+                throw new IllegalStateException("Security risk graph execution failed", ex);
+            }
             return fallbackResult(request, "Security risk graph failed.", "Graph execution failed");
         }
     }
 
     private CompiledGraph compileGraph() {
         try {
-            return new StateGraph(GRAPH_NAME, Map::of)
+            return new StateGraph(SecurityRiskGraphDefinition.GRAPH_NAME, Map::of)
                     .addNode(INTAKE_NODE, AsyncNodeAction.node_async(state -> tracedNode(INTAKE_NODE, state, this::intake)))
                     .addNode(PROFILE_CANDIDATE_LOAD_NODE, AsyncNodeAction.node_async(state -> tracedNode(PROFILE_CANDIDATE_LOAD_NODE, state, this::loadProfileCandidates)))
                     .addNode(RISK_TOOL_PLANNING_NODE, AsyncNodeAction.node_async(state -> tracedNode(RISK_TOOL_PLANNING_NODE, state, this::planAndExecuteTools)))
@@ -251,8 +272,8 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         checkpointStore.save(new GraphCheckpoint(
                 request.sessionId(),
                 request.traceId(),
-                GRAPH_NAME,
-                GRAPH_VERSION,
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION,
                 checkpointJson(request, state, result),
                 checkpointVersion,
                 "FINISHED"
@@ -264,8 +285,11 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         Map<String, Object> checkpoint = new LinkedHashMap<>();
         checkpoint.put("sessionId", request.sessionId());
         checkpoint.put("traceId", request.traceId());
-        checkpoint.put("graphName", GRAPH_NAME);
-        checkpoint.put("graphVersion", GRAPH_VERSION);
+        checkpoint.put("graphName", SecurityRiskGraphDefinition.GRAPH_NAME);
+        checkpoint.put("graphVersion", SecurityRiskGraphDefinition.GRAPH_VERSION);
+        if (request.analysisInput() != null) {
+            checkpoint.put("batchId", request.analysisInput().batchId());
+        }
         checkpoint.put("visitedNodes", state.value("visitedNodes", List.of()));
         checkpoint.put("answer", sanitizer.sanitizeText(result.answer()));
         checkpoint.put("warnings", sanitizeForResponse(result.warnings()));

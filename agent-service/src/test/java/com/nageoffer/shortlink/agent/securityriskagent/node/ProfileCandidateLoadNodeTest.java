@@ -10,6 +10,8 @@ import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
+import com.nageoffer.shortlink.agent.securityriskagent.model.RiskAnalysisInput;
+import com.nageoffer.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,8 +24,180 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
+import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveShortLinkProfile;
 
 class ProfileCandidateLoadNodeTest {
+
+    @Test
+    void structuredInputIgnoresMessageGidAndLoadsOnlyTheRequestedBatchTargets() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("profile_candidate_load_structured");
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        String requestedBatchId = "risk-profile:batch-requested";
+        String otherBatchId = "risk-profile:batch-other";
+
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-001", "selected", 92, endTime, List.of()).withBatchId(requestedBatchId)
+        );
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-001", "not-selected", 95, endTime, List.of()).withBatchId(requestedBatchId)
+        );
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-001", "selected", 99, endTime.plusHours(2), List.of()).withBatchId(otherBatchId)
+        );
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-message", "message-target", 100, endTime.plusHours(4), List.of())
+                        .withBatchId("risk-profile:batch-message")
+        );
+        saveGroupProfile(
+                jdbcTemplate,
+                groupRepository,
+                groupProfile("gid-001", endTime, List.of()).withBatchId(requestedBatchId)
+        );
+        saveGroupProfile(
+                jdbcTemplate,
+                groupRepository,
+                groupProfile("gid-001", endTime.plusHours(2), List.of()).withBatchId(otherBatchId)
+        );
+        saveGroupProfile(
+                jdbcTemplate,
+                groupRepository,
+                groupProfile("gid-message", endTime.plusHours(4), List.of())
+                        .withBatchId("risk-profile:batch-message")
+        );
+
+        ProfileCandidateLoadNode node = new ProfileCandidateLoadNode(shortLinkRepository, groupRepository, 10);
+        RiskAnalysisInput input = new RiskAnalysisInput(
+                requestedBatchId,
+                "gid-001",
+                endTime,
+                List.of(new RiskProfileTargetRef("nurl.ink", "selected"))
+        );
+
+        ProfileRiskAnalysisContext context = node.load("analyze gid=gid-message", input);
+
+        assertThat(context.gid()).isEqualTo("gid-001");
+        assertThat(context.groupProfile()).isNotNull();
+        assertThat(context.groupProfile().batchId()).isEqualTo(requestedBatchId);
+        assertThat(context.shortLinkProfiles())
+                .extracting(ShortLinkRiskProfile::shortUri)
+                .containsExactly("selected");
+        assertThat(context.shortLinkProfiles())
+                .extracting(ShortLinkRiskProfile::batchId)
+                .containsExactly(requestedBatchId);
+    }
+
+    @Test
+    void structuredInputLimitsCandidatesToConfiguredTopSize() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("profile_candidate_load_top_size");
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        String batchId = "risk-profile:batch-top-size";
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-001", "first", 95, endTime, List.of()).withBatchId(batchId)
+        );
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-001", "second", 90, endTime, List.of()).withBatchId(batchId)
+        );
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-001", "third", 85, endTime, List.of()).withBatchId(batchId)
+        );
+        saveGroupProfile(
+                jdbcTemplate,
+                groupRepository,
+                groupProfile("gid-001", endTime, List.of()).withBatchId(batchId)
+        );
+        ProfileCandidateLoadNode node = new ProfileCandidateLoadNode(shortLinkRepository, groupRepository, 2);
+        RiskAnalysisInput input = new RiskAnalysisInput(
+                batchId,
+                "gid-001",
+                endTime,
+                List.of(
+                        new RiskProfileTargetRef("nurl.ink", "first"),
+                        new RiskProfileTargetRef("nurl.ink", "second"),
+                        new RiskProfileTargetRef("nurl.ink", "third")
+                )
+        );
+
+        ProfileRiskAnalysisContext context = node.load("ignored", input);
+
+        assertThat(context.shortLinkProfiles())
+                .extracting(ShortLinkRiskProfile::shortUri)
+                .containsExactly("first", "second");
+    }
+
+    @Test
+    void structuredInputFailsWhenReferencedCandidateIsMissing() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("profile_candidate_load_missing");
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        String batchId = "risk-profile:batch-missing";
+        saveGroupProfile(
+                jdbcTemplate,
+                groupRepository,
+                groupProfile("gid-001", endTime, List.of()).withBatchId(batchId)
+        );
+        ProfileCandidateLoadNode node = new ProfileCandidateLoadNode(shortLinkRepository, groupRepository, 10);
+        RiskAnalysisInput input = new RiskAnalysisInput(
+                batchId,
+                "gid-001",
+                endTime,
+                List.of(new RiskProfileTargetRef("nurl.ink", "missing"))
+        );
+
+        assertThatThrownBy(() -> node.load("ignored", input))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Structured risk profile candidate was not found");
+    }
+
+    @Test
+    void structuredInputFailsWhenReferencedCandidateIsLowRisk() {
+        JdbcTemplate jdbcTemplate = jdbcTemplate("profile_candidate_load_low");
+        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        String batchId = "risk-profile:batch-low";
+        saveShortLinkProfile(
+                jdbcTemplate,
+                shortLinkRepository,
+                profile("gid-001", "low", 20, endTime, List.of()).withBatchId(batchId)
+        );
+        saveGroupProfile(
+                jdbcTemplate,
+                groupRepository,
+                groupProfile("gid-001", endTime, List.of()).withBatchId(batchId)
+        );
+        ProfileCandidateLoadNode node = new ProfileCandidateLoadNode(shortLinkRepository, groupRepository, 10);
+        RiskAnalysisInput input = new RiskAnalysisInput(
+                batchId,
+                "gid-001",
+                endTime,
+                List.of(new RiskProfileTargetRef("nurl.ink", "low"))
+        );
+
+        assertThatThrownBy(() -> node.load("ignored", input))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Structured risk profile candidate is not eligible");
+    }
 
     @Test
     void loadsGroupProfileAndTopTenShortLinkProfilesByGid() {
@@ -32,9 +206,17 @@ class ProfileCandidateLoadNodeTest {
         JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
         LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
         for (int index = 0; index < 12; index++) {
-            shortLinkRepository.save(profile("gid-001", "u" + index, 100 - index, endTime, List.of()));
+            saveShortLinkProfile(
+                    jdbcTemplate,
+                    shortLinkRepository,
+                    profile("gid-001", "u" + index, 100 - index, endTime, List.of())
+            );
         }
-        groupRepository.save(groupProfile("gid-001", endTime, List.of(profile("gid-001", "u0", 100, endTime, List.of()))));
+        saveGroupProfile(
+                jdbcTemplate,
+                groupRepository,
+                groupProfile("gid-001", endTime, List.of(profile("gid-001", "u0", 100, endTime, List.of())))
+        );
 
         ProfileCandidateLoadNode node = new ProfileCandidateLoadNode(shortLinkRepository, groupRepository, 10);
 

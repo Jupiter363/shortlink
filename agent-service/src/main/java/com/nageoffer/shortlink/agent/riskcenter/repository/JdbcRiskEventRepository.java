@@ -7,7 +7,9 @@ import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.nageoffer.shortlink.agent.riskcommon.safety.RiskSensitiveDataGuard;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
@@ -27,6 +29,7 @@ public class JdbcRiskEventRepository {
     private final RiskJsonCodec jsonCodec;
     private final RiskSensitiveDataGuard sensitiveDataGuard;
 
+    @Autowired
     public JdbcRiskEventRepository(JdbcTemplate jdbcTemplate) {
         this(jdbcTemplate, new RiskJsonCodec(), new RiskSensitiveDataGuard());
     }
@@ -47,7 +50,11 @@ public class JdbcRiskEventRepository {
         String recommendedActionsJson = jsonCodec.toJson(event.recommendedActions());
         sensitiveDataGuard.requireSafe(evidenceJson);
         sensitiveDataGuard.requireSafe(recommendedActionsJson);
-        jdbcTemplate.update("""
+        if (updateExisting(event, reasonCodesJson, evidenceJson, recommendedActionsJson) > 0) {
+            return;
+        }
+        try {
+            jdbcTemplate.update("""
                         insert into t_agent_risk_event (
                             event_id,
                             target_type,
@@ -84,6 +91,54 @@ public class JdbcRiskEventRepository {
                 event.sessionId(),
                 event.source().name(),
                 Timestamp.valueOf(event.eventTime())
+            );
+        } catch (DuplicateKeyException ex) {
+            updateExisting(event, reasonCodesJson, evidenceJson, recommendedActionsJson);
+        }
+    }
+
+    private int updateExisting(
+            RiskEvent event,
+            String reasonCodesJson,
+            String evidenceJson,
+            String recommendedActionsJson
+    ) {
+        return jdbcTemplate.update("""
+                        update t_agent_risk_event
+                        set target_type = ?,
+                            gid = ?,
+                            domain = ?,
+                            short_uri = ?,
+                            full_short_url = ?,
+                            risk_score = ?,
+                            risk_level = ?,
+                            reason_codes_json = ?,
+                            evidence_json = ?,
+                            recommended_actions_json = ?,
+                            agent_summary = ?,
+                            trace_id = ?,
+                            session_id = ?,
+                            source = ?,
+                            event_time = ?,
+                            update_time = CURRENT_TIMESTAMP
+                        where event_id = ?
+                        """,
+                event.targetType().name(),
+                event.gid(),
+                event.domain(),
+                event.shortUri(),
+                event.fullShortUrl(),
+                event.riskScore(),
+                event.riskLevel().name(),
+                reasonCodesJson,
+                evidenceJson,
+                recommendedActionsJson,
+                event.agentSummary(),
+                event.traceId(),
+                event.sessionId(),
+                event.source().name(),
+                Timestamp.valueOf(event.eventTime()),
+                event.eventId()
         );
     }
 
