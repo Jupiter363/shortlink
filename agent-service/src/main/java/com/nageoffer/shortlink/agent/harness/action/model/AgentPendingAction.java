@@ -1,0 +1,47 @@
+package com.nageoffer.shortlink.agent.harness.action.model;
+
+import java.time.LocalDateTime;
+
+public record AgentPendingAction(
+        long id,
+        String actionId,
+        String agentType,
+        AgentActionType actionType,
+        int payloadVersion,
+        AgentActionAuthorizationScope authorizationScope,
+        String ownerUsername,
+        String gid,
+        String targetType,
+        String targetKey,
+        String targetRefJson,
+        String title,
+        String summary,
+        String payloadJson,
+        String payloadHash,
+        String evidenceJson,
+        String idempotencyKey,
+        String activeSlotKey,
+        AgentActionStatus status,
+        LocalDateTime expireTime,
+        long version,
+        String executionToken,
+        LocalDateTime executionLeaseUntil,
+        int attemptCount,
+        String resultJson,
+        String failureCode,
+        String failureMessage,
+        String proposedBy,
+        String confirmedBy,
+        LocalDateTime confirmedTime,
+        String rejectedBy,
+        LocalDateTime rejectedTime,
+        String rejectionReason,
+        String rejectionReviewAction,
+        String traceId,
+        String eventId,
+        String batchId,
+        String sessionId,
+        LocalDateTime createTime,
+        LocalDateTime updateTime
+) {
+}
