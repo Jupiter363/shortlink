@@ -13,6 +13,7 @@ import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
@@ -119,6 +120,46 @@ class AgentRiskPropertiesTest {
         assertThat(properties.getRisk().getAutoAction().getLimitRateLimit()).isEqualTo(60);
         assertThat(properties.getRisk().getAutoAction().getLimitRateWindowSeconds()).isEqualTo(60);
         assertThat(properties.getRisk().getRedis().getKeyPrefix()).isEqualTo("risk");
+    }
+
+    @Test
+    void manualActionDefaultsAreConservative() {
+        AgentProperties.ManualAction manualAction = new AgentProperties()
+                .getRisk()
+                .getManualAction();
+
+        assertThat(manualAction.getExpireHours()).isEqualTo(24);
+        assertThat(manualAction.getDisableMinScore()).isEqualTo(90);
+        assertThat(manualAction.getDisableMinStrongReasonCount()).isEqualTo(3);
+        assertThat(manualAction.getIgnoreSuppressionHours()).isEqualTo(24);
+        assertThat(manualAction.getFalsePositiveSuppressionHours()).isEqualTo(168);
+    }
+
+    @Test
+    void manualActionAllowsNegativeValuesToBindWithoutConfigurationValidation() {
+        ConfigurableEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource(
+                "manual-action-test",
+                Map.of(
+                        "short-link.agent.risk.manual-action.expire-hours", -1,
+                        "short-link.agent.risk.manual-action.disable-min-score", -2,
+                        "short-link.agent.risk.manual-action.disable-min-strong-reason-count", -3,
+                        "short-link.agent.risk.manual-action.ignore-suppression-hours", -4,
+                        "short-link.agent.risk.manual-action.false-positive-suppression-hours", -5
+                )
+        ));
+
+        AgentProperties properties = Binder.get(environment)
+                .bind("short-link.agent", Bindable.of(AgentProperties.class))
+                .orElseThrow(() -> new AssertionError("Agent properties were not bound"));
+        AgentProperties.ManualAction manualAction = properties.getRisk().getManualAction();
+
+        assertThat(manualAction.getExpireHours()).isEqualTo(-1);
+        assertThat(manualAction.getDisableMinScore()).isEqualTo(-2);
+        assertThat(manualAction.getDisableMinStrongReasonCount()).isEqualTo(-3);
+        assertThat(manualAction.getIgnoreSuppressionHours()).isEqualTo(-4);
+        assertThat(manualAction.getFalsePositiveSuppressionHours()).isEqualTo(-5);
+        assertThat(validator.validate(manualAction)).isEmpty();
     }
 
     @Test

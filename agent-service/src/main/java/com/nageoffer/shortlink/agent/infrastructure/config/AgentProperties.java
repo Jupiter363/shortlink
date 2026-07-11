@@ -260,6 +260,8 @@ public class AgentProperties {
 
         private AutoAction autoAction = new AutoAction();
 
+        private ManualAction manualAction = new ManualAction();
+
         private Redis redis = new Redis();
 
         public String getHashSalt() {
@@ -292,6 +294,14 @@ public class AgentProperties {
 
         public void setAutoAction(AutoAction autoAction) {
             this.autoAction = autoAction;
+        }
+
+        public ManualAction getManualAction() {
+            return manualAction;
+        }
+
+        public void setManualAction(ManualAction manualAction) {
+            this.manualAction = manualAction;
         }
 
         public Redis getRedis() {
@@ -439,6 +449,59 @@ public class AgentProperties {
 
         public void setLimitRateWindowSeconds(int limitRateWindowSeconds) {
             this.limitRateWindowSeconds = limitRateWindowSeconds;
+        }
+    }
+
+    public static class ManualAction {
+
+        private int expireHours = 24;
+
+        private int disableMinScore = 90;
+
+        private int disableMinStrongReasonCount = 3;
+
+        private int ignoreSuppressionHours = 24;
+
+        private int falsePositiveSuppressionHours = 168;
+
+        public int getExpireHours() {
+            return expireHours;
+        }
+
+        public void setExpireHours(int expireHours) {
+            this.expireHours = expireHours;
+        }
+
+        public int getDisableMinScore() {
+            return disableMinScore;
+        }
+
+        public void setDisableMinScore(int disableMinScore) {
+            this.disableMinScore = disableMinScore;
+        }
+
+        public int getDisableMinStrongReasonCount() {
+            return disableMinStrongReasonCount;
+        }
+
+        public void setDisableMinStrongReasonCount(int disableMinStrongReasonCount) {
+            this.disableMinStrongReasonCount = disableMinStrongReasonCount;
+        }
+
+        public int getIgnoreSuppressionHours() {
+            return ignoreSuppressionHours;
+        }
+
+        public void setIgnoreSuppressionHours(int ignoreSuppressionHours) {
+            this.ignoreSuppressionHours = ignoreSuppressionHours;
+        }
+
+        public int getFalsePositiveSuppressionHours() {
+            return falsePositiveSuppressionHours;
+        }
+
+        public void setFalsePositiveSuppressionHours(int falsePositiveSuppressionHours) {
+            this.falsePositiveSuppressionHours = falsePositiveSuppressionHours;
         }
     }
 
