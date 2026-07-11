@@ -6,6 +6,7 @@ import com.nageoffer.shortlink.agent.harness.action.model.AgentActionExecutionCo
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionExecutionResult;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionType;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentPendingAction;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionTypes;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -49,6 +50,15 @@ class AgentActionExecutorRegistryTest {
         assertThatThrownBy(() -> new AgentActionExecutorRegistry(List.of(
                 executor(DISABLE), executor(DISABLE)
         ))).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void phase02bDoesNotAutoRegisterRiskExecutors() {
+        AgentActionExecutorRegistry registry = new AgentActionExecutorRegistry(List.of());
+
+        assertThat(registry.findByType(RiskPolicyActionTypes.DISABLE_SHORT_LINK)).isEmpty();
+        assertThat(registry.findByType(RiskPolicyActionTypes.LIMIT_TIME_WINDOW)).isEmpty();
+        assertThat(registry.findByType(RiskPolicyActionTypes.BLOCK_IP)).isEmpty();
     }
 
     private AgentActionExecutor executor(AgentActionType actionType) {
