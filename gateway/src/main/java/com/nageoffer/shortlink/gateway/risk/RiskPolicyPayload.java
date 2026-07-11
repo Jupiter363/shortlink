@@ -7,6 +7,10 @@ public class RiskPolicyPayload {
 
     private String action;
 
+    private String policyId;
+
+    private Long policyVersion;
+
     private Integer limit;
 
     private Integer windowSeconds;
@@ -27,6 +31,22 @@ public class RiskPolicyPayload {
 
     public void setAction(String action) {
         this.action = action;
+    }
+
+    public String getPolicyId() {
+        return policyId;
+    }
+
+    public void setPolicyId(String policyId) {
+        this.policyId = policyId;
+    }
+
+    public Long getPolicyVersion() {
+        return policyVersion;
+    }
+
+    public void setPolicyVersion(Long policyVersion) {
+        this.policyVersion = policyVersion;
     }
 
     public Integer getLimit() {

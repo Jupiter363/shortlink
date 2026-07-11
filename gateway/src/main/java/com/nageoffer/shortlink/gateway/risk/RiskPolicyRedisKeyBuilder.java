@@ -14,6 +14,10 @@ public class RiskPolicyRedisKeyBuilder {
         return "risk:policy:short-link:time-window:" + domain + ":" + shortUri;
     }
 
+    public String blockShortLinkIpKey(String domain, String shortUri, String ipHash) {
+        return "risk:policy:short-link:block-ip:" + domain + ":" + shortUri + ":" + ipHash;
+    }
+
     public String blockIpKey(String ipHash) {
         return "risk:policy:ip:block:" + ipHash;
     }

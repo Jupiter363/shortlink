@@ -21,4 +21,10 @@ class RiskPolicyRedisKeyBuilderTest {
         assertThat(builder.rateCounterKey("nurl.ink", "abc123", "hash001"))
                 .isEqualTo("risk:rate:nurl.ink:abc123:hash001");
     }
+
+    @Test
+    void buildsShortLinkScopedBlockIpKey() {
+        assertThat(builder.blockShortLinkIpKey("nurl.ink", "abc123", "hash-1"))
+                .isEqualTo("risk:policy:short-link:block-ip:nurl.ink:abc123:hash-1");
+    }
 }

@@ -81,6 +81,10 @@ public class RiskPolicyGatewayFilterFactory extends AbstractGatewayFilterFactory
             }
 
             String ipHash = hashService.sha256(ipResolver.resolve(request));
+            if (hasPolicy(valueOperations, keyBuilder.blockShortLinkIpKey(domain, shortUri, ipHash))) {
+                return reject(exchange.getResponse(), HttpStatus.FORBIDDEN);
+            }
+
             if (hasPolicy(valueOperations, keyBuilder.blockIpKey(ipHash))) {
                 return reject(exchange.getResponse(), HttpStatus.FORBIDDEN);
             }
