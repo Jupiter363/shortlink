@@ -215,6 +215,25 @@ public class JdbcAgentPendingActionRepository {
         return findActiveBySlotHash(sha256(activeSlotKey));
     }
 
+    public Optional<AgentPendingAction> findLatestRejected(String actionType, String targetKey) {
+        if (!hasText(actionType) || !hasText(targetKey)) {
+            return Optional.empty();
+        }
+        return queryOne("""
+                        select %s
+                        from t_agent_pending_action
+                        where action_type = ?
+                          and target_key = ?
+                          and status = ?
+                        order by rejected_time desc, id desc
+                        limit 1
+                        """.formatted(ACTION_COLUMNS),
+                actionType,
+                targetKey,
+                AgentActionStatus.REJECTED.name()
+        );
+    }
+
     @Transactional
     public Optional<AgentActionClaim> claimForExecution(
             String actionId,

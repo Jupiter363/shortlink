@@ -87,6 +87,36 @@ class AgentPendingActionServiceTest {
     }
 
     @Test
+    void rejectionSuppressionUsesPersistedReviewActionSpecificWindow() {
+        Fixture fixture = fixture(List.of());
+        when(fixture.repository().findLatestRejected(TYPE.value(), "nurl.ink/abc"))
+                .thenReturn(Optional.of(rejectedAction("FALSE_POSITIVE", NOW.minusDays(6))));
+
+        assertThat(fixture.service().isSuppressed(
+                TYPE,
+                "nurl.ink/abc",
+                NOW,
+                Duration.ofDays(7)
+        )).isTrue();
+
+        when(fixture.repository().findLatestRejected(TYPE.value(), "nurl.ink/abc"))
+                .thenReturn(Optional.of(rejectedAction("IGNORE", NOW.minusHours(23))));
+        assertThat(fixture.service().isSuppressed(TYPE, "nurl.ink/abc", NOW)).isTrue();
+
+        when(fixture.repository().findLatestRejected(TYPE.value(), "nurl.ink/abc"))
+                .thenReturn(Optional.of(rejectedAction("IGNORE", NOW.minusHours(25))));
+        assertThat(fixture.service().isSuppressed(TYPE, "nurl.ink/abc", NOW)).isFalse();
+
+        when(fixture.repository().findLatestRejected(TYPE.value(), "nurl.ink/abc"))
+                .thenReturn(Optional.of(rejectedAction(null, NOW.minusHours(1))));
+        assertThat(fixture.service().isSuppressed(TYPE, "nurl.ink/abc", NOW)).isFalse();
+
+        when(fixture.repository().findLatestRejected(TYPE.value(), "nurl.ink/abc"))
+                .thenReturn(Optional.of(rejectedAction("FALSE_POSITIVE", NOW.plusMinutes(1))));
+        assertThat(fixture.service().isSuppressed(TYPE, "nurl.ink/abc", NOW)).isFalse();
+    }
+
+    @Test
     void proposeReturnsTheUnifiedEnrichedAndFinallySanitizedView() {
         AgentActionViewEnricher enricher = (action, result) -> {
             result.put("message", "client 2001:db8::1 token=secret user=reviewer");
@@ -701,6 +731,23 @@ class AgentPendingActionServiceTest {
                 source.rejectedTime(), source.rejectionReason(), source.rejectionReviewAction(),
                 source.traceId(), source.eventId(), source.batchId(), source.sessionId(),
                 source.createTime(), source.updateTime()
+        );
+    }
+
+    private AgentPendingAction rejectedAction(String reviewAction, LocalDateTime rejectedTime) {
+        AgentPendingAction source = action(AgentActionStatus.REJECTED, 2L, "{}", "", "");
+        return new AgentPendingAction(
+                source.id(), source.actionId(), source.agentType(), source.actionType(),
+                source.payloadVersion(), source.authorizationScope(), source.ownerUsername(),
+                source.gid(), source.targetType(), source.targetKey(), source.targetRefJson(),
+                source.title(), source.summary(), source.payloadJson(), source.payloadHash(),
+                source.evidenceJson(), source.idempotencyKey(), source.activeSlotKey(),
+                AgentActionStatus.REJECTED, source.expireTime(), source.version(), "", null,
+                source.attemptCount(), source.resultJson(), source.failureCode(),
+                source.failureMessage(), source.proposedBy(), source.confirmedBy(),
+                source.confirmedTime(), "reviewer", rejectedTime, "not approved", reviewAction,
+                source.traceId(), source.eventId(), source.batchId(), source.sessionId(),
+                source.createTime(), rejectedTime
         );
     }
 

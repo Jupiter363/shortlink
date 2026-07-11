@@ -444,6 +444,58 @@ class AgentPendingActionRepositoryTest {
     }
 
     @Test
+    void findLatestRejectedUsesActionTargetAndRejectedTimeAndPreservesReviewAction() {
+        Fixture fixture = fixture();
+        AgentActionProposal older = proposal(
+                "action-rejected-older", "idem-rejected-older", "slot-rejected-older", Map.of("v", 1)
+        );
+        AgentActionProposal newer = proposal(
+                "action-rejected-newer", "idem-rejected-newer", "slot-rejected-newer", Map.of("v", 2)
+        );
+        fixture.repository().propose(older, fixture.codec(), NOW, EXPIRE_TIME);
+        fixture.repository().propose(newer, fixture.codec(), NOW, EXPIRE_TIME);
+        fixture.jdbcTemplate().update("""
+                        update t_agent_pending_action
+                        set status = ?, target_key = ?, active_slot_key = null,
+                            rejected_time = ?, rejection_review_action = ?
+                        where action_id = ?
+                        """,
+                AgentActionStatus.REJECTED.name(),
+                "nurl.ink/abc123",
+                Timestamp.valueOf(NOW.minusDays(2)),
+                "IGNORE",
+                older.actionId()
+        );
+        fixture.jdbcTemplate().update("""
+                        update t_agent_pending_action
+                        set status = ?, target_key = ?, active_slot_key = null,
+                            rejected_time = ?, rejection_review_action = ?
+                        where action_id = ?
+                        """,
+                AgentActionStatus.REJECTED.name(),
+                "nurl.ink/abc123",
+                Timestamp.valueOf(NOW.minusDays(1)),
+                "FALSE_POSITIVE",
+                newer.actionId()
+        );
+
+        assertThat(fixture.repository().findLatestRejected(
+                DISABLE_SHORT_LINK.value(),
+                "nurl.ink/abc123"
+        )).get().satisfies(action -> {
+            assertThat(action.actionId()).isEqualTo(newer.actionId());
+            assertThat(action.rejectionReviewAction()).isEqualTo("FALSE_POSITIVE");
+            assertThat(action.rejectedTime()).isEqualTo(NOW.minusDays(1));
+        });
+        assertThat(fixture.repository().findLatestRejected(
+                LIMIT_TIME_WINDOW.value(),
+                "nurl.ink/abc123"
+        )).isEmpty();
+        assertThat(fixture.repository().findLatestRejected(DISABLE_SHORT_LINK.value(), " ")).isEmpty();
+        assertThat(fixture.repository().findLatestRejected(null, "nurl.ink/abc123")).isEmpty();
+    }
+
+    @Test
     void insertedRowsUseRequiredInitialValuesAndInjectedTimestamps() {
         Fixture fixture = fixture();
         AgentActionProposal proposal = proposal(

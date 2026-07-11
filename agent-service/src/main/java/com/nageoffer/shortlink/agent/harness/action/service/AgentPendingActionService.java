@@ -10,6 +10,7 @@ import com.nageoffer.shortlink.agent.harness.action.model.AgentActionPage;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionProposal;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionProposalResult;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionStatus;
+import com.nageoffer.shortlink.agent.harness.action.model.AgentActionType;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentPendingAction;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentPendingActionView;
 import com.nageoffer.shortlink.agent.harness.action.repository.JdbcAgentPendingActionRepository;
@@ -126,6 +127,58 @@ public class AgentPendingActionService {
         }
         AgentActionProposalResult result = repository.propose(proposal, codec, now, expireTime);
         return toView(result.action());
+    }
+
+    public boolean isSuppressed(AgentActionType actionType, String targetKey) {
+        return isSuppressed(actionType, targetKey, now(), null);
+    }
+
+    public boolean isSuppressed(
+            AgentActionType actionType,
+            String targetKey,
+            LocalDateTime now
+    ) {
+        return isSuppressed(actionType, targetKey, now, null);
+    }
+
+    public boolean isSuppressed(
+            AgentActionType actionType,
+            String targetKey,
+            LocalDateTime now,
+            Duration maximumWindow
+    ) {
+        if (actionType == null
+                || !hasText(actionType.value())
+                || !hasText(targetKey)
+                || now == null
+                || (maximumWindow != null
+                    && (maximumWindow.isZero() || maximumWindow.isNegative()))) {
+            return false;
+        }
+        Optional<AgentPendingAction> latest = repository.findLatestRejected(
+                actionType.value(),
+                targetKey
+        );
+        if (latest.isEmpty()) {
+            return false;
+        }
+        AgentPendingAction rejected = latest.get();
+        if (rejected.rejectedTime() == null || rejected.rejectedTime().isAfter(now)) {
+            return false;
+        }
+        Duration configuredWindow = suppressionWindow(rejected.rejectionReviewAction());
+        if (configuredWindow == null || configuredWindow.isZero() || configuredWindow.isNegative()) {
+            return false;
+        }
+        Duration effectiveWindow = maximumWindow != null
+                && maximumWindow.compareTo(configuredWindow) < 0
+                ? maximumWindow
+                : configuredWindow;
+        try {
+            return rejected.rejectedTime().plus(effectiveWindow).isAfter(now);
+        } catch (DateTimeException | ArithmeticException ignored) {
+            return false;
+        }
     }
 
     public AgentPendingActionView detail(String actionId, AgentActionActor actor) {
@@ -401,6 +454,21 @@ public class AgentPendingActionService {
             throw error(EXECUTION_FAILED, EXECUTION_FAILED_MESSAGE);
         }
         return Duration.ofSeconds(action.getExecutionLeaseSeconds());
+    }
+
+    private Duration suppressionWindow(String reviewAction) {
+        AgentProperties.Risk risk = properties.getRisk();
+        AgentProperties.ManualAction manualAction = risk == null ? null : risk.getManualAction();
+        if (manualAction == null || reviewAction == null) {
+            return null;
+        }
+        return switch (reviewAction) {
+            case "IGNORE" -> Duration.ofHours(manualAction.getIgnoreSuppressionHours());
+            case "FALSE_POSITIVE" -> Duration.ofHours(
+                    manualAction.getFalsePositiveSuppressionHours()
+            );
+            default -> null;
+        };
     }
 
     private boolean isConfirmable(AgentPendingAction action, LocalDateTime now) {
