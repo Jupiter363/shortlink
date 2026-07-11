@@ -18,55 +18,40 @@ import java.util.Optional;
 @Repository
 public class JdbcRiskPolicyRepository {
 
+    private static final String SELECT_COLUMNS = """
+            policy_id,
+            policy_key,
+            idempotency_key,
+            policy_version,
+            action,
+            target_type,
+            gid,
+            domain,
+            short_uri,
+            ip_hash,
+            policy_payload_json,
+            status,
+            effective_time,
+            expire_time,
+            source,
+            trace_id,
+            event_id
+            """;
+
     private final JdbcTemplate jdbcTemplate;
 
     public JdbcRiskPolicyRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void saveActive(RiskPolicy policy) {
-        int updatedRows = jdbcTemplate.update("""
-                        update t_agent_risk_policy
-                        set policy_key = ?,
-                            action = ?,
-                            target_type = ?,
-                            gid = ?,
-                            domain = ?,
-                            short_uri = ?,
-                            ip_hash = ?,
-                            policy_payload_json = ?,
-                            status = ?,
-                            effective_time = ?,
-                            expire_time = ?,
-                            source = ?,
-                            trace_id = ?,
-                            event_id = ?,
-                            update_time = CURRENT_TIMESTAMP
-                        where policy_id = ?
-                        """,
-                policy.policyKey(),
-                policy.action().name(),
-                policy.targetType().name(),
-                policy.gid(),
-                policy.domain(),
-                policy.shortUri(),
-                policy.ipHash(),
-                policy.policyPayloadJson(),
-                RiskPolicyStatus.ACTIVE.name(),
-                Timestamp.valueOf(policy.effectiveTime()),
-                timestamp(policy.expireTime()),
-                policy.source().name(),
-                policy.traceId(),
-                policy.eventId(),
-                policy.policyId()
-        );
-        if (updatedRows > 0) {
-            return;
-        }
+    public void insert(RiskPolicy policy) {
+        validateHistoryIdentity(policy);
         jdbcTemplate.update("""
                         insert into t_agent_risk_policy (
                             policy_id,
                             policy_key,
+                            idempotency_key,
+                            policy_version,
                             action,
                             target_type,
                             gid,
@@ -81,10 +66,12 @@ public class JdbcRiskPolicyRepository {
                             trace_id,
                             event_id
                         )
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                 policy.policyId(),
                 policy.policyKey(),
+                policy.idempotencyKey(),
+                policy.policyVersion(),
                 policy.action().name(),
                 policy.targetType().name(),
                 policy.gid(),
@@ -92,7 +79,7 @@ public class JdbcRiskPolicyRepository {
                 policy.shortUri(),
                 policy.ipHash(),
                 policy.policyPayloadJson(),
-                RiskPolicyStatus.ACTIVE.name(),
+                policy.status().name(),
                 Timestamp.valueOf(policy.effectiveTime()),
                 timestamp(policy.expireTime()),
                 policy.source().name(),
@@ -102,52 +89,36 @@ public class JdbcRiskPolicyRepository {
     }
 
     public Optional<RiskPolicy> findByPolicyId(String policyId) {
-        List<RiskPolicy> policies = jdbcTemplate.query("""
-                        select policy_id,
-                               policy_key,
-                               action,
-                               target_type,
-                               gid,
-                               domain,
-                               short_uri,
-                               ip_hash,
-                               policy_payload_json,
-                               status,
-                               effective_time,
-                               expire_time,
-                               source,
-                               trace_id,
-                               event_id
-                        from t_agent_risk_policy
-                        where policy_id = ?
-                        """,
-                (rs, rowNum) -> mapPolicy(rs),
-                policyId
-        );
-        return policies.stream().findFirst();
+        return findOne("policy_id", policyId);
     }
 
+    public Optional<RiskPolicy> findByIdempotencyKey(String idempotencyKey) {
+        return findOne("idempotency_key", idempotencyKey);
+    }
+
+    public List<RiskPolicy> findByPolicyKeyOrderByVersion(String policyKey) {
+        return jdbcTemplate.query("""
+                        select %s
+                        from t_agent_risk_policy
+                        where policy_key = ?
+                        order by policy_version desc, id desc
+                        """.formatted(SELECT_COLUMNS),
+                (rs, rowNum) -> mapPolicy(rs),
+                policyKey
+        );
+    }
+
+    /**
+     * Transitional read API retained until effective policy slots become authoritative.
+     */
     public Optional<RiskPolicy> findActiveByPolicyKey(String policyKey) {
         List<RiskPolicy> policies = jdbcTemplate.query("""
-                        select policy_id,
-                               policy_key,
-                               action,
-                               target_type,
-                               gid,
-                               domain,
-                               short_uri,
-                               ip_hash,
-                               policy_payload_json,
-                               status,
-                               effective_time,
-                               expire_time,
-                               source,
-                               trace_id,
-                               event_id
+                        select %s
                         from t_agent_risk_policy
                         where policy_key = ?
                           and status = ?
-                        """,
+                        order by policy_version desc, id desc
+                        """.formatted(SELECT_COLUMNS),
                 (rs, rowNum) -> mapPolicy(rs),
                 policyKey,
                 RiskPolicyStatus.ACTIVE.name()
@@ -155,38 +126,69 @@ public class JdbcRiskPolicyRepository {
         return policies.stream().findFirst();
     }
 
-    public void disable(String policyId, String traceId) {
+    public void markSuperseded(String policyId, String traceId) {
+        updateStatus(policyId, RiskPolicyStatus.SUPERSEDED, traceId);
+    }
+
+    public void markDisabled(String policyId, String traceId) {
+        updateStatus(policyId, RiskPolicyStatus.DISABLED, traceId);
+    }
+
+    public void markExpired(String policyId, String traceId) {
+        updateStatus(policyId, RiskPolicyStatus.EXPIRED, traceId);
+    }
+
+    private Optional<RiskPolicy> findOne(String column, String value) {
+        List<RiskPolicy> policies = jdbcTemplate.query("""
+                        select %s
+                        from t_agent_risk_policy
+                        where %s = ?
+                        """.formatted(SELECT_COLUMNS, column),
+                (rs, rowNum) -> mapPolicy(rs),
+                value
+        );
+        return policies.stream().findFirst();
+    }
+
+    private void updateStatus(String policyId, RiskPolicyStatus status, String traceId) {
         jdbcTemplate.update("""
                         update t_agent_risk_policy
                         set status = ?,
                             trace_id = ?,
                             update_time = CURRENT_TIMESTAMP
                         where policy_id = ?
+                          and status = ?
                         """,
-                RiskPolicyStatus.DISABLED.name(),
+                status.name(),
                 traceId,
-                policyId
+                policyId,
+                RiskPolicyStatus.ACTIVE.name()
         );
     }
 
-    public void expire(String policyId, String traceId) {
-        jdbcTemplate.update("""
-                        update t_agent_risk_policy
-                        set status = ?,
-                            trace_id = ?,
-                            update_time = CURRENT_TIMESTAMP
-                        where policy_id = ?
-                        """,
-                RiskPolicyStatus.EXPIRED.name(),
-                traceId,
-                policyId
-        );
+    private void validateHistoryIdentity(RiskPolicy policy) {
+        if (policy == null
+                || policy.idempotencyKey() == null
+                || policy.idempotencyKey().isBlank()
+                || policy.policyVersion() <= 0) {
+            throw new IllegalArgumentException("Risk policy history identity is invalid");
+        }
     }
 
     private RiskPolicy mapPolicy(ResultSet rs) throws SQLException {
+        String policyId = rs.getString("policy_id");
+        String idempotencyKey = rs.getString("idempotency_key");
+        long policyVersion = rs.getLong("policy_version");
+        if (rs.wasNull()) {
+            policyVersion = 0L;
+        }
         return new RiskPolicy(
-                rs.getString("policy_id"),
+                policyId,
                 rs.getString("policy_key"),
+                idempotencyKey == null || idempotencyKey.isBlank()
+                        ? "legacy:" + policyId
+                        : idempotencyKey,
+                policyVersion,
                 RiskPolicyAction.valueOf(rs.getString("action")),
                 RiskTargetType.valueOf(rs.getString("target_type")),
                 rs.getString("gid"),

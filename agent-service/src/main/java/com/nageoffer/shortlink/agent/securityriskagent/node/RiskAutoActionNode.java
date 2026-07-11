@@ -82,8 +82,10 @@ public class RiskAutoActionNode {
             String traceId
     ) {
         String eventId = eventIdsByTarget == null ? "" : eventIdsByTarget.getOrDefault(targetKey(profile), "");
+        String idempotencyKey = autoIdempotencyKey(profile, eventId);
         RiskPolicy policy = riskPolicyService.activatePolicy(RiskPolicyActivationCommand.shortLink(
-                autoPolicyId(profile, eventId),
+                autoPolicyId(idempotencyKey),
+                idempotencyKey,
                 RiskPolicyAction.LIMIT_RATE,
                 profile.gid(),
                 profile.domain(),
@@ -104,10 +106,9 @@ public class RiskAutoActionNode {
         return activated;
     }
 
-    private String autoPolicyId(ShortLinkRiskProfile profile, String eventId) {
-        String idempotencyKey;
+    private String autoIdempotencyKey(ShortLinkRiskProfile profile, String eventId) {
         if (profile.batchId() != null && !profile.batchId().isBlank()) {
-            idempotencyKey = String.join(
+            return String.join(
                     ":",
                     "auto",
                     profile.batchId(),
@@ -117,7 +118,7 @@ public class RiskAutoActionNode {
                     RiskPolicyAction.LIMIT_RATE.name()
             );
         } else if (eventId != null && !eventId.isBlank()) {
-            idempotencyKey = String.join(
+            return String.join(
                     ":",
                     "auto",
                     eventId,
@@ -126,6 +127,9 @@ public class RiskAutoActionNode {
         } else {
             throw new IllegalStateException("Risk event id is required for auto action");
         }
+    }
+
+    private String autoPolicyId(String idempotencyKey) {
         return "policy-auto-rate-" + UUID.nameUUIDFromBytes(idempotencyKey.getBytes(StandardCharsets.UTF_8));
     }
 

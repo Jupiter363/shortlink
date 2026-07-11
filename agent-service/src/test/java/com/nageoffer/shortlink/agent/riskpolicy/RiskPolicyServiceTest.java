@@ -30,8 +30,11 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +44,9 @@ class RiskPolicyServiceTest {
             Instant.parse("2026-07-10T03:00:00Z"),
             ZoneId.of("Asia/Shanghai")
     );
+    private static final LocalDateTime EFFECTIVE_TIME = LocalDateTime.ofInstant(CLOCK.instant(), CLOCK.getZone());
+    private static final String RAW_IP = "203.0.113.8";
+    private static final String IP_HASH = "ddbea5471056690e5b1dcfe0c39ffca2f91ee81710048d066e2d53c7d012e14e";
 
     @Test
     void activatesAndDisablesShortLinkPolicyWithRedisAndAudit() {
@@ -49,6 +55,7 @@ class RiskPolicyServiceTest {
 
         RiskPolicy policy = fixture.service.activatePolicy(RiskPolicyActivationCommand.shortLink(
                 "policy-001",
+                "activate:policy-001",
                 RiskPolicyAction.DISABLE_SHORT_LINK,
                 "gid-001",
                 "nurl.ink",
@@ -61,8 +68,11 @@ class RiskPolicyServiceTest {
                 "event-001"
         ));
 
-        assertThat(fixture.policyRepository.findByPolicyId("policy-001")).isPresent();
-        assertThat(fixture.policyRepository.findByPolicyId("policy-001").get().status()).isEqualTo(RiskPolicyStatus.ACTIVE);
+        RiskPolicy persisted = fixture.policyRepository.findByPolicyId("policy-001").orElseThrow();
+        assertThat(persisted).isEqualTo(policy);
+        assertThat(persisted.status()).isEqualTo(RiskPolicyStatus.ACTIVE);
+        assertThat(persisted.policyVersion()).isEqualTo(1L);
+        assertThat(persisted.effectiveTime()).isEqualTo(EFFECTIVE_TIME);
         assertThat(fixture.auditRepository.countByPolicyId("policy-001")).isEqualTo(1);
         verify(fixture.valueOperations).set(policy.policyKey(), policy.policyPayloadJson());
 
@@ -85,6 +95,7 @@ class RiskPolicyServiceTest {
         when(fixture.stringRedisTemplate.opsForValue()).thenReturn(fixture.valueOperations);
         RiskPolicy policy = fixture.service.activatePolicy(RiskPolicyActivationCommand.shortLink(
                 "policy-guard-001",
+                "activate:policy-guard-001",
                 RiskPolicyAction.LIMIT_RATE,
                 "owner-gid",
                 "nurl.ink",
@@ -111,23 +122,63 @@ class RiskPolicyServiceTest {
     }
 
     @Test
-    void blockIpPolicyRequiresHashSaltAndDoesNotPersistRawIp() {
-        TestFixture fixture = fixture("risk_policy_block_ip", "");
+    void blockIpPolicyPersistsOnlyHashAndRejectsRawIp() {
+        TestFixture fixture = fixture("risk_policy_block_ip", "risk-test-salt");
 
         assertThatThrownBy(() -> fixture.service.activatePolicy(RiskPolicyActivationCommand.blockIp(
-                "policy-ip-001",
+                "policy-ip-raw",
+                "activate:policy-ip-raw",
                 "gid-001",
-                "203.0.113.8",
+                RAW_IP,
                 "{\"action\":\"BLOCK_IP\"}",
                 RiskPolicySource.MANUAL_REVIEW,
                 "manual-user",
                 "confirmed abusive source",
                 "trace-001",
                 "event-001"
-        ))).isInstanceOf(IllegalStateException.class);
+        ))).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ipHash must be a lowercase SHA-256 value");
 
         verify(fixture.stringRedisTemplate, never()).opsForValue();
-        assertThat(fixture.policyRepository.findByPolicyId("policy-ip-001")).isEmpty();
+        assertThat(fixture.policyRepository.findByPolicyId("policy-ip-raw")).isEmpty();
+
+        assertThatThrownBy(() -> fixture.service.activatePolicy(RiskPolicyActivationCommand.blockIp(
+                "policy-ip-payload-raw",
+                "activate:policy-ip-payload-raw",
+                "gid-001",
+                IP_HASH,
+                "{\"action\":\"BLOCK_IP\",\"rawIp\":\"" + RAW_IP + "\"}",
+                RiskPolicySource.MANUAL_REVIEW,
+                "manual-user",
+                "confirmed abusive source",
+                "trace-raw-payload",
+                "event-raw-payload"
+        ))).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Risk payload contains sensitive data");
+        assertThat(fixture.policyRepository.findByPolicyId("policy-ip-payload-raw")).isEmpty();
+
+        when(fixture.stringRedisTemplate.opsForValue()).thenReturn(fixture.valueOperations);
+        RiskPolicy policy = fixture.service.activatePolicy(RiskPolicyActivationCommand.blockIp(
+                "policy-ip-hash",
+                "activate:policy-ip-hash",
+                "gid-001",
+                IP_HASH,
+                "{\"action\":\"BLOCK_IP\"}",
+                RiskPolicySource.MANUAL_REVIEW,
+                "manual-user",
+                "confirmed abusive source",
+                "trace-002",
+                "event-002"
+        ));
+
+        RiskPolicy persisted = fixture.policyRepository.findByPolicyId("policy-ip-hash").orElseThrow();
+        assertThat(persisted).isEqualTo(policy);
+        assertThat(persisted.ipHash()).isEqualTo(IP_HASH);
+        assertThat(persisted.policyKey()).contains(IP_HASH).doesNotContain(RAW_IP);
+        assertThat(persisted.toString()).doesNotContain(RAW_IP);
+        assertThat(persisted.policyVersion()).isEqualTo(1L);
+        assertThat(persisted.effectiveTime()).isEqualTo(EFFECTIVE_TIME);
+        verify(fixture.valueOperations).set(policy.policyKey(), policy.policyPayloadJson());
     }
 
     @Test
@@ -136,6 +187,7 @@ class RiskPolicyServiceTest {
 
         RiskPolicy policy = fixture.service.activatePolicy(new RiskPolicyActivationCommand(
                 "policy-expired-001",
+                "activate:policy-expired-001",
                 RiskPolicyAction.LIMIT_RATE,
                 "gid-001",
                 "nurl.ink",
@@ -151,16 +203,19 @@ class RiskPolicyServiceTest {
         ));
 
         assertThat(policy.status()).isEqualTo(RiskPolicyStatus.EXPIRED);
+        assertThat(policy.policyVersion()).isEqualTo(1L);
+        assertThat(policy.effectiveTime()).isEqualTo(EFFECTIVE_TIME);
         assertThat(fixture.policyRepository.findByPolicyId("policy-expired-001").get().status()).isEqualTo(RiskPolicyStatus.EXPIRED);
         verify(fixture.stringRedisTemplate, never()).opsForValue();
     }
 
     @Test
-    void repeatedActivationWithSamePolicyIdWritesOneActivationAudit() {
+    void repeatedActivationWithSameIdempotencyKeyWritesPolicyRedisAndAuditOnce() {
         TestFixture fixture = fixture("risk_policy_activation_idempotency", "risk-test-salt");
         when(fixture.stringRedisTemplate.opsForValue()).thenReturn(fixture.valueOperations);
-        RiskPolicyActivationCommand command = RiskPolicyActivationCommand.shortLink(
+        RiskPolicyActivationCommand firstCommand = RiskPolicyActivationCommand.shortLink(
                 "policy-auto-stable",
+                "auto:batch-001:gid-001:nurl.ink:abc123:LIMIT_RATE",
                 RiskPolicyAction.LIMIT_RATE,
                 "gid-001",
                 "nurl.ink",
@@ -172,12 +227,145 @@ class RiskPolicyServiceTest {
                 "trace-stable",
                 "event-stable"
         );
+        RiskPolicyActivationCommand retryCommand = RiskPolicyActivationCommand.shortLink(
+                "policy-auto-stable",
+                firstCommand.idempotencyKey(),
+                RiskPolicyAction.LIMIT_RATE,
+                "gid-001",
+                "nurl.ink",
+                "abc123",
+                "{\"action\":\"LIMIT_RATE\",\"limit\":60,\"windowSeconds\":60}",
+                RiskPolicySource.AGENT_AUTO,
+                "security-risk-agent",
+                "automatic retry-safe activation",
+                "trace-retry",
+                "event-retry"
+        );
 
-        fixture.service.activatePolicy(command);
-        fixture.service.activatePolicy(command);
+        RiskPolicy first = fixture.service.activatePolicy(firstCommand);
+        RiskPolicy retry = fixture.service.activatePolicy(retryCommand);
 
-        assertThat(fixture.policyRepository.findByPolicyId("policy-auto-stable")).isPresent();
+        assertThat(retry).isEqualTo(first);
+        assertThat(first.idempotencyKey()).isEqualTo(firstCommand.idempotencyKey());
+        assertThat(first.policyVersion()).isEqualTo(1L);
+        assertThat(first.effectiveTime()).isEqualTo(EFFECTIVE_TIME);
+        assertThat(fixture.policyRepository.findByPolicyKeyOrderByVersion(first.policyKey()))
+                .singleElement()
+                .isEqualTo(first);
         assertThat(fixture.auditRepository.countByPolicyId("policy-auto-stable")).isEqualTo(1);
+        verify(fixture.valueOperations, times(1)).set(first.policyKey(), first.policyPayloadJson());
+    }
+
+    @Test
+    void retriesIncompleteActivationAndRejectsIdempotencyPayloadConflict() {
+        TestFixture fixture = fixture("risk_policy_activation_recovery", "risk-test-salt");
+        when(fixture.stringRedisTemplate.opsForValue()).thenReturn(fixture.valueOperations);
+        doThrow(new IllegalStateException("redis unavailable"))
+                .doNothing()
+                .when(fixture.valueOperations)
+                .set(anyString(), anyString());
+        RiskPolicyActivationCommand command = RiskPolicyActivationCommand.shortLink(
+                "policy-recovery",
+                "auto:recovery",
+                RiskPolicyAction.LIMIT_RATE,
+                "gid-001",
+                "nurl.ink",
+                "recovery",
+                "{\"action\":\"LIMIT_RATE\",\"limit\":60,\"windowSeconds\":60}",
+                RiskPolicySource.AGENT_AUTO,
+                "security-risk-agent",
+                "retry incomplete activation",
+                "trace-first",
+                "event-first"
+        );
+
+        assertThatThrownBy(() -> fixture.service.activatePolicy(command))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("redis unavailable");
+        assertThat(fixture.policyRepository.findByPolicyId("policy-recovery"))
+                .isPresent()
+                .get()
+                .extracting(RiskPolicy::status)
+                .isEqualTo(RiskPolicyStatus.ACTIVE);
+        assertThat(fixture.auditRepository.countByPolicyId("policy-recovery")).isZero();
+
+        RiskPolicy recovered = fixture.service.activatePolicy(command);
+
+        assertThat(recovered.policyVersion()).isEqualTo(1L);
+        assertThat(fixture.auditRepository.countByPolicyId("policy-recovery")).isEqualTo(1);
+        verify(fixture.valueOperations, times(2)).set(recovered.policyKey(), recovered.policyPayloadJson());
+
+        RiskPolicyActivationCommand conflicting = RiskPolicyActivationCommand.shortLink(
+                command.policyId(),
+                command.idempotencyKey(),
+                command.action(),
+                "other-gid",
+                command.domain(),
+                command.shortUri(),
+                command.policyPayloadJson(),
+                command.source(),
+                command.executor(),
+                command.reason(),
+                "trace-conflict",
+                "event-conflict"
+        );
+        assertThatThrownBy(() -> fixture.service.activatePolicy(conflicting))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Risk policy idempotency conflict");
+        assertThat(fixture.policyRepository.findByPolicyKeyOrderByVersion(recovered.policyKey()))
+                .singleElement()
+                .isEqualTo(recovered);
+    }
+
+    @Test
+    void rejectsDisablingSupersededPolicyWithoutDeletingCurrentRedisValue() {
+        TestFixture fixture = fixture("risk_policy_disable_stale_version", "risk-test-salt");
+        when(fixture.stringRedisTemplate.opsForValue()).thenReturn(fixture.valueOperations);
+        RiskPolicy first = fixture.service.activatePolicy(RiskPolicyActivationCommand.shortLink(
+                "policy-v1",
+                "manual:policy-v1",
+                RiskPolicyAction.LIMIT_RATE,
+                "gid-001",
+                "nurl.ink",
+                "abc123",
+                "{\"action\":\"LIMIT_RATE\",\"limit\":60,\"windowSeconds\":60}",
+                RiskPolicySource.MANUAL_REVIEW,
+                "manual-user",
+                "first policy",
+                "trace-v1",
+                "event-v1"
+        ));
+        RiskPolicy second = fixture.service.activatePolicy(RiskPolicyActivationCommand.shortLink(
+                "policy-v2",
+                "manual:policy-v2",
+                RiskPolicyAction.LIMIT_RATE,
+                "gid-001",
+                "nurl.ink",
+                "abc123",
+                "{\"action\":\"LIMIT_RATE\",\"limit\":30,\"windowSeconds\":60}",
+                RiskPolicySource.MANUAL_REVIEW,
+                "manual-user",
+                "replacement policy",
+                "trace-v2",
+                "event-v2"
+        ));
+
+        assertThat(fixture.policyRepository.findByPolicyId(first.policyId()))
+                .get()
+                .extracting(RiskPolicy::status)
+                .isEqualTo(RiskPolicyStatus.SUPERSEDED);
+        assertThat(second.policyVersion()).isEqualTo(2L);
+        assertThatThrownBy(() -> fixture.service.disablePolicy(new RiskPolicyDisableCommand(
+                first.policyId(),
+                first.gid(),
+                "manual-user",
+                "stale disable",
+                "trace-disable-stale"
+        ))).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Risk policy is not the active version: " + first.policyId());
+        verify(fixture.stringRedisTemplate, never()).delete(anyString());
+        assertThat(fixture.policyRepository.findActiveByPolicyKey(second.policyKey()))
+                .contains(second);
     }
 
     @Test
@@ -222,7 +410,7 @@ class RiskPolicyServiceTest {
                 auditRepository,
                 stringRedisTemplate,
                 valueOperations,
-                new RiskPolicyService(policyRepository, auditRepository, publisher, properties)
+                new RiskPolicyService(policyRepository, auditRepository, publisher, properties, CLOCK)
         );
     }
 

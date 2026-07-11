@@ -161,7 +161,8 @@ class RiskProfilePolicyE2eTest {
                 policyRepository,
                 auditRepository,
                 new RiskPolicyRedisPublisher(stringRedisTemplate, CLOCK),
-                properties
+                properties,
+                CLOCK
         );
         RiskCenterService riskCenterService = new RiskCenterService(
                 eventRepository,
@@ -269,6 +270,9 @@ class RiskProfilePolicyE2eTest {
                 .get()
                 .satisfies(policy -> {
                     assertThat(policy.action()).isEqualTo(RiskPolicyAction.LIMIT_RATE);
+                    assertThat(policy.idempotencyKey()).startsWith("auto:");
+                    assertThat(policy.policyVersion()).isEqualTo(1L);
+                    assertThat(policy.effectiveTime()).isEqualTo(BATCH_END_TIME);
                     assertThat(policy.gid()).isEqualTo("gid-001");
                     assertThat(policy.eventId()).isNotBlank();
                     assertThat(auditRepository.countByPolicyId(policy.policyId())).isEqualTo(1);

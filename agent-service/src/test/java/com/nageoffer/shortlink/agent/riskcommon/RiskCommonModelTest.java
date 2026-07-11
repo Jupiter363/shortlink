@@ -64,6 +64,7 @@ class RiskCommonModelTest {
         assertThat(RiskPolicyAction.LIMIT_RATE.requiresManualReview()).isFalse();
         assertThat(RiskPolicyStatus.values()).containsExactly(
                 RiskPolicyStatus.ACTIVE,
+                RiskPolicyStatus.SUPERSEDED,
                 RiskPolicyStatus.DISABLED,
                 RiskPolicyStatus.EXPIRED
         );

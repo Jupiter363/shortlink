@@ -32,9 +32,13 @@ import static org.mockito.Mockito.when;
 
 class RiskAutoActionNodeTest {
 
+    private static final LocalDateTime EFFECTIVE_TIME = LocalDateTime.of(2026, 7, 10, 11, 0);
+
     @Test
     void autoLimitRateOnlyWhenHighScoreHasTwoStrongReasons() {
         RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
+        String expectedIdempotencyKey =
+                "auto:legacy:2026-07-10T02:00:gid-001:nurl.ink:high001:LIMIT_RATE";
         when(riskPolicyService.canAutoLimitRate(
                 RiskLevel.HIGH,
                 92,
@@ -43,6 +47,8 @@ class RiskAutoActionNodeTest {
         when(riskPolicyService.activatePolicy(any())).thenReturn(RiskPolicy.shortLinkPolicy(
                 "policy-001",
                 "risk:policy:short-link:rate-limit:nurl.ink:high001",
+                expectedIdempotencyKey,
+                1L,
                 RiskPolicyAction.LIMIT_RATE,
                 "gid-001",
                 "nurl.ink",
@@ -50,7 +56,9 @@ class RiskAutoActionNodeTest {
                 "{\"action\":\"LIMIT_RATE\"}",
                 com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicySource.AGENT_AUTO,
                 "trace-001",
-                "event-001"
+                "event-001",
+                EFFECTIVE_TIME,
+                null
         ));
         RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
         ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
@@ -77,6 +85,7 @@ class RiskAutoActionNodeTest {
         verify(riskPolicyService).activatePolicy(commandCaptor.capture());
         assertThat(commandCaptor.getValue().action()).isEqualTo(RiskPolicyAction.LIMIT_RATE);
         assertThat(commandCaptor.getValue().eventId()).isEqualTo("event-001");
+        assertThat(commandCaptor.getValue().idempotencyKey()).isEqualTo(expectedIdempotencyKey);
         assertThat(commandCaptor.getValue().policyPayloadJson())
                 .contains("\"limit\":60")
                 .contains("\"windowSeconds\":60");
@@ -111,6 +120,8 @@ class RiskAutoActionNodeTest {
             return RiskPolicy.shortLinkPolicy(
                     command.policyId(),
                     "risk:policy:short-link:rate-limit:nurl.ink:high001",
+                    command.idempotencyKey(),
+                    1L,
                     command.action(),
                     command.gid(),
                     command.domain(),
@@ -118,7 +129,9 @@ class RiskAutoActionNodeTest {
                     command.policyPayloadJson(),
                     command.source(),
                     command.traceId(),
-                    command.eventId()
+                    command.eventId(),
+                    EFFECTIVE_TIME,
+                    null
             );
         });
         RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
@@ -139,11 +152,13 @@ class RiskAutoActionNodeTest {
         ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor =
                 ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
         verify(riskPolicyService, times(2)).activatePolicy(commandCaptor.capture());
+        String expectedIdempotencyKey = "auto:batch-001:gid-001:nurl.ink:high001:LIMIT_RATE";
+        assertThat(commandCaptor.getAllValues())
+                .extracting(RiskPolicyActivationCommand::idempotencyKey)
+                .containsOnly(expectedIdempotencyKey);
         assertThat(commandCaptor.getAllValues())
                 .extracting(RiskPolicyActivationCommand::policyId)
-                .containsOnly(policyId(
-                        "auto:batch-001:gid-001:nurl.ink:high001:LIMIT_RATE"
-                ));
+                .containsOnly(policyId(expectedIdempotencyKey));
     }
 
     @Test
@@ -156,6 +171,8 @@ class RiskAutoActionNodeTest {
             return RiskPolicy.shortLinkPolicy(
                     command.policyId(),
                     "risk:policy:short-link:rate-limit:nurl.ink:high001",
+                    command.idempotencyKey(),
+                    1L,
                     command.action(),
                     command.gid(),
                     command.domain(),
@@ -163,7 +180,9 @@ class RiskAutoActionNodeTest {
                     command.policyPayloadJson(),
                     command.source(),
                     command.traceId(),
-                    command.eventId()
+                    command.eventId(),
+                    EFFECTIVE_TIME,
+                    null
             );
         });
         RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
@@ -184,9 +203,13 @@ class RiskAutoActionNodeTest {
         ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor =
                 ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
         verify(riskPolicyService, times(2)).activatePolicy(commandCaptor.capture());
+        String expectedIdempotencyKey = "auto:event-stable:LIMIT_RATE";
+        assertThat(commandCaptor.getAllValues())
+                .extracting(RiskPolicyActivationCommand::idempotencyKey)
+                .containsOnly(expectedIdempotencyKey);
         assertThat(commandCaptor.getAllValues())
                 .extracting(RiskPolicyActivationCommand::policyId)
-                .containsOnly(policyId("auto:event-stable:LIMIT_RATE"));
+                .containsOnly(policyId(expectedIdempotencyKey));
     }
 
     private String policyId(String idempotencyKey) {

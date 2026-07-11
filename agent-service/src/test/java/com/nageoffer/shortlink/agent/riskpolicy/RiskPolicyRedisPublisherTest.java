@@ -35,6 +35,7 @@ class RiskPolicyRedisPublisherTest {
             Instant.parse("2026-07-10T03:00:00Z"),
             ZoneId.of("Asia/Shanghai")
     );
+    private static final LocalDateTime EFFECTIVE_TIME = LocalDateTime.ofInstant(CLOCK.instant(), CLOCK.getZone());
 
     @Mock
     private StringRedisTemplate stringRedisTemplate;
@@ -98,6 +99,8 @@ class RiskPolicyRedisPublisherTest {
         return RiskPolicy.shortLinkPolicy(
                 "policy-001",
                 "risk:policy:short-link:rate-limit:nurl.ink:abc123",
+                "publish:policy-001",
+                1L,
                 RiskPolicyAction.LIMIT_RATE,
                 "gid-001",
                 "nurl.ink",
@@ -106,6 +109,7 @@ class RiskPolicyRedisPublisherTest {
                 RiskPolicySource.AGENT_AUTO,
                 "trace-001",
                 "event-001",
+                EFFECTIVE_TIME,
                 expireTime
         );
     }

@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 public record RiskPolicy(
         String policyId,
         String policyKey,
+        String idempotencyKey,
+        long policyVersion,
         RiskPolicyAction action,
         RiskTargetType targetType,
         String gid,
@@ -29,6 +31,8 @@ public record RiskPolicy(
         return new RiskPolicy(
                 policyId,
                 policyKey,
+                idempotencyKey,
+                policyVersion,
                 action,
                 targetType,
                 gid,
@@ -48,21 +52,8 @@ public record RiskPolicy(
     public static RiskPolicy shortLinkPolicy(
             String policyId,
             String policyKey,
-            RiskPolicyAction action,
-            String gid,
-            String domain,
-            String shortUri,
-            String policyPayloadJson,
-            RiskPolicySource source,
-            String traceId,
-            String eventId
-    ) {
-        return shortLinkPolicy(policyId, policyKey, action, gid, domain, shortUri, policyPayloadJson, source, traceId, eventId, null);
-    }
-
-    public static RiskPolicy shortLinkPolicy(
-            String policyId,
-            String policyKey,
+            String idempotencyKey,
+            long policyVersion,
             RiskPolicyAction action,
             String gid,
             String domain,
@@ -71,11 +62,14 @@ public record RiskPolicy(
             RiskPolicySource source,
             String traceId,
             String eventId,
+            LocalDateTime effectiveTime,
             LocalDateTime expireTime
     ) {
         return new RiskPolicy(
                 policyId,
                 policyKey,
+                idempotencyKey,
+                policyVersion,
                 action,
                 RiskTargetType.SHORT_LINK,
                 gid,
@@ -84,7 +78,7 @@ public record RiskPolicy(
                 "",
                 policyPayloadJson,
                 RiskPolicyStatus.ACTIVE,
-                LocalDateTime.now(),
+                effectiveTime,
                 expireTime,
                 source,
                 traceId,
@@ -95,26 +89,33 @@ public record RiskPolicy(
     public static RiskPolicy ipPolicy(
             String policyId,
             String policyKey,
+            String idempotencyKey,
+            long policyVersion,
             String gid,
+            String domain,
+            String shortUri,
             String ipHash,
             String policyPayloadJson,
             RiskPolicySource source,
             String traceId,
             String eventId,
+            LocalDateTime effectiveTime,
             LocalDateTime expireTime
     ) {
         return new RiskPolicy(
                 policyId,
                 policyKey,
+                idempotencyKey,
+                policyVersion,
                 RiskPolicyAction.BLOCK_IP,
                 RiskTargetType.SHORT_LINK,
                 gid,
-                "",
-                "",
+                domain,
+                shortUri,
                 ipHash,
                 policyPayloadJson,
                 RiskPolicyStatus.ACTIVE,
-                LocalDateTime.now(),
+                effectiveTime,
                 expireTime,
                 source,
                 traceId,
