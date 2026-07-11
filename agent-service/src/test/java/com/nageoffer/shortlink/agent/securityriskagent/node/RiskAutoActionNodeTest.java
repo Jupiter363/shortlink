@@ -14,13 +14,16 @@ import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysis
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -96,7 +99,7 @@ class RiskAutoActionNodeTest {
     }
 
     @Test
-    void retryReusesDeterministicAutoPolicyId() {
+    void batchRetryReusesDeterministicAutoPolicyIdAcrossEventsAndTraces() {
         RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
         when(riskPolicyService.canAutoLimitRate(
                 RiskLevel.HIGH,
@@ -127,18 +130,69 @@ class RiskAutoActionNodeTest {
                         92,
                         Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
                         List.of()
-                ))
+                ).withBatchId("batch-001"))
         );
 
-        node.apply(context, Map.of("nurl.ink/high001", "event-stable"), "trace-stable");
-        node.apply(context, Map.of("nurl.ink/high001", "event-stable"), "trace-stable");
+        node.apply(context, Map.of("nurl.ink/high001", "event-first"), "trace-first");
+        node.apply(context, Map.of("nurl.ink/high001", "event-second"), "trace-second");
 
         ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor =
                 ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
         verify(riskPolicyService, times(2)).activatePolicy(commandCaptor.capture());
         assertThat(commandCaptor.getAllValues())
                 .extracting(RiskPolicyActivationCommand::policyId)
-                .containsOnly(commandCaptor.getAllValues().get(0).policyId());
+                .containsOnly(policyId(
+                        "auto:batch-001:gid-001:nurl.ink:high001:LIMIT_RATE"
+                ));
+    }
+
+    @Test
+    void interactiveRetryWithoutBatchUsesStableEventIdInsteadOfTraceId() {
+        RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
+        when(riskPolicyService.canAutoLimitRate(any(), anyInt(), any()))
+                .thenReturn(true);
+        when(riskPolicyService.activatePolicy(any())).thenAnswer(invocation -> {
+            RiskPolicyActivationCommand command = invocation.getArgument(0);
+            return RiskPolicy.shortLinkPolicy(
+                    command.policyId(),
+                    "risk:policy:short-link:rate-limit:nurl.ink:high001",
+                    command.action(),
+                    command.gid(),
+                    command.domain(),
+                    command.shortUri(),
+                    command.policyPayloadJson(),
+                    command.source(),
+                    command.traceId(),
+                    command.eventId()
+            );
+        });
+        RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
+        ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
+                "gid-001",
+                null,
+                List.of(profile(
+                        "high001",
+                        92,
+                        Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
+                        List.of()
+                ).withBatchId(""))
+        );
+
+        node.apply(context, Map.of("nurl.ink/high001", "event-stable"), "trace-first");
+        node.apply(context, Map.of("nurl.ink/high001", "event-stable"), "trace-second");
+
+        ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor =
+                ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
+        verify(riskPolicyService, times(2)).activatePolicy(commandCaptor.capture());
+        assertThat(commandCaptor.getAllValues())
+                .extracting(RiskPolicyActivationCommand::policyId)
+                .containsOnly(policyId("auto:event-stable:LIMIT_RATE"));
+    }
+
+    private String policyId(String idempotencyKey) {
+        return "policy-auto-rate-" + UUID.nameUUIDFromBytes(
+                idempotencyKey.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private ShortLinkRiskProfile profile(

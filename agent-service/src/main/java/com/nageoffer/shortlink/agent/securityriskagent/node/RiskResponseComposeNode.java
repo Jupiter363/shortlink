@@ -1,6 +1,7 @@
 package com.nageoffer.shortlink.agent.securityriskagent.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.nageoffer.shortlink.agent.harness.action.model.AgentPendingActionView;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ public class RiskResponseComposeNode {
     private static final String RISK_TOOL_PLANNING_NODE = "risk_tool_planning";
     private static final String RISK_SCORING_NODE = "risk_scoring";
     private static final String LLM_EXPLANATION_NODE = "llm_explanation";
+    private static final String RISK_ACTION_PROPOSAL_NODE = "risk_action_proposal";
     private static final String RESPONSE_COMPOSE_NODE = "response_compose";
 
     private final String graphName;
@@ -30,6 +32,7 @@ public class RiskResponseComposeNode {
     public Map<String, Object> apply(OverAllState state) {
         return compose(
                 state.value("riskCards", List.of()),
+                state.value("pendingActionViews", List.of()),
                 state.value("toolExecutions", List.of()),
                 state.value("llmDataSource", Map.of()),
                 state.value("profileRiskDataSource", Map.of()),
@@ -38,11 +41,29 @@ public class RiskResponseComposeNode {
     }
 
     public Map<String, Object> compose(List<Object> cards, List<Map<String, Object>> toolExecutions, Map<String, Object> llmDataSource) {
-        return compose(cards, toolExecutions, llmDataSource, Map.of(), List.of());
+        return compose(cards, List.of(), toolExecutions, llmDataSource, Map.of(), List.of());
     }
 
     public Map<String, Object> compose(
             List<Object> cards,
+            List<Map<String, Object>> toolExecutions,
+            Map<String, Object> llmDataSource,
+            Map<String, Object> profileRiskDataSource,
+            List<Object> activatedPolicies
+    ) {
+        return compose(
+                cards,
+                List.of(),
+                toolExecutions,
+                llmDataSource,
+                profileRiskDataSource,
+                activatedPolicies
+        );
+    }
+
+    public Map<String, Object> compose(
+            List<Object> cards,
+            List<AgentPendingActionView> pendingActionViews,
             List<Map<String, Object>> toolExecutions,
             Map<String, Object> llmDataSource,
             Map<String, Object> profileRiskDataSource,
@@ -55,43 +76,19 @@ public class RiskResponseComposeNode {
                 RISK_SCORING_NODE,
                 LLM_EXPLANATION_NODE,
                 "risk_event_persist",
+                RISK_ACTION_PROPOSAL_NODE,
                 "risk_auto_action",
                 RESPONSE_COMPOSE_NODE
         );
         return Map.of(
                 "cards", sanitize(cards),
-                "pendingActions", pendingActions(cards, activatedPolicies),
+                "pendingActions", pendingActionViews == null
+                        ? List.of()
+                        : List.copyOf(pendingActionViews),
                 "toolCalls", sanitize(toolExecutions),
                 "dataSources", sanitize(dataSources(llmDataSource, profileRiskDataSource, activatedPolicies, toolExecutions, nodes)),
                 "visitedNodes", nodes
         );
-    }
-
-    private List<Object> pendingActions(List<Object> cards, List<Object> activatedPolicies) {
-        List<Object> pendingActions = new ArrayList<>();
-        if (activatedPolicies != null && !activatedPolicies.isEmpty()) {
-            pendingActions.add(Map.of(
-                    "type", "auto_limit_rate",
-                    "title", "Auto LIMIT_RATE policy activated",
-                    "status", "executed",
-                    "policies", sanitize(activatedPolicies)
-            ));
-        }
-        if (hasHighRiskCard(cards)) {
-            pendingActions.add(Map.of(
-                    "type", "review_security_risk",
-                    "title", "Review high risk traffic signal",
-                    "status", "pending_confirmation"
-            ));
-        }
-        return pendingActions;
-    }
-
-    private boolean hasHighRiskCard(List<Object> cards) {
-        return cards.stream()
-                .filter(Map.class::isInstance)
-                .map(Map.class::cast)
-                .anyMatch(card -> "high".equalsIgnoreCase(String.valueOf(card.get("riskLevel"))));
     }
 
     private List<Object> dataSources(

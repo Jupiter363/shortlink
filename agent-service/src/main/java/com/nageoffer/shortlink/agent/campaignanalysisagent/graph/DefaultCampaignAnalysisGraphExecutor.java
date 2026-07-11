@@ -727,7 +727,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 request.traceId(),
                 state.value("answer", ""),
                 state.value("cards", List.of()),
-                state.value("pendingActions", List.of()),
+                List.of(),
                 state.value("toolCalls", List.of()),
                 state.value("dataSources", List.of()),
                 state.value("traceEvents", List.of()),

@@ -1,5 +1,7 @@
 package com.nageoffer.shortlink.agent.harness.runtime;
 
+import com.nageoffer.shortlink.agent.harness.action.model.AgentPendingActionView;
+
 import java.util.List;
 
 public record AgentRunResult(
@@ -7,7 +9,7 @@ public record AgentRunResult(
         String traceId,
         String answer,
         List<Object> cards,
-        List<Object> pendingActions,
+        List<AgentPendingActionView> pendingActions,
         List<Object> toolCalls,
         List<Object> dataSources,
         List<Object> traceEvents,

@@ -178,7 +178,7 @@ class AgentChatE2eTest {
                 .andExpect(jsonPath("$.data.toolCalls[1].name").value("get_group_access_records"))
                 .andExpect(jsonPath("$.data.cards[0].type").value("risk_signal"))
                 .andExpect(jsonPath("$.data.cards[0].summary.reasonCode").value("top_ip_concentration"))
-                .andExpect(jsonPath("$.data.pendingActions[0].type").value("review_security_risk"))
+                .andExpect(jsonPath("$.data.pendingActions").isEmpty())
                 .andExpect(jsonPath("$.data.dataSources[0].name").value("security-risk-graph"))
                 .andExpect(jsonPath("$.data.dataSources[2].type").value("tool"))
                 .andExpect(jsonPath("$.data.traceEvents[0].nodeName").value("intake"))
@@ -187,11 +187,12 @@ class AgentChatE2eTest {
                 .andExpect(jsonPath("$.data.traceEvents[3].nodeName").value("risk_scoring"))
                 .andExpect(jsonPath("$.data.traceEvents[4].nodeName").value("llm_explanation"))
                 .andExpect(jsonPath("$.data.traceEvents[5].nodeName").value("risk_event_persist"))
-                .andExpect(jsonPath("$.data.traceEvents[6].nodeName").value("risk_auto_action"))
-                .andExpect(jsonPath("$.data.traceEvents[7].nodeName").value("response_compose"))
-                .andExpect(jsonPath("$.data.traceEvents[8].nodeName").value("checkpoint_save"))
-                .andExpect(jsonPath("$.data.traceEvents[8].status").value("success"))
-                .andExpect(jsonPath("$.data.traceEvents[8].checkpointVersion").exists())
+                .andExpect(jsonPath("$.data.traceEvents[6].nodeName").value("risk_action_proposal"))
+                .andExpect(jsonPath("$.data.traceEvents[7].nodeName").value("risk_auto_action"))
+                .andExpect(jsonPath("$.data.traceEvents[8].nodeName").value("response_compose"))
+                .andExpect(jsonPath("$.data.traceEvents[9].nodeName").value("checkpoint_save"))
+                .andExpect(jsonPath("$.data.traceEvents[9].status").value("success"))
+                .andExpect(jsonPath("$.data.traceEvents[9].checkpointVersion").exists())
                 .andReturn();
 
         String responseJson = mvcResult.getResponse().getContentAsString();

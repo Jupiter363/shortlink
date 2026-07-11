@@ -5,9 +5,11 @@ import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolDescriptor;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskWatchStatus;
 import com.nageoffer.shortlink.agent.riskcommon.safety.RiskHashService;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskManualActionDirective;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
@@ -176,6 +178,64 @@ class RiskToolPlanningNodeTest {
                         SecurityRiskSanitizer.class,
                         RiskToolStateSanitizer.class
                 ));
+    }
+
+    @Test
+    void retainsExplicitManualDirectiveAlongsideToolQueryEnvelope() {
+        RiskToolPlanningNode node = node(List.of());
+
+        Map<String, Object> output = node.planAndExecute(
+                "review gid=g1 fullShortUrl=nurl.ink/a "
+                        + "action=LIMIT_TIME_WINDOW timezone=Asia/Shanghai "
+                        + "allowedWindows=09:00-18:00",
+                "session-1",
+                "zhangsan"
+        );
+
+        assertThat(output.get("manualActionDirective"))
+                .isEqualTo(new RiskManualActionDirective(
+                        RiskPolicyAction.LIMIT_TIME_WINDOW,
+                        "Asia/Shanghai",
+                        List.of("09:00-18:00")
+                ));
+        assertThat(output.toString()).doesNotContain("rawIp");
+    }
+
+    @Test
+    void normalRiskQueryDoesNotInvokeStrictManualDirectiveParser() {
+        Map<String, Object> output = node(List.of()).planAndExecute(
+                "analyze security risk gid=g1",
+                "session-1",
+                "zhangsan"
+        );
+
+        assertThat(output).doesNotContainKey("manualActionDirective");
+    }
+
+    @Test
+    void explicitManualDirectiveRejectsRawIpEvenInsideToolQueryEnvelope() {
+        assertThatThrownBy(() -> node(List.of()).planAndExecute(
+                "gid=g1 action=BLOCK_IP rawIp=" + RAW_IP,
+                "session-1",
+                "zhangsan"
+        ))
+                .isInstanceOf(
+                        com.nageoffer.shortlink.agent.harness.action.service.AgentActionException.class
+                )
+                .hasMessage("Risk manual action directive payload is invalid");
+    }
+
+    @Test
+    void explicitManualDirectiveDoesNotDiscardMalformedDirectiveToken() {
+        assertThatThrownBy(() -> node(List.of()).planAndExecute(
+                "gid=g1 action=DISABLE_SHORT_LINK timezone",
+                "session-1",
+                "zhangsan"
+        ))
+                .isInstanceOf(
+                        com.nageoffer.shortlink.agent.harness.action.service.AgentActionException.class
+                )
+                .hasMessage("Risk manual action directive payload is invalid");
     }
 
     @Test

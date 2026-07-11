@@ -4,6 +4,8 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskManualActionDirective;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskManualActionDirectiveParser;
 import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceClassifier;
 import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceStatus;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,6 +32,17 @@ public class RiskToolPlanningNode {
     private static final String TOOL_EXECUTION_FAILED_MESSAGE = "Agent tool execution failed";
     private static final Pattern KEY_VALUE_PATTERN = Pattern.compile("(gid|fullShortUrl|startDate|endDate|current|size)\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final Pattern ACTION_DIRECTIVE_PATTERN = Pattern.compile(
+            "(?i)(?:^|\\s)action\\s*="
+    );
+    private static final Set<String> TOOL_ARGUMENT_KEYS = Set.of(
+            "gid",
+            "fullShortUrl",
+            "startDate",
+            "endDate",
+            "current",
+            "size"
+    );
 
     private final AgentToolRegistry toolRegistry;
 
@@ -37,6 +51,8 @@ public class RiskToolPlanningNode {
     private final RiskToolStateSanitizer toolStateSanitizer;
 
     private final RiskEvidenceClassifier evidenceClassifier;
+
+    private final RiskManualActionDirectiveParser manualActionDirectiveParser;
 
     public RiskToolPlanningNode(
             AgentToolRegistry toolRegistry,
@@ -47,6 +63,7 @@ public class RiskToolPlanningNode {
         this.sanitizer = sanitizer;
         this.toolStateSanitizer = toolStateSanitizer;
         this.evidenceClassifier = new RiskEvidenceClassifier();
+        this.manualActionDirectiveParser = new RiskManualActionDirectiveParser();
     }
 
     public Map<String, Object> apply(OverAllState state) {
@@ -81,6 +98,9 @@ public class RiskToolPlanningNode {
     ) {
         List<Map<String, Object>> toolExecutions = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
+        Optional<RiskManualActionDirective> manualActionDirective = structuredBatch
+                ? Optional.empty()
+                : parseManualActionDirective(message);
         boolean hasProfileContext = profileContext != null && !profileContext.isEmpty();
         if (hasProfileContext) {
             Map<String, Object> profileExecution = sanitizedProfileExecution(profileContext);
@@ -114,13 +134,43 @@ public class RiskToolPlanningNode {
                 toolExecutions,
                 List.of()
         );
-        return Map.of(
-                "toolExecutions", toolExecutions,
-                "toolWarnings", warnings,
-                "evidenceRequested", evidenceRequested,
-                "evidenceStatus", evidenceStatus.name(),
-                "visitedNodes", List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE)
-        );
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("toolExecutions", toolExecutions);
+        output.put("toolWarnings", warnings);
+        output.put("evidenceRequested", evidenceRequested);
+        output.put("evidenceStatus", evidenceStatus.name());
+        output.put("visitedNodes", List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE));
+        manualActionDirective.ifPresent(value -> output.put("manualActionDirective", value));
+        return output;
+    }
+
+    private Optional<RiskManualActionDirective> parseManualActionDirective(String message) {
+        if (message == null
+                || message.isBlank()
+                || !ACTION_DIRECTIVE_PATTERN.matcher(message).find()) {
+            return Optional.empty();
+        }
+        List<String> directiveTokens = new ArrayList<>();
+        for (String token : message.strip().split("\\s+")) {
+            int separator = token.indexOf('=');
+            if (separator < 0) {
+                if (isDirectiveKey(token)) {
+                    directiveTokens.add(token);
+                }
+                continue;
+            }
+            String key = token.substring(0, separator);
+            if (!TOOL_ARGUMENT_KEYS.contains(key)) {
+                directiveTokens.add(token);
+            }
+        }
+        return manualActionDirectiveParser.parse(String.join(" ", directiveTokens));
+    }
+
+    private boolean isDirectiveKey(String token) {
+        return "action".equals(token)
+                || "timezone".equals(token)
+                || "allowedWindows".equals(token);
     }
 
     private Map<String, Object> executeTool(AgentTool tool, RiskToolInvocation invocation, String sessionId, String username) {

@@ -3,6 +3,7 @@ package com.nageoffer.shortlink.agent.securityriskagent.graph;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpoint;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpointStore;
 import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
+import com.nageoffer.shortlink.agent.harness.action.service.AgentPendingActionService;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.infrastructure.llm.DeepSeekChatRequest;
 import com.nageoffer.shortlink.agent.infrastructure.llm.DeepSeekChatResponse;
@@ -15,12 +16,18 @@ import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskEventRepository;
 import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskReviewRepository;
 import com.nageoffer.shortlink.agent.riskcenter.repository.JdbcRiskSnapshotRepository;
+import com.nageoffer.shortlink.agent.riskcenter.model.RiskEvent;
 import com.nageoffer.shortlink.agent.riskcenter.service.RiskCenterService;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskEventSource;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
+import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskWatchStatus;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalContext;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalFactory;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskManualActionDirective;
 import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.nageoffer.shortlink.agent.riskprofile.model.RiskTrendPoint;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
@@ -31,6 +38,7 @@ import com.nageoffer.shortlink.agent.securityriskagent.model.RiskAnalysisInput;
 import com.nageoffer.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -52,6 +60,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
 import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveShortLinkProfile;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -119,9 +128,7 @@ class DefaultSecurityRiskGraphExecutorTest {
                 .contains("192.168.*.*")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
-        assertThat(result.pendingActions().toString())
-                .contains("review_security_risk")
-                .contains("pending_confirmation");
+        assertThat(result.pendingActions()).isEmpty();
         assertThat(chatClient.request.messages().get(1).content())
                 .contains("Risk signal context")
                 .contains("192.168.*.*")
@@ -240,7 +247,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         JdbcGroupRiskProfileRepository groupRepository = mock(JdbcGroupRiskProfileRepository.class);
         RiskCenterService riskCenterService = mock(RiskCenterService.class);
         RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
-        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+        DefaultSecurityRiskGraphExecutor executor = productionExecutor(
                 chatClient,
                 checkpointStore,
                 agentProperties(),
@@ -284,7 +291,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         CapturingGraphCheckpointStore checkpointStore = new CapturingGraphCheckpointStore();
         RiskCenterService riskCenterService = mock(RiskCenterService.class);
         RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
-        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+        DefaultSecurityRiskGraphExecutor executor = productionExecutor(
                 chatClient,
                 checkpointStore,
                 agentProperties(),
@@ -453,7 +460,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         when(groupRepository.findByBatchIdAndGid(batchId, "gid-001"))
                 .thenReturn(Optional.of(groupProfile("gid-001", profileWindowEnd, List.of(profile))
                         .withBatchId(batchId)));
-        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+        DefaultSecurityRiskGraphExecutor executor = productionExecutor(
                 throwingChatClient,
                 checkpointStore,
                 agentProperties(),
@@ -492,7 +499,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         CapturingGraphCheckpointStore checkpointStore = new CapturingGraphCheckpointStore();
         RiskCenterService riskCenterService = mock(RiskCenterService.class);
         RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
-        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+        DefaultSecurityRiskGraphExecutor executor = productionExecutor(
                 chatClient,
                 checkpointStore,
                 agentProperties(),
@@ -531,7 +538,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         };
         RiskCenterService riskCenterService = mock(RiskCenterService.class);
         RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
-        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+        DefaultSecurityRiskGraphExecutor executor = productionExecutor(
                 throwingChatClient,
                 new CapturingGraphCheckpointStore(),
                 agentProperties(),
@@ -555,6 +562,80 @@ class DefaultSecurityRiskGraphExecutorTest {
         assertThat(result.cards()).isEmpty();
         assertThat(result.pendingActions()).isEmpty();
         verifyNoInteractions(riskCenterService, riskPolicyService);
+    }
+
+    @Test
+    void graphPreservesTypedManualDirectiveUntilActionProposalNode() {
+        LocalDateTime endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        ShortLinkRiskProfile profile = profile("gid-001", "manual001", 92, endTime);
+        JdbcShortLinkRiskProfileRepository shortLinkRepository =
+                mock(JdbcShortLinkRiskProfileRepository.class);
+        JdbcGroupRiskProfileRepository groupRepository =
+                mock(JdbcGroupRiskProfileRepository.class);
+        RiskCenterService riskCenterService = mock(RiskCenterService.class);
+        RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
+        RiskActionProposalFactory proposalFactory = mock(RiskActionProposalFactory.class);
+        AgentPendingActionService pendingActionService = mock(AgentPendingActionService.class);
+        when(shortLinkRepository.findTopRiskByGid("gid-001", 10))
+                .thenReturn(List.of(profile));
+        when(groupRepository.findLatestByGid("gid-001")).thenReturn(Optional.empty());
+        when(riskCenterService.recordSecurityRiskAgentEvent(
+                any(ShortLinkRiskProfile.class),
+                anyString(),
+                anyString(),
+                anyString()
+        )).thenReturn(new RiskEvent(
+                "event-manual-001",
+                RiskTargetType.SHORT_LINK,
+                profile.gid(),
+                profile.domain(),
+                profile.shortUri(),
+                profile.fullShortUrl(),
+                profile.riskScore(),
+                profile.riskLevel(),
+                List.copyOf(profile.reasonCodes()),
+                Map.of(),
+                List.of(),
+                "manual directive test",
+                "trace-manual",
+                "session-manual",
+                RiskEventSource.SECURITY_RISK_AGENT,
+                endTime
+        ));
+        when(proposalFactory.create(any())).thenReturn(List.of());
+        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
+                new CapturingLlmChatClient(),
+                new CapturingGraphCheckpointStore(),
+                agentProperties(),
+                new AgentToolRegistry(List.of()),
+                shortLinkRepository,
+                groupRepository,
+                riskCenterService,
+                riskPolicyService,
+                proposalFactory,
+                pendingActionService
+        );
+
+        AgentRunResult result = executor.execute(new SecurityRiskGraphRequest(
+                "session-manual",
+                "risk-operator",
+                "review gid=gid-001 fullShortUrl=nurl.ink/manual001 "
+                        + "action=DISABLE_SHORT_LINK",
+                "trace-manual"
+        ));
+
+        ArgumentCaptor<RiskActionProposalContext> contextCaptor =
+                ArgumentCaptor.forClass(RiskActionProposalContext.class);
+        verify(proposalFactory).create(contextCaptor.capture());
+        assertThat(contextCaptor.getValue().directive())
+                .contains(new RiskManualActionDirective(
+                        RiskPolicyAction.DISABLE_SHORT_LINK,
+                        null,
+                        List.of()
+                ));
+        assertThat(contextCaptor.getValue().proposedBy()).isEqualTo("risk-operator");
+        assertThat(result.traceEvents().toString()).contains("risk_action_proposal");
+        verifyNoInteractions(pendingActionService);
     }
 
     @Test
@@ -590,6 +671,9 @@ class DefaultSecurityRiskGraphExecutorTest {
                 "get_group_stats",
                 ToolResult.success(Map.of("pv", 999, "uv", 1))
         );
+        RiskActionProposalFactory proposalFactory = mock(RiskActionProposalFactory.class);
+        AgentPendingActionService pendingActionService = mock(AgentPendingActionService.class);
+        when(proposalFactory.create(any())).thenReturn(List.of());
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
@@ -598,7 +682,9 @@ class DefaultSecurityRiskGraphExecutorTest {
                 shortLinkRepository,
                 groupRepository,
                 riskCenterService,
-                riskPolicyService
+                riskPolicyService,
+                proposalFactory,
+                pendingActionService
         );
 
         AgentRunResult result = executor.execute(new SecurityRiskGraphRequest(
@@ -624,6 +710,7 @@ class DefaultSecurityRiskGraphExecutorTest {
                 "risk_scoring",
                 "llm_explanation",
                 "risk_event_persist",
+                "risk_action_proposal",
                 "risk_auto_action",
                 "response_compose",
                 "checkpoint_save"
@@ -641,6 +728,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         assertThat(checkpointStore.saved.get(0).checkpointJson())
                 .contains("profile_candidate_load")
                 .contains("risk_event_persist")
+                .contains("risk_action_proposal")
                 .contains("risk_auto_action")
                 .contains("\"batchId\":\"" + batchId + "\"");
         verify(riskPolicyService).canAutoLimitRate(
@@ -649,6 +737,33 @@ class DefaultSecurityRiskGraphExecutorTest {
                 eq(highProfile.reasonCodes())
         );
         verify(riskPolicyService, never()).activatePolicy(any());
+    }
+
+    private DefaultSecurityRiskGraphExecutor productionExecutor(
+            LlmChatClient chatClient,
+            GraphCheckpointStore checkpointStore,
+            AgentProperties properties,
+            AgentToolRegistry toolRegistry,
+            JdbcShortLinkRiskProfileRepository shortLinkRepository,
+            JdbcGroupRiskProfileRepository groupRepository,
+            RiskCenterService riskCenterService,
+            RiskPolicyService riskPolicyService
+    ) {
+        RiskActionProposalFactory proposalFactory = mock(RiskActionProposalFactory.class);
+        AgentPendingActionService pendingActionService = mock(AgentPendingActionService.class);
+        when(proposalFactory.create(any())).thenReturn(List.of());
+        return new DefaultSecurityRiskGraphExecutor(
+                chatClient,
+                checkpointStore,
+                properties,
+                toolRegistry,
+                shortLinkRepository,
+                groupRepository,
+                riskCenterService,
+                riskPolicyService,
+                proposalFactory,
+                pendingActionService
+        );
     }
 
     private AgentProperties agentProperties() {

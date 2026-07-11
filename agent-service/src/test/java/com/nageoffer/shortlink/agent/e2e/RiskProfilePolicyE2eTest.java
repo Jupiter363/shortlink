@@ -1,5 +1,12 @@
 package com.nageoffer.shortlink.agent.e2e;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nageoffer.shortlink.agent.harness.action.executor.AgentActionExecutorRegistry;
+import com.nageoffer.shortlink.agent.harness.action.model.AgentActionStatus;
+import com.nageoffer.shortlink.agent.harness.action.repository.JdbcAgentPendingActionRepository;
+import com.nageoffer.shortlink.agent.harness.action.service.AgentActionAuthorizationService;
+import com.nageoffer.shortlink.agent.harness.action.service.AgentActionPayloadCodec;
+import com.nageoffer.shortlink.agent.harness.action.service.AgentPendingActionService;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpoint;
 import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
@@ -14,6 +21,10 @@ import com.nageoffer.shortlink.agent.riskcenter.service.RiskCenterService;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskTargetType;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalFactory;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskIpEvidenceExtractor;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionPayloadValidator;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionTypes;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskActionAuditRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisPublisher;
@@ -33,6 +44,8 @@ import com.nageoffer.shortlink.agent.riskprofile.source.ShortLinkActiveCandidate
 import com.nageoffer.shortlink.agent.riskprofile.source.ShortLinkStatsWindow;
 import com.nageoffer.shortlink.agent.securityriskagent.graph.DefaultSecurityRiskGraphExecutor;
 import com.nageoffer.shortlink.agent.securityriskagent.graph.SecurityRiskGraphRequest;
+import com.nageoffer.shortlink.agent.securityriskagent.model.RiskAnalysisInput;
+import com.nageoffer.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -161,6 +174,23 @@ class RiskProfilePolicyE2eTest {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(
                 "E2E risk explanation ip=192.168.1.10 user=visitor-001"
         );
+        ObjectMapper objectMapper = new ObjectMapper();
+        JdbcAgentPendingActionRepository pendingActionRepository =
+                new JdbcAgentPendingActionRepository(jdbcTemplate);
+        AgentPendingActionService pendingActionService = new AgentPendingActionService(
+                pendingActionRepository,
+                new AgentActionPayloadCodec(objectMapper),
+                new AgentActionExecutorRegistry(List.of()),
+                new AgentActionAuthorizationService(),
+                properties,
+                List.of()
+        );
+        RiskActionProposalFactory proposalFactory = new RiskActionProposalFactory(
+                properties,
+                pendingActionService,
+                new RiskPolicyActionPayloadValidator(),
+                new RiskIpEvidenceExtractor()
+        );
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
@@ -169,14 +199,22 @@ class RiskProfilePolicyE2eTest {
                 shortLinkRepository,
                 groupRepository,
                 riskCenterService,
-                riskPolicyService
+                riskPolicyService,
+                proposalFactory,
+                pendingActionService
         );
 
         AgentRunResult result = executor.execute(new SecurityRiskGraphRequest(
                 "risk-profile-e2e-session",
                 "risk-operator",
                 "analyze profile gid=gid-001 ip=192.168.1.10 user=visitor-001",
-                "trace-risk-profile-e2e"
+                "trace-risk-profile-e2e",
+                new RiskAnalysisInput(
+                        batchResult.batchId(),
+                        "gid-001",
+                        BATCH_END_TIME,
+                        List.of(new RiskProfileTargetRef("nurl.ink", "high001"))
+                )
         ));
 
         assertThat(result.answer())
@@ -193,10 +231,24 @@ class RiskProfilePolicyE2eTest {
                 .contains("risk_profile_short_link")
                 .contains("high001")
                 .doesNotContain("low001");
+        assertThat(result.pendingActions()).singleElement().satisfies(action -> {
+            assertThat(action.actionType()).isEqualTo(RiskPolicyActionTypes.DISABLE_SHORT_LINK.value());
+            assertThat(action.status()).isEqualTo(AgentActionStatus.PENDING);
+            assertThat(action.gid()).isEqualTo("gid-001");
+            assertThat(action.targetType()).isEqualTo("SHORT_LINK");
+            assertThat(action.target())
+                    .containsEntry("domain", "nurl.ink")
+                    .containsEntry("shortUri", "high001");
+        });
         assertThat(result.pendingActions().toString())
-                .contains("auto_limit_rate")
-                .contains("executed")
-                .contains("review_security_risk");
+                .doesNotContain(
+                        "auto_limit_rate",
+                        "review_security_risk",
+                        "payloadJson",
+                        "executionToken",
+                        "192.168.1.10",
+                        "visitor-001"
+                );
         assertThat(chatClient.request.messages().get(1).content())
                 .contains("Risk signal context")
                 .contains("192.168.*.*")
@@ -223,6 +275,22 @@ class RiskProfilePolicyE2eTest {
                 });
         verify(valueOperations).set(eq(policyKey), contains("LIMIT_RATE"));
 
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(1) from t_agent_pending_action",
+                Integer.class
+        )).isEqualTo(1);
+        assertThat(pendingActionRepository.findByActionId(result.pendingActions().get(0).actionId()))
+                .isPresent()
+                .get()
+                .satisfies(action -> {
+                    assertThat(action.actionType()).isEqualTo(RiskPolicyActionTypes.DISABLE_SHORT_LINK);
+                    assertThat(action.status()).isEqualTo(AgentActionStatus.PENDING);
+                    assertThat(action.gid()).isEqualTo("gid-001");
+                    assertThat(action.targetKey()).isEqualTo("nurl.ink/high001");
+                    assertThat(action.payloadJson()).contains("DISABLE_SHORT_LINK", "high001");
+                    assertThat(action.executionToken()).isEmpty();
+                });
+
         Optional<GraphCheckpoint> checkpoint = checkpointStore.loadLatest(
                 "risk-profile-e2e-session",
                 "security-risk-graph",
@@ -232,12 +300,20 @@ class RiskProfilePolicyE2eTest {
         assertThat(checkpoint.get().checkpointJson())
                 .contains("profile_candidate_load")
                 .contains("risk_event_persist")
+                .contains("risk_action_proposal")
                 .contains("risk_auto_action")
                 .contains("activatedPolicies")
+                .contains("\"actionType\":\"risk.disable-short-link\"")
+                .contains("\"status\":\"PENDING\"")
+                .contains("\"shortUri\":\"high001\"")
                 .contains("192.168.*.*")
                 .contains("user=***")
+                .doesNotContain("payloadJson")
+                .doesNotContain("executionToken")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001")
+                .doesNotContain("auto_limit_rate")
+                .doesNotContain("review_security_risk")
                 .doesNotContain("low001");
     }
 
