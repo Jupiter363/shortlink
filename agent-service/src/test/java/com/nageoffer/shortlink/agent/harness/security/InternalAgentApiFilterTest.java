@@ -66,6 +66,35 @@ class InternalAgentApiFilterTest {
     }
 
     @Test
+    void configuredInternalTokenRejectsMissingHeaderForActionsPath() throws Exception {
+        AgentProperties properties = new AgentProperties();
+        properties.getSecurity().setInternalToken("expected-token");
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new HealthController())
+                .addFilters(new InternalAgentApiFilter(properties))
+                .build();
+
+        mockMvc.perform(get("/internal/short-link-agent/v1/actions")
+                        .param("gid", "g1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void configuredInternalTokenProtectsActionsPathWithContextPath() throws Exception {
+        AgentProperties properties = new AgentProperties();
+        properties.getSecurity().setInternalToken("expected-token");
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new HealthController())
+                .addFilters(new InternalAgentApiFilter(properties))
+                .build();
+
+        mockMvc.perform(get("/agent-service/internal/short-link-agent/v1/actions")
+                        .contextPath("/agent-service")
+                        .param("gid", "g1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void configuredInternalTokenRejectsWrongHeader() throws Exception {
         AgentProperties properties = new AgentProperties();
         properties.getSecurity().setInternalToken("expected-token");
