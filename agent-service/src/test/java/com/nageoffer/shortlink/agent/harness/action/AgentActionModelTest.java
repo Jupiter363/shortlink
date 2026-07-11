@@ -747,6 +747,157 @@ class AgentActionModelTest {
     }
 
     @Test
+    void finalResultSanitizerKeepsClockTextButRedactsIpv6Literals() {
+        Map<String, Object> sanitized = AgentPendingActionView.sanitizeFinalResult(
+                new AgentActionType("campaign.pause-placement"),
+                Map.of("message", "completed at 12:30:45 via 2001:db8::1 and ::1")
+        );
+
+        assertThat(sanitized.get("message"))
+                .isEqualTo("completed at 12:30:45 via *** and ***");
+    }
+
+    @Test
+    void finalResultSanitizerUsesStrictNumericIpv6LiteralParsing() {
+        Map<String, Object> sanitized = AgentPendingActionView.sanitizeFinalResult(
+                new AgentActionType("campaign.pause-placement"),
+                Map.of("message", String.join(" | ",
+                        "::",
+                        "::1",
+                        "2001:db8::1",
+                        "2001:0db8:0000:0000:0000:ff00:0042:8329",
+                        "12:30:45",
+                        "2001:db8:1",
+                        "2001:::1",
+                        "2001:db8::1::2",
+                        "12345:db8::1"
+                ))
+        );
+
+        assertThat(sanitized.get("message")).isEqualTo(String.join(" | ",
+                "***",
+                "***",
+                "***",
+                "***",
+                "12:30:45",
+                "2001:db8:1",
+                "2001:::1",
+                "2001:db8::1::2",
+                "12345:db8::1"
+        ));
+    }
+
+    @Test
+    void finalResultSanitizerUsesOneStrictParserForIpKeysAndEmbeddedIpv6Text() {
+        Map<String, Object> dynamic = new LinkedHashMap<>();
+        dynamic.put("::ffff:192.0.2.128", "mapped");
+        dynamic.put("[::ffff:192.0.2.128]:443", "mapped-port");
+        dynamic.put("2001:db8::1", "ipv6");
+        dynamic.put("[2001:db8::1]/64", "cidr");
+        dynamic.put("fe80::1%eth0", "zone");
+        dynamic.put("999.0.0.1", "invalid-ipv4");
+        dynamic.put("2001:::1", "invalid-triple-colon");
+        dynamic.put("2001:db8::1::2", "invalid-double-compression");
+        dynamic.put("1:2:3:4:5:6:7:8:9", "too-many-units");
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("dynamic", dynamic);
+        result.put("message", "mapped ::ffff:192.0.2.128 and [::ffff:192.0.2.128]:443 "
+                + "ipv6 2001:db8::1 zone fe80::1%eth0 completed at 12:30:45 "
+                + "business order:id:ready invalid 2001:::1 and 999.0.0.1");
+
+        Map<String, Object> sanitized = AgentPendingActionView.sanitizeFinalResult(
+                new AgentActionType("campaign.pause-placement"),
+                result
+        );
+
+        Map<String, Object> sanitizedDynamic = asMap(sanitized.get("dynamic"));
+        assertThat(sanitizedDynamic)
+                .doesNotContainKeys(
+                        "::ffff:192.0.2.128",
+                        "[::ffff:192.0.2.128]:443",
+                        "2001:db8::1",
+                        "[2001:db8::1]/64",
+                        "fe80::1%eth0"
+                )
+                .containsEntry("999.0.0.1", "invalid-ipv4")
+                .containsEntry("2001:::1", "invalid-triple-colon")
+                .containsEntry("2001:db8::1::2", "invalid-double-compression")
+                .containsEntry("1:2:3:4:5:6:7:8:9", "too-many-units");
+        assertThat((String) sanitized.get("message"))
+                .contains("mapped *** and ***")
+                .contains("ipv6 *** zone ***")
+                .contains("completed at 12:30:45")
+                .contains("business order:id:ready")
+                .contains("invalid 2001:::1 and 999.0.0.1")
+                .doesNotContain("::ffff:", "192.0.2.128", "fe80::1%eth0");
+    }
+
+    @Test
+    void finalResultSanitizerRedactsCommonCredentialHeadersAssignmentsAndUrlUserInfo() {
+        String message = "request failed\n"
+                + "Authorization: Basic basic-secret\n"
+                + "Authorization: Bearer bearer-secret\n"
+                + "Cookie: session=cookie-secret; theme=dark\n"
+                + "Set-Cookie: session=set-cookie-secret; HttpOnly\n"
+                + "access_token=access-secret access-token:access-dash-secret "
+                + "refresh_token=refresh-secret id_token=id-secret "
+                + "client_secret=client-secret session_token=session-secret\n"
+                + "url=https://url-user:url-pass@example.com/path";
+
+        Map<String, Object> sanitized = AgentPendingActionView.sanitizeFinalResult(
+                new AgentActionType("campaign.pause-placement"),
+                Map.of("message", message)
+        );
+        String safe = (String) sanitized.get("message");
+
+        assertThat(safe)
+                .contains("request failed")
+                .contains("Authorization: ***")
+                .contains("Cookie: ***")
+                .contains("Set-Cookie: ***")
+                .contains("access_token=***")
+                .contains("access-token:***")
+                .contains("refresh_token=***")
+                .contains("id_token=***")
+                .contains("client_secret=***")
+                .contains("session_token=***")
+                .contains("https://***@example.com/path")
+                .doesNotContain(
+                        "basic-secret", "bearer-secret", "cookie-secret", "set-cookie-secret",
+                        "access-secret", "access-dash-secret", "refresh-secret", "id-secret",
+                        "client-secret", "session-secret", "url-user", "url-pass"
+                );
+    }
+
+    @Test
+    void finalResultSanitizerRedactsUrlUserInfoOnlyWithinAuthority() {
+        String message = "password-url=https://user:pass@example.com/path "
+                + "token-url=https://access-token@example.com/path "
+                + "plain=https://example.com/path "
+                + "path-at=https://example.com/path/@marker "
+                + "query-email=https://example.com?email=user@example.org "
+                + "fragment-at=https://example.com#contact=@support";
+
+        Map<String, Object> sanitized = AgentPendingActionView.sanitizeFinalResult(
+                new AgentActionType("campaign.pause-placement"),
+                Map.of("message", message)
+        );
+        String safe = (String) sanitized.get("message");
+
+        assertThat(safe)
+                .contains("password-url=https://***@example.com/path")
+                .contains("token-url=https://***@example.com/path")
+                .contains("plain=https://example.com/path")
+                .contains("path-at=https://example.com/path/@marker")
+                .contains("query-email=https://example.com?email=user@example.org")
+                .contains("fragment-at=https://example.com#contact=@support")
+                .doesNotContain(
+                        "user:pass@example.com",
+                        "access-token@example.com"
+                );
+    }
+
+    @Test
     void finalResultSanitizerBuildsJsonNativeTreeWithoutCallingUnknownToString() {
         DangerousObject dangerousKey = new DangerousObject("dangerous-key-secret");
         DangerousObject dangerousValue = new DangerousObject("dangerous-value-secret");

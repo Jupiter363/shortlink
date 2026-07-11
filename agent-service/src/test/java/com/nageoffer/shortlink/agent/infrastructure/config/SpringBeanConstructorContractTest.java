@@ -2,6 +2,7 @@ package com.nageoffer.shortlink.agent.infrastructure.config;
 
 import com.nageoffer.shortlink.agent.harness.action.repository.JdbcAgentPendingActionRepository;
 import com.nageoffer.shortlink.agent.harness.action.scheduler.AgentPendingActionRecoveryScheduler;
+import com.nageoffer.shortlink.agent.harness.action.service.AgentPendingActionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -26,6 +27,14 @@ class SpringBeanConstructorContractTest {
                 .singleElement()
                 .satisfies(constructor -> assertThat(constructor.getParameterTypes())
                         .containsExactly(JdbcAgentPendingActionRepository.class));
+    }
+
+    @Test
+    void pendingActionServiceMarksOnlyItsProductionConstructorAutowired() {
+        assertThat(AgentPendingActionService.class.getDeclaredConstructors()).hasSize(2);
+        assertThat(autowiredConstructors(AgentPendingActionService.class))
+                .singleElement()
+                .satisfies(constructor -> assertThat(constructor.getParameterCount()).isEqualTo(6));
     }
 
     @Test

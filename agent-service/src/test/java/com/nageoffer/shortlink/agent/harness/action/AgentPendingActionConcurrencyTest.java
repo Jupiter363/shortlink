@@ -64,6 +64,79 @@ class AgentPendingActionConcurrencyTest {
     }
 
     @Test
+    void claimOverloadPersistsConfirmedByInTheSameCas() {
+        Fixture fixture = fixture("claim_confirmed_by");
+        insertPending(fixture, "action-confirmed-by", NOW, NOW.plusHours(2));
+
+        AgentActionClaim claim = fixture.repository().claimForExecution(
+                "action-confirmed-by",
+                1L,
+                "token-confirmed-by",
+                NOW,
+                Duration.ofMinutes(5),
+                true,
+                "current-reviewer"
+        ).orElseThrow();
+
+        assertThat(claim.action().confirmedBy()).isEqualTo("current-reviewer");
+        assertThat(claim.action().confirmedTime()).isEqualTo(NOW);
+        assertThat(action(fixture, "action-confirmed-by").confirmedBy())
+                .isEqualTo("current-reviewer");
+    }
+
+    @Test
+    void replaySafeRetryPreservesTheFirstConfirmationActorAndTime() {
+        Fixture fixture = fixture("claim_first_confirmation_audit");
+        insertPending(fixture, "action-first-confirmation", NOW, NOW.plusHours(2));
+
+        AgentActionClaim first = fixture.repository().claimForExecution(
+                "action-first-confirmation", 1L, "token-first-confirmation", NOW,
+                Duration.ofMinutes(5), true, "first-reviewer"
+        ).orElseThrow();
+        assertThat(fixture.repository().failExecution(
+                "action-first-confirmation", first.executionToken(), first.claimedVersion(),
+                "ACTION_EXECUTION_FAILED", "safe failure", NOW.plusMinutes(1)
+        )).isTrue();
+
+        AgentActionClaim retry = fixture.repository().claimForExecution(
+                "action-first-confirmation", 3L, "token-retry-confirmation",
+                NOW.plusMinutes(10), Duration.ofMinutes(5), true, "second-reviewer"
+        ).orElseThrow();
+
+        assertThat(retry.action().confirmedBy()).isEqualTo("first-reviewer");
+        assertThat(retry.action().confirmedTime()).isEqualTo(NOW);
+        assertThat(action(fixture, "action-first-confirmation").confirmedBy())
+                .isEqualTo("first-reviewer");
+        assertThat(action(fixture, "action-first-confirmation").confirmedTime())
+                .isEqualTo(NOW);
+    }
+
+    @Test
+    void legacyClaimThenActorRetryDoesNotCreateMismatchedConfirmationAudit() {
+        Fixture fixture = fixture("claim_legacy_confirmation_audit");
+        insertPending(fixture, "action-legacy-confirmation", NOW, NOW.plusHours(2));
+
+        AgentActionClaim first = fixture.repository().claimForExecution(
+                "action-legacy-confirmation", 1L, "token-legacy-confirmation", NOW,
+                Duration.ofMinutes(5), true
+        ).orElseThrow();
+        assertThat(first.action().confirmedBy()).isEmpty();
+        assertThat(first.action().confirmedTime()).isNull();
+        assertThat(fixture.repository().failExecution(
+                "action-legacy-confirmation", first.executionToken(), first.claimedVersion(),
+                "ACTION_EXECUTION_FAILED", "safe failure", NOW.plusMinutes(1)
+        )).isTrue();
+
+        AgentActionClaim retry = fixture.repository().claimForExecution(
+                "action-legacy-confirmation", 3L, "token-actor-retry",
+                NOW.plusMinutes(10), Duration.ofMinutes(5), true, "later-reviewer"
+        ).orElseThrow();
+
+        assertThat(retry.action().confirmedBy()).isEqualTo("later-reviewer");
+        assertThat(retry.action().confirmedTime()).isEqualTo(NOW.plusMinutes(10));
+    }
+
+    @Test
     void claimRollsBackCasWhenPostUpdateReadFailsThroughSpringTransactionProxy() {
         DataSource dataSource = dataSource("claim_transaction_rollback");
         populate(dataSource);

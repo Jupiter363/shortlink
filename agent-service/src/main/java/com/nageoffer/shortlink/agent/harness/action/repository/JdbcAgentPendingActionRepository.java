@@ -224,11 +224,33 @@ public class JdbcAgentPendingActionRepository {
             Duration leaseDuration,
             boolean replaySafe
     ) {
+        return claimForExecution(
+                actionId,
+                expectedVersion,
+                executionToken,
+                now,
+                leaseDuration,
+                replaySafe,
+                null
+        );
+    }
+
+    @Transactional
+    public Optional<AgentActionClaim> claimForExecution(
+            String actionId,
+            long expectedVersion,
+            String executionToken,
+            LocalDateTime now,
+            Duration leaseDuration,
+            boolean replaySafe,
+            String confirmedBy
+    ) {
         validateLeaseDuration(leaseDuration);
         if (!hasText(actionId)
                 || expectedVersion < 0
                 || !hasText(executionToken)
-                || now == null) {
+                || now == null
+                || (confirmedBy != null && !hasText(confirmedBy))) {
             return Optional.empty();
         }
 
@@ -236,7 +258,12 @@ public class JdbcAgentPendingActionRepository {
         int updated = replaySafe
                 ? jdbcTemplate.update("""
                                 update t_agent_pending_action
-                                set confirmed_time = coalesce(confirmed_time, ?),
+                                set confirmed_by = case
+                                        when confirmed_time is null and ? is not null then ?
+                                        else confirmed_by end,
+                                    confirmed_time = case when ? is not null
+                                        then coalesce(confirmed_time, ?)
+                                        else confirmed_time end,
                                     status = ?,
                                     execution_token = ?,
                                     execution_lease_until = ?,
@@ -251,6 +278,9 @@ public class JdbcAgentPendingActionRepository {
                                   and status in (?, ?)
                                   and (expire_time is null or expire_time > ?)
                                 """,
+                        confirmedBy,
+                        confirmedBy,
+                        confirmedBy,
                         timestamp(now),
                         AgentActionStatus.EXECUTING.name(),
                         executionToken,
@@ -264,7 +294,12 @@ public class JdbcAgentPendingActionRepository {
                 )
                 : jdbcTemplate.update("""
                                 update t_agent_pending_action
-                                set confirmed_time = coalesce(confirmed_time, ?),
+                                set confirmed_by = case
+                                        when confirmed_time is null and ? is not null then ?
+                                        else confirmed_by end,
+                                    confirmed_time = case when ? is not null
+                                        then coalesce(confirmed_time, ?)
+                                        else confirmed_time end,
                                     status = ?,
                                     execution_token = ?,
                                     execution_lease_until = ?,
@@ -279,6 +314,9 @@ public class JdbcAgentPendingActionRepository {
                                   and status = ?
                                   and (expire_time is null or expire_time > ?)
                                 """,
+                        confirmedBy,
+                        confirmedBy,
+                        confirmedBy,
                         timestamp(now),
                         AgentActionStatus.EXECUTING.name(),
                         executionToken,

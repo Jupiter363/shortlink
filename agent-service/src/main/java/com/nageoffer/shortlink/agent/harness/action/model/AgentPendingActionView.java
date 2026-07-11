@@ -36,22 +36,32 @@ public record AgentPendingActionView(
     private static final int MAX_REJECTION_REASON_LENGTH = 2048;
     private static final int MAX_REJECTION_REVIEW_ACTION_LENGTH = 32;
     private static final Object DROP_VALUE = new Object();
-    private static final Pattern IPV4_ADDRESS_PATTERN = Pattern.compile("^(?:\\d{1,3}\\.){3}\\d{1,3}$");
-    private static final Pattern IPV6_KEY_PATTERN = Pattern.compile("(?i)^[0-9a-f:.]+$");
-    private static final Pattern IPV4_TEXT_PATTERN =
-            Pattern.compile("(?<![\\d.])(?:\\d{1,3}\\.){3}\\d{1,3}(?![\\d.])");
-    private static final Pattern IPV6_TEXT_PATTERN = Pattern.compile(
-            "(?i)(?<![0-9a-f:])(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?![0-9a-f:])"
+    private static final Pattern IP_TEXT_CANDIDATE_PATTERN = Pattern.compile(
+            "(?i)(?<![a-z0-9_.:%\\[\\]])"
+                    + "(?:\\[[0-9a-f:.]+(?:%[a-z0-9_.-]+)?\\](?::\\d+|/\\d+)?"
+                    + "|[0-9a-f:.]+(?:%[a-z0-9_.-]+)?)"
+                    + "(?![a-z0-9_.:%\\[\\]])"
     );
     private static final Pattern BEARER_TOKEN_PATTERN =
             Pattern.compile("(?i)\\b(bearer)\\s+[^\\s,;]+");
+    private static final Pattern AUTHORIZATION_HEADER_PATTERN =
+            Pattern.compile("(?i)\\b(authorization\\s*:)[^\\r\\n]*");
+    private static final Pattern COOKIE_HEADER_PATTERN =
+            Pattern.compile("(?i)\\b((?:set-)?cookie\\s*:)[^\\r\\n]*");
+    private static final Pattern URL_USER_INFO_PATTERN = Pattern.compile(
+            "(?i)(https?://)[^\\s/@:?#]+(?::[^\\s/@?#]*)?@"
+    );
     private static final Pattern SK_API_KEY_PATTERN =
             Pattern.compile("(?i)\\bsk-[A-Za-z0-9][A-Za-z0-9._-]*");
     private static final Pattern SENSITIVE_ASSIGNMENT_PATTERN = Pattern.compile(
-            "(?i)\\b(token|password|secret|apiKey|credential)\\s*([=:])\\s*[^\\s,;]+"
+            "(?i)\\b(access[-_]?token|refresh[-_]?token|id[-_]?token|client[-_]?secret|"
+                    + "session[-_]?token|token|password|secret|api[-_]?key|credential)"
+                    + "\\s*([=:])\\s*[^\\s,;]+"
     );
     private static final Pattern JSON_SENSITIVE_ASSIGNMENT_PATTERN = Pattern.compile(
-            "(?i)(\\\"(?:token|password|secret|apiKey|credential)\\\"\\s*:\\s*\\\")([^\\\"]*)(\\\")"
+            "(?i)(\\\"(?:access[-_]?token|refresh[-_]?token|id[-_]?token|client[-_]?secret|"
+                    + "session[-_]?token|token|password|secret|api[-_]?key|credential)"
+                    + "\\\"\\s*:\\s*\\\")([^\\\"]*)(\\\")"
     );
     private static final Pattern IDENTITY_ASSIGNMENT_PATTERN = Pattern.compile(
             "(?i)\\b(userId|visitorId|username|user|visitor)\\s*([=:])\\s*[^\\s,;]+"
@@ -373,8 +383,13 @@ public record AgentPendingActionView(
     }
 
     private static String sanitizeResultText(String text) {
-        String sanitized = IPV4_TEXT_PATTERN.matcher(text).replaceAll("***");
-        sanitized = IPV6_TEXT_PATTERN.matcher(sanitized).replaceAll("***");
+        String sanitized = redactIpLiterals(text);
+        sanitized = URL_USER_INFO_PATTERN.matcher(sanitized)
+                .replaceAll(match -> match.group(1) + "***@");
+        sanitized = AUTHORIZATION_HEADER_PATTERN.matcher(sanitized)
+                .replaceAll(match -> match.group(1) + " ***");
+        sanitized = COOKIE_HEADER_PATTERN.matcher(sanitized)
+                .replaceAll(match -> match.group(1) + " ***");
         sanitized = JSON_SENSITIVE_ASSIGNMENT_PATTERN.matcher(sanitized)
                 .replaceAll(match -> match.group(1) + "***" + match.group(3));
         sanitized = BEARER_TOKEN_PATTERN.matcher(sanitized)
@@ -384,6 +399,104 @@ public record AgentPendingActionView(
                 .replaceAll(match -> match.group(1) + match.group(2) + "***");
         return IDENTITY_ASSIGNMENT_PATTERN.matcher(sanitized)
                 .replaceAll(match -> match.group(1) + match.group(2) + "***");
+    }
+
+    private static String redactIpLiterals(String text) {
+        java.util.regex.Matcher matcher = IP_TEXT_CANDIDATE_PATTERN.matcher(text);
+        StringBuilder sanitized = new StringBuilder(text.length());
+        while (matcher.find()) {
+            String candidate = matcher.group();
+            matcher.appendReplacement(
+                    sanitized,
+                    java.util.regex.Matcher.quoteReplacement(
+                            isIpLiteralKey(candidate) ? "***" : candidate
+                    )
+            );
+        }
+        matcher.appendTail(sanitized);
+        return sanitized.toString();
+    }
+
+    private static boolean isIpv6Literal(String candidate) {
+        if (candidate == null || candidate.isEmpty() || !candidate.contains(":")) {
+            return false;
+        }
+        int zoneSeparator = candidate.indexOf('%');
+        if (zoneSeparator >= 0) {
+            if (candidate.indexOf('%', zoneSeparator + 1) >= 0
+                    || !validZone(candidate.substring(zoneSeparator + 1))) {
+                return false;
+            }
+            candidate = candidate.substring(0, zoneSeparator);
+        }
+        int compression = candidate.indexOf("::");
+        if (compression < 0) {
+            String[] hextets = candidate.split(":", -1);
+            return ipv6UnitCount(hextets, new String[0]) == 8;
+        }
+        if (candidate.indexOf("::", compression + 2) >= 0 || candidate.contains(":::")) {
+            return false;
+        }
+        String left = candidate.substring(0, compression);
+        String right = candidate.substring(compression + 2);
+        String[] leftHextets = left.isEmpty() ? new String[0] : left.split(":", -1);
+        String[] rightHextets = right.isEmpty() ? new String[0] : right.split(":", -1);
+        int units = ipv6UnitCount(leftHextets, rightHextets);
+        return units >= 0 && units < 8;
+    }
+
+    private static int ipv6UnitCount(String[] left, String[] right) {
+        int totalTokens = left.length + right.length;
+        int currentToken = 0;
+        int units = 0;
+        for (String[] side : List.of(left, right)) {
+            for (String token : side) {
+                currentToken++;
+                if (token.contains(".")) {
+                    if (currentToken != totalTokens || !isIpv4Address(token)) {
+                        return -1;
+                    }
+                    units += 2;
+                } else if (validHextet(token)) {
+                    units++;
+                } else {
+                    return -1;
+                }
+            }
+        }
+        return units;
+    }
+
+    private static boolean validHextet(String hextet) {
+        if (hextet.isEmpty() || hextet.length() > 4) {
+            return false;
+        }
+        for (int index = 0; index < hextet.length(); index++) {
+            char character = hextet.charAt(index);
+            boolean hexadecimal = character >= '0' && character <= '9'
+                    || character >= 'a' && character <= 'f'
+                    || character >= 'A' && character <= 'F';
+            if (!hexadecimal) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean validZone(String zone) {
+        if (zone.isEmpty()) {
+            return false;
+        }
+        for (int index = 0; index < zone.length(); index++) {
+            char character = zone.charAt(index);
+            if (!Character.isLetterOrDigit(character)
+                    && character != '_'
+                    && character != '-'
+                    && character != '.') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Iterable<?> elements(Object value) {
@@ -492,10 +605,10 @@ public record AgentPendingActionView(
             String address = candidate.substring(1, closingBracket);
             String suffix = candidate.substring(closingBracket + 1);
             return isAddressSuffix(suffix)
-                    && (isIpv4Address(address) || isObviousIpv6Address(address));
+                    && (isIpv4Address(address) || isIpv6Literal(address));
         }
         String addressWithoutCidr = stripNumericSuffix(candidate, '/');
-        if (isIpv4Address(addressWithoutCidr) || isObviousIpv6Address(addressWithoutCidr)) {
+        if (isIpv4Address(addressWithoutCidr) || isIpv6Literal(addressWithoutCidr)) {
             return true;
         }
         String addressWithoutPort = stripNumericSuffix(candidate, ':');
@@ -503,14 +616,20 @@ public record AgentPendingActionView(
     }
 
     private static boolean isIpv4Address(String candidate) {
-        return IPV4_ADDRESS_PATTERN.matcher(candidate).matches();
-    }
-
-    private static boolean isObviousIpv6Address(String candidate) {
-        int zoneSeparator = candidate.indexOf('%');
-        String address = zoneSeparator >= 0 ? candidate.substring(0, zoneSeparator) : candidate;
-        long colonCount = address.chars().filter(character -> character == ':').count();
-        return colonCount >= 2 && IPV6_KEY_PATTERN.matcher(address).matches();
+        String[] octets = candidate.split("\\.", -1);
+        if (octets.length != 4) {
+            return false;
+        }
+        for (String octet : octets) {
+            if (octet.isEmpty() || octet.length() > 3 || !isDigits(octet)) {
+                return false;
+            }
+            int value = Integer.parseInt(octet);
+            if (value > 255) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isAddressSuffix(String suffix) {

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionException;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionPayloadCodec;
 import org.junit.jupiter.api.Test;
@@ -11,9 +13,11 @@ import org.junit.jupiter.api.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AgentActionPayloadCodecTest {
 
@@ -99,6 +103,60 @@ class AgentActionPayloadCodecTest {
         assertThat(((AgentActionException) hashFailure).code()).isEqualTo("ACTION_PAYLOAD_INVALID");
     }
 
+    @Test
+    void readMapRejectsMissingMalformedAndNonObjectJsonWithoutLeakingInput() {
+        AgentActionPayloadCodec codec = new AgentActionPayloadCodec(new ObjectMapper());
+
+        for (String json : new String[]{
+                null,
+                " ",
+                "{\"token\":\"payload-secret-marker\"",
+                "[\"payload-secret-marker\"]"
+        }) {
+            Throwable thrown = catchThrowable(() -> codec.readMap(json));
+            assertThat(thrown)
+                    .isInstanceOf(AgentActionException.class)
+                    .hasMessage("Agent action payload is invalid")
+                    .hasNoCause();
+            assertThat(((AgentActionException) thrown).code()).isEqualTo("ACTION_PAYLOAD_INVALID");
+            assertThat(thrown.toString()).doesNotContain("payload-secret-marker", "token");
+        }
+
+        Map<String, Object> parsed = codec.readMap("{\"nested\":[{\"ok\":true}]}");
+        assertThat(parsed).containsKey("nested");
+        assertThatThrownBy(() -> parsed.put("new", true))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void readMapIgnoresDefaultTypingAndNeverInstantiatesTypeIds() {
+        DefaultTypingProbe.constructorCalls.set(0);
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
+        AgentActionPayloadCodec codec = new AgentActionPayloadCodec(mapper);
+        String typeName = DefaultTypingProbe.class.getName();
+        String json = "{\"@class\":\"" + typeName + "\","
+                + "\"value\":\"plain\","
+                + "\"items\":[{\"@class\":\"" + typeName + "\"}]}";
+
+        Map<String, Object> parsed = codec.readMap(json);
+
+        assertThat(DefaultTypingProbe.constructorCalls).hasValue(0);
+        assertThat(parsed)
+                .containsEntry("@class", typeName)
+                .containsEntry("value", "plain");
+        assertThat(parsed.get("items")).isInstanceOf(List.class);
+        assertThat(((List<?>) parsed.get("items")).get(0)).isInstanceOf(Map.class);
+        assertThatThrownBy(() -> parsed.put("new", true))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> ((List<Object>) parsed.get("items")).add("new"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
     private static final class UnorderedPojo {
 
         private final String zeta;
@@ -133,6 +191,16 @@ class AgentActionPayloadCodecTest {
         @Override
         public String toString() {
             return marker;
+        }
+    }
+
+    public static final class DefaultTypingProbe {
+
+        private static final AtomicInteger constructorCalls = new AtomicInteger();
+
+        public DefaultTypingProbe() {
+            constructorCalls.incrementAndGet();
+            throw new IllegalStateException("Default typing must never instantiate this type");
         }
     }
 }
