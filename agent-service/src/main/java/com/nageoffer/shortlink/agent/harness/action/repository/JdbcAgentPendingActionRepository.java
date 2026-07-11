@@ -1,6 +1,7 @@
 package com.nageoffer.shortlink.agent.harness.action.repository;
 
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionAuthorizationScope;
+import com.nageoffer.shortlink.agent.harness.action.model.AgentActionClaim;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionPage;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionProposal;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionProposalResult;
@@ -10,9 +11,11 @@ import com.nageoffer.shortlink.agent.harness.action.model.AgentPendingAction;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionException;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionPayloadCodec;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionPayloadConflictException;
+import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -20,6 +23,8 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -32,6 +37,12 @@ public class JdbcAgentPendingActionRepository {
 
     private static final String INVALID_CODE = "ACTION_PAYLOAD_INVALID";
     private static final String INVALID_MESSAGE = "Agent action proposal is invalid";
+    private static final String LEASE_EXPIRED_CODE = "EXECUTION_LEASE_EXPIRED";
+    private static final String LEASE_EXPIRED_MESSAGE = "Execution lease expired";
+
+    private static final Duration MAX_EXECUTION_LEASE_DURATION = Duration.ofSeconds(
+            AgentProperties.Action.MAX_EXECUTION_LEASE_SECONDS
+    );
 
     private static final String ACTION_COLUMNS = """
             id,
@@ -202,6 +213,281 @@ public class JdbcAgentPendingActionRepository {
             return Optional.empty();
         }
         return findActiveBySlotHash(sha256(activeSlotKey));
+    }
+
+    @Transactional
+    public Optional<AgentActionClaim> claimForExecution(
+            String actionId,
+            long expectedVersion,
+            String executionToken,
+            LocalDateTime now,
+            Duration leaseDuration,
+            boolean replaySafe
+    ) {
+        validateLeaseDuration(leaseDuration);
+        if (!hasText(actionId)
+                || expectedVersion < 0
+                || !hasText(executionToken)
+                || now == null) {
+            return Optional.empty();
+        }
+
+        LocalDateTime leaseUntil = leaseUntil(now, leaseDuration);
+        int updated = replaySafe
+                ? jdbcTemplate.update("""
+                                update t_agent_pending_action
+                                set confirmed_time = coalesce(confirmed_time, ?),
+                                    status = ?,
+                                    execution_token = ?,
+                                    execution_lease_until = ?,
+                                    attempt_count = attempt_count + 1,
+                                    result_json = '{}',
+                                    failure_code = '',
+                                    failure_message = '',
+                                    version = version + 1,
+                                    update_time = ?
+                                where action_id = ?
+                                  and version = ?
+                                  and status in (?, ?)
+                                  and (expire_time is null or expire_time > ?)
+                                """,
+                        timestamp(now),
+                        AgentActionStatus.EXECUTING.name(),
+                        executionToken,
+                        timestamp(leaseUntil),
+                        timestamp(now),
+                        actionId,
+                        expectedVersion,
+                        AgentActionStatus.PENDING.name(),
+                        AgentActionStatus.FAILED.name(),
+                        timestamp(now)
+                )
+                : jdbcTemplate.update("""
+                                update t_agent_pending_action
+                                set confirmed_time = coalesce(confirmed_time, ?),
+                                    status = ?,
+                                    execution_token = ?,
+                                    execution_lease_until = ?,
+                                    attempt_count = attempt_count + 1,
+                                    result_json = '{}',
+                                    failure_code = '',
+                                    failure_message = '',
+                                    version = version + 1,
+                                    update_time = ?
+                                where action_id = ?
+                                  and version = ?
+                                  and status = ?
+                                  and (expire_time is null or expire_time > ?)
+                                """,
+                        timestamp(now),
+                        AgentActionStatus.EXECUTING.name(),
+                        executionToken,
+                        timestamp(leaseUntil),
+                        timestamp(now),
+                        actionId,
+                        expectedVersion,
+                        AgentActionStatus.PENDING.name(),
+                        timestamp(now)
+                );
+        if (updated != 1) {
+            return Optional.empty();
+        }
+
+        long claimedVersion = expectedVersion + 1;
+        AgentPendingAction action = queryOne("""
+                        select %s
+                        from t_agent_pending_action
+                        where action_id = ?
+                          and status = ?
+                          and execution_token = ?
+                          and version = ?
+                        limit 1
+                        """.formatted(ACTION_COLUMNS),
+                actionId,
+                AgentActionStatus.EXECUTING.name(),
+                executionToken,
+                claimedVersion
+        ).orElseThrow(() -> new IllegalStateException(
+                "Claimed agent action could not be loaded"
+        ));
+        return Optional.of(new AgentActionClaim(action, executionToken, action.version()));
+    }
+
+    public boolean completeExecution(
+            String actionId,
+            String executionToken,
+            long claimedVersion,
+            String resultJson,
+            LocalDateTime now
+    ) {
+        if (!hasText(actionId)
+                || !hasText(executionToken)
+                || claimedVersion < 0
+                || resultJson == null
+                || now == null) {
+            return false;
+        }
+        return jdbcTemplate.update("""
+                        update t_agent_pending_action
+                        set status = ?,
+                            active_slot_key = null,
+                            execution_token = '',
+                            execution_lease_until = null,
+                            result_json = ?,
+                            failure_code = '',
+                            failure_message = '',
+                            version = version + 1,
+                            update_time = ?
+                        where action_id = ?
+                          and status = ?
+                          and execution_token = ?
+                          and version = ?
+                        """,
+                AgentActionStatus.EXECUTED.name(),
+                resultJson,
+                timestamp(now),
+                actionId,
+                AgentActionStatus.EXECUTING.name(),
+                executionToken,
+                claimedVersion
+        ) == 1;
+    }
+
+    public boolean failExecution(
+            String actionId,
+            String executionToken,
+            long claimedVersion,
+            String failureCode,
+            String failureMessage,
+            LocalDateTime now
+    ) {
+        if (!hasText(actionId)
+                || !hasText(executionToken)
+                || claimedVersion < 0
+                || failureCode == null
+                || failureMessage == null
+                || now == null) {
+            return false;
+        }
+        return jdbcTemplate.update("""
+                        update t_agent_pending_action
+                        set status = ?,
+                            execution_token = '',
+                            execution_lease_until = null,
+                            failure_code = ?,
+                            failure_message = ?,
+                            version = version + 1,
+                            update_time = ?
+                        where action_id = ?
+                          and status = ?
+                          and execution_token = ?
+                          and version = ?
+                        """,
+                AgentActionStatus.FAILED.name(),
+                failureCode,
+                failureMessage,
+                timestamp(now),
+                actionId,
+                AgentActionStatus.EXECUTING.name(),
+                executionToken,
+                claimedVersion
+        ) == 1;
+    }
+
+    public boolean reject(
+            String actionId,
+            long expectedVersion,
+            String rejectedBy,
+            String reason,
+            String reviewAction,
+            LocalDateTime now
+    ) {
+        if (!hasText(actionId)
+                || expectedVersion < 0
+                || rejectedBy == null
+                || reason == null
+                || now == null) {
+            return false;
+        }
+        return jdbcTemplate.update("""
+                        update t_agent_pending_action
+                        set status = ?,
+                            active_slot_key = null,
+                            execution_token = '',
+                            execution_lease_until = null,
+                            rejected_by = ?,
+                            rejected_time = ?,
+                            rejection_reason = ?,
+                            rejection_review_action = ?,
+                            version = version + 1,
+                            update_time = ?
+                        where action_id = ?
+                          and version = ?
+                          and status in (?, ?)
+                          and (expire_time is null or expire_time > ?)
+                        """,
+                AgentActionStatus.REJECTED.name(),
+                rejectedBy,
+                timestamp(now),
+                reason,
+                reviewAction,
+                timestamp(now),
+                actionId,
+                expectedVersion,
+                AgentActionStatus.PENDING.name(),
+                AgentActionStatus.FAILED.name(),
+                timestamp(now)
+        ) == 1;
+    }
+
+    public int expireDue(LocalDateTime now) {
+        if (now == null) {
+            return 0;
+        }
+        return jdbcTemplate.update("""
+                        update t_agent_pending_action
+                        set status = ?,
+                            active_slot_key = null,
+                            execution_token = '',
+                            execution_lease_until = null,
+                            version = version + 1,
+                            update_time = ?
+                        where status in (?, ?)
+                          and expire_time is not null
+                          and expire_time <= ?
+                        """,
+                AgentActionStatus.EXPIRED.name(),
+                timestamp(now),
+                AgentActionStatus.PENDING.name(),
+                AgentActionStatus.FAILED.name(),
+                timestamp(now)
+        );
+    }
+
+    public int recoverExpiredExecutions(LocalDateTime now) {
+        if (now == null) {
+            return 0;
+        }
+        return jdbcTemplate.update("""
+                        update t_agent_pending_action
+                        set status = ?,
+                            execution_token = '',
+                            execution_lease_until = null,
+                            failure_code = ?,
+                            failure_message = ?,
+                            version = version + 1,
+                            update_time = ?
+                        where status = ?
+                          and execution_lease_until is not null
+                          and execution_lease_until <= ?
+                        """,
+                AgentActionStatus.FAILED.name(),
+                LEASE_EXPIRED_CODE,
+                LEASE_EXPIRED_MESSAGE,
+                timestamp(now),
+                AgentActionStatus.EXECUTING.name(),
+                timestamp(now)
+        );
     }
 
     public AgentActionPage<AgentPendingAction> page(
@@ -547,6 +833,32 @@ public class JdbcAgentPendingActionRepository {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private void validateLeaseDuration(Duration leaseDuration) {
+        if (leaseDuration == null) {
+            throw new IllegalArgumentException("leaseDuration must not be null");
+        }
+        if (leaseDuration.isZero()
+                || leaseDuration.isNegative()
+                || leaseDuration.compareTo(MAX_EXECUTION_LEASE_DURATION) > 0) {
+            throw new IllegalArgumentException(
+                    "leaseDuration must be positive and at most "
+                            + AgentProperties.Action.MAX_EXECUTION_LEASE_SECONDS
+                            + " seconds"
+            );
+        }
+    }
+
+    private LocalDateTime leaseUntil(LocalDateTime now, Duration leaseDuration) {
+        try {
+            return now.plus(leaseDuration);
+        } catch (DateTimeException | ArithmeticException ex) {
+            throw new IllegalArgumentException(
+                    "leaseDuration exceeds the supported LocalDateTime range",
+                    ex
+            );
+        }
     }
 
     private String sha256(String value) {

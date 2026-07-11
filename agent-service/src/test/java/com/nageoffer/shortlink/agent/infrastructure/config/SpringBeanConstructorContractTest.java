@@ -1,5 +1,7 @@
 package com.nageoffer.shortlink.agent.infrastructure.config;
 
+import com.nageoffer.shortlink.agent.harness.action.repository.JdbcAgentPendingActionRepository;
+import com.nageoffer.shortlink.agent.harness.action.scheduler.AgentPendingActionRecoveryScheduler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -13,6 +15,18 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SpringBeanConstructorContractTest {
+
+    @Test
+    void pendingActionRecoverySchedulerMarksOnlyItsProductionConstructorAutowired() {
+        Constructor<?>[] constructors =
+                AgentPendingActionRecoveryScheduler.class.getDeclaredConstructors();
+
+        assertThat(constructors).hasSize(2);
+        assertThat(autowiredConstructors(AgentPendingActionRecoveryScheduler.class))
+                .singleElement()
+                .satisfies(constructor -> assertThat(constructor.getParameterTypes())
+                        .containsExactly(JdbcAgentPendingActionRepository.class));
+    }
 
     @Test
     void multiConstructorSpringBeansDeclareExactlyOneAutowiredConstructor() {

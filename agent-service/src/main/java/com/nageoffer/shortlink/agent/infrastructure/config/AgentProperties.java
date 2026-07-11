@@ -1,8 +1,14 @@
 package com.nageoffer.shortlink.agent.infrastructure.config;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 @ConfigurationProperties(prefix = "short-link.agent")
+@Validated
 public class AgentProperties {
 
     private boolean enabled = true;
@@ -14,6 +20,10 @@ public class AgentProperties {
     private Business business = new Business();
 
     private Security security = new Security();
+
+    @Valid
+    @NotNull
+    private Action action = new Action();
 
     private Risk risk = new Risk();
 
@@ -55,6 +65,14 @@ public class AgentProperties {
 
     public void setSecurity(Security security) {
         this.security = security;
+    }
+
+    public Action getAction() {
+        return action;
+    }
+
+    public void setAction(Action action) {
+        this.action = action;
     }
 
     public Risk getRisk() {
@@ -194,6 +212,41 @@ public class AgentProperties {
 
         public void setInternalTokenDevMode(boolean internalTokenDevMode) {
             this.internalTokenDevMode = internalTokenDevMode;
+        }
+    }
+
+    public static class Action {
+
+        public static final int MIN_EXECUTION_LEASE_SECONDS = 1;
+
+        public static final int MAX_EXECUTION_LEASE_SECONDS = 86_400;
+
+        public static final long MIN_RECOVERY_INTERVAL_MILLIS = 1_000L;
+
+        public static final long MAX_RECOVERY_INTERVAL_MILLIS = 3_600_000L;
+
+        @Min(MIN_EXECUTION_LEASE_SECONDS)
+        @Max(MAX_EXECUTION_LEASE_SECONDS)
+        private int executionLeaseSeconds = 300;
+
+        @Min(MIN_RECOVERY_INTERVAL_MILLIS)
+        @Max(MAX_RECOVERY_INTERVAL_MILLIS)
+        private long recoveryIntervalMillis = 60_000L;
+
+        public int getExecutionLeaseSeconds() {
+            return executionLeaseSeconds;
+        }
+
+        public void setExecutionLeaseSeconds(int executionLeaseSeconds) {
+            this.executionLeaseSeconds = executionLeaseSeconds;
+        }
+
+        public long getRecoveryIntervalMillis() {
+            return recoveryIntervalMillis;
+        }
+
+        public void setRecoveryIntervalMillis(long recoveryIntervalMillis) {
+            this.recoveryIntervalMillis = recoveryIntervalMillis;
         }
     }
 
