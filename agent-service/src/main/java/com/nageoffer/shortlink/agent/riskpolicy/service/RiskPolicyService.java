@@ -128,11 +128,16 @@ public class RiskPolicyService implements RiskPolicyActionPort {
     }
 
     public RiskPolicy activatePolicy(RiskPolicyActivationCommand command) {
+        return activatePolicyWithStatus(command).policy();
+    }
+
+    public RiskPolicyActivationResult activatePolicyWithStatus(RiskPolicyActivationCommand command) {
         Objects.requireNonNull(command, "command must not be null");
         ActivationOutcome outcome = executeWithRetry(
                 status -> activateInTransaction(command, null)
         );
-        return requireOutcome(outcome).policy();
+        ActivationOutcome completed = requireOutcome(outcome);
+        return new RiskPolicyActivationResult(completed.policy(), completed.syncStatus());
     }
 
     @Override

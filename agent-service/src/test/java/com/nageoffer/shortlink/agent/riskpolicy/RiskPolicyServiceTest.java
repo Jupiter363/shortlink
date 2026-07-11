@@ -24,6 +24,7 @@ import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncOperation;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcEffectiveRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskActionAuditRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskPolicyRepository;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyActivationResult;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisValueCodec;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import org.junit.jupiter.api.Test;
@@ -92,6 +93,38 @@ class RiskPolicyServiceTest {
             assertThat(outbox.expectedRedisValue()).isEmpty();
         });
         assertThat(fixture.reviewRepository.countByEventId(policy.eventId())).isZero();
+    }
+
+    @Test
+    void idempotentAutomaticActivationReturnsCurrentEffectiveSyncStatus() {
+        Fixture fixture = fixture("risk_policy_auto_sync_status");
+        RiskPolicyActivationCommand command = shortLinkCommand(
+                "policy-sync-status",
+                "auto:policy-sync-status",
+                "sync001",
+                60
+        );
+
+        RiskPolicyActivationResult first = fixture.service.activatePolicyWithStatus(command);
+        EffectiveRiskPolicy effective = fixture.effectiveRepository
+                .findByPolicyKey(first.policy().policyKey())
+                .orElseThrow();
+        assertThat(first.syncStatus()).isEqualTo(RiskPolicySyncStatus.PENDING);
+        assertThat(fixture.effectiveRepository.updateSyncStatusIfVersion(
+                effective.policyKey(),
+                effective.policyId(),
+                effective.policyVersion(),
+                RiskPolicySyncStatus.SYNCED,
+                effective.lastOutboxId(),
+                "trace-synced"
+        )).isTrue();
+
+        RiskPolicyActivationResult retried = fixture.service.activatePolicyWithStatus(command);
+
+        assertThat(retried.policy()).isEqualTo(first.policy());
+        assertThat(retried.syncStatus()).isEqualTo(RiskPolicySyncStatus.SYNCED);
+        assertThat(fixture.count("t_agent_risk_policy")).isEqualTo(1L);
+        assertThat(fixture.count("t_agent_risk_policy_sync_outbox")).isEqualTo(1L);
     }
 
     @Test

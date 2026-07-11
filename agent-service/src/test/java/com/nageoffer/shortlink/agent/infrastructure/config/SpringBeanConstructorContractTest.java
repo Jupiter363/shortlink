@@ -7,6 +7,7 @@ import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalFactory
 import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicyExpiryScheduler;
 import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncService;
 import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncWorker;
+import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcEffectiveRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.securityriskagent.graph.DefaultSecurityRiskGraphExecutor;
 import org.junit.jupiter.api.Test;
@@ -77,6 +78,19 @@ class SpringBeanConstructorContractTest {
         assertThat(autowiredConstructors(RiskPolicyExpiryScheduler.class))
                 .singleElement()
                 .satisfies(constructor -> assertThat(constructor.getParameterCount()).isEqualTo(2));
+    }
+
+    @Test
+    void riskActionProposalFactoryInjectsRepositoryAndSharedClock() {
+        assertThat(RiskActionProposalFactory.class.getDeclaredConstructors()).hasSize(1);
+        assertThat(autowiredConstructors(RiskActionProposalFactory.class))
+                .singleElement()
+                .satisfies(constructor -> {
+                    assertThat(constructor.getParameterCount()).isEqualTo(6);
+                    assertThat(constructor.getParameterTypes())
+                            .contains(JdbcEffectiveRiskPolicyRepository.class)
+                            .contains(java.time.Clock.class);
+                });
     }
 
     @Test

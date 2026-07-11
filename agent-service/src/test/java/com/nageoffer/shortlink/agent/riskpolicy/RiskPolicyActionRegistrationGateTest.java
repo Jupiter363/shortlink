@@ -1,6 +1,7 @@
 package com.nageoffer.shortlink.agent.riskpolicy;
 
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionExecutor;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 
@@ -11,13 +12,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RiskPolicyActionRegistrationGateTest {
 
     @Test
-    void phase02bDoesNotExposeRiskPolicyExecutorAsComponentCandidate() {
+    void phase02cExposesExecutorConfigurationWithoutAnnotatingExecutorAsComponent() {
         ClassPathScanningCandidateComponentProvider scanner =
                 new ClassPathScanningCandidateComponentProvider(true);
 
-        assertThat(scanner.findCandidateComponents(
+        var candidates = scanner.findCandidateComponents(
                 "com.nageoffer.shortlink.agent.riskpolicy.action"
-        )).noneMatch(candidate -> isRiskExecutor(candidate.getBeanClassName()));
+        );
+        assertThat(candidates)
+                .extracting(candidate -> candidate.getBeanClassName())
+                .contains(RiskPolicyActionConfiguration.class.getName());
+        assertThat(candidates).noneMatch(candidate -> isRiskExecutor(candidate.getBeanClassName()));
     }
 
     private boolean isRiskExecutor(String className) {

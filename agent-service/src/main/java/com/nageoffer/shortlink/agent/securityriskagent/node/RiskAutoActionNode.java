@@ -8,6 +8,7 @@ import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicySource;
 import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicy;
 import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicyActivationCommand;
 import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicyPayload;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyActivationResult;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
@@ -83,22 +84,29 @@ public class RiskAutoActionNode {
     ) {
         String eventId = eventIdsByTarget == null ? "" : eventIdsByTarget.getOrDefault(targetKey(profile), "");
         String idempotencyKey = autoIdempotencyKey(profile, eventId);
-        RiskPolicy policy = riskPolicyService.activatePolicy(RiskPolicyActivationCommand.shortLink(
-                autoPolicyId(idempotencyKey),
-                idempotencyKey,
-                RiskPolicyAction.LIMIT_RATE,
-                profile.gid(),
-                profile.domain(),
-                profile.shortUri(),
-                policyPayloadJson(profile),
-                RiskPolicySource.AGENT_AUTO,
-                "security-risk-agent",
-                "auto limit rate for high-confidence risk profile",
-                traceId,
-                eventId
-        ));
+        RiskPolicyActivationResult activation = riskPolicyService.activatePolicyWithStatus(
+                RiskPolicyActivationCommand.shortLink(
+                        autoPolicyId(idempotencyKey),
+                        idempotencyKey,
+                        RiskPolicyAction.LIMIT_RATE,
+                        profile.gid(),
+                        profile.domain(),
+                        profile.shortUri(),
+                        policyPayloadJson(profile),
+                        RiskPolicySource.AGENT_AUTO,
+                        "security-risk-agent",
+                        "auto limit rate for high-confidence risk profile",
+                        traceId,
+                        eventId
+                )
+        );
+        RiskPolicy policy = activation.policy();
         Map<String, Object> activated = new LinkedHashMap<>();
         activated.put("policyId", policy.policyId());
+        activated.put("policyKey", policy.policyKey());
+        activated.put("policyVersion", policy.policyVersion());
+        activated.put("policyStatus", policy.status().name());
+        activated.put("syncStatus", activation.syncStatus().name());
         activated.put("action", policy.action().name());
         activated.put("domain", profile.domain());
         activated.put("shortUri", profile.shortUri());

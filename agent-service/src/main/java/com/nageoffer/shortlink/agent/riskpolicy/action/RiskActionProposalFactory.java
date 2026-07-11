@@ -9,11 +9,16 @@ import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
+import com.nageoffer.shortlink.agent.riskcommon.redis.RiskPolicyRedisKeyBuilder;
+import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicyDesiredState;
+import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcEffectiveRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -52,12 +57,20 @@ public class RiskActionProposalFactory {
 
     private final RiskIpEvidenceExtractor ipEvidenceExtractor;
 
+    private final JdbcEffectiveRiskPolicyRepository effectiveRepository;
+
+    private final RiskPolicyRedisKeyBuilder policyKeyBuilder;
+
+    private final Clock clock;
+
     @Autowired
     public RiskActionProposalFactory(
             AgentProperties properties,
             AgentPendingActionService pendingActionService,
             RiskPolicyActionPayloadValidator payloadValidator,
-            RiskIpEvidenceExtractor ipEvidenceExtractor
+            RiskIpEvidenceExtractor ipEvidenceExtractor,
+            JdbcEffectiveRiskPolicyRepository effectiveRepository,
+            Clock clock
     ) {
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.pendingActionService = Objects.requireNonNull(
@@ -72,6 +85,14 @@ public class RiskActionProposalFactory {
                 ipEvidenceExtractor,
                 "ipEvidenceExtractor must not be null"
         );
+        this.effectiveRepository = Objects.requireNonNull(
+                effectiveRepository,
+                "effectiveRepository must not be null"
+        );
+        this.policyKeyBuilder = new RiskPolicyRedisKeyBuilder(
+                properties.getRisk().getRedis().getKeyPrefix()
+        );
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     public List<AgentActionProposal> create(RiskActionProposalContext context) {
@@ -225,8 +246,13 @@ public class RiskActionProposalFactory {
         if (!hasText(idempotencyKey)) {
             return Optional.empty();
         }
-        if (idempotencyKey.length() > MAX_KEY_LENGTH
-                || pendingActionService.isSuppressed(actionType, targetKey)) {
+        if (idempotencyKey.length() > MAX_KEY_LENGTH) {
+            return Optional.empty();
+        }
+        if (pendingActionService.isSuppressed(actionType, targetKey)) {
+            return Optional.empty();
+        }
+        if (hasActiveEffectivePolicy(payload)) {
             return Optional.empty();
         }
         Map<String, Object> targetRef = targetRef(profile, ipEvidence);
@@ -380,6 +406,37 @@ public class RiskActionProposalFactory {
             case LIMIT_TIME_WINDOW -> RiskPolicyActionTypes.LIMIT_TIME_WINDOW;
             case BLOCK_IP -> RiskPolicyActionTypes.BLOCK_IP;
             default -> null;
+        };
+    }
+
+    private boolean hasActiveEffectivePolicy(RiskPolicyActionPayloadV1 payload) {
+        String policyKey = effectivePolicyKey(payload);
+        if (!hasText(policyKey)) {
+            return false;
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        return effectiveRepository.findByPolicyKey(policyKey)
+                .filter(policy -> policy.desiredState() == RiskPolicyDesiredState.ACTIVE)
+                .filter(policy -> policy.expireTime() == null || policy.expireTime().isAfter(now))
+                .isPresent();
+    }
+
+    private String effectivePolicyKey(RiskPolicyActionPayloadV1 payload) {
+        return switch (payload.action()) {
+            case DISABLE_SHORT_LINK -> policyKeyBuilder.disableShortLinkKey(
+                    payload.domain(),
+                    payload.shortUri()
+            );
+            case LIMIT_TIME_WINDOW -> policyKeyBuilder.timeWindowShortLinkKey(
+                    payload.domain(),
+                    payload.shortUri()
+            );
+            case BLOCK_IP -> policyKeyBuilder.blockShortLinkIpKey(
+                    payload.domain(),
+                    payload.shortUri(),
+                    payload.ipHash()
+            );
+            case LIMIT_RATE -> "";
         };
     }
 

@@ -7,6 +7,8 @@ import com.nageoffer.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskWatchStatus;
 import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicy;
 import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicyActivationCommand;
+import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicySyncStatus;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyActivationResult;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
 import com.nageoffer.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
@@ -44,21 +46,24 @@ class RiskAutoActionNodeTest {
                 92,
                 Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION)
         )).thenReturn(true);
-        when(riskPolicyService.activatePolicy(any())).thenReturn(RiskPolicy.shortLinkPolicy(
-                "policy-001",
-                "risk:policy:short-link:rate-limit:nurl.ink:high001",
-                expectedIdempotencyKey,
-                1L,
-                RiskPolicyAction.LIMIT_RATE,
-                "gid-001",
-                "nurl.ink",
-                "high001",
-                "{\"action\":\"LIMIT_RATE\"}",
-                com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicySource.AGENT_AUTO,
-                "trace-001",
-                "event-001",
-                EFFECTIVE_TIME,
-                null
+        when(riskPolicyService.activatePolicyWithStatus(any())).thenReturn(activationResult(
+                RiskPolicy.shortLinkPolicy(
+                        "policy-001",
+                        "risk:policy:short-link:rate-limit:nurl.ink:high001",
+                        expectedIdempotencyKey,
+                        1L,
+                        RiskPolicyAction.LIMIT_RATE,
+                        "gid-001",
+                        "nurl.ink",
+                        "high001",
+                        "{\"action\":\"LIMIT_RATE\"}",
+                        com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicySource.AGENT_AUTO,
+                        "trace-001",
+                        "event-001",
+                        EFFECTIVE_TIME,
+                        null
+                ),
+                RiskPolicySyncStatus.PENDING
         ));
         RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
         ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
@@ -75,14 +80,28 @@ class RiskAutoActionNodeTest {
 
         Map<String, Object> output = node.apply(context, Map.of("nurl.ink/high001", "event-001"), "trace-001");
 
+        assertThat(activatedPolicies(output)).singleElement().satisfies(policy ->
+                assertThat(policy)
+                        .containsEntry("policyId", "policy-001")
+                        .containsEntry(
+                                "policyKey",
+                                "risk:policy:short-link:rate-limit:nurl.ink:high001"
+                        )
+                        .containsEntry("policyVersion", 1L)
+                        .containsEntry("policyStatus", "ACTIVE")
+                        .containsEntry("syncStatus", "PENDING")
+                        .containsEntry("action", "LIMIT_RATE")
+                        .containsEntry("domain", "nurl.ink")
+                        .containsEntry("shortUri", "high001")
+                        .containsEntry("eventId", "event-001")
+        );
         assertThat(output.get("activatedPolicies").toString())
-                .contains("high001")
                 .doesNotContain("oneReason")
                 .doesNotContain("manualDisable")
                 .doesNotContain("manualBlock")
                 .doesNotContain("manualWindow");
         ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor = ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
-        verify(riskPolicyService).activatePolicy(commandCaptor.capture());
+        verify(riskPolicyService).activatePolicyWithStatus(commandCaptor.capture());
         assertThat(commandCaptor.getValue().action()).isEqualTo(RiskPolicyAction.LIMIT_RATE);
         assertThat(commandCaptor.getValue().eventId()).isEqualTo("event-001");
         assertThat(commandCaptor.getValue().idempotencyKey()).isEqualTo(expectedIdempotencyKey);
@@ -104,7 +123,53 @@ class RiskAutoActionNodeTest {
         Map<String, Object> output = node.apply(context, Map.of(), "trace-001");
 
         assertThat(output.get("activatedPolicies")).isEqualTo(List.of());
-        verify(riskPolicyService, never()).activatePolicy(any());
+        verify(riskPolicyService, never()).activatePolicyWithStatus(any());
+    }
+
+    @Test
+    void idempotentRetryReportsCurrentSyncedStatus() {
+        RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
+        when(riskPolicyService.canAutoLimitRate(any(), anyInt(), any())).thenReturn(true);
+        when(riskPolicyService.activatePolicyWithStatus(any())).thenReturn(activationResult(
+                RiskPolicy.shortLinkPolicy(
+                        "policy-synced",
+                        "risk:policy:short-link:rate-limit:nurl.ink:high001",
+                        "auto:event-synced:LIMIT_RATE",
+                        1L,
+                        RiskPolicyAction.LIMIT_RATE,
+                        "gid-001",
+                        "nurl.ink",
+                        "high001",
+                        "{\"action\":\"LIMIT_RATE\"}",
+                        com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicySource.AGENT_AUTO,
+                        "trace-synced",
+                        "event-synced",
+                        EFFECTIVE_TIME,
+                        null
+                ),
+                RiskPolicySyncStatus.SYNCED
+        ));
+        RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
+        ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
+                "gid-001",
+                null,
+                List.of(profile(
+                        "high001",
+                        92,
+                        Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION),
+                        List.of()
+                ).withBatchId(""))
+        );
+
+        Map<String, Object> output = node.apply(
+                context,
+                Map.of("nurl.ink/high001", "event-synced"),
+                "trace-retry"
+        );
+
+        assertThat(activatedPolicies(output)).singleElement().satisfies(policy ->
+                assertThat(policy).containsEntry("syncStatus", "SYNCED")
+        );
     }
 
     @Test
@@ -115,9 +180,9 @@ class RiskAutoActionNodeTest {
                 92,
                 Set.of(RiskReasonCode.TRAFFIC_SPIKE, RiskReasonCode.IP_CONCENTRATION)
         )).thenReturn(true);
-        when(riskPolicyService.activatePolicy(any())).thenAnswer(invocation -> {
+        when(riskPolicyService.activatePolicyWithStatus(any())).thenAnswer(invocation -> {
             RiskPolicyActivationCommand command = invocation.getArgument(0);
-            return RiskPolicy.shortLinkPolicy(
+            return activationResult(RiskPolicy.shortLinkPolicy(
                     command.policyId(),
                     "risk:policy:short-link:rate-limit:nurl.ink:high001",
                     command.idempotencyKey(),
@@ -132,7 +197,7 @@ class RiskAutoActionNodeTest {
                     command.eventId(),
                     EFFECTIVE_TIME,
                     null
-            );
+            ), RiskPolicySyncStatus.PENDING);
         });
         RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
         ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
@@ -151,7 +216,7 @@ class RiskAutoActionNodeTest {
 
         ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor =
                 ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
-        verify(riskPolicyService, times(2)).activatePolicy(commandCaptor.capture());
+        verify(riskPolicyService, times(2)).activatePolicyWithStatus(commandCaptor.capture());
         String expectedIdempotencyKey = "auto:batch-001:gid-001:nurl.ink:high001:LIMIT_RATE";
         assertThat(commandCaptor.getAllValues())
                 .extracting(RiskPolicyActivationCommand::idempotencyKey)
@@ -166,9 +231,9 @@ class RiskAutoActionNodeTest {
         RiskPolicyService riskPolicyService = mock(RiskPolicyService.class);
         when(riskPolicyService.canAutoLimitRate(any(), anyInt(), any()))
                 .thenReturn(true);
-        when(riskPolicyService.activatePolicy(any())).thenAnswer(invocation -> {
+        when(riskPolicyService.activatePolicyWithStatus(any())).thenAnswer(invocation -> {
             RiskPolicyActivationCommand command = invocation.getArgument(0);
-            return RiskPolicy.shortLinkPolicy(
+            return activationResult(RiskPolicy.shortLinkPolicy(
                     command.policyId(),
                     "risk:policy:short-link:rate-limit:nurl.ink:high001",
                     command.idempotencyKey(),
@@ -183,7 +248,7 @@ class RiskAutoActionNodeTest {
                     command.eventId(),
                     EFFECTIVE_TIME,
                     null
-            );
+            ), RiskPolicySyncStatus.PENDING);
         });
         RiskAutoActionNode node = new RiskAutoActionNode(riskPolicyService, new AgentProperties());
         ProfileRiskAnalysisContext context = new ProfileRiskAnalysisContext(
@@ -202,7 +267,7 @@ class RiskAutoActionNodeTest {
 
         ArgumentCaptor<RiskPolicyActivationCommand> commandCaptor =
                 ArgumentCaptor.forClass(RiskPolicyActivationCommand.class);
-        verify(riskPolicyService, times(2)).activatePolicy(commandCaptor.capture());
+        verify(riskPolicyService, times(2)).activatePolicyWithStatus(commandCaptor.capture());
         String expectedIdempotencyKey = "auto:event-stable:LIMIT_RATE";
         assertThat(commandCaptor.getAllValues())
                 .extracting(RiskPolicyActivationCommand::idempotencyKey)
@@ -216,6 +281,18 @@ class RiskAutoActionNodeTest {
         return "policy-auto-rate-" + UUID.nameUUIDFromBytes(
                 idempotencyKey.getBytes(StandardCharsets.UTF_8)
         );
+    }
+
+    private RiskPolicyActivationResult activationResult(
+            RiskPolicy policy,
+            RiskPolicySyncStatus syncStatus
+    ) {
+        return new RiskPolicyActivationResult(policy, syncStatus);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> activatedPolicies(Map<String, Object> output) {
+        return (List<Map<String, Object>>) output.get("activatedPolicies");
     }
 
     private ShortLinkRiskProfile profile(

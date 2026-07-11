@@ -2,7 +2,9 @@ package com.nageoffer.shortlink.agent.e2e;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.shortlink.agent.harness.action.executor.AgentActionExecutorRegistry;
+import com.nageoffer.shortlink.agent.harness.action.model.AgentActionActor;
 import com.nageoffer.shortlink.agent.harness.action.model.AgentActionStatus;
+import com.nageoffer.shortlink.agent.harness.action.model.AgentPendingActionView;
 import com.nageoffer.shortlink.agent.harness.action.repository.JdbcAgentPendingActionRepository;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionAuthorizationService;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionPayloadCodec;
@@ -23,14 +25,24 @@ import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalFactory;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskIpEvidenceExtractor;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionExecutor;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionPayloadValidator;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionTypes;
+import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionViewEnricher;
 import com.nageoffer.shortlink.agent.riskpolicy.outbox.JdbcRiskPolicySyncOutboxRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncOperation;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncOutbox;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncOutboxStatus;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncService;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncWorker;
+import com.nageoffer.shortlink.agent.riskpolicy.model.EffectiveRiskPolicy;
+import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicy;
+import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicySyncStatus;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcEffectiveRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskActionAuditRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisValueCodec;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisPublisher;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.riskprofile.detector.ShortLinkRiskDetector;
 import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
@@ -51,6 +63,7 @@ import com.nageoffer.shortlink.agent.securityriskagent.model.RiskAnalysisInput;
 import com.nageoffer.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -71,8 +84,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 class RiskProfilePolicyE2eTest {
 
     private static final Instant BATCH_NOW = Instant.parse("2026-07-10T02:00:00Z");
@@ -156,6 +176,9 @@ class RiskProfilePolicyE2eTest {
                         LocalDate.of(2026, 7, 10)
                 );
 
+        TransactionTemplate transactionTemplate = new TransactionTemplate(
+                new DataSourceTransactionManager(jdbcTemplate.getDataSource())
+        );
         RiskPolicyService riskPolicyService = new RiskPolicyService(
                 policyRepository,
                 effectiveRepository,
@@ -164,8 +187,30 @@ class RiskProfilePolicyE2eTest {
                 outboxRepository,
                 new RiskPolicyRedisValueCodec(objectMapper),
                 properties,
-                new TransactionTemplate(new DataSourceTransactionManager(jdbcTemplate.getDataSource())),
+                transactionTemplate,
                 CLOCK
+        );
+        RiskPolicyRedisPublisher redisPublisher = mock(RiskPolicyRedisPublisher.class);
+        when(redisPublisher.publish(
+                anyString(),
+                anyString(),
+                nullable(LocalDateTime.class)
+        )).thenReturn(true);
+        RiskPolicySyncService syncService = new RiskPolicySyncService(
+                outboxRepository,
+                effectiveRepository,
+                policyRepository,
+                auditRepository,
+                redisPublisher,
+                transactionTemplate,
+                CLOCK
+        );
+        RiskPolicySyncWorker syncWorker = new RiskPolicySyncWorker(
+                outboxRepository,
+                syncService,
+                properties,
+                CLOCK,
+                () -> "risk-policy-e2e-worker"
         );
         RiskCenterService riskCenterService = new RiskCenterService(
                 eventRepository,
@@ -180,19 +225,41 @@ class RiskProfilePolicyE2eTest {
         );
         JdbcAgentPendingActionRepository pendingActionRepository =
                 new JdbcAgentPendingActionRepository(jdbcTemplate);
+        AgentActionExecutorRegistry actionExecutorRegistry = new AgentActionExecutorRegistry(List.of(
+                new RiskPolicyActionExecutor(
+                        RiskPolicyActionTypes.DISABLE_SHORT_LINK,
+                        riskPolicyService,
+                        objectMapper
+                ),
+                new RiskPolicyActionExecutor(
+                        RiskPolicyActionTypes.LIMIT_TIME_WINDOW,
+                        riskPolicyService,
+                        objectMapper
+                ),
+                new RiskPolicyActionExecutor(
+                        RiskPolicyActionTypes.BLOCK_IP,
+                        riskPolicyService,
+                        objectMapper
+                )
+        ));
         AgentPendingActionService pendingActionService = new AgentPendingActionService(
                 pendingActionRepository,
                 new AgentActionPayloadCodec(objectMapper),
-                new AgentActionExecutorRegistry(List.of()),
+                actionExecutorRegistry,
                 new AgentActionAuthorizationService(),
                 properties,
-                List.of()
+                List.of(new RiskPolicyActionViewEnricher(
+                        effectiveRepository,
+                        policyRepository
+                ))
         );
         RiskActionProposalFactory proposalFactory = new RiskActionProposalFactory(
                 properties,
                 pendingActionService,
                 new RiskPolicyActionPayloadValidator(),
-                new RiskIpEvidenceExtractor()
+                new RiskIpEvidenceExtractor(),
+                effectiveRepository,
+                CLOCK
         );
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
@@ -267,24 +334,41 @@ class RiskProfilePolicyE2eTest {
         assertThat(snapshotRepository.findByTarget(RiskTargetType.SHORT_LINK, "gid-001", "nurl.ink", "low001"))
                 .isEmpty();
         String policyKey = "risk:policy:short-link:rate-limit:nurl.ink:high001";
-        assertThat(policyRepository.findActiveByPolicyKey(policyKey))
-                .isPresent()
-                .get()
-                .satisfies(policy -> {
-                    assertThat(policy.action()).isEqualTo(RiskPolicyAction.LIMIT_RATE);
-                    assertThat(policy.idempotencyKey()).startsWith("auto:");
-                    assertThat(policy.policyVersion()).isEqualTo(1L);
-                    assertThat(policy.effectiveTime()).isEqualTo(BATCH_END_TIME);
-                    assertThat(policy.gid()).isEqualTo("gid-001");
-                    assertThat(policy.eventId()).isNotBlank();
-                    assertThat(auditRepository.countByPolicyId(policy.policyId())).isEqualTo(1);
-                });
-        assertThat(outboxRepository.findByPolicyKeyVersionAndOperation(
+        RiskPolicy autoPolicy = policyRepository
+                .findActiveByPolicyKey(policyKey)
+                .orElseThrow();
+        assertThat(autoPolicy.action()).isEqualTo(RiskPolicyAction.LIMIT_RATE);
+        assertThat(autoPolicy.idempotencyKey()).startsWith("auto:");
+        assertThat(autoPolicy.policyVersion()).isEqualTo(1L);
+        assertThat(autoPolicy.effectiveTime()).isEqualTo(BATCH_END_TIME);
+        assertThat(autoPolicy.gid()).isEqualTo("gid-001");
+        assertThat(autoPolicy.eventId()).isNotBlank();
+        assertThat(auditRepository.countByPolicyId(autoPolicy.policyId())).isEqualTo(1);
+        RiskPolicySyncOutbox autoOutbox = outboxRepository.findByPolicyKeyVersionAndOperation(
                 policyKey,
                 1L,
                 RiskPolicySyncOperation.UPSERT
-        )).isPresent().get().satisfies(outbox ->
-                assertThat(outbox.redisValueJson()).contains("LIMIT_RATE"));
+        ).orElseThrow();
+        assertThat(autoOutbox.redisValueJson()).contains("LIMIT_RATE");
+        assertThat(autoOutbox.status()).isEqualTo(RiskPolicySyncOutboxStatus.PENDING);
+        assertThat(effectiveRepository.findByPolicyKey(policyKey))
+                .isPresent()
+                .get()
+                .extracting(EffectiveRiskPolicy::syncStatus)
+                .isEqualTo(RiskPolicySyncStatus.PENDING);
+
+        assertThat(syncWorker.runNext()).isTrue();
+
+        assertThat(outboxRepository.findByOutboxId(autoOutbox.outboxId()))
+                .isPresent()
+                .get()
+                .extracting(RiskPolicySyncOutbox::status)
+                .isEqualTo(RiskPolicySyncOutboxStatus.SUCCEEDED);
+        assertThat(effectiveRepository.findByPolicyKey(policyKey))
+                .isPresent()
+                .get()
+                .extracting(EffectiveRiskPolicy::syncStatus)
+                .isEqualTo(RiskPolicySyncStatus.SYNCED);
 
         assertThat(jdbcTemplate.queryForObject(
                 "select count(1) from t_agent_pending_action",
@@ -301,6 +385,66 @@ class RiskProfilePolicyE2eTest {
                     assertThat(action.payloadJson()).contains("DISABLE_SHORT_LINK", "high001");
                     assertThat(action.executionToken()).isEmpty();
                 });
+
+        AgentPendingActionView proposal = result.pendingActions().get(0);
+        AgentActionActor actor = new AgentActionActor(
+                "risk-operator",
+                "1001",
+                "Risk Operator",
+                "gid-001"
+        );
+        AgentPendingActionView confirmed = pendingActionService.confirm(
+                proposal.actionId(),
+                proposal.version(),
+                actor,
+                "confirmed by E2E risk operator"
+        );
+        assertThat(confirmed.status()).isEqualTo(AgentActionStatus.EXECUTED);
+        assertThat(confirmed.result())
+                .containsEntry("policyStatus", "ACTIVE")
+                .containsEntry("syncStatus", "PENDING")
+                .containsEntry("effective", true);
+        String disablePolicyKey = "risk:policy:short-link:disable:nurl.ink:high001";
+        assertThat(confirmed.result()).containsEntry("policyKey", disablePolicyKey);
+        RiskPolicySyncOutbox manualOutbox = outboxRepository
+                .findByPolicyKeyVersionAndOperation(
+                        disablePolicyKey,
+                        1L,
+                        RiskPolicySyncOperation.UPSERT
+                )
+                .orElseThrow();
+        assertThat(manualOutbox.status()).isEqualTo(RiskPolicySyncOutboxStatus.PENDING);
+
+        assertThat(syncWorker.runNext()).isTrue();
+
+        AgentPendingActionView synchronizedAction = pendingActionService.detail(
+                proposal.actionId(),
+                actor
+        );
+        assertThat(synchronizedAction.result())
+                .containsEntry("policyKey", disablePolicyKey)
+                .containsEntry("syncStatus", "SYNCED")
+                .containsEntry("desiredState", "ACTIVE")
+                .containsEntry("effective", true);
+        assertThat(outboxRepository.findByOutboxId(manualOutbox.outboxId()))
+                .isPresent()
+                .get()
+                .extracting(RiskPolicySyncOutbox::status)
+                .isEqualTo(RiskPolicySyncOutboxStatus.SUCCEEDED);
+
+        ArgumentCaptor<String> redisKeyCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> redisValueCaptor = ArgumentCaptor.forClass(String.class);
+        verify(redisPublisher, times(2)).publish(
+                redisKeyCaptor.capture(),
+                redisValueCaptor.capture(),
+                nullable(LocalDateTime.class)
+        );
+        assertThat(redisKeyCaptor.getAllValues())
+                .containsExactly(policyKey, disablePolicyKey);
+        assertThat(redisValueCaptor.getAllValues()).allSatisfy(value -> {
+            assertThat(value).contains("\"policyId\"");
+            assertThat(value).contains("\"policyVersion\":1");
+        });
 
         Optional<GraphCheckpoint> checkpoint = checkpointStore.loadLatest(
                 "risk-profile-e2e-session",
