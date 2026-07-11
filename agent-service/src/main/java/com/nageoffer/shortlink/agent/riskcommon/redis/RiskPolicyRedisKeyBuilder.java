@@ -26,6 +26,11 @@ public class RiskPolicyRedisKeyBuilder {
         return keyPrefix + ":policy:ip:block:" + ipHash;
     }
 
+    public String blockShortLinkIpKey(String domain, String shortUri, String ipHash) {
+        return keyPrefix + ":policy:short-link:block-ip:"
+                + domain + ":" + shortUri + ":" + ipHash;
+    }
+
     public String rateCounterKey(String domain, String shortUri, String ipHash) {
         return keyPrefix + ":rate:" + domain + ":" + shortUri + ":" + ipHash;
     }

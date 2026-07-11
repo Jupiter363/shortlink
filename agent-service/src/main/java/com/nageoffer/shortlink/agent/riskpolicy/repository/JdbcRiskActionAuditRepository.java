@@ -25,7 +25,19 @@ public class JdbcRiskActionAuditRepository {
     }
 
     public void saveDisableAudit(RiskPolicy policy, String executor, String reason) {
-        saveAudit(UUID.randomUUID().toString(), policy, "MANUAL", executor, reason);
+        saveDisableAudit(policy, executor, reason, policy.traceId());
+    }
+
+    public void saveDisableAudit(
+            RiskPolicy policy,
+            String executor,
+            String reason,
+            String traceId
+    ) {
+        String auditId = "audit-disable-" + UUID.nameUUIDFromBytes(
+                ("disable|" + policy.policyId()).getBytes(StandardCharsets.UTF_8)
+        );
+        saveAudit(auditId, policy, "MANUAL", executor, reason, traceId);
     }
 
     public int countByPolicyId(String policyId) {
@@ -44,7 +56,18 @@ public class JdbcRiskActionAuditRepository {
             String executor,
             String reason
     ) {
-        if (updateAudit(auditId, policy, executorType, executor, reason) > 0) {
+        saveAudit(auditId, policy, executorType, executor, reason, policy.traceId());
+    }
+
+    private void saveAudit(
+            String auditId,
+            RiskPolicy policy,
+            String executorType,
+            String executor,
+            String reason,
+            String traceId
+    ) {
+        if (updateAudit(auditId, policy, executorType, executor, reason, traceId) > 0) {
             return;
         }
         try {
@@ -70,10 +93,10 @@ public class JdbcRiskActionAuditRepository {
                 executor,
                 reason,
                 "{}",
-                policy.traceId()
+                traceId
             );
         } catch (DuplicateKeyException ex) {
-            updateAudit(auditId, policy, executorType, executor, reason);
+            updateAudit(auditId, policy, executorType, executor, reason, traceId);
         }
     }
 
@@ -82,7 +105,8 @@ public class JdbcRiskActionAuditRepository {
             RiskPolicy policy,
             String executorType,
             String executor,
-            String reason
+            String reason,
+            String traceId
     ) {
         return jdbcTemplate.update("""
                         update t_agent_risk_action_audit
@@ -103,7 +127,7 @@ public class JdbcRiskActionAuditRepository {
                 executor,
                 reason,
                 "{}",
-                policy.traceId(),
+                traceId,
                 auditId
         );
     }

@@ -108,6 +108,19 @@ public class JdbcRiskPolicyRepository {
         );
     }
 
+    public List<RiskPolicy> findByPolicyKeyOrderByVersionForUpdate(String policyKey) {
+        return jdbcTemplate.query("""
+                        select %s
+                        from t_agent_risk_policy
+                        where policy_key = ?
+                        order by policy_version desc, id desc
+                        for update
+                        """.formatted(SELECT_COLUMNS),
+                (rs, rowNum) -> mapPolicy(rs),
+                policyKey
+        );
+    }
+
     /**
      * Transitional read API retained until effective policy slots become authoritative.
      */
@@ -126,16 +139,16 @@ public class JdbcRiskPolicyRepository {
         return policies.stream().findFirst();
     }
 
-    public void markSuperseded(String policyId, String traceId) {
-        updateStatus(policyId, RiskPolicyStatus.SUPERSEDED, traceId);
+    public boolean markSuperseded(String policyId, String traceId) {
+        return updateStatus(policyId, RiskPolicyStatus.SUPERSEDED, traceId);
     }
 
-    public void markDisabled(String policyId, String traceId) {
-        updateStatus(policyId, RiskPolicyStatus.DISABLED, traceId);
+    public boolean markDisabled(String policyId, String traceId) {
+        return updateStatus(policyId, RiskPolicyStatus.DISABLED, traceId);
     }
 
-    public void markExpired(String policyId, String traceId) {
-        updateStatus(policyId, RiskPolicyStatus.EXPIRED, traceId);
+    public boolean markExpired(String policyId, String traceId) {
+        return updateStatus(policyId, RiskPolicyStatus.EXPIRED, traceId);
     }
 
     private Optional<RiskPolicy> findOne(String column, String value) {
@@ -150,8 +163,8 @@ public class JdbcRiskPolicyRepository {
         return policies.stream().findFirst();
     }
 
-    private void updateStatus(String policyId, RiskPolicyStatus status, String traceId) {
-        jdbcTemplate.update("""
+    private boolean updateStatus(String policyId, RiskPolicyStatus status, String traceId) {
+        return jdbcTemplate.update("""
                         update t_agent_risk_policy
                         set status = ?,
                             trace_id = ?,
@@ -163,7 +176,7 @@ public class JdbcRiskPolicyRepository {
                 traceId,
                 policyId,
                 RiskPolicyStatus.ACTIVE.name()
-        );
+        ) > 0;
     }
 
     private void validateHistoryIdentity(RiskPolicy policy) {

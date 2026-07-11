@@ -33,10 +33,21 @@ public class RiskPolicyRedisValueCodec {
         Map<String, Object> payload = readPayload(policyPayloadJson);
         payload.put("policyId", policyId);
         payload.put("policyVersion", policyVersion);
+        return writeStable(payload, "Failed to encode risk policy Redis value");
+    }
+
+    public String encodePayload(Map<String, Object> payload) {
+        if (payload == null) {
+            throw new IllegalArgumentException("Risk policy payload must not be null");
+        }
+        return writeStable(payload, "Failed to encode risk policy payload");
+    }
+
+    private String writeStable(Map<String, Object> payload, String failureMessage) {
         try {
             return objectMapper.writeValueAsString(new TreeMap<>(payload));
         } catch (JsonProcessingException ex) {
-            throw new IllegalArgumentException("Failed to encode risk policy Redis value", ex);
+            throw new IllegalArgumentException(failureMessage, ex);
         }
     }
 

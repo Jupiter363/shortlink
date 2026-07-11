@@ -1,6 +1,8 @@
 package com.nageoffer.shortlink.agent.riskcenter;
 
 import com.nageoffer.shortlink.agent.harness.security.InternalAgentApiFilter;
+import com.nageoffer.shortlink.agent.harness.action.api.AgentActionExceptionHandler;
+import com.nageoffer.shortlink.agent.harness.action.service.AgentActionException;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.riskcenter.api.RiskCenterInternalController;
 import com.nageoffer.shortlink.agent.riskcenter.model.RiskEvent;
@@ -44,6 +46,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
 import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveShortLinkProfile;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -85,8 +89,34 @@ class RiskCenterInternalControllerTest {
         properties.getSecurity().setInternalTokenDevMode(true);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new RiskCenterInternalController(riskCenterService))
+                .setControllerAdvice(new AgentActionExceptionHandler())
                 .addFilters(new InternalAgentApiFilter(properties))
                 .build();
+    }
+
+    @Test
+    void stalePolicyDisableReturnsStableConflictResponse() throws Exception {
+        doThrow(new AgentActionException(
+                "POLICY_NOT_EFFECTIVE",
+                "Risk policy is not the current effective version"
+        )).when(riskPolicyService).disablePolicy(any(RiskPolicyDisableCommand.class));
+
+        mockMvc.perform(post("/internal/short-link-agent/v1/risk/policies/policy-stale/disable")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "gid":"gid-001",
+                                  "reviewer":"risk-admin",
+                                  "reason":"stale policy",
+                                  "traceId":"trace-stale"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("POLICY_NOT_EFFECTIVE"))
+                .andExpect(jsonPath("$.message").value(
+                        "Risk policy is not the current effective version"
+                ));
     }
 
     @Test

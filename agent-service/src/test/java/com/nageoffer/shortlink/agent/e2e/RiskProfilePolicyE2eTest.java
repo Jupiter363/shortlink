@@ -25,9 +25,12 @@ import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalFactory
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskIpEvidenceExtractor;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionPayloadValidator;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskPolicyActionTypes;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.JdbcRiskPolicySyncOutboxRepository;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncOperation;
+import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcEffectiveRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskActionAuditRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskPolicyRepository;
-import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisPublisher;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisValueCodec;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.riskprofile.detector.ShortLinkRiskDetector;
 import com.nageoffer.shortlink.agent.riskprofile.model.GroupRiskProfile;
@@ -49,11 +52,11 @@ import com.nageoffer.shortlink.agent.securityriskagent.model.RiskProfileTargetRe
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.time.Clock;
@@ -70,12 +73,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static com.nageoffer.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 class RiskProfilePolicyE2eTest {
 
     private static final Instant BATCH_NOW = Instant.parse("2026-07-10T02:00:00Z");
@@ -92,8 +89,13 @@ class RiskProfilePolicyE2eTest {
         JdbcRiskSnapshotRepository snapshotRepository = new JdbcRiskSnapshotRepository(jdbcTemplate);
         JdbcRiskReviewRepository reviewRepository = new JdbcRiskReviewRepository(jdbcTemplate);
         JdbcRiskPolicyRepository policyRepository = new JdbcRiskPolicyRepository(jdbcTemplate);
+        JdbcEffectiveRiskPolicyRepository effectiveRepository =
+                new JdbcEffectiveRiskPolicyRepository(jdbcTemplate);
         JdbcRiskActionAuditRepository auditRepository = new JdbcRiskActionAuditRepository(jdbcTemplate);
+        JdbcRiskPolicySyncOutboxRepository outboxRepository =
+                new JdbcRiskPolicySyncOutboxRepository(jdbcTemplate);
         JdbcGraphCheckpointStore checkpointStore = new JdbcGraphCheckpointStore(jdbcTemplate);
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         AgentProperties properties = agentProperties();
         seedSevenDayGroupTrend(jdbcTemplate, groupRepository);
         FakeRiskStatsSourceGateway sourceGateway = new FakeRiskStatsSourceGateway(List.of(
@@ -154,14 +156,15 @@ class RiskProfilePolicyE2eTest {
                         LocalDate.of(2026, 7, 10)
                 );
 
-        StringRedisTemplate stringRedisTemplate = mock(StringRedisTemplate.class);
-        ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         RiskPolicyService riskPolicyService = new RiskPolicyService(
                 policyRepository,
+                effectiveRepository,
                 auditRepository,
-                new RiskPolicyRedisPublisher(stringRedisTemplate, CLOCK),
+                reviewRepository,
+                outboxRepository,
+                new RiskPolicyRedisValueCodec(objectMapper),
                 properties,
+                new TransactionTemplate(new DataSourceTransactionManager(jdbcTemplate.getDataSource())),
                 CLOCK
         );
         RiskCenterService riskCenterService = new RiskCenterService(
@@ -175,7 +178,6 @@ class RiskProfilePolicyE2eTest {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient(
                 "E2E risk explanation ip=192.168.1.10 user=visitor-001"
         );
-        ObjectMapper objectMapper = new ObjectMapper();
         JdbcAgentPendingActionRepository pendingActionRepository =
                 new JdbcAgentPendingActionRepository(jdbcTemplate);
         AgentPendingActionService pendingActionService = new AgentPendingActionService(
@@ -277,7 +279,12 @@ class RiskProfilePolicyE2eTest {
                     assertThat(policy.eventId()).isNotBlank();
                     assertThat(auditRepository.countByPolicyId(policy.policyId())).isEqualTo(1);
                 });
-        verify(valueOperations).set(eq(policyKey), contains("LIMIT_RATE"));
+        assertThat(outboxRepository.findByPolicyKeyVersionAndOperation(
+                policyKey,
+                1L,
+                RiskPolicySyncOperation.UPSERT
+        )).isPresent().get().satisfies(outbox ->
+                assertThat(outbox.redisValueJson()).contains("LIMIT_RATE"));
 
         assertThat(jdbcTemplate.queryForObject(
                 "select count(1) from t_agent_pending_action",

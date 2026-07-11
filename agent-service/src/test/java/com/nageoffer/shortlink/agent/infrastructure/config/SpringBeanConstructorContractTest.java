@@ -4,6 +4,7 @@ import com.nageoffer.shortlink.agent.harness.action.repository.JdbcAgentPendingA
 import com.nageoffer.shortlink.agent.harness.action.scheduler.AgentPendingActionRecoveryScheduler;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentPendingActionService;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalFactory;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.securityriskagent.graph.DefaultSecurityRiskGraphExecutor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,14 @@ class SpringBeanConstructorContractTest {
                     assertThat(constructor.getParameterTypes())
                             .contains(RiskActionProposalFactory.class, AgentPendingActionService.class);
                 });
+    }
+
+    @Test
+    void riskPolicyServiceMarksOnlyItsTransactionalProductionConstructorAutowired() {
+        assertThat(RiskPolicyService.class.getDeclaredConstructors()).hasSize(2);
+        assertThat(autowiredConstructors(RiskPolicyService.class))
+                .singleElement()
+                .satisfies(constructor -> assertThat(constructor.getParameterCount()).isEqualTo(8));
     }
 
     @Test

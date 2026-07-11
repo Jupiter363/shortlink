@@ -2,13 +2,17 @@ package com.nageoffer.shortlink.agent.harness.action.api;
 
 import com.nageoffer.shortlink.agent.common.result.Result;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionException;
+import com.nageoffer.shortlink.agent.riskcenter.api.RiskCenterInternalController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = AgentPendingActionInternalController.class)
+@RestControllerAdvice(assignableTypes = {
+        AgentPendingActionInternalController.class,
+        RiskCenterInternalController.class
+})
 public class AgentActionExceptionHandler {
 
     private static final String FALLBACK_MESSAGE = "Agent action request failed";
@@ -31,7 +35,8 @@ public class AgentActionExceptionHandler {
             case "ACTION_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "ACTION_PAYLOAD_CONFLICT",
                     "ACTION_NOT_CONFIRMABLE",
-                    "ACTION_VERSION_CONFLICT" -> HttpStatus.CONFLICT;
+                    "ACTION_VERSION_CONFLICT",
+                    "POLICY_NOT_EFFECTIVE" -> HttpStatus.CONFLICT;
             case "ACTION_EXECUTING" -> HttpStatus.ACCEPTED;
             case "ACTION_EXECUTION_FAILED", "ACTION_EXECUTOR_UNAVAILABLE" ->
                     HttpStatus.INTERNAL_SERVER_ERROR;

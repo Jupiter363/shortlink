@@ -65,6 +65,15 @@ public class JdbcRiskReviewRepository {
         return reviews.stream().findFirst();
     }
 
+    public long countByEventId(String eventId) {
+        Long count = jdbcTemplate.queryForObject(
+                "select count(*) from t_agent_risk_review where event_id = ?",
+                Long.class,
+                eventId
+        );
+        return count == null ? 0L : count;
+    }
+
     public List<RiskReview> listByGid(String gid) {
         return jdbcTemplate.query("""
                         select *

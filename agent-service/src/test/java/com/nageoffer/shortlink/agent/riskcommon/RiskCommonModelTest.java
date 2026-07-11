@@ -97,6 +97,8 @@ class RiskCommonModelTest {
                 .isEqualTo("risk:policy:short-link:time-window:nurl.ink:abc123");
         assertThat(keyBuilder.blockIpKey("hash001"))
                 .isEqualTo("risk:policy:ip:block:hash001");
+        assertThat(keyBuilder.blockShortLinkIpKey("nurl.ink", "abc123", "hash001"))
+                .isEqualTo("risk:policy:short-link:block-ip:nurl.ink:abc123:hash001");
         assertThat(keyBuilder.rateCounterKey("nurl.ink", "abc123", "hash001"))
                 .isEqualTo("risk:rate:nurl.ink:abc123:hash001");
 
