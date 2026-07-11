@@ -109,6 +109,8 @@ class RiskCommonModelTest {
         guard.requireSafe("{\"ipHash\":\"abc\",\"riskLevel\":\"HIGH\"}");
         assertThatThrownBy(() -> guard.requireSafe("{\"rawIp\":\"203.0.113.8\"}"))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> guard.requireSafe("{\"source\":\"2001:db8::44\"}"))
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> guard.requireSafe("{\"visitorId\":\"visitor-001\"}"))
                 .isInstanceOf(IllegalArgumentException.class);
     }

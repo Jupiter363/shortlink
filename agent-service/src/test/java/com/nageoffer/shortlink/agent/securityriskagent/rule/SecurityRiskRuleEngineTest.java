@@ -18,7 +18,9 @@ class SecurityRiskRuleEngineTest {
                 "pv", 100,
                 "uv", 80,
                 "uip", 20,
-                "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 45))
+                "topIpStats", List.of(Map.of(
+                        "ipHash", "a".repeat(64), "maskedIp", "192.168.*.*", "cnt", 45
+                ))
         ))));
 
         RiskSignal signal = firstSignal(signals, "top_ip_concentration");

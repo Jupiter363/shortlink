@@ -8,6 +8,7 @@ import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceClas
 import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceStatus;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
 import com.nageoffer.shortlink.agent.securityriskagent.model.RiskToolInvocation;
+import com.nageoffer.shortlink.agent.securityriskagent.safety.RiskToolStateSanitizer;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 
@@ -24,6 +25,8 @@ public class RiskToolPlanningNode {
 
     private static final String INTAKE_NODE = "intake";
     private static final String RISK_TOOL_PLANNING_NODE = "risk_tool_planning";
+    private static final String TOOL_ARGUMENTS_STATE_SCOPE = "tool_arguments";
+    private static final String TOOL_EXECUTION_FAILED_MESSAGE = "Agent tool execution failed";
     private static final Pattern KEY_VALUE_PATTERN = Pattern.compile("(gid|fullShortUrl|startDate|endDate|current|size)\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
@@ -31,11 +34,18 @@ public class RiskToolPlanningNode {
 
     private final SecurityRiskSanitizer sanitizer;
 
+    private final RiskToolStateSanitizer toolStateSanitizer;
+
     private final RiskEvidenceClassifier evidenceClassifier;
 
-    public RiskToolPlanningNode(AgentToolRegistry toolRegistry, SecurityRiskSanitizer sanitizer) {
+    public RiskToolPlanningNode(
+            AgentToolRegistry toolRegistry,
+            SecurityRiskSanitizer sanitizer,
+            RiskToolStateSanitizer toolStateSanitizer
+    ) {
         this.toolRegistry = toolRegistry;
         this.sanitizer = sanitizer;
+        this.toolStateSanitizer = toolStateSanitizer;
         this.evidenceClassifier = new RiskEvidenceClassifier();
     }
 
@@ -73,7 +83,11 @@ public class RiskToolPlanningNode {
         List<String> warnings = new ArrayList<>();
         boolean hasProfileContext = profileContext != null && !profileContext.isEmpty();
         if (hasProfileContext) {
-            toolExecutions.add(profileContext.toToolExecution());
+            Map<String, Object> profileExecution = sanitizedProfileExecution(profileContext);
+            toolExecutions.add(profileExecution);
+            if (!Boolean.TRUE.equals(profileExecution.get("success"))) {
+                warnings.add(toolFailureWarning("risk_profile_context", profileExecution.get("message")));
+            }
         }
         List<RiskToolInvocation> plannedInvocations = structuredBatch
                 ? List.of()
@@ -112,19 +126,22 @@ public class RiskToolPlanningNode {
     private Map<String, Object> executeTool(AgentTool tool, RiskToolInvocation invocation, String sessionId, String username) {
         Map<String, Object> execution = new LinkedHashMap<>();
         execution.put("name", invocation.name());
-        execution.put("arguments", invocation.arguments());
         try {
+            execution.put("arguments", sanitizeArguments(invocation));
             ToolResult result = tool.execute(new ToolContext(sessionId, username, invocation.arguments()));
             if (result.success()) {
+                Object safeData = toolStateSanitizer.sanitize(invocation.name(), result.data());
                 execution.put("success", true);
-                execution.put("data", result.data());
+                execution.put("data", safeData);
             } else {
                 execution.put("success", false);
                 execution.put("message", sanitizer.sanitizeText(result.message()));
             }
-        } catch (Exception ex) {
+        } catch (Exception ignored) {
+            execution.remove("data");
+            execution.putIfAbsent("arguments", Map.of());
             execution.put("success", false);
-            execution.put("message", sanitizer.sanitizeText(ex.getMessage()));
+            execution.put("message", TOOL_EXECUTION_FAILED_MESSAGE);
         }
         return execution;
     }
@@ -132,10 +149,46 @@ public class RiskToolPlanningNode {
     private Map<String, Object> failedExecution(RiskToolInvocation invocation, String message) {
         Map<String, Object> execution = new LinkedHashMap<>();
         execution.put("name", invocation.name());
-        execution.put("arguments", invocation.arguments());
+        try {
+            execution.put("arguments", sanitizeArguments(invocation));
+        } catch (Exception ignored) {
+            execution.put("arguments", Map.of());
+        }
         execution.put("success", false);
         execution.put("message", sanitizer.sanitizeText(message));
         return execution;
+    }
+
+    private Map<String, Object> sanitizedProfileExecution(ProfileRiskAnalysisContext profileContext) {
+        try {
+            Object safeExecution = toolStateSanitizer.sanitize(
+                    "risk_profile_context",
+                    profileContext.toToolExecution()
+            );
+            if (safeExecution instanceof Map<?, ?> map) {
+                Map<String, Object> typed = new LinkedHashMap<>();
+                map.forEach((key, value) -> typed.put(String.valueOf(key), value));
+                return typed;
+            }
+        } catch (Exception ignored) {
+            // Fall through to a fixed safe failure envelope.
+        }
+        return Map.of(
+                "name", "risk_profile_context",
+                "arguments", Map.of(),
+                "success", false,
+                "message", TOOL_EXECUTION_FAILED_MESSAGE
+        );
+    }
+
+    private Map<String, Object> sanitizeArguments(RiskToolInvocation invocation) {
+        Object safeArguments = toolStateSanitizer.sanitize(TOOL_ARGUMENTS_STATE_SCOPE, invocation.arguments());
+        if (!(safeArguments instanceof Map<?, ?> map)) {
+            return Map.of();
+        }
+        Map<String, Object> typed = new LinkedHashMap<>();
+        map.forEach((key, value) -> typed.put(String.valueOf(key), value));
+        return typed;
     }
 
     private String toolFailureWarning(String toolName, Object message) {

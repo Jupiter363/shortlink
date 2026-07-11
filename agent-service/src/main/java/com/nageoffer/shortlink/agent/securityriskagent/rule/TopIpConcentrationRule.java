@@ -31,8 +31,13 @@ class TopIpConcentrationRule implements RiskRule {
         }
         Map<String, Object> topIp = topIpRows.stream()
                 .map(RiskRuleSupport::mapValue)
+                .filter(each -> !RiskRuleSupport.textValue(each.get("maskedIp")).isBlank())
+                .filter(each -> RiskRuleSupport.longValue(each.get("cnt")) > 0L)
                 .max(Comparator.comparingLong(each -> RiskRuleSupport.longValue(each.get("cnt"))))
                 .orElse(Map.of());
+        if (topIp.isEmpty()) {
+            return List.of();
+        }
         long topIpCount = RiskRuleSupport.longValue(topIp.get("cnt"));
         double topIpShare = RiskRuleSupport.ratio(topIpCount, pv);
         if (topIpShare < TOP_IP_SHARE_WARNING) {
@@ -56,7 +61,7 @@ class TopIpConcentrationRule implements RiskRule {
                         "minPv", MIN_PV_FOR_RISK
                 ),
                 RiskRuleSupport.linkedMap(
-                        "maskedTopIp", sanitizer.maskIp(RiskRuleSupport.textValue(topIp.get("ip"))),
+                        "maskedTopIp", sanitizer.sanitizeText(RiskRuleSupport.textValue(topIp.get("maskedIp"))),
                         "topIpCount", topIpCount
                 ),
                 List.of(

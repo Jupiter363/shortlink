@@ -3,11 +3,9 @@ package com.nageoffer.shortlink.agent.riskcommon.safety;
 import org.springframework.util.StringUtils;
 
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 public class RiskSensitiveDataGuard {
 
-    private static final Pattern IPV4_PATTERN = Pattern.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
     private static final String[] FORBIDDEN_TOKENS = {
             "rawip",
             "ipaddress",
@@ -33,6 +31,6 @@ public class RiskSensitiveDataGuard {
                 return false;
             }
         }
-        return !IPV4_PATTERN.matcher(value).find();
+        return !RiskIpSafety.containsRawIpLiteral(value);
     }
 }

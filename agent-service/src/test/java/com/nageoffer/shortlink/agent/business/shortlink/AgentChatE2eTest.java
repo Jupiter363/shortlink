@@ -197,6 +197,12 @@ class AgentChatE2eTest {
         String responseJson = mvcResult.getResponse().getContentAsString();
         assertThat(responseJson)
                 .contains("192.168.*.*")
+                .doesNotContain("\"ip\":")
+                .doesNotContain("\"records\"")
+                .doesNotContain("\"rows\"")
+                .doesNotContain("\"rawData\"")
+                .doesNotContain("\"user\":")
+                .doesNotContain("\"token\":")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001")
                 .doesNotContain("spoofed-user");
@@ -220,6 +226,7 @@ class AgentChatE2eTest {
         properties.getSecurity().setInternalToken("internal-token");
         properties.getBusiness().setBaseUrl("http://admin.test");
         properties.getBusiness().setInternalToken("internal-token");
+        properties.getRisk().setHashSalt("risk-test-salt");
         return properties;
     }
 
@@ -429,6 +436,15 @@ class AgentChatE2eTest {
                 .doesNotContain("127.0.0.1")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
+        if ("security-risk-graph".equals(graphName)) {
+            assertThat(checkpointJson)
+                    .doesNotContain("\"ip\":")
+                    .doesNotContain("\"records\"")
+                    .doesNotContain("\"rows\"")
+                    .doesNotContain("\"rawData\"")
+                    .doesNotContain("\"user\":")
+                    .doesNotContain("\"token\":");
+        }
         assertThat(checkpointJson).contains(expectedTools);
     }
 

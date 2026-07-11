@@ -1,5 +1,7 @@
 package com.nageoffer.shortlink.agent.securityriskagent.safety;
 
+import com.nageoffer.shortlink.agent.riskcommon.safety.RiskIpSafety;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,7 +13,6 @@ public class SecurityRiskSanitizer {
 
     private static final String USER_ID_TOKEN = "user" + "Id";
     private static final String VISITOR_ID_TOKEN = "visitor" + "Id";
-    private static final Pattern IPV4_PATTERN = Pattern.compile("(?<!\\d)(\\d{1,3})\\.(\\d{1,3})\\.\\d{1,3}\\.\\d{1,3}(?!\\d)");
     private static final Pattern JDBC_URL_PATTERN = Pattern.compile("(?i)jdbc:[^\\s,;\\uFF0C\\uFF1B]+");
     private static final Pattern USER_IDENTIFIER_PATTERN = Pattern.compile("(?i)\\b("
             + "raw" + USER_ID_TOKEN + "|"
@@ -61,10 +62,9 @@ public class SecurityRiskSanitizer {
         if (text == null || text.isBlank()) {
             return "";
         }
-        String sanitized = JDBC_URL_PATTERN.matcher(text)
+        String sanitized = RiskIpSafety.sanitizeIpLiterals(text);
+        sanitized = JDBC_URL_PATTERN.matcher(sanitized)
                 .replaceAll("jdbc:***");
-        sanitized = IPV4_PATTERN.matcher(sanitized)
-                .replaceAll(match -> match.group(1) + "." + match.group(2) + ".*.*");
         sanitized = USER_IDENTIFIER_PATTERN.matcher(sanitized)
                 .replaceAll(match -> match.group(1) + match.group(2) + "***");
         sanitized = CN_USER_IDENTIFIER_PATTERN.matcher(sanitized)
@@ -96,14 +96,7 @@ public class SecurityRiskSanitizer {
     }
 
     public String maskIp(String ip) {
-        if (ip.isBlank()) {
-            return "";
-        }
-        String[] parts = ip.split("\\.");
-        if (parts.length == 4) {
-            return parts[0] + "." + parts[1] + ".*.*";
-        }
-        return ip.length() <= 6 ? "***" : ip.substring(0, 6) + "***";
+        return RiskIpSafety.maskIp(ip);
     }
 
     private String textValue(Object value) {

@@ -37,9 +37,11 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 import javax.sql.DataSource;
+import java.lang.reflect.Array;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -88,7 +90,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(statsTool, accessRecordsTool))
         );
 
@@ -109,6 +111,8 @@ class DefaultSecurityRiskGraphExecutorTest {
                 .contains("192.168.*.*")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
+        assertNoSensitiveToolState(result.toolCalls());
+        assertNoSensitiveToolState(result.dataSources());
         assertThat(result.cards().toString())
                 .contains("top_ip_concentration")
                 .contains("hour_burst")
@@ -133,6 +137,12 @@ class DefaultSecurityRiskGraphExecutorTest {
         assertThat(checkpointStore.saved.get(0).checkpointJson())
                 .contains("top_ip_concentration")
                 .contains("192.168.*.*")
+                .doesNotContain("\"ip\":")
+                .doesNotContain("\"records\"")
+                .doesNotContain("\"rows\"")
+                .doesNotContain("\"rawData\"")
+                .doesNotContain("\"user\"")
+                .doesNotContain("\"token\"")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
     }
@@ -148,7 +158,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(statsTool))
         );
 
@@ -186,7 +196,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(statsTool))
         );
 
@@ -203,11 +213,11 @@ class DefaultSecurityRiskGraphExecutorTest {
         assertThat(result.warnings().toString())
                 .contains("Agent tool get_group_stats failed")
                 .contains("Security risk evidence is unavailable")
-                .contains("192.168.*.*")
+                .contains("Agent tool execution failed")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
         assertThat(result.toolCalls().toString())
-                .contains("192.168.*.*")
+                .contains("Agent tool execution failed")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
         assertThat(result.cards()).isEmpty();
@@ -217,7 +227,7 @@ class DefaultSecurityRiskGraphExecutorTest {
                 .extracting(source -> String.valueOf(((Map<?, ?>) source).get("type")))
                 .containsExactly("graph", "tool");
         assertThat(checkpointStore.saved.get(0).checkpointJson())
-                .contains("192.168.*.*")
+                .contains("Agent tool execution failed")
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001");
     }
@@ -233,7 +243,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of()),
                 shortLinkRepository,
                 groupRepository,
@@ -277,7 +287,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(new CapturingAgentTool(
                         "get_group_stats",
                         ToolResult.success(Map.of())
@@ -326,7 +336,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(statsTool))
         );
 
@@ -358,7 +368,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 new ThrowingGraphCheckpointStore("checkpoint failed ip=192.168.1.10 user=visitor-001 token=abc"),
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(statsTool))
         );
 
@@ -394,7 +404,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 throwingChatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(statsTool))
         );
 
@@ -446,7 +456,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 throwingChatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of()),
                 shortLinkRepository,
                 groupRepository,
@@ -485,7 +495,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of()),
                 mock(JdbcShortLinkRiskProfileRepository.class),
                 mock(JdbcGroupRiskProfileRepository.class),
@@ -524,7 +534,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 throwingChatClient,
                 new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of()),
                 mock(JdbcShortLinkRiskProfileRepository.class),
                 mock(JdbcGroupRiskProfileRepository.class),
@@ -583,7 +593,7 @@ class DefaultSecurityRiskGraphExecutorTest {
         DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
                 chatClient,
                 checkpointStore,
-                new AgentProperties(),
+                agentProperties(),
                 new AgentToolRegistry(List.of(batchStatsTool)),
                 shortLinkRepository,
                 groupRepository,
@@ -639,6 +649,44 @@ class DefaultSecurityRiskGraphExecutorTest {
                 eq(highProfile.reasonCodes())
         );
         verify(riskPolicyService, never()).activatePolicy(any());
+    }
+
+    private AgentProperties agentProperties() {
+        AgentProperties properties = new AgentProperties();
+        properties.getRisk().setHashSalt("risk-test-salt");
+        return properties;
+    }
+
+    private void assertNoSensitiveToolState(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            for (Object key : map.keySet()) {
+                String normalized = String.valueOf(key)
+                        .replace("_", "")
+                        .replace("-", "")
+                        .toLowerCase(Locale.ROOT);
+                assertThat(normalized).isNotIn(
+                        "ip", "rawip", "ipaddress", "records", "rows", "rawdata",
+                        "user", "visitor", "uid", "username", "token", "password", "secret"
+                );
+            }
+            map.values().forEach(this::assertNoSensitiveToolState);
+            return;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            iterable.forEach(this::assertNoSensitiveToolState);
+            return;
+        }
+        if (value != null && value.getClass().isArray()) {
+            for (int index = 0; index < Array.getLength(value); index++) {
+                assertNoSensitiveToolState(Array.get(value, index));
+            }
+            return;
+        }
+        if (value instanceof String text) {
+            assertThat(text).doesNotContain(
+                    "192.168.1.10", "198.51.100.8", "visitor-001", "internal-secret"
+            );
+        }
     }
 
     private ShortLinkRiskProfile profile(String gid, String shortUri, int riskScore, LocalDateTime endTime) {

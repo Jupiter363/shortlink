@@ -47,7 +47,9 @@ class SecurityRiskCardFactoryTest {
                 "pv", 100,
                 "uv", 80,
                 "uip", 20,
-                "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 45))
+                "topIpStats", List.of(Map.of(
+                        "ipHash", "a".repeat(64), "maskedIp", "192.168.*.*", "cnt", 45
+                ))
         )));
         SecurityRiskAssessment expected = new SecurityRiskAssessment(
                 List.of(signal("top_ip_concentration")),
@@ -84,8 +86,8 @@ class SecurityRiskCardFactoryTest {
                 "uv", 80,
                 "uip", 20,
                 "topIpStats", List.of(
-                        Map.of("ip", "192.168.1.10", "cnt", 45),
-                        Map.of("ip", "10.0.0.8", "cnt", 10)
+                        Map.of("ipHash", "a".repeat(64), "maskedIp", "192.168.*.*", "cnt", 45),
+                        Map.of("ipHash", "b".repeat(64), "maskedIp", "10.0.*.*", "cnt", 10)
                 )
         ))));
 

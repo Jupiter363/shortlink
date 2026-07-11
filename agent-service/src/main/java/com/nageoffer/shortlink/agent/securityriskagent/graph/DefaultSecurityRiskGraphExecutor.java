@@ -14,6 +14,7 @@ import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmChatClient;
 import com.nageoffer.shortlink.agent.riskcenter.service.RiskCenterService;
+import com.nageoffer.shortlink.agent.riskcommon.safety.RiskHashService;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
 import com.nageoffer.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
@@ -27,6 +28,7 @@ import com.nageoffer.shortlink.agent.securityriskagent.node.RiskScoringNode;
 import com.nageoffer.shortlink.agent.securityriskagent.node.RiskToolPlanningNode;
 import com.nageoffer.shortlink.agent.securityriskagent.prompt.SecurityRiskPromptBuilder;
 import com.nageoffer.shortlink.agent.securityriskagent.rule.SecurityRiskCardFactory;
+import com.nageoffer.shortlink.agent.securityriskagent.safety.RiskToolStateSanitizer;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,6 +81,8 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
+        RiskHashService riskHashService = new RiskHashService(agentProperties.getRisk().getHashSalt());
+        RiskToolStateSanitizer toolStateSanitizer = new RiskToolStateSanitizer(riskHashService, this.sanitizer);
         this.intakeNode = new RiskIntakeNode(
                 SecurityRiskGraphDefinition.GRAPH_NAME,
                 SecurityRiskGraphDefinition.GRAPH_VERSION
@@ -88,7 +92,7 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                 groupRiskProfileRepository,
                 agentProperties.getRisk().getProfile().getTopCandidateSize()
         );
-        this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
+        this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer, toolStateSanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
         this.llmExplanationNode = new RiskLlmExplanationNode(llmChatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
         this.eventPersistNode = new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
@@ -110,12 +114,14 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
+        RiskHashService riskHashService = new RiskHashService(agentProperties.getRisk().getHashSalt());
+        RiskToolStateSanitizer toolStateSanitizer = new RiskToolStateSanitizer(riskHashService, this.sanitizer);
         this.intakeNode = new RiskIntakeNode(
                 SecurityRiskGraphDefinition.GRAPH_NAME,
                 SecurityRiskGraphDefinition.GRAPH_VERSION
         );
         this.profileCandidateLoadNode = ProfileCandidateLoadNode.noop();
-        this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
+        this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer, toolStateSanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
         this.llmExplanationNode = new RiskLlmExplanationNode(llmChatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
         this.eventPersistNode = RiskEventPersistNode.noop();
