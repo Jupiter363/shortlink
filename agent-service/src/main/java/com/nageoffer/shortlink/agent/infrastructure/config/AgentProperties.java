@@ -262,6 +262,8 @@ public class AgentProperties {
 
         private ManualAction manualAction = new ManualAction();
 
+        private PolicySync policySync = new PolicySync();
+
         private Redis redis = new Redis();
 
         public String getHashSalt() {
@@ -304,12 +306,103 @@ public class AgentProperties {
             this.manualAction = manualAction;
         }
 
+        public PolicySync getPolicySync() {
+            return policySync;
+        }
+
+        public void setPolicySync(PolicySync policySync) {
+            this.policySync = policySync;
+        }
+
         public Redis getRedis() {
             return redis;
         }
 
         public void setRedis(Redis redis) {
             this.redis = redis;
+        }
+    }
+
+    public static class PolicySync {
+
+        private boolean enabled = true;
+
+        private int leaseMinutes = 5;
+
+        private int maxAttempts = 10;
+
+        private int retryInitialSeconds = 30;
+
+        private int retryMaxSeconds = 600;
+
+        private long workerIntervalMillis = 5000L;
+
+        private long expiryIntervalMillis = 60000L;
+
+        private int expiryBatchSize = 100;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getLeaseMinutes() {
+            return leaseMinutes;
+        }
+
+        public void setLeaseMinutes(int leaseMinutes) {
+            this.leaseMinutes = leaseMinutes;
+        }
+
+        public int getMaxAttempts() {
+            return maxAttempts;
+        }
+
+        public void setMaxAttempts(int maxAttempts) {
+            this.maxAttempts = maxAttempts;
+        }
+
+        public int getRetryInitialSeconds() {
+            return retryInitialSeconds;
+        }
+
+        public void setRetryInitialSeconds(int retryInitialSeconds) {
+            this.retryInitialSeconds = retryInitialSeconds;
+        }
+
+        public int getRetryMaxSeconds() {
+            return retryMaxSeconds;
+        }
+
+        public void setRetryMaxSeconds(int retryMaxSeconds) {
+            this.retryMaxSeconds = retryMaxSeconds;
+        }
+
+        public long getWorkerIntervalMillis() {
+            return workerIntervalMillis;
+        }
+
+        public void setWorkerIntervalMillis(long workerIntervalMillis) {
+            this.workerIntervalMillis = workerIntervalMillis;
+        }
+
+        public long getExpiryIntervalMillis() {
+            return expiryIntervalMillis;
+        }
+
+        public void setExpiryIntervalMillis(long expiryIntervalMillis) {
+            this.expiryIntervalMillis = expiryIntervalMillis;
+        }
+
+        public int getExpiryBatchSize() {
+            return expiryBatchSize;
+        }
+
+        public void setExpiryBatchSize(int expiryBatchSize) {
+            this.expiryBatchSize = expiryBatchSize;
         }
     }
 

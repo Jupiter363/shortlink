@@ -3,6 +3,7 @@ package com.nageoffer.shortlink.agent.harness.action.api;
 import com.nageoffer.shortlink.agent.common.result.Result;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentActionException;
 import com.nageoffer.shortlink.agent.riskcenter.api.RiskCenterInternalController;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncInternalController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -11,7 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(assignableTypes = {
         AgentPendingActionInternalController.class,
-        RiskCenterInternalController.class
+        RiskCenterInternalController.class,
+        RiskPolicySyncInternalController.class
 })
 public class AgentActionExceptionHandler {
 
@@ -32,11 +34,12 @@ public class AgentActionExceptionHandler {
             case "ACTION_PAYLOAD_INVALID", "ACTION_REVIEW_ACTION_INVALID" ->
                     HttpStatus.BAD_REQUEST;
             case "ACTION_SCOPE_FORBIDDEN" -> HttpStatus.FORBIDDEN;
-            case "ACTION_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "ACTION_NOT_FOUND", "POLICY_SYNC_OUTBOX_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "ACTION_PAYLOAD_CONFLICT",
                     "ACTION_NOT_CONFIRMABLE",
                     "ACTION_VERSION_CONFLICT",
-                    "POLICY_NOT_EFFECTIVE" -> HttpStatus.CONFLICT;
+                    "POLICY_NOT_EFFECTIVE",
+                    "POLICY_SYNC_OUTBOX_NOT_REPLAYABLE" -> HttpStatus.CONFLICT;
             case "ACTION_EXECUTING" -> HttpStatus.ACCEPTED;
             case "ACTION_EXECUTION_FAILED", "ACTION_EXECUTOR_UNAVAILABLE" ->
                     HttpStatus.INTERNAL_SERVER_ERROR;

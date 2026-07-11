@@ -4,6 +4,9 @@ import com.nageoffer.shortlink.agent.harness.action.repository.JdbcAgentPendingA
 import com.nageoffer.shortlink.agent.harness.action.scheduler.AgentPendingActionRecoveryScheduler;
 import com.nageoffer.shortlink.agent.harness.action.service.AgentPendingActionService;
 import com.nageoffer.shortlink.agent.riskpolicy.action.RiskActionProposalFactory;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicyExpiryScheduler;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncService;
+import com.nageoffer.shortlink.agent.riskpolicy.outbox.RiskPolicySyncWorker;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.nageoffer.shortlink.agent.securityriskagent.graph.DefaultSecurityRiskGraphExecutor;
 import org.junit.jupiter.api.Test;
@@ -58,6 +61,22 @@ class SpringBeanConstructorContractTest {
         assertThat(autowiredConstructors(RiskPolicyService.class))
                 .singleElement()
                 .satisfies(constructor -> assertThat(constructor.getParameterCount()).isEqualTo(8));
+    }
+
+    @Test
+    void riskPolicyOutboxComponentsMarkOnlyProductionConstructorsAutowired() {
+        assertThat(RiskPolicySyncService.class.getDeclaredConstructors()).hasSize(2);
+        assertThat(autowiredConstructors(RiskPolicySyncService.class))
+                .singleElement()
+                .satisfies(constructor -> assertThat(constructor.getParameterCount()).isEqualTo(6));
+        assertThat(RiskPolicySyncWorker.class.getDeclaredConstructors()).hasSize(2);
+        assertThat(autowiredConstructors(RiskPolicySyncWorker.class))
+                .singleElement()
+                .satisfies(constructor -> assertThat(constructor.getParameterCount()).isEqualTo(3));
+        assertThat(RiskPolicyExpiryScheduler.class.getDeclaredConstructors()).hasSize(2);
+        assertThat(autowiredConstructors(RiskPolicyExpiryScheduler.class))
+                .singleElement()
+                .satisfies(constructor -> assertThat(constructor.getParameterCount()).isEqualTo(2));
     }
 
     @Test

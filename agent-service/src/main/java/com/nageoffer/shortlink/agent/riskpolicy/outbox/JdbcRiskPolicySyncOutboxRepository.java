@@ -31,6 +31,20 @@ public class JdbcRiskPolicySyncOutboxRepository {
     private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile(
             "(?i)\\bbearer\\s+[a-z0-9._~+/-]+=*"
     );
+    private static final Pattern AUTHORIZATION_HEADER_PATTERN = Pattern.compile(
+            "(?i)(\\bauthorization\\b\\s*[:=]\\s*)"
+                    + "(?:(?:basic|bearer)\\s+)?[^\\s,;}]++"
+    );
+    private static final Pattern DOUBLE_QUOTED_SENSITIVE_ASSIGNMENT_PATTERN = Pattern.compile(
+            "(?i)((?<![a-z0-9_])[\\\"']?(?:authorization|token|password|secret|api[_-]?key"
+                    + "|access[_-]?token|refresh[_-]?token)[\\\"']?\\s*[:=]\\s*\\\")"
+                    + "[^\\\"]*(\\\")"
+    );
+    private static final Pattern SINGLE_QUOTED_SENSITIVE_ASSIGNMENT_PATTERN = Pattern.compile(
+            "(?i)((?<![a-z0-9_])[\\\"']?(?:authorization|token|password|secret|api[_-]?key"
+                    + "|access[_-]?token|refresh[_-]?token)[\\\"']?\\s*[:=]\\s*')"
+                    + "[^']*(')"
+    );
     private static final Pattern SENSITIVE_ASSIGNMENT_PATTERN = assignmentPattern(
             "authorization|token|password|secret|api[_-]?key|access[_-]?token|refresh[_-]?token",
             true
@@ -224,7 +238,7 @@ public class JdbcRiskPolicySyncOutboxRepository {
                 Optional<RiskPolicySyncOutbox> claimed = findClaimedByOwner(
                         candidate.outboxId(),
                         ownerToken,
-                        leaseUntil
+                        now
                 );
                 if (claimed.isPresent()) {
                     return claimed;
@@ -435,7 +449,7 @@ public class JdbcRiskPolicySyncOutboxRepository {
     private Optional<RiskPolicySyncOutbox> findClaimedByOwner(
             String outboxId,
             String ownerToken,
-            LocalDateTime leaseUntil
+            LocalDateTime now
     ) {
         return queryOne("""
                         select %s
@@ -443,13 +457,14 @@ public class JdbcRiskPolicySyncOutboxRepository {
                         where outbox_id = ?
                           and status = ?
                           and cast(owner_token as binary(128)) = cast(? as binary(128))
-                          and lease_until = ?
+                          and lease_until is not null
+                          and lease_until > ?
                         limit 1
                         """.formatted(SELECT_COLUMNS),
                 outboxId,
                 RiskPolicySyncOutboxStatus.PROCESSING.name(),
                 ownerToken,
-                Timestamp.valueOf(leaseUntil)
+                Timestamp.valueOf(now)
         );
     }
 
@@ -522,6 +537,13 @@ public class JdbcRiskPolicySyncOutboxRepository {
         sanitized = URI_USER_INFO_PATTERN.matcher(sanitized).replaceAll("$1***@");
         sanitized = JDBC_URL_PATTERN.matcher(sanitized).replaceAll("jdbc:***");
         sanitized = API_KEY_PATTERN.matcher(sanitized).replaceAll("***");
+        sanitized = DOUBLE_QUOTED_SENSITIVE_ASSIGNMENT_PATTERN
+                .matcher(sanitized)
+                .replaceAll("$1***$2");
+        sanitized = SINGLE_QUOTED_SENSITIVE_ASSIGNMENT_PATTERN
+                .matcher(sanitized)
+                .replaceAll("$1***$2");
+        sanitized = AUTHORIZATION_HEADER_PATTERN.matcher(sanitized).replaceAll("$1***");
         sanitized = SENSITIVE_ASSIGNMENT_PATTERN.matcher(sanitized).replaceAll("$1***");
         sanitized = BEARER_TOKEN_PATTERN.matcher(sanitized).replaceAll("Bearer ***");
         sanitized = IDENTITY_ASSIGNMENT_PATTERN.matcher(sanitized).replaceAll("$1***");

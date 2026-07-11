@@ -138,9 +138,11 @@ class RiskPolicySyncOutboxRepositoryTest {
                 + " source6=" + ipv6Address
                 + " to" + "ken=plain-secret-value"
                 + " Authori" + "zation: Bear" + "er fake-bearer-value"
+                + "; Authori" + "zation: Basic dXNlcjpwYXNz"
                 + " standalone Bear" + "er second-fake-value"
                 + " key=" + fakeApiKey
                 + " {\"pass" + "word\":\"json-secret-value\","
+                + "\"secret\":\"alpha beta\","
                 + "\"visitor" + "Id\":\"visitor-123\"}"
                 + " user" + "name=alice"
                 + " jdbc:my" + "sql://db-user:db-password@localhost:3306/agent "
@@ -168,9 +170,11 @@ class RiskPolicySyncOutboxRepositoryTest {
                         ipv6Address,
                         "plain-secret-value",
                         "fake-bearer-value",
+                        "dXNlcjpwYXNz",
                         "second-fake-value",
                         fakeApiKey,
                         "json-secret-value",
+                        "alpha beta",
                         "visitor-123",
                         "alice",
                         "db-password"
@@ -224,6 +228,29 @@ class RiskPolicySyncOutboxRepositoryTest {
                     assertThat(value.status()).isEqualTo(RiskPolicySyncOutboxStatus.RETRY_WAIT);
                     assertThat(value.attemptCount()).isEqualTo(1);
                 });
+    }
+
+    @Test
+    void claimReadDoesNotDependOnTimestampFractionRoundTrip() {
+        Fixture fixture = fixture();
+        fixture.jdbcTemplate().execute("""
+                alter table t_agent_risk_policy_sync_outbox
+                alter column lease_until timestamp(0)
+                """);
+        fixture.repository().createIfAbsent(pendingOutbox(
+                "outbox-fraction", "risk:key:fraction", "policy-fraction", 1L,
+                RiskPolicySyncOperation.UPSERT));
+        LocalDateTime fractionalNow = NOW.plusNanos(987_654_321);
+
+        assertThat(fixture.repository().claimNext(
+                "owner-fraction",
+                fractionalNow,
+                Duration.ofMinutes(5),
+                3
+        )).isPresent().get().satisfies(claimed -> {
+            assertThat(claimed.outboxId()).isEqualTo("outbox-fraction");
+            assertThat(claimed.ownerToken()).isEqualTo("owner-fraction");
+        });
     }
 
     @Test

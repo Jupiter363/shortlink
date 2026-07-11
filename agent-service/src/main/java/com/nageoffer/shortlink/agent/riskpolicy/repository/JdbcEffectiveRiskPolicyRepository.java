@@ -66,6 +66,25 @@ public class JdbcEffectiveRiskPolicyRepository {
         );
     }
 
+    public List<EffectiveRiskPolicy> findDueActive(LocalDateTime now, int limit) {
+        Objects.requireNonNull(now, "now must not be null");
+        int safeLimit = Math.max(1, limit);
+        return jdbcTemplate.query("""
+                        select %s
+                        from t_agent_risk_policy_effective
+                        where desired_state = ?
+                          and expire_time is not null
+                          and expire_time <= ?
+                        order by expire_time, id
+                        limit ?
+                        """.formatted(SELECT_COLUMNS),
+                this::mapPolicy,
+                RiskPolicyDesiredState.ACTIVE.name(),
+                Timestamp.valueOf(now),
+                safeLimit
+        );
+    }
+
     public void upsert(EffectiveRiskPolicy policy) {
         Objects.requireNonNull(policy, "policy must not be null");
         if (updateIfNewer(policy) > 0) {
@@ -110,6 +129,65 @@ public class JdbcEffectiveRiskPolicyRepository {
                 policyId,
                 policyVersion,
                 valueOrEmpty(outboxId)
+        ) > 0;
+    }
+
+    public boolean updateSyncStatusIfStateAndVersion(
+            String policyKey,
+            String policyId,
+            long policyVersion,
+            RiskPolicyDesiredState desiredState,
+            RiskPolicySyncStatus syncStatus,
+            String outboxId,
+            String traceId
+    ) {
+        Objects.requireNonNull(desiredState, "desiredState must not be null");
+        Objects.requireNonNull(syncStatus, "syncStatus must not be null");
+        return jdbcTemplate.update("""
+                        update t_agent_risk_policy_effective
+                        set sync_status = ?,
+                            trace_id = ?,
+                            update_time = CURRENT_TIMESTAMP
+                        where policy_key = ?
+                          and policy_id = ?
+                          and policy_version = ?
+                          and desired_state = ?
+                          and last_outbox_id = ?
+                        """,
+                syncStatus.name(),
+                valueOrEmpty(traceId),
+                policyKey,
+                policyId,
+                policyVersion,
+                desiredState.name(),
+                valueOrEmpty(outboxId)
+        ) > 0;
+    }
+
+    public boolean markExpiredIfVersion(
+            String policyKey,
+            String policyId,
+            long policyVersion,
+            String outboxId
+    ) {
+        return jdbcTemplate.update("""
+                        update t_agent_risk_policy_effective
+                        set desired_state = ?,
+                            sync_status = ?,
+                            last_outbox_id = ?,
+                            update_time = CURRENT_TIMESTAMP
+                        where policy_key = ?
+                          and policy_id = ?
+                          and policy_version = ?
+                          and desired_state = ?
+                        """,
+                RiskPolicyDesiredState.EXPIRED.name(),
+                RiskPolicySyncStatus.PENDING.name(),
+                valueOrEmpty(outboxId),
+                policyKey,
+                policyId,
+                policyVersion,
+                RiskPolicyDesiredState.ACTIVE.name()
         ) > 0;
     }
 

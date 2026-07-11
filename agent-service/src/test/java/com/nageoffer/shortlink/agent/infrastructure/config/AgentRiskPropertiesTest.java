@@ -120,6 +120,15 @@ class AgentRiskPropertiesTest {
         assertThat(properties.getRisk().getAutoAction().getLimitRateLimit()).isEqualTo(60);
         assertThat(properties.getRisk().getAutoAction().getLimitRateWindowSeconds()).isEqualTo(60);
         assertThat(properties.getRisk().getRedis().getKeyPrefix()).isEqualTo("risk");
+        AgentProperties.PolicySync policySync = properties.getRisk().getPolicySync();
+        assertThat(policySync.isEnabled()).isTrue();
+        assertThat(policySync.getLeaseMinutes()).isEqualTo(5);
+        assertThat(policySync.getMaxAttempts()).isEqualTo(10);
+        assertThat(policySync.getRetryInitialSeconds()).isEqualTo(30);
+        assertThat(policySync.getRetryMaxSeconds()).isEqualTo(600);
+        assertThat(policySync.getWorkerIntervalMillis()).isEqualTo(5_000L);
+        assertThat(policySync.getExpiryIntervalMillis()).isEqualTo(60_000L);
+        assertThat(policySync.getExpiryBatchSize()).isEqualTo(100);
     }
 
     @Test

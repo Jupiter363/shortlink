@@ -49,6 +49,34 @@ public class JdbcRiskActionAuditRepository {
         return count == null ? 0 : count;
     }
 
+    public void saveOutboxReplayAudit(
+            String outboxId,
+            String policyId,
+            String executor,
+            String reason
+    ) {
+        jdbcTemplate.update("""
+                        insert into t_agent_risk_action_audit (
+                            audit_id,
+                            policy_id,
+                            event_id,
+                            action,
+                            executor_type,
+                            executor,
+                            reason,
+                            evidence_json,
+                            trace_id
+                        )
+                        values (?, ?, ?, 'OUTBOX_REPLAY', 'MANUAL', ?, ?, '{}', '')
+                        """,
+                "audit-outbox-replay-" + UUID.randomUUID(),
+                policyId,
+                outboxId,
+                executor,
+                reason
+        );
+    }
+
     private void saveAudit(
             String auditId,
             RiskPolicy policy,
