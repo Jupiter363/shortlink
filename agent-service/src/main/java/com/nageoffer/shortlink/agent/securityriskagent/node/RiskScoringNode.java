@@ -2,6 +2,7 @@ package com.nageoffer.shortlink.agent.securityriskagent.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.nageoffer.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
+import com.nageoffer.shortlink.agent.securityriskagent.model.SecurityRiskAssessment;
 import com.nageoffer.shortlink.agent.securityriskagent.rule.SecurityRiskCardFactory;
 
 import java.util.ArrayList;
@@ -36,12 +37,14 @@ public class RiskScoringNode {
     }
 
     public Map<String, Object> score(List<Map<String, Object>> toolExecutions, ProfileRiskAnalysisContext profileContext) {
+        SecurityRiskAssessment assessment = cardFactory.assess(toolExecutions);
         List<Object> riskCards = new ArrayList<>();
         if (profileContext != null && !profileContext.isEmpty()) {
             riskCards.addAll(profileContext.riskCards());
         }
-        riskCards.addAll(cardFactory.build(toolExecutions));
+        riskCards.addAll(assessment.cards());
         return Map.of(
+                "riskSignals", assessment.signals(),
                 "riskCards", riskCards,
                 "visitedNodes", List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE, RISK_SCORING_NODE)
         );

@@ -1,6 +1,7 @@
 package com.nageoffer.shortlink.agent.securityriskagent.rule;
 
 import com.nageoffer.shortlink.agent.securityriskagent.model.RiskSignal;
+import com.nageoffer.shortlink.agent.securityriskagent.model.SecurityRiskAssessment;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 
 import java.util.ArrayList;
@@ -27,11 +28,16 @@ public class SecurityRiskCardFactory {
     }
 
     public List<Object> build(List<Map<String, Object>> toolExecutions) {
+        return assess(toolExecutions).cards();
+    }
+
+    public SecurityRiskAssessment assess(List<Map<String, Object>> toolExecutions) {
+        List<RiskSignal> signals = ruleEngine.evaluate(toolExecutions);
         List<Object> cards = new ArrayList<>();
-        for (RiskSignal signal : ruleEngine.evaluate(toolExecutions)) {
+        for (RiskSignal signal : signals) {
             cards.add(signal.toCard());
         }
-        return cards;
+        return new SecurityRiskAssessment(signals, cards);
     }
 
     Object sanitizeForPrompt(Object value) {

@@ -1,15 +1,81 @@
 package com.nageoffer.shortlink.agent.securityriskagent.rule;
 
+import com.nageoffer.shortlink.agent.securityriskagent.model.RiskSignal;
+import com.nageoffer.shortlink.agent.securityriskagent.model.SecurityRiskAssessment;
+import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SecurityRiskCardFactoryTest {
 
     private final SecurityRiskCardFactory factory = new SecurityRiskCardFactory();
+
+    @Test
+    void assessKeepsSignalsAndCardsFromTheSameRuleEvaluation() {
+        SecurityRiskRuleEngine ruleEngine = mock(SecurityRiskRuleEngine.class);
+        List<Map<String, Object>> executions = List.of(statsExecution(Map.of("pv", 100)));
+        RiskSignal signal = signal("top_ip_concentration");
+        when(ruleEngine.evaluate(executions)).thenReturn(List.of(signal));
+        SecurityRiskCardFactory cardFactory = new SecurityRiskCardFactory(new SecurityRiskSanitizer(), ruleEngine);
+
+        SecurityRiskAssessment assessment = cardFactory.assess(executions);
+
+        assertThat(assessment.signals())
+                .isNotEmpty()
+                .allSatisfy(item -> assertThat(item).isInstanceOf(RiskSignal.class));
+        assertThat(assessment.cards())
+                .isNotEmpty()
+                .containsExactly(signal.toCard());
+        verify(ruleEngine, times(1)).evaluate(executions);
+    }
+
+    @Test
+    void buildDelegatesToAssessmentCards() {
+        List<Map<String, Object>> executions = List.of(statsExecution(Map.of(
+                "pv", 100,
+                "uv", 80,
+                "uip", 20,
+                "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 45))
+        )));
+        SecurityRiskAssessment expected = new SecurityRiskAssessment(
+                List.of(signal("top_ip_concentration")),
+                List.of(Map.of("type", "expected-card"))
+        );
+        SecurityRiskCardFactory cardFactory = spy(factory);
+        doReturn(expected).when(cardFactory).assess(executions);
+
+        assertThat(cardFactory.build(executions)).isSameAs(expected.cards());
+        verify(cardFactory, times(1)).assess(executions);
+    }
+
+    @Test
+    void assessmentDefensivelyCopiesCollections() {
+        List<RiskSignal> signals = new ArrayList<>(List.of(signal("top_ip_concentration")));
+        List<Object> cards = new ArrayList<>(List.of(Map.of("type", "risk_signal")));
+
+        SecurityRiskAssessment assessment = new SecurityRiskAssessment(signals, cards);
+        signals.clear();
+        cards.clear();
+
+        assertThat(assessment.signals()).hasSize(1);
+        assertThat(assessment.cards()).hasSize(1);
+        assertThatThrownBy(() -> assessment.signals().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> assessment.cards().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThat(new SecurityRiskAssessment(null, null).signals()).isEmpty();
+        assertThat(new SecurityRiskAssessment(null, null).cards()).isEmpty();
+    }
 
     @Test
     void buildCreatesTopIpConcentrationRiskCardWithMaskedEvidence() {
@@ -145,6 +211,22 @@ class SecurityRiskCardFactoryTest {
                 "success", true,
                 "arguments", Map.of("gid", "g1", "startDate", "2026-07-01", "endDate", "2026-07-07"),
                 "data", data
+        );
+    }
+
+    private RiskSignal signal(String reasonCode) {
+        return new RiskSignal(
+                "high",
+                78,
+                "traffic_anomaly",
+                reasonCode,
+                "Concentrated traffic source",
+                "get_group_stats",
+                Map.of("gid", "g1"),
+                Map.of("topIpShare", 0.45D),
+                Map.of("topIpShare", 0.4D),
+                Map.of("maskedTopIp", "192.168.*.*"),
+                List.of("Review traffic source")
         );
     }
 
