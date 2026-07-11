@@ -1,5 +1,6 @@
 package com.nageoffer.shortlink.agent.riskpolicy.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
@@ -38,6 +39,7 @@ public class RiskPolicyService {
     private final JdbcRiskPolicyRepository policyRepository;
     private final JdbcRiskActionAuditRepository auditRepository;
     private final RiskPolicyRedisPublisher redisPublisher;
+    private final RiskPolicyRedisValueCodec redisValueCodec;
     private final AgentProperties properties;
     private final RiskPolicyRedisKeyBuilder keyBuilder;
     private final Clock clock;
@@ -47,9 +49,17 @@ public class RiskPolicyService {
             JdbcRiskPolicyRepository policyRepository,
             JdbcRiskActionAuditRepository auditRepository,
             RiskPolicyRedisPublisher redisPublisher,
+            RiskPolicyRedisValueCodec redisValueCodec,
             AgentProperties properties
     ) {
-        this(policyRepository, auditRepository, redisPublisher, properties, Clock.system(SHANGHAI));
+        this(
+                policyRepository,
+                auditRepository,
+                redisPublisher,
+                redisValueCodec,
+                properties,
+                Clock.system(SHANGHAI)
+        );
     }
 
     public RiskPolicyService(
@@ -59,9 +69,28 @@ public class RiskPolicyService {
             AgentProperties properties,
             Clock clock
     ) {
+        this(
+                policyRepository,
+                auditRepository,
+                redisPublisher,
+                new RiskPolicyRedisValueCodec(new ObjectMapper()),
+                properties,
+                clock
+        );
+    }
+
+    public RiskPolicyService(
+            JdbcRiskPolicyRepository policyRepository,
+            JdbcRiskActionAuditRepository auditRepository,
+            RiskPolicyRedisPublisher redisPublisher,
+            RiskPolicyRedisValueCodec redisValueCodec,
+            AgentProperties properties,
+            Clock clock
+    ) {
         this.policyRepository = policyRepository;
         this.auditRepository = auditRepository;
         this.redisPublisher = redisPublisher;
+        this.redisValueCodec = redisValueCodec;
         this.properties = properties;
         this.keyBuilder = new RiskPolicyRedisKeyBuilder(properties.getRisk().getRedis().getKeyPrefix());
         this.clock = clock;
@@ -115,7 +144,12 @@ public class RiskPolicyService {
         if (policy.status() != RiskPolicyStatus.ACTIVE) {
             return policy;
         }
-        if (!redisPublisher.publish(policy)) {
+        String redisValue = redisValueCodec.encode(
+                policy.policyId(),
+                policy.policyVersion(),
+                policy.policyPayloadJson()
+        );
+        if (!redisPublisher.publish(policy.policyKey(), redisValue, policy.expireTime())) {
             RiskPolicy expiredPolicy = policy.withStatus(RiskPolicyStatus.EXPIRED);
             policyRepository.markExpired(policy.policyId(), command.traceId());
             auditRepository.saveActivationAudit(expiredPolicy, command.executor(), command.reason());
@@ -143,7 +177,12 @@ public class RiskPolicyService {
             throw new IllegalStateException("Risk policy is not the active version: " + command.policyId());
         }
         policyRepository.markDisabled(command.policyId(), command.traceId());
-        redisPublisher.revoke(policy);
+        String expectedRedisValue = redisValueCodec.encode(
+                policy.policyId(),
+                policy.policyVersion(),
+                policy.policyPayloadJson()
+        );
+        redisPublisher.compareAndDelete(policy.policyKey(), expectedRedisValue);
         auditRepository.saveDisableAudit(policy, command.executor(), command.reason());
     }
 

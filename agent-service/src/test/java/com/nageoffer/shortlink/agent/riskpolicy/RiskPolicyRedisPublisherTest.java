@@ -1,8 +1,6 @@
 package com.nageoffer.shortlink.agent.riskpolicy;
 
-import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
-import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicySource;
-import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicy;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyDeleteResult;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,32 +8,36 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RiskPolicyRedisPublisherTest {
 
+    private static final String POLICY_KEY = "risk:policy:short-link:rate-limit:nurl.ink:abc123";
+    private static final String REDIS_VALUE = "{\"policyId\":\"policy-001\",\"policyVersion\":1}";
     private static final Clock CLOCK = Clock.fixed(
             Instant.parse("2026-07-10T03:00:00Z"),
             ZoneId.of("Asia/Shanghai")
     );
-    private static final LocalDateTime EFFECTIVE_TIME = LocalDateTime.ofInstant(CLOCK.instant(), CLOCK.getZone());
 
     @Mock
     private StringRedisTemplate stringRedisTemplate;
@@ -51,66 +53,75 @@ class RiskPolicyRedisPublisherTest {
     }
 
     @Test
-    void publishesPolicyWithoutExpireTime() {
+    void publishesValueWithoutExpireTime() {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        RiskPolicy policy = shortLinkPolicy(null);
 
-        assertThat(publisher.publish(policy)).isTrue();
+        assertThat(publisher.publish(POLICY_KEY, REDIS_VALUE, null)).isTrue();
 
-        verify(valueOperations).set(policy.policyKey(), policy.policyPayloadJson());
+        verify(valueOperations).set(POLICY_KEY, REDIS_VALUE);
     }
 
     @Test
-    void publishesPolicyWithPositiveTtlAndSkipsExpiredPolicy() {
+    void publishesValueWithPositiveTtlAndSkipsExpiredValue() {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        RiskPolicy futurePolicy = shortLinkPolicy(LocalDateTime.of(2026, 7, 10, 11, 1));
         ArgumentCaptor<Duration> durationCaptor = ArgumentCaptor.forClass(Duration.class);
 
-        assertThat(publisher.publish(futurePolicy)).isTrue();
+        assertThat(publisher.publish(
+                POLICY_KEY,
+                REDIS_VALUE,
+                LocalDateTime.of(2026, 7, 10, 11, 1)
+        )).isTrue();
 
-        verify(valueOperations).set(
-                eq(futurePolicy.policyKey()),
-                eq(futurePolicy.policyPayloadJson()),
-                durationCaptor.capture()
-        );
+        verify(valueOperations).set(eq(POLICY_KEY), eq(REDIS_VALUE), durationCaptor.capture());
         assertThat(durationCaptor.getValue()).isEqualTo(Duration.ofMinutes(1));
         clearInvocations(valueOperations);
 
-        RiskPolicy expiredPolicy = shortLinkPolicy(LocalDateTime.of(2026, 7, 10, 10, 59));
-        assertThat(publisher.publish(expiredPolicy)).isFalse();
-        verify(valueOperations, never()).set(
-                eq(expiredPolicy.policyKey()),
-                eq(expiredPolicy.policyPayloadJson()),
-                any(Duration.class)
-        );
+        assertThat(publisher.publish(
+                POLICY_KEY,
+                REDIS_VALUE,
+                LocalDateTime.of(2026, 7, 10, 10, 59)
+        )).isFalse();
+        verify(valueOperations, never()).set(eq(POLICY_KEY), eq(REDIS_VALUE), any(Duration.class));
     }
 
     @Test
-    void revokesPolicyByDeletingRedisKey() {
-        RiskPolicy policy = shortLinkPolicy(null);
+    void compareAndDeleteMapsAllLuaResultsWithoutBlindDelete() {
+        when(stringRedisTemplate.execute(
+                any(DefaultRedisScript.class),
+                eq(List.of(POLICY_KEY)),
+                eq(REDIS_VALUE)
+        )).thenReturn(1L, 0L, -1L);
 
-        publisher.revoke(policy);
+        assertThat(publisher.compareAndDelete(POLICY_KEY, REDIS_VALUE))
+                .isEqualTo(RiskPolicyDeleteResult.DELETED);
+        assertThat(publisher.compareAndDelete(POLICY_KEY, REDIS_VALUE))
+                .isEqualTo(RiskPolicyDeleteResult.ALREADY_ABSENT);
+        assertThat(publisher.compareAndDelete(POLICY_KEY, REDIS_VALUE))
+                .isEqualTo(RiskPolicyDeleteResult.VALUE_MISMATCH);
 
-        verify(stringRedisTemplate).delete(policy.policyKey());
-        verifyNoInteractions(valueOperations);
+        verify(stringRedisTemplate, never()).delete(POLICY_KEY);
     }
 
-    private RiskPolicy shortLinkPolicy(LocalDateTime expireTime) {
-        return RiskPolicy.shortLinkPolicy(
-                "policy-001",
-                "risk:policy:short-link:rate-limit:nurl.ink:abc123",
-                "publish:policy-001",
-                1L,
-                RiskPolicyAction.LIMIT_RATE,
-                "gid-001",
-                "nurl.ink",
-                "abc123",
-                "{\"action\":\"LIMIT_RATE\",\"limit\":60,\"windowSeconds\":60}",
-                RiskPolicySource.AGENT_AUTO,
-                "trace-001",
-                "event-001",
-                EFFECTIVE_TIME,
-                expireTime
-        );
+    @Test
+    void rejectsUnexpectedLuaResult() {
+        when(stringRedisTemplate.execute(
+                any(DefaultRedisScript.class),
+                eq(List.of(POLICY_KEY)),
+                eq(REDIS_VALUE)
+        )).thenReturn(2L);
+
+        assertThatThrownBy(() -> publisher.compareAndDelete(POLICY_KEY, REDIS_VALUE))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Unexpected risk policy delete result");
+    }
+
+    @Test
+    void failsFastWhenLuaResourceIsMissing() {
+        assertThatThrownBy(() -> new RiskPolicyRedisPublisher(
+                stringRedisTemplate,
+                CLOCK,
+                new ClassPathResource("lua/missing_risk_policy_script.lua")
+        )).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Risk policy compare-and-delete script is required");
     }
 }

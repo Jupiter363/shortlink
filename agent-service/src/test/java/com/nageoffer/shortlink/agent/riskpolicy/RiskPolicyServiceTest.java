@@ -1,5 +1,6 @@
 package com.nageoffer.shortlink.agent.riskpolicy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskLevel;
 import com.nageoffer.shortlink.agent.riskcommon.model.RiskPolicyAction;
@@ -12,11 +13,13 @@ import com.nageoffer.shortlink.agent.riskpolicy.model.RiskPolicyDisableCommand;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskActionAuditRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.repository.JdbcRiskPolicyRepository;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisPublisher;
+import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyRedisValueCodec;
 import com.nageoffer.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
@@ -26,11 +29,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -74,7 +80,13 @@ class RiskPolicyServiceTest {
         assertThat(persisted.policyVersion()).isEqualTo(1L);
         assertThat(persisted.effectiveTime()).isEqualTo(EFFECTIVE_TIME);
         assertThat(fixture.auditRepository.countByPolicyId("policy-001")).isEqualTo(1);
-        verify(fixture.valueOperations).set(policy.policyKey(), policy.policyPayloadJson());
+        String redisValue = redisValue(policy);
+        verify(fixture.valueOperations).set(policy.policyKey(), redisValue);
+        when(fixture.stringRedisTemplate.execute(
+                any(DefaultRedisScript.class),
+                eq(List.of(policy.policyKey())),
+                eq(redisValue)
+        )).thenReturn(1L);
 
         fixture.service.disablePolicy(new RiskPolicyDisableCommand(
                 "policy-001",
@@ -86,7 +98,12 @@ class RiskPolicyServiceTest {
 
         assertThat(fixture.policyRepository.findByPolicyId("policy-001").get().status()).isEqualTo(RiskPolicyStatus.DISABLED);
         assertThat(fixture.auditRepository.countByPolicyId("policy-001")).isEqualTo(2);
-        verify(fixture.stringRedisTemplate).delete(policy.policyKey());
+        verify(fixture.stringRedisTemplate).execute(
+                any(DefaultRedisScript.class),
+                eq(List.of(policy.policyKey())),
+                eq(redisValue)
+        );
+        verify(fixture.stringRedisTemplate, never()).delete(policy.policyKey());
     }
 
     @Test
@@ -178,7 +195,7 @@ class RiskPolicyServiceTest {
         assertThat(persisted.toString()).doesNotContain(RAW_IP);
         assertThat(persisted.policyVersion()).isEqualTo(1L);
         assertThat(persisted.effectiveTime()).isEqualTo(EFFECTIVE_TIME);
-        verify(fixture.valueOperations).set(policy.policyKey(), policy.policyPayloadJson());
+        verify(fixture.valueOperations).set(policy.policyKey(), redisValue(policy));
     }
 
     @Test
@@ -253,7 +270,7 @@ class RiskPolicyServiceTest {
                 .singleElement()
                 .isEqualTo(first);
         assertThat(fixture.auditRepository.countByPolicyId("policy-auto-stable")).isEqualTo(1);
-        verify(fixture.valueOperations, times(1)).set(first.policyKey(), first.policyPayloadJson());
+        verify(fixture.valueOperations, times(1)).set(first.policyKey(), redisValue(first));
     }
 
     @Test
@@ -293,7 +310,7 @@ class RiskPolicyServiceTest {
 
         assertThat(recovered.policyVersion()).isEqualTo(1L);
         assertThat(fixture.auditRepository.countByPolicyId("policy-recovery")).isEqualTo(1);
-        verify(fixture.valueOperations, times(2)).set(recovered.policyKey(), recovered.policyPayloadJson());
+        verify(fixture.valueOperations, times(2)).set(recovered.policyKey(), redisValue(recovered));
 
         RiskPolicyActivationCommand conflicting = RiskPolicyActivationCommand.shortLink(
                 command.policyId(),
@@ -411,6 +428,14 @@ class RiskPolicyServiceTest {
                 stringRedisTemplate,
                 valueOperations,
                 new RiskPolicyService(policyRepository, auditRepository, publisher, properties, CLOCK)
+        );
+    }
+
+    private String redisValue(RiskPolicy policy) {
+        return new RiskPolicyRedisValueCodec(new ObjectMapper()).encode(
+                policy.policyId(),
+                policy.policyVersion(),
+                policy.policyPayloadJson()
         );
     }
 
