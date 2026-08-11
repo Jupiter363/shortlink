@@ -1,0 +1,13 @@
+{
+  "keys": [
+    {
+      "kty": "EC",
+      "use": "sig",
+      "alg": "ES256",
+      "kid": "agent-signing-example",
+      "crv": "P-256",
+      "x": "20wSoOImx_ews0X4-i9CVXKTTDvQwEyCHne6bB2yENQ",
+      "y": "lR-VNpkJtCakkzNp-oquxe3v5jLr3c84azhdxsYSXVo"
+    }
+  ]
+}

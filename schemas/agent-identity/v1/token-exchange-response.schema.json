@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/token-exchange-response.schema.json",
+  "title": "Agent Token Exchange Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["access_token", "issued_token_type", "token_type", "expires_in", "scope"],
+  "properties": {
+    "access_token": {"type": "string", "minLength": 16, "maxLength": 16384},
+    "issued_token_type": {"const": "urn:ietf:params:oauth:token-type:access_token"},
+    "token_type": {"const": "Bearer"},
+    "expires_in": {"type": "integer", "minimum": 1, "maximum": 120},
+    "scope": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9:_-]+(?: [A-Za-z0-9:_-]+)*$",
+      "maxLength": 1024
+    }
+  }
+}

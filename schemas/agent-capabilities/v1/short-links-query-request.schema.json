@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-capabilities/v1/short-links-query-request.schema.json",
+  "title": "Short Links Query Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["gid", "current", "size", "sort"],
+  "properties": {
+    "gid": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "current": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "sort": {
+      "enum": [
+        "CREATED_AT_DESC",
+        "TODAY_PV_DESC",
+        "TODAY_UV_DESC",
+        "TODAY_UIP_DESC",
+        "TOTAL_PV_DESC",
+        "TOTAL_UV_DESC",
+        "TOTAL_UIP_DESC"
+      ]
+    }
+  }
+}

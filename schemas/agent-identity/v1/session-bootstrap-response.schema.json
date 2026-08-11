@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/session-bootstrap-response.schema.json",
+  "title": "Agent Session Bootstrap Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId", "agentType", "runtimeUrl", "runtimeToken",
+    "runtimeTokenExpiresAt", "sessionExpiresAt", "grantVersion"
+  ],
+  "properties": {
+    "sessionId": {"type": "string", "pattern": "^as-s-[A-Za-z0-9_-]{1,123}$"},
+    "agentType": {"const": "campaign-analysis"},
+    "runtimeUrl": {
+      "type": "string",
+      "pattern": "^/api/short-link/agent-runtime/v1/sessions/as-s-[A-Za-z0-9_-]{1,123}$",
+      "maxLength": 512
+    },
+    "runtimeToken": {"type": "string", "minLength": 16, "maxLength": 16384},
+    "runtimeTokenExpiresAt": {"type": "string", "format": "date-time"},
+    "sessionExpiresAt": {"type": "string", "format": "date-time"},
+    "grantVersion": {"type": "integer", "minimum": 1}
+  }
+}

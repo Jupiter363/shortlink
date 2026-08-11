@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/session-token-refresh-request.schema.json",
+  "title": "Agent Session Token Refresh Request Body v1",
+  "description": "The session ID is a path parameter and actor identity comes only from the authenticated context.",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}

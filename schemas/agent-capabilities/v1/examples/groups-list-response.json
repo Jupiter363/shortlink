@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "trace-1",
+  "snapshot": {
+    "snapshotId": "snap-groups-1",
+    "source": "admin/groups",
+    "observedAt": "2026-07-17T02:00:00Z",
+    "expiresAt": "2026-07-17T02:05:00Z",
+    "contentHash": "sha256:eebc387e17eecf08b328f6213b57adcbb2a7b533aa811a0c4934334176fa6d33"
+  },
+  "data": [
+    {
+      "gid": "g1",
+      "name": "Marketing",
+      "sortOrder": 10,
+      "shortLinkCount": 3
+    },
+    {
+      "gid": "g2",
+      "name": "Product",
+      "sortOrder": 5,
+      "shortLinkCount": 2
+    }
+  ],
+  "warnings": []
+}

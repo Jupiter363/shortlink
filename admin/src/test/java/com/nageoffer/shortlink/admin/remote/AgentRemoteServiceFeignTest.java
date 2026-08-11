@@ -66,6 +66,7 @@ class AgentRemoteServiceFeignTest {
         request.setMessage("analyze campaign");
 
         Result<Object> result = agentRemoteService.chat(
+                "Bearer delegation-token",
                 "internal-token",
                 "trusted-user",
                 "1001",
@@ -76,6 +77,7 @@ class AgentRemoteServiceFeignTest {
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("POST");
         assertThat(SERVER.lastRequest.path()).isEqualTo("/internal/short-link-agent/v1/chat");
+        assertThat(SERVER.lastRequest.header("Authorization")).isEqualTo("Bearer delegation-token");
         assertThat(SERVER.lastRequest.header("X-Agent-Internal-Token")).isEqualTo("internal-token");
         assertThat(SERVER.lastRequest.header("X-Agent-Username")).isEqualTo("trusted-user");
         assertThat(SERVER.lastRequest.header("X-Agent-UserId")).isEqualTo("1001");

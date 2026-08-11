@@ -47,6 +47,26 @@ build/
 ### VS Code ###
 .vscode/
 
+### Python ###
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.conda/
+
+### Local identity material ###
+*.jwk
+*.pem
+*.key
+*.p12
+*.pfx
+agent-runtime/secrets/
+
 ### Codex / local workspace ###
 .codebuddy/
 

@@ -1,5 +1,7 @@
 package com.nageoffer.shortlink.admin.controller;
 
+import com.nageoffer.shortlink.admin.authority.identity.config.AgentIdentityConfiguration;
+import com.nageoffer.shortlink.admin.authority.identity.service.AgentTokenService;
 import com.nageoffer.shortlink.admin.common.biz.user.UserContext;
 import com.nageoffer.shortlink.admin.common.biz.user.UserTransmitFilter;
 import com.nageoffer.shortlink.admin.common.convention.result.Result;
@@ -40,6 +42,7 @@ class AgentControllerMvcTest {
         configuration.setInternalToken("internal-token");
         MockMvc mockMvc = mockMvc(remoteService, configuration);
         when(remoteService.chat(
+                null,
                 "internal-token",
                 "trusted-user",
                 "1001",
@@ -66,6 +69,7 @@ class AgentControllerMvcTest {
 
         ArgumentCaptor<AgentChatReqDTO> requestCaptor = ArgumentCaptor.forClass(AgentChatReqDTO.class);
         verify(remoteService).chat(
+                eq(null),
                 eq("internal-token"),
                 eq("trusted-user"),
                 eq("1001"),
@@ -99,7 +103,12 @@ class AgentControllerMvcTest {
 
     private MockMvc mockMvc(AgentRemoteService remoteService, AgentAdminConfiguration configuration) {
         return MockMvcBuilders
-                .standaloneSetup(new AgentController(remoteService, configuration))
+                .standaloneSetup(new AgentController(
+                        remoteService,
+                        configuration,
+                        new AgentIdentityConfiguration(),
+                        mock(AgentTokenService.class)
+                ))
                 .addFilters(new UserTransmitFilter())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();

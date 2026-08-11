@@ -12,8 +12,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public interface AgentRemoteService {
 
     @PostMapping("/internal/short-link-agent/v1/chat")
-    Result<Object> chat(@RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
-                        @RequestHeader(value = "X-Agent-Username") String username,
+    Result<Object> chat(@RequestHeader(value = "Authorization", required = false) String authorization,
+                        @RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
+                        @RequestHeader(value = "X-Agent-Username", required = false) String username,
                         @RequestHeader(value = "X-Agent-UserId", required = false) String userId,
                         @RequestHeader(value = "X-Agent-RealName", required = false) String realName,
                         @RequestBody AgentChatReqDTO requestParam);

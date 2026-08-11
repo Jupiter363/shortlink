@@ -121,6 +121,24 @@ class AgentInternalToolApiFilterTest {
         assertThat(UserContext.getUsername()).isNull();
     }
 
+    @Test
+    void protectsVersionedAgentCapabilityRoutes() throws Exception {
+        AgentInternalToolApiFilter filter = filter("internal-token");
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "POST",
+                "/internal/short-link-admin/v1/agent-capabilities/v1/group-stats/query"
+        );
+        request.addHeader("X-Agent-Username", "zhangsan");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean chainCalled = new AtomicBoolean(false);
+
+        filter.doFilter(request, response, chain((req, resp) -> chainCalled.set(true)));
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chainCalled).isFalse();
+        assertThat(UserContext.getUsername()).isNull();
+    }
+
     private AgentInternalToolApiFilter filter(String internalToken) {
         return filter(internalToken, false);
     }

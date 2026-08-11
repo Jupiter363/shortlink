@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/agent-session-revoked-v1.schema.json",
+  "title": "agent.session.revoked.v1 Event",
+  "description": "A privacy-minimized authority event. It must never contain a token, owner identity, scope, client context, prompt, message, or business payload.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId", "eventType", "occurredAt", "tenantId", "sessionId",
+    "grantVersion", "status", "reasonCode", "revokedAt"
+  ],
+  "properties": {
+    "eventId": {"type": "string", "pattern": "^ase-[A-Za-z0-9_-]{1,128}$"},
+    "eventType": {"const": "agent.session.revoked.v1"},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "sessionId": {"type": "string", "pattern": "^as-s-[A-Za-z0-9_-]{1,123}$"},
+    "tenantId": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+    "grantVersion": {"type": "integer", "minimum": 1},
+    "status": {"const": "REVOKED"},
+    "reasonCode": {
+      "enum": ["USER_CLOSED", "ADMIN_REVOKED", "SESSION_EXPIRED", "SECURITY_RESPONSE"]
+    },
+    "revokedAt": {"type": "string", "format": "date-time"}
+  }
+}

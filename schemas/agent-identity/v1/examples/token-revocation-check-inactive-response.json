@@ -1,0 +1,8 @@
+{
+  "active": false,
+  "sessionId": "as-s-example-1",
+  "grantVersion": 1,
+  "tokenId": "adt-example-1",
+  "checkedAt": "2026-07-17T02:05:30Z",
+  "reasonCode": "TOKEN_REVOKED"
+}

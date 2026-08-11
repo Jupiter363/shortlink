@@ -1,0 +1,7 @@
+{
+  "access_token": "eyJ.test-authority-token.signature",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 120,
+  "scope": "capability:stats:read"
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/jwks.schema.json",
+  "title": "Agent Identity JWKS v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["keys"],
+  "properties": {
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kty", "use", "alg", "kid", "crv", "x", "y"],
+        "properties": {
+          "kty": {"const": "EC"},
+          "use": {"const": "sig"},
+          "alg": {"const": "ES256"},
+          "kid": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+          "crv": {"const": "P-256"},
+          "x": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"},
+          "y": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"}
+        }
+      }
+    }
+  }
+}

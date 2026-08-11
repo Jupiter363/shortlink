@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/session-bootstrap-request.schema.json",
+  "title": "Agent Session Bootstrap Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["agentType", "clientContext"],
+  "properties": {
+    "agentType": {"const": "campaign-analysis"},
+    "clientContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locale", "timezone"],
+      "properties": {
+        "locale": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$",
+          "maxLength": 35
+        },
+        "timezone": {
+          "type": "string",
+          "pattern": "^[A-Za-z_+-]+(?:/[A-Za-z0-9_+.-]+)+$",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

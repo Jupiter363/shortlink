@@ -1,5 +1,8 @@
 package com.nageoffer.shortlink.admin.config;
 
+import com.nageoffer.shortlink.admin.authority.identity.config.AgentIdentityConfiguration;
+import com.nageoffer.shortlink.admin.authority.identity.service.AgentSessionLifecycleService;
+import com.nageoffer.shortlink.admin.authority.identity.service.AgentTokenService;
 import com.nageoffer.shortlink.admin.common.biz.agent.AgentInternalToolApiFilter;
 import com.nageoffer.shortlink.admin.common.biz.user.UserFlowRiskControlFilter;
 import com.nageoffer.shortlink.admin.common.biz.user.UserTransmitFilter;
@@ -8,6 +11,8 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
+
+import java.time.Clock;
 
 @Configuration
 public class UserConfiguration {
@@ -23,12 +28,33 @@ public class UserConfiguration {
 
     @Bean
     public FilterRegistrationBean<AgentInternalToolApiFilter> agentInternalToolApiFilter(
-            AgentAdminConfiguration agentAdminConfiguration) {
+            AgentAdminConfiguration agentAdminConfiguration,
+            AgentIdentityConfiguration agentIdentityConfiguration,
+            AgentTokenService agentTokenService,
+            AgentSessionLifecycleService sessionLifecycleService) {
         FilterRegistrationBean<AgentInternalToolApiFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new AgentInternalToolApiFilter(agentAdminConfiguration));
-        registration.addUrlPatterns("/internal/short-link-admin/v1/agent-tools/*");
+        registration.setFilter(new AgentInternalToolApiFilter(
+                agentAdminConfiguration,
+                agentIdentityConfiguration,
+                agentTokenService,
+                sessionLifecycleService
+        ));
+        registration.addUrlPatterns(
+                "/internal/short-link-admin/v1/agent-tools/*",
+                "/internal/short-link-admin/v1/agent-capabilities/*"
+        );
         registration.setOrder(1);
         return registration;
+    }
+
+    @Bean("agentCapabilityClock")
+    public Clock agentCapabilityClock() {
+        return Clock.systemUTC();
+    }
+
+    @Bean("agentIdentityClock")
+    public Clock agentIdentityClock() {
+        return Clock.systemUTC();
     }
 
     @Bean

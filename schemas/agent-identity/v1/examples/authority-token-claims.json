@@ -1,0 +1,17 @@
+{
+  "iss": "shortlink-admin",
+  "aud": "shortlink-authority",
+  "sub": "1001",
+  "tid": "tenant-default",
+  "sid": "session-1",
+  "scp": ["capability:stats:read"],
+  "ctx_ver": 1,
+  "grant_ver": 1,
+  "jti": "aat-example-1",
+  "iat": 1784253600,
+  "nbf": 1784253600,
+  "exp": 1784253720,
+  "preferred_username": "trusted-user",
+  "act": {"sub": "shortlink-agent-runtime"},
+  "parent_jti": "adt-example-1"
+}

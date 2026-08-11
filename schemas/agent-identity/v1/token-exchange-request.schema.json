@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/token-exchange-request.schema.json",
+  "title": "Agent Token Exchange Form v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["grant_type", "subject_token", "subject_token_type", "audience", "scope"],
+  "properties": {
+    "grant_type": {"const": "urn:ietf:params:oauth:grant-type:token-exchange"},
+    "subject_token": {"type": "string", "minLength": 16, "maxLength": 16384},
+    "subject_token_type": {"const": "urn:ietf:params:oauth:token-type:jwt"},
+    "audience": {"const": "shortlink-authority"},
+    "scope": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9:_-]+(?: [A-Za-z0-9:_-]+)*$",
+      "maxLength": 1024
+    }
+  }
+}

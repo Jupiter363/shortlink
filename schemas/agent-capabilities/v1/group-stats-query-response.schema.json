@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-capabilities/v1/group-stats-query-response.schema.json",
+  "title": "Group Stats Query Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requestId", "snapshot", "data", "warnings"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshotId", "source", "observedAt", "expiresAt", "contentHash"],
+      "properties": {
+        "snapshotId": {
+          "type": "string",
+          "pattern": "^snap-[A-Za-z0-9_-]{1,128}$"
+        },
+        "source": {
+          "const": "admin/group-stats"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gid", "pv", "uv", "uip"],
+      "properties": {
+        "gid": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "pv": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uv": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uip": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    }
+  }
+}

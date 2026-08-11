@@ -1,0 +1,49 @@
+package com.nageoffer.shortlink.admin.authority.capability.model;
+
+import java.time.Instant;
+import java.util.List;
+
+public record ShortLinksQueryResponse(
+        String schemaVersion,
+        String requestId,
+        Snapshot snapshot,
+        Data data,
+        List<String> warnings
+) {
+
+    public record Snapshot(
+            String snapshotId,
+            String source,
+            Instant observedAt,
+            Instant expiresAt,
+            String contentHash
+    ) {
+    }
+
+    public record Data(
+            String gid,
+            long current,
+            long size,
+            long total,
+            long pages,
+            boolean hasNext,
+            String sort,
+            List<ShortLink> records
+    ) {
+    }
+
+    public record ShortLink(
+            String fullShortUrl,
+            String describe,
+            String validity,
+            Instant expiresAt,
+            Instant createdAt,
+            int todayPv,
+            int todayUv,
+            int todayUip,
+            int totalPv,
+            int totalUv,
+            int totalUip
+    ) {
+    }
+}

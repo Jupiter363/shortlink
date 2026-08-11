@@ -1,0 +1,11 @@
+{
+  "eventId": "ase-example-1",
+  "eventType": "agent.session.revoked.v1",
+  "occurredAt": "2026-07-17T02:06:00Z",
+  "tenantId": "tenant-default",
+  "sessionId": "as-s-example-1",
+  "grantVersion": 3,
+  "status": "REVOKED",
+  "reasonCode": "USER_CLOSED",
+  "revokedAt": "2026-07-17T02:06:00Z"
+}

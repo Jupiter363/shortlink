@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/authority-token-claims.schema.json",
+  "title": "Agent Authority Token Claims v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "iss", "aud", "sub", "tid", "sid", "scp", "ctx_ver", "grant_ver",
+    "jti", "iat", "nbf", "exp", "preferred_username", "act", "parent_jti"
+  ],
+  "properties": {
+    "iss": {"const": "shortlink-admin"},
+    "aud": {"const": "shortlink-authority"},
+    "sub": {"type": "string", "minLength": 1, "maxLength": 256},
+    "tid": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+    "sid": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"},
+    "scp": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "ctx_ver": {"const": 1},
+    "grant_ver": {"type": "integer", "minimum": 1},
+    "jti": {"type": "string", "pattern": "^aat-[A-Za-z0-9_-]{1,128}$"},
+    "iat": {"type": "integer", "minimum": 0},
+    "nbf": {"type": "integer", "minimum": 0},
+    "exp": {"type": "integer", "minimum": 1},
+    "preferred_username": {"type": "string", "minLength": 1, "maxLength": 128},
+    "act": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sub"],
+      "properties": {"sub": {"const": "shortlink-agent-runtime"}}
+    },
+    "parent_jti": {"type": "string", "pattern": "^adt-[A-Za-z0-9_-]{1,128}$"}
+  }
+}

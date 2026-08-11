@@ -1,0 +1,9 @@
+{
+  "sessionId": "as-s-example-1",
+  "agentType": "campaign-analysis",
+  "runtimeUrl": "/api/short-link/agent-runtime/v1/sessions/as-s-example-1",
+  "runtimeToken": "eyJ.example-refreshed-token.signature",
+  "runtimeTokenExpiresAt": "2026-07-17T02:09:00Z",
+  "sessionExpiresAt": "2026-07-17T10:00:00Z",
+  "grantVersion": 2
+}

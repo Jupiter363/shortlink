@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-identity/v1/token-revocation-check-request.schema.json",
+  "title": "Agent Token Revocation Check Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sessionId", "grantVersion", "tokenId"],
+  "properties": {
+    "sessionId": {"type": "string", "pattern": "^as-s-[A-Za-z0-9_-]{1,123}$"},
+    "grantVersion": {"type": "integer", "minimum": 1},
+    "tokenId": {"type": "string", "pattern": "^adt-[A-Za-z0-9_-]{1,128}$"}
+  }
+}

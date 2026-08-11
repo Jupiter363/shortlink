@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.shortlink.example/agent-capabilities/v1/groups-list-request.schema.json",
+  "title": "Groups List Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}
