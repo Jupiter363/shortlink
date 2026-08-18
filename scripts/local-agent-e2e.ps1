@@ -138,7 +138,7 @@ function Build-ProjectClasspathArgfile {
     $lines = @(
         "-cp",
         $classpath,
-        "com.nageoffer.shortlink.project.ShortLinkApplication",
+        "com.jupiter.shortlink.project.ShortLinkApplication",
         "--spring.cloud.nacos.discovery.enabled=false",
         "--spring.data.redis.host=127.0.0.1",
         "--spring.data.redis.port=6379"

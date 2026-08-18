@@ -29,24 +29,24 @@
 
 **Files:**
 
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/model/RiskEvent.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/model/RiskSnapshot.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/model/RiskReview.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/repository/JdbcRiskEventRepository.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/repository/JdbcRiskSnapshotRepository.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/repository/JdbcRiskReviewRepository.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/service/RiskCenterService.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/RiskCenterInternalController.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskGroupOverviewRespDTO.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskShortLinkCardRespDTO.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskShortLinkDetailRespDTO.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskEventQueryReqDTO.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskEventRespDTO.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskReviewReqDTO.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskReviewRespDTO.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcenter/RiskCenterRepositoryTest.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/model/RiskEvent.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/model/RiskSnapshot.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/model/RiskReview.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/repository/JdbcRiskEventRepository.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/repository/JdbcRiskSnapshotRepository.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/repository/JdbcRiskReviewRepository.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/service/RiskCenterService.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/RiskCenterInternalController.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskGroupOverviewRespDTO.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskShortLinkCardRespDTO.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskShortLinkDetailRespDTO.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskEventQueryReqDTO.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskEventRespDTO.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskReviewReqDTO.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskReviewRespDTO.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskcenter/RiskCenterRepositoryTest.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java`
 
 - [ ] **Step 1: 写 repository 失败测试**
 
@@ -134,7 +134,7 @@ Expected: PASS。
 - [ ] **Step 7: 提交并推送**
 
 ```bash
-git add agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcenter
+git add agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter agent-service/src/test/java/com/jupiter/shortlink/agent/riskcenter
 git commit -m "feat: add risk center query and review api"
 git push
 ```
@@ -143,16 +143,16 @@ git push
 
 **Files:**
 
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutor.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/node/ProfileCandidateLoadNode.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/node/RiskEventPersistNode.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/node/RiskAutoActionNode.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/model/ProfileRiskAnalysisContext.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/prompt/SecurityRiskPromptBuilder.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent/node/ProfileCandidateLoadNodeTest.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent/node/RiskEventPersistNodeTest.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent/node/RiskAutoActionNodeTest.java`
-- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutorTest.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutor.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/node/ProfileCandidateLoadNode.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/node/RiskEventPersistNode.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/node/RiskAutoActionNode.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/model/ProfileRiskAnalysisContext.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/prompt/SecurityRiskPromptBuilder.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent/node/ProfileCandidateLoadNodeTest.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent/node/RiskEventPersistNodeTest.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent/node/RiskAutoActionNodeTest.java`
+- Modify: `agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutorTest.java`
 
 - [x] **Step 1: 写画像加载节点失败测试**
 
@@ -247,7 +247,7 @@ Expected: PASS。
 Run:
 
 ```bash
-rg -n "rawIp|ipAddress|visitorId|access_records\\.rows|access_records\\.rawData|sk-[A-Za-z0-9]{16,}" agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent
+rg -n "rawIp|ipAddress|visitorId|access_records\\.rows|access_records\\.rawData|sk-[A-Za-z0-9]{16,}" agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent
 ```
 
 Expected: no output。
@@ -255,7 +255,7 @@ Expected: no output。
 - [x] **Step 9: 提交并推送**
 
 ```bash
-git add agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent
+git add agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent
 git commit -m "feat: let security risk agent consume risk profiles"
 git push
 ```
@@ -267,7 +267,7 @@ Run:
 
 ```bash
 mvn -pl agent-service "-Dtest=RiskCenterRepositoryTest,RiskCenterInternalControllerTest,ProfileCandidateLoadNodeTest,RiskEventPersistNodeTest,RiskAutoActionNodeTest,DefaultSecurityRiskGraphExecutorTest" test
-rg -n "rawIp|ipAddress|visitorId|access_records\\.rows|access_records\\.rawData|sk-[A-Za-z0-9]{16,}" agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent
+rg -n "rawIp|ipAddress|visitorId|access_records\\.rows|access_records\\.rawData|sk-[A-Za-z0-9]{16,}" agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent
 git diff --check
 ```
 

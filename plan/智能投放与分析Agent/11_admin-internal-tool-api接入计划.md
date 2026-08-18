@@ -150,9 +150,9 @@ plan/智能投放与分析Agent/00_计划文档索引.md
 **Files:**
 
 ```text
-admin/src/test/java/com/nageoffer/shortlink/admin/common/biz/agent/AgentInternalToolApiFilterTest.java
-admin/src/main/java/com/nageoffer/shortlink/admin/common/biz/agent/AgentInternalToolApiFilter.java
-admin/src/main/java/com/nageoffer/shortlink/admin/config/UserConfiguration.java
+admin/src/test/java/com/jupiter/shortlink/admin/common/biz/agent/AgentInternalToolApiFilterTest.java
+admin/src/main/java/com/jupiter/shortlink/admin/common/biz/agent/AgentInternalToolApiFilter.java
+admin/src/main/java/com/jupiter/shortlink/admin/config/UserConfiguration.java
 ```
 
 **TDD acceptance:**
@@ -171,8 +171,8 @@ X-Agent-Username 存在时写入 UserContext，并在 filter finally 中清理�
 **Files:**
 
 ```text
-admin/src/test/java/com/nageoffer/shortlink/admin/controller/AgentToolInternalControllerTest.java
-admin/src/main/java/com/nageoffer/shortlink/admin/controller/AgentToolInternalController.java
+admin/src/test/java/com/jupiter/shortlink/admin/controller/AgentToolInternalControllerTest.java
+admin/src/main/java/com/jupiter/shortlink/admin/controller/AgentToolInternalController.java
 ```
 
 **TDD acceptance:**
@@ -191,10 +191,10 @@ controller 不读取普通 username header，也不自行创建 UserContext。
 **Files:**
 
 ```text
-agent-service/src/test/java/com/nageoffer/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGatewayTest.java
-agent-service/src/test/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentPropertiesTest.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGatewayTest.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/infrastructure/config/AgentPropertiesTest.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentProperties.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java
 ```
 
 **TDD acceptance:**
@@ -214,12 +214,12 @@ ToolContext.username 非空时请求携带 X-Agent-Username；
 **Files:**
 
 ```text
-agent-service/src/test/java/com/nageoffer/shortlink/agent/tool/shortlink/ShortLinkBusinessToolsTest.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/shortlink/ListGroupsTool.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/shortlink/PageShortLinksTool.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/shortlink/GetShortLinkStatsTool.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/shortlink/GetGroupStatsTool.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/shortlink/GetGroupAccessRecordsTool.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/tool/shortlink/ShortLinkBusinessToolsTest.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/tool/shortlink/ListGroupsTool.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/tool/shortlink/PageShortLinksTool.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/tool/shortlink/GetShortLinkStatsTool.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/tool/shortlink/GetGroupStatsTool.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/tool/shortlink/GetGroupAccessRecordsTool.java
 ```
 
 **TDD acceptance:**
@@ -269,7 +269,7 @@ git diff --check
 提交前安全检查：
 
 ```powershell
-git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-nageoffer|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
+git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-jupiter|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
 rg -n "sk-[A-Za-z0-9]{16,}|DEEPSEEK_API_KEY\\s*[:=]\\s*sk-|AGENT_INTERNAL_TOKEN\\s*[:=]\\s*[A-Za-z0-9_-]{16,}|X-Agent-Internal-Token\\s*[:=]\\s*[A-Za-z0-9_-]{16,}" admin agent-service plan .gitignore pom.xml
 ```
 

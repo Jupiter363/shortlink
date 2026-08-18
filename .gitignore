@@ -51,8 +51,8 @@ build/
 .codebuddy/
 
 ### Local bundled binaries ###
-nginx-nageoffer-1.25.4/
-nginx-nageoffer-1.25.4.zip
+nginx-jupiter-1.25.4/
+nginx-jupiter-1.25.4.zip
 __MACOSX/
 
 ### Mac OS ###

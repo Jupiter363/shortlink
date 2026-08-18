@@ -33,7 +33,7 @@ chat 请求体只包含 sessionId、agentType、message，不包含 username；
 ### Out of Scope
 
 ```text
-不修改 nginx-nageoffer-1.25.4/ ignored 运行目录；
+不修改 nginx-jupiter-1.25.4/ ignored 运行目录；
 不修改压缩后的 dist-link JS；
 不新增 Gateway/Nacos 路由配置；
 不新增后端业务 API；

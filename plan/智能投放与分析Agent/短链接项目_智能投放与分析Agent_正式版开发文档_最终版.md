@@ -1,4 +1,4 @@
-﻿# 短链接项目：智能投放与分析 Agent 正式版开发文档（最终版）
+# 短链接项目：智能投放与分析 Agent 正式版开发文档（最终版）
 
 > 文档性质：第一阶段开发执行契约、模块拆分、接口与测试基线  
 > 适用对象：后续 Codex 开发、接口联调、测试、验收和阶段复盘  
@@ -107,7 +107,7 @@ WebFlux/SSE 可选，用于流式节点进度。
 ```text
 agent-service/
   pom.xml
-  src/main/java/com/nageoffer/shortlink/agent/
+  src/main/java/com/jupiter/shortlink/agent/
     ShortLinkAgentApplication.java
     agent/
       graph/
@@ -171,7 +171,7 @@ admin 侧复用 UserContext，检查用户拥有的 gid；
 agent-service 建议包结构：
 
 ```text
-agent-service/src/main/java/com/nageoffer/shortlink/agent/
+agent-service/src/main/java/com/jupiter/shortlink/agent/
   tool/
     core/
     registry/
@@ -191,7 +191,7 @@ agent-service/src/main/java/com/nageoffer/shortlink/agent/
 admin 侧只补充必要 internal API：
 
 ```text
-admin/src/main/java/com/nageoffer/shortlink/admin/agent/
+admin/src/main/java/com/jupiter/shortlink/admin/agent/
   controller/
     AgentInternalApiController.java
     AgentPendingActionController.java
@@ -1057,10 +1057,10 @@ Agent Console 可打开并调用 mock chat；
 涉及文件：
 
 ```text
-agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/**
-agent-service/src/main/java/com/nageoffer/shortlink/agent/business/**
-agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/client/**
-admin/src/main/java/com/nageoffer/shortlink/admin/agent/**
+agent-service/src/main/java/com/jupiter/shortlink/agent/tool/**
+agent-service/src/main/java/com/jupiter/shortlink/agent/business/**
+agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/client/**
+admin/src/main/java/com/jupiter/shortlink/admin/agent/**
 admin/src/main/resources/application.yaml
 ```
 

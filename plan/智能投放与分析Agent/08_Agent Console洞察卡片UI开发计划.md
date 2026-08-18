@@ -20,7 +20,7 @@ toolCalls、dataSources 和完整响应退居折叠的 Sanitized data 调试区�
 
 ```text
 agent-service/src/main/resources/static/agent-console/index.html
-agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/api/AgentConsoleStaticResourceTest.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/harness/api/AgentConsoleStaticResourceTest.java
 plan/智能投放与分析Agent/08_Agent Console洞察卡片UI开发计划.md
 正式版开发文档
 正式版验收清单

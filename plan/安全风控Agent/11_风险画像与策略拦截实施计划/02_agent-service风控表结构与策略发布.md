@@ -28,23 +28,23 @@
 **Files:**
 
 - Modify: `agent-service/src/main/resources/sql/agent_service_schema.sql`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentProperties.java`
 - Modify: `agent-service/src/main/resources/application.yaml`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskLevel.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskTargetType.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskReasonCode.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskPolicyAction.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskPolicyStatus.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskReviewAction.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskWatchStatus.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskPolicySource.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/model/RiskEventSource.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/json/RiskJsonCodec.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/safety/RiskHashService.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/safety/RiskSensitiveDataGuard.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon/redis/RiskPolicyRedisKeyBuilder.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcommon/RiskCommonModelTest.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentRiskPropertiesTest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskLevel.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskTargetType.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskReasonCode.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskPolicyAction.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskPolicyStatus.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskReviewAction.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskWatchStatus.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskPolicySource.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/model/RiskEventSource.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/json/RiskJsonCodec.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/safety/RiskHashService.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/safety/RiskSensitiveDataGuard.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon/redis/RiskPolicyRedisKeyBuilder.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskcommon/RiskCommonModelTest.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/infrastructure/config/AgentRiskPropertiesTest.java`
 
 - [ ] **Step 1: 写 schema 可执行测试**
 
@@ -378,7 +378,7 @@ Expected: no output。
 - [ ] **Step 9: 提交并推送**
 
 ```bash
-git add agent-service/src/main/resources/sql/agent_service_schema.sql agent-service/src/main/resources/application.yaml agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcommon agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcommon agent-service/src/test/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentRiskPropertiesTest.java
+git add agent-service/src/main/resources/sql/agent_service_schema.sql agent-service/src/main/resources/application.yaml agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentProperties.java agent-service/src/main/java/com/jupiter/shortlink/agent/riskcommon agent-service/src/test/java/com/jupiter/shortlink/agent/riskcommon agent-service/src/test/java/com/jupiter/shortlink/agent/infrastructure/config/AgentRiskPropertiesTest.java
 git commit -m "feat: add risk schema and common models"
 git push
 ```
@@ -387,16 +387,16 @@ git push
 
 **Files:**
 
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicy.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicyActivationCommand.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicyPayload.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/repository/JdbcRiskPolicyRepository.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/repository/JdbcRiskActionAuditRepository.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/service/RiskPolicyService.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/service/RiskPolicyRedisPublisher.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskpolicy/RiskPolicyRepositoryTest.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/model/RiskPolicy.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/model/RiskPolicyActivationCommand.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/model/RiskPolicyPayload.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/repository/JdbcRiskPolicyRepository.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/repository/JdbcRiskActionAuditRepository.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/service/RiskPolicyService.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/service/RiskPolicyRedisPublisher.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskpolicy/RiskPolicyRepositoryTest.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java`
 
 - [ ] **Step 1: 写 repository 失败测试**
 
@@ -525,7 +525,7 @@ Expected: PASS。
 - [ ] **Step 8: 提交并推送**
 
 ```bash
-git add agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy agent-service/src/test/java/com/nageoffer/shortlink/agent/riskpolicy
+git add agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy agent-service/src/test/java/com/jupiter/shortlink/agent/riskpolicy
 git commit -m "feat: add risk policy persistence and redis publisher"
 git push
 ```

@@ -4,13 +4,13 @@
 
 **Files:**
 
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/model/StructuredRiskExplanation.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/llm/RiskExplanationParser.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/prompt/SecurityRiskPromptBuilder.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/node/RiskLlmExplanationNode.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/node/RiskEventPersistNode.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskprofile/repository/JdbcGroupRiskProfileRepository.java`
-- Test: `agent-service/src/test/java/com/nageoffer/shortlink/agent/securityriskagent/llm/RiskExplanationParserTest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/model/StructuredRiskExplanation.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/llm/RiskExplanationParser.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/prompt/SecurityRiskPromptBuilder.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/node/RiskLlmExplanationNode.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/node/RiskEventPersistNode.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskprofile/repository/JdbcGroupRiskProfileRepository.java`
+- Test: `agent-service/src/test/java/com/jupiter/shortlink/agent/securityriskagent/llm/RiskExplanationParserTest.java`
 - Modify node and Graph tests.
 
 - [ ] 测试 JSON 结构化输出映射到 group 和 targetKey。
@@ -22,14 +22,14 @@
 
 **Files:**
 
-- Create package: `agent-service/src/main/java/com/nageoffer/shortlink/agent/campaignanalysisagent/planner`
+- Create package: `agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planner`
 - Create: `CampaignIntent.java`
 - Create: `CampaignPlan.java`
 - Create: `CampaignSlotPolicy.java`
 - Create: `DeterministicCampaignPlanner.java`
 - Create: `LlmCampaignPlanner.java`
 - Create: `CampaignPlanValidator.java`
-- Test package: `agent-service/src/test/java/com/nageoffer/shortlink/agent/campaignanalysisagent/planner`
+- Test package: `agent-service/src/test/java/com/jupiter/shortlink/agent/campaignanalysisagent/planner`
 
 - [ ] 测试中文自然语言和显式 key-value。
 - [ ] 测试缺 gid/日期返回 clarification slots。
@@ -41,12 +41,12 @@
 
 **Files:**
 
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/campaignanalysisagent/action/CampaignShortLinkActionFactory.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/campaignanalysisagent/action/CampaignShortLinkActionExecutor.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/business/shortlink/ShortLinkBusinessGateway.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java`
-- Modify: `admin/src/main/java/com/nageoffer/shortlink/admin/controller/AgentToolInternalController.java`
-- Modify: `admin/src/main/java/com/nageoffer/shortlink/admin/service/AgentToolInternalService.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/action/CampaignShortLinkActionFactory.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/action/CampaignShortLinkActionExecutor.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/business/shortlink/ShortLinkBusinessGateway.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java`
+- Modify: `admin/src/main/java/com/jupiter/shortlink/admin/controller/AgentToolInternalController.java`
+- Modify: `admin/src/main/java/com/jupiter/shortlink/admin/service/AgentToolInternalService.java`
 - Test action factory/executor and admin internal controller.
 
 - [ ] 测试完整创建参数生成 pending action。
@@ -59,7 +59,7 @@
 
 **Files:**
 
-- Create package: `agent-service/src/main/java/com/nageoffer/shortlink/agent/campaignanalysisagent/node`
+- Create package: `agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/node`
 - Create: `CampaignIntakeNode.java`
 - Create: `CampaignPlanningNode.java`
 - Create: `CampaignToolExecutionNode.java`

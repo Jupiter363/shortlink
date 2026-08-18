@@ -4,12 +4,12 @@
 
 **Files:**
 
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/api/AgentChatController.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/runtime/AgentRunRequest.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/session/AgentThreadKeyFactory.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java`
-- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/api/AgentChatControllerTest.java`
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/session/AgentThreadKeyFactoryTest.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/harness/api/AgentChatController.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/harness/runtime/AgentRunRequest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/harness/session/AgentThreadKeyFactory.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentProperties.java`
+- Modify: `agent-service/src/test/java/com/jupiter/shortlink/agent/harness/api/AgentChatControllerTest.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/harness/session/AgentThreadKeyFactoryTest.java`
 
 - [ ] 测试空 session/message/agentType 返回 400。
 - [ ] 测试长度和字符集限制。
@@ -20,13 +20,13 @@
 
 **Files:**
 
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/GraphSaverConfiguration.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/checkpoint/AgentConversationMemoryService.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/campaignanalysisagent/graph/DefaultCampaignAnalysisGraphExecutor.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutor.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/persistence/JdbcGraphCheckpointStore.java`
-- Test: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/checkpoint/GraphNativeCheckpointTest.java`
-- Test: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/checkpoint/AgentConversationMemoryServiceTest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/GraphSaverConfiguration.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/harness/checkpoint/AgentConversationMemoryService.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/graph/DefaultCampaignAnalysisGraphExecutor.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutor.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/persistence/JdbcGraphCheckpointStore.java`
+- Test: `agent-service/src/test/java/com/jupiter/shortlink/agent/harness/checkpoint/GraphNativeCheckpointTest.java`
+- Test: `agent-service/src/test/java/com/jupiter/shortlink/agent/harness/checkpoint/AgentConversationMemoryServiceTest.java`
 
 - [ ] 测试 CompileConfig 注册 Saver。
 - [ ] 测试同 threadKey 可以读取状态历史。
@@ -37,12 +37,12 @@
 
 **Files:**
 
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/security/AgentSensitiveDataSanitizer.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/safety/SecurityRiskSanitizer.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/campaignanalysisagent/graph/CampaignInsightCardFactory.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/campaignanalysisagent/graph/DefaultCampaignAnalysisGraphExecutor.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java`
-- Test: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/security/AgentSensitiveDataSanitizerTest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/harness/security/AgentSensitiveDataSanitizer.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/safety/SecurityRiskSanitizer.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/graph/CampaignInsightCardFactory.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/graph/DefaultCampaignAnalysisGraphExecutor.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java`
+- Test: `agent-service/src/test/java/com/jupiter/shortlink/agent/harness/security/AgentSensitiveDataSanitizerTest.java`
 - Modify Campaign/Security Graph tests.
 
 - [ ] 测试字段名、文本密钥、Bearer、JDBC URL、IP、visitor 和 user 脱敏。
@@ -52,13 +52,13 @@
 
 **Files:**
 
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentBusinessHttpConfiguration.java`
-- Create: `agent-service/src/main/java/com/nageoffer/shortlink/agent/business/http/AgentBusinessHttpExecutor.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskprofile/source/ShortLinkBusinessRiskStatsGateway.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/shortlink/PageShortLinksTool.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/tool/shortlink/GetGroupAccessRecordsTool.java`
-- Test: `agent-service/src/test/java/com/nageoffer/shortlink/agent/business/http/AgentBusinessHttpExecutorTest.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentBusinessHttpConfiguration.java`
+- Create: `agent-service/src/main/java/com/jupiter/shortlink/agent/business/http/AgentBusinessHttpExecutor.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/business/shortlink/ShortLinkBusinessHttpGateway.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskprofile/source/ShortLinkBusinessRiskStatsGateway.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/tool/shortlink/PageShortLinksTool.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/tool/shortlink/GetGroupAccessRecordsTool.java`
+- Test: `agent-service/src/test/java/com/jupiter/shortlink/agent/business/http/AgentBusinessHttpExecutorTest.java`
 
 - [ ] 测试 connect/read timeout 配置。
 - [ ] 测试 GET 最多重试两次。
@@ -71,13 +71,13 @@
 **Files:**
 
 - Modify: `agent-service/pom.xml`
-- Create package: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/observation`
+- Create package: `agent-service/src/main/java/com/jupiter/shortlink/agent/harness/observation`
 - Create: `AgentRunObservationService.java`
 - Create: `AgentRunLog.java`
 - Create: `JdbcAgentRunLogRepository.java`
 - Modify: `agent-service/src/main/resources/sql/agent_service_schema.sql`
 - Modify both LLM nodes and Graph executors.
-- Test: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/observation/AgentRunObservationServiceTest.java`
+- Test: `agent-service/src/test/java/com/jupiter/shortlink/agent/harness/observation/AgentRunObservationServiceTest.java`
 
 - [ ] 测试 DeepSeek usage 进入 dataSources、checkpoint 和 run log。
 - [ ] 测试成功/失败运行记录 duration、tool count 和 warning count。

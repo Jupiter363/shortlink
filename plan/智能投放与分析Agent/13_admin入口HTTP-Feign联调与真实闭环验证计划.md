@@ -57,7 +57,7 @@ DeepSeek V4 Flash
 新增：
 
 ```text
-admin/src/test/java/com/nageoffer/shortlink/admin/controller/AgentControllerMvcTest.java
+admin/src/test/java/com/jupiter/shortlink/admin/controller/AgentControllerMvcTest.java
 ```
 
 覆盖：
@@ -76,7 +76,7 @@ AgentRemoteService.chat 收到 X-Agent-Username 对应的 trusted-user；
 新增：
 
 ```text
-admin/src/test/java/com/nageoffer/shortlink/admin/remote/AgentRemoteServiceFeignTest.java
+admin/src/test/java/com/jupiter/shortlink/admin/remote/AgentRemoteServiceFeignTest.java
 ```
 
 测试使用 JDK `HttpServer` 作为本地 stub，不引入额外依赖。Spring Boot 测试上下文只启用 Feign 相关能力，并排除 Redis/Redisson/DataSource 自动配置，避免出站协议测试依赖本机中间件状态。
@@ -254,7 +254,7 @@ status=FINISHED
 **Files:**
 
 ```text
-admin/src/test/java/com/nageoffer/shortlink/admin/controller/AgentControllerMvcTest.java
+admin/src/test/java/com/jupiter/shortlink/admin/controller/AgentControllerMvcTest.java
 ```
 
 **TDD acceptance:**
@@ -271,7 +271,7 @@ RED 初次暴露 Mockito captor matcher 写法问题；
 **Files:**
 
 ```text
-admin/src/test/java/com/nageoffer/shortlink/admin/remote/AgentRemoteServiceFeignTest.java
+admin/src/test/java/com/jupiter/shortlink/admin/remote/AgentRemoteServiceFeignTest.java
 ```
 
 **TDD acceptance:**
@@ -309,7 +309,7 @@ mvn -pl admin -DskipTests package
 mvn -pl agent-service -DskipTests package
 mvn -pl project -DskipTests package
 git diff --check
-git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-nageoffer|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
+git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-jupiter|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
 rg -n "sk-[A-Za-z0-9]{16,}|DEEPSEEK_API_KEY\\s*[:=]\\s*sk-|AGENT_INTERNAL_TOKEN\\s*[:=]\\s*[A-Za-z0-9_-]{16,}|X-Agent-Internal-Token\\s*[:=]\\s*[A-Za-z0-9_-]{16,}" admin agent-service plan .gitignore pom.xml
 ```
 

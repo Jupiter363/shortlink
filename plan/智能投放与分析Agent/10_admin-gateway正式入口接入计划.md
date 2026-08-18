@@ -156,12 +156,12 @@ plan/智能投放与分析Agent/00_计划文档索引.md
 **Files:**
 
 ```text
-agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/api/AgentChatControllerTest.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/api/AgentChatController.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java
-agent-service/src/test/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentPropertiesTest.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilter.java
-agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilterTest.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/harness/api/AgentChatControllerTest.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/harness/api/AgentChatController.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentProperties.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/infrastructure/config/AgentPropertiesTest.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/harness/security/InternalAgentApiFilter.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/harness/security/InternalAgentApiFilterTest.java
 ```
 
 **TDD acceptance:**
@@ -179,11 +179,11 @@ internal-token 正确时放行。
 **Files:**
 
 ```text
-admin/src/test/java/com/nageoffer/shortlink/admin/controller/AgentControllerTest.java
-admin/src/main/java/com/nageoffer/shortlink/admin/controller/AgentController.java
-admin/src/main/java/com/nageoffer/shortlink/admin/remote/AgentRemoteService.java
-admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/AgentChatReqDTO.java
-admin/src/main/java/com/nageoffer/shortlink/admin/config/AgentAdminConfiguration.java
+admin/src/test/java/com/jupiter/shortlink/admin/controller/AgentControllerTest.java
+admin/src/main/java/com/jupiter/shortlink/admin/controller/AgentController.java
+admin/src/main/java/com/jupiter/shortlink/admin/remote/AgentRemoteService.java
+admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/req/AgentChatReqDTO.java
+admin/src/main/java/com/jupiter/shortlink/admin/config/AgentAdminConfiguration.java
 ```
 
 **TDD acceptance:**
@@ -244,7 +244,7 @@ git diff --check
 提交前安全检查：
 
 ```powershell
-git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-nageoffer|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
+git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-jupiter|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
 rg -n "sk-[A-Za-z0-9]{16,}|DEEPSEEK_API_KEY\\s*[:=]\\s*sk-|AGENT_INTERNAL_TOKEN\\s*[:=]\\s*[A-Za-z0-9_-]{16,}|X-Agent-Internal-Token\\s*[:=]\\s*[A-Za-z0-9_-]{16,}" admin agent-service plan .gitignore pom.xml
 ```
 

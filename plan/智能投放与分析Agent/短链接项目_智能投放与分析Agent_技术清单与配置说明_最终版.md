@@ -1,4 +1,4 @@
-﻿# 短链接项目：智能投放与分析 Agent 技术清单与配置说明（最终版）
+# 短链接项目：智能投放与分析 Agent 技术清单与配置说明（最终版）
 
 > 文档性质：第一阶段技术选型、组件边界、配置规范和启动说明  
 > 适用形态：本地开发、课程演示、后续生产化演进  
@@ -69,7 +69,7 @@ Audit 做追溯。
 shortlink/
   agent-service/
     pom.xml
-    src/main/java/com/nageoffer/shortlink/agent/
+    src/main/java/com/jupiter/shortlink/agent/
     src/main/resources/
   admin/
   project/
@@ -127,7 +127,7 @@ DeepSeek 在 Spring AI 中可走专用 starter；如果后续切换到其他 Ope
 
 ```text
 agent-service/
-  src/main/java/com/nageoffer/shortlink/agent/
+  src/main/java/com/jupiter/shortlink/agent/
     ShortLinkAgentApplication.java
     agent/
       graph/
@@ -229,7 +229,7 @@ agent-service/
 ### 4.2 admin
 
 ```text
-admin/src/main/java/com/nageoffer/shortlink/admin/agent/
+admin/src/main/java/com/jupiter/shortlink/admin/agent/
   controller/
     AgentChatProxyController.java
     AgentInternalApiController.java

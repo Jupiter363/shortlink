@@ -65,7 +65,7 @@ get_group_access_records:
 实现位置：
 
 ```text
-agent-service/src/main/java/com/nageoffer/shortlink/agent/agent/graph/DefaultCampaignAnalysisGraphExecutor.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/agent/graph/DefaultCampaignAnalysisGraphExecutor.java
 ```
 
 验收测试：
@@ -160,7 +160,7 @@ mvn -pl admin test
 mvn -pl agent-service -DskipTests package
 mvn -pl admin -DskipTests package
 git diff --check
-git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-nageoffer|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
+git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-jupiter|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
 rg -n "sk-[A-Za-z0-9]{16,}|DEEPSEEK_API_KEY\\s*[:=]\\s*sk-|AGENT_INTERNAL_TOKEN\\s*[:=]\\s*[A-Za-z0-9_-]{16,}|X-Agent-Internal-Token\\s*[:=]\\s*[A-Za-z0-9_-]{16,}" admin agent-service scripts plan .gitignore pom.xml
 ```
 

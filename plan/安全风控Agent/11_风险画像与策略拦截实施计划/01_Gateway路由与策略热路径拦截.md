@@ -30,7 +30,7 @@
 
 - Modify: `gateway/pom.xml`
 - Create: `gateway/src/main/resources/application-risk-local.yaml`
-- Create: `gateway/src/test/java/com/nageoffer/shortlink/gateway/config/GatewayRiskRouteConfigTest.java`
+- Create: `gateway/src/test/java/com/jupiter/shortlink/gateway/config/GatewayRiskRouteConfigTest.java`
 
 - [ ] **Step 1: 给 gateway 增加测试依赖**
 
@@ -95,7 +95,7 @@ short-link:
 创建 `GatewayRiskRouteConfigTest`，测试只加载路由定义，不启动 Redis：
 
 ```java
-package com.nageoffer.shortlink.gateway.config;
+package com.jupiter.shortlink.gateway.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -155,12 +155,12 @@ Expected: FAIL，原因是 `RiskPolicyGatewayFilterFactory` 不存在，路由�
 
 - [ ] **Step 5: 临时创建最小 RiskPolicy filter 占位类**
 
-创建 `gateway/src/main/java/com/nageoffer/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java`：
+创建 `gateway/src/main/java/com/jupiter/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java`：
 
 ```java
-package com.nageoffer.shortlink.gateway.filter;
+package com.jupiter.shortlink.gateway.filter;
 
-import com.nageoffer.shortlink.gateway.config.Config;
+import com.jupiter.shortlink.gateway.config.Config;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.stereotype.Component;
@@ -192,7 +192,7 @@ Expected: PASS。
 - [ ] **Step 7: 提交并推送**
 
 ```bash
-git add gateway/pom.xml gateway/src/main/resources/application-risk-local.yaml gateway/src/test/java/com/nageoffer/shortlink/gateway/config/GatewayRiskRouteConfigTest.java gateway/src/main/java/com/nageoffer/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java
+git add gateway/pom.xml gateway/src/main/resources/application-risk-local.yaml gateway/src/test/java/com/jupiter/shortlink/gateway/config/GatewayRiskRouteConfigTest.java gateway/src/main/java/com/jupiter/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java
 git commit -m "feat: add gateway risk route baseline"
 git push
 ```
@@ -201,23 +201,23 @@ git push
 
 **Files:**
 
-- Create: `gateway/src/main/java/com/nageoffer/shortlink/gateway/risk/RiskPolicyProperties.java`
-- Create: `gateway/src/main/java/com/nageoffer/shortlink/gateway/risk/RiskDomainNormalizer.java`
-- Create: `gateway/src/main/java/com/nageoffer/shortlink/gateway/risk/RiskClientIpResolver.java`
-- Create: `gateway/src/main/java/com/nageoffer/shortlink/gateway/risk/RiskHashService.java`
-- Create: `gateway/src/main/java/com/nageoffer/shortlink/gateway/risk/RiskPolicyRedisKeyBuilder.java`
-- Create: `gateway/src/main/java/com/nageoffer/shortlink/gateway/risk/RiskPolicyPayload.java`
-- Create: `gateway/src/test/java/com/nageoffer/shortlink/gateway/risk/RiskDomainNormalizerTest.java`
-- Create: `gateway/src/test/java/com/nageoffer/shortlink/gateway/risk/RiskClientIpResolverTest.java`
-- Create: `gateway/src/test/java/com/nageoffer/shortlink/gateway/risk/RiskHashServiceTest.java`
-- Create: `gateway/src/test/java/com/nageoffer/shortlink/gateway/risk/RiskPolicyRedisKeyBuilderTest.java`
+- Create: `gateway/src/main/java/com/jupiter/shortlink/gateway/risk/RiskPolicyProperties.java`
+- Create: `gateway/src/main/java/com/jupiter/shortlink/gateway/risk/RiskDomainNormalizer.java`
+- Create: `gateway/src/main/java/com/jupiter/shortlink/gateway/risk/RiskClientIpResolver.java`
+- Create: `gateway/src/main/java/com/jupiter/shortlink/gateway/risk/RiskHashService.java`
+- Create: `gateway/src/main/java/com/jupiter/shortlink/gateway/risk/RiskPolicyRedisKeyBuilder.java`
+- Create: `gateway/src/main/java/com/jupiter/shortlink/gateway/risk/RiskPolicyPayload.java`
+- Create: `gateway/src/test/java/com/jupiter/shortlink/gateway/risk/RiskDomainNormalizerTest.java`
+- Create: `gateway/src/test/java/com/jupiter/shortlink/gateway/risk/RiskClientIpResolverTest.java`
+- Create: `gateway/src/test/java/com/jupiter/shortlink/gateway/risk/RiskHashServiceTest.java`
+- Create: `gateway/src/test/java/com/jupiter/shortlink/gateway/risk/RiskPolicyRedisKeyBuilderTest.java`
 
 - [ ] **Step 1: 写 domain 标准化失败测试**
 
 `RiskDomainNormalizerTest`：
 
 ```java
-package com.nageoffer.shortlink.gateway.risk;
+package com.jupiter.shortlink.gateway.risk;
 
 import org.junit.jupiter.api.Test;
 
@@ -243,7 +243,7 @@ class RiskDomainNormalizerTest {
 `RiskClientIpResolverTest`：
 
 ```java
-package com.nageoffer.shortlink.gateway.risk;
+package com.jupiter.shortlink.gateway.risk;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -273,7 +273,7 @@ class RiskClientIpResolverTest {
 `RiskHashServiceTest`：
 
 ```java
-package com.nageoffer.shortlink.gateway.risk;
+package com.jupiter.shortlink.gateway.risk;
 
 import org.junit.jupiter.api.Test;
 
@@ -300,7 +300,7 @@ class RiskHashServiceTest {
 `RiskPolicyRedisKeyBuilderTest`：
 
 ```java
-package com.nageoffer.shortlink.gateway.risk;
+package com.jupiter.shortlink.gateway.risk;
 
 import org.junit.jupiter.api.Test;
 
@@ -378,7 +378,7 @@ Expected: PASS。
 - [ ] **Step 7: 提交并推送**
 
 ```bash
-git add gateway/src/main/java/com/nageoffer/shortlink/gateway/risk gateway/src/test/java/com/nageoffer/shortlink/gateway/risk
+git add gateway/src/main/java/com/jupiter/shortlink/gateway/risk gateway/src/test/java/com/jupiter/shortlink/gateway/risk
 git commit -m "feat: add gateway risk policy utilities"
 git push
 ```
@@ -387,8 +387,8 @@ git push
 
 **Files:**
 
-- Modify: `gateway/src/main/java/com/nageoffer/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java`
-- Create: `gateway/src/test/java/com/nageoffer/shortlink/gateway/filter/RiskPolicyGatewayFilterFactoryTest.java`
+- Modify: `gateway/src/main/java/com/jupiter/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java`
+- Create: `gateway/src/test/java/com/jupiter/shortlink/gateway/filter/RiskPolicyGatewayFilterFactoryTest.java`
 
 - [ ] **Step 1: 写 disable/block-ip/rate-limit/time-window 测试**
 
@@ -526,7 +526,7 @@ Expected: PASS。
 - [ ] **Step 7: 提交并推送**
 
 ```bash
-git add gateway/src/main/java/com/nageoffer/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java gateway/src/test/java/com/nageoffer/shortlink/gateway/filter/RiskPolicyGatewayFilterFactoryTest.java
+git add gateway/src/main/java/com/jupiter/shortlink/gateway/filter/RiskPolicyGatewayFilterFactory.java gateway/src/test/java/com/jupiter/shortlink/gateway/filter/RiskPolicyGatewayFilterFactoryTest.java
 git commit -m "feat: enforce gateway risk policies"
 git push
 ```

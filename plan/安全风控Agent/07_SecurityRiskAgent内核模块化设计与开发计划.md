@@ -45,7 +45,7 @@ SecurityRiskCardFactory：
 ## 3. 目标包结构
 
 ```text
-agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/
+agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/
   graph/
     SecurityRiskGraphExecutor.java
     SecurityRiskGraphRequest.java

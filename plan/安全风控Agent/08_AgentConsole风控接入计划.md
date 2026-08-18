@@ -81,7 +81,7 @@ change event：切换 Agent 时立即持久化
 **文件：**
 
 ```text
-Modify: agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/api/AgentConsoleStaticResourceTest.java
+Modify: agent-service/src/test/java/com/jupiter/shortlink/agent/harness/api/AgentConsoleStaticResourceTest.java
 Modify: agent-service/src/main/resources/static/agent-console/index.html
 ```
 

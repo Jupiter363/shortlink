@@ -109,8 +109,8 @@ checkpoint 失败：
 文件：
 
 ```text
-agent-service/src/test/java/com/nageoffer/shortlink/agent/agent/graph/DefaultCampaignAnalysisGraphExecutorTest.java
-agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/api/AgentChatControllerTest.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/agent/graph/DefaultCampaignAnalysisGraphExecutorTest.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/harness/api/AgentChatControllerTest.java
 ```
 
 验收：
@@ -128,8 +128,8 @@ Controller JSON 响应包含 data.traceEvents。
 文件：
 
 ```text
-agent-service/src/main/java/com/nageoffer/shortlink/agent/agent/graph/DefaultCampaignAnalysisGraphExecutor.java
-agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/runtime/AgentRunResult.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/agent/graph/DefaultCampaignAnalysisGraphExecutor.java
+agent-service/src/main/java/com/jupiter/shortlink/agent/harness/runtime/AgentRunResult.java
 ```
 
 实现：
@@ -149,7 +149,7 @@ fallbackResult 返回 graph_execution failed 事件。
 
 ```text
 agent-service/src/main/resources/static/agent-console/index.html
-agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/api/AgentConsoleStaticResourceTest.java
+agent-service/src/test/java/com/jupiter/shortlink/agent/harness/api/AgentConsoleStaticResourceTest.java
 ```
 
 实现：
@@ -190,7 +190,7 @@ git diff --check
 安全检查：
 
 ```powershell
-git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-nageoffer|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
+git ls-files | rg "(^|/)(application|bootstrap).*\\.ya?ml$|shardingsphere-config.*\\.ya?ml$|(^|/)target/|nginx-jupiter|__MACOSX|(^|/)\\.idea/|(^|/)\\.codebuddy/"
 rg -n "sk-[A-Za-z0-9]{16,}|DEEPSEEK_API_KEY\\s*[:=]\\s*sk-" agent-service plan .gitignore pom.xml
 ```
 

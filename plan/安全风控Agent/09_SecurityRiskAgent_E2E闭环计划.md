@@ -79,8 +79,8 @@
 **文件：**
 
 ```text
-Modify: agent-service/src/test/java/com/nageoffer/shortlink/agent/business/shortlink/AgentChatE2eTest.java
-Modify: agent-service/src/main/java/com/nageoffer/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutor.java
+Modify: agent-service/src/test/java/com/jupiter/shortlink/agent/business/shortlink/AgentChatE2eTest.java
+Modify: agent-service/src/main/java/com/jupiter/shortlink/agent/securityriskagent/graph/DefaultSecurityRiskGraphExecutor.java
 ```
 
 - [x] 写失败 E2E 测试，覆盖 `agentType=security-risk` 路由。

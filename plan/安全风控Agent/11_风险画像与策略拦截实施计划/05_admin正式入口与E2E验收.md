@@ -27,32 +27,32 @@
 
 **Files:**
 
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteService.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskPolicyDisableReqDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskReviewReqDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskPageRespDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskGroupOverviewRespDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkCardRespDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkDetailRespDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskEventRespDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskReviewRespDTO.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/service/RiskCenterFacadeService.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/service/impl/RiskCenterFacadeServiceImpl.java`
-- Create: `admin/src/main/java/com/nageoffer/shortlink/admin/controller/RiskCenterController.java`
-- Create: `admin/src/test/java/com/nageoffer/shortlink/admin/controller/RiskCenterControllerTest.java`
-- Create: `admin/src/test/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteServiceTest.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/RiskCenterInternalController.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/service/RiskCenterService.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskprofile/repository/JdbcShortLinkRiskProfileRepository.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/service/RiskPolicyService.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilter.java`
-- Modify: `agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java`
-- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java`
-- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java`
-- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/riskprofile/RiskProfileRepositoryTest.java`
-- Modify: `agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilterTest.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/AgentRiskRemoteService.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/req/RiskPolicyDisableReqDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/req/RiskReviewReqDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskPageRespDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskGroupOverviewRespDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskShortLinkCardRespDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskShortLinkDetailRespDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskEventRespDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskReviewRespDTO.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/service/RiskCenterFacadeService.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/service/impl/RiskCenterFacadeServiceImpl.java`
+- Create: `admin/src/main/java/com/jupiter/shortlink/admin/controller/RiskCenterController.java`
+- Create: `admin/src/test/java/com/jupiter/shortlink/admin/controller/RiskCenterControllerTest.java`
+- Create: `admin/src/test/java/com/jupiter/shortlink/admin/remote/AgentRiskRemoteServiceTest.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/RiskCenterInternalController.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/service/RiskCenterService.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskprofile/repository/JdbcShortLinkRiskProfileRepository.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/service/RiskPolicyService.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/harness/security/InternalAgentApiFilter.java`
+- Modify: `agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentProperties.java`
+- Modify: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java`
+- Modify: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java`
+- Modify: `agent-service/src/test/java/com/jupiter/shortlink/agent/riskprofile/RiskProfileRepositoryTest.java`
+- Modify: `agent-service/src/test/java/com/jupiter/shortlink/agent/harness/security/InternalAgentApiFilterTest.java`
 
 补充安全收口：
 
@@ -164,7 +164,7 @@ git diff --check
 并执行 diff-only 敏感信息扫描，确认没有真实密钥和原始 IP/user 明细进入新增返回体。
 
 ```bash
-git add admin/src/main/java/com/nageoffer/shortlink/admin/controller/RiskCenterController.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteService.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskPolicyDisableReqDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/req/RiskReviewReqDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskEventRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskGroupOverviewRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskPageRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskReviewRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkCardRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/remote/dto/resp/RiskShortLinkDetailRespDTO.java admin/src/main/java/com/nageoffer/shortlink/admin/service/RiskCenterFacadeService.java admin/src/main/java/com/nageoffer/shortlink/admin/service/impl/RiskCenterFacadeServiceImpl.java admin/src/test/java/com/nageoffer/shortlink/admin/controller/RiskCenterControllerTest.java admin/src/test/java/com/nageoffer/shortlink/admin/remote/AgentRiskRemoteServiceTest.java agent-service/src/main/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilter.java agent-service/src/main/java/com/nageoffer/shortlink/agent/infrastructure/config/AgentProperties.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/RiskCenterInternalController.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskcenter/service/RiskCenterService.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskpolicy/service/RiskPolicyService.java agent-service/src/main/java/com/nageoffer/shortlink/agent/riskprofile/repository/JdbcShortLinkRiskProfileRepository.java agent-service/src/test/java/com/nageoffer/shortlink/agent/harness/security/InternalAgentApiFilterTest.java agent-service/src/test/java/com/nageoffer/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java agent-service/src/test/java/com/nageoffer/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java agent-service/src/test/java/com/nageoffer/shortlink/agent/riskprofile/RiskProfileRepositoryTest.java plan/安全风控Agent/11_风险画像与策略拦截实施计划.md plan/安全风控Agent/11_风险画像与策略拦截实施计划/00_总控索引.md plan/安全风控Agent/11_风险画像与策略拦截实施计划/05_admin正式入口与E2E验收.md
+git add admin/src/main/java/com/jupiter/shortlink/admin/controller/RiskCenterController.java admin/src/main/java/com/jupiter/shortlink/admin/remote/AgentRiskRemoteService.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/req/RiskPolicyDisableReqDTO.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/req/RiskReviewReqDTO.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskEventRespDTO.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskGroupOverviewRespDTO.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskPageRespDTO.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskReviewRespDTO.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskShortLinkCardRespDTO.java admin/src/main/java/com/jupiter/shortlink/admin/remote/dto/resp/RiskShortLinkDetailRespDTO.java admin/src/main/java/com/jupiter/shortlink/admin/service/RiskCenterFacadeService.java admin/src/main/java/com/jupiter/shortlink/admin/service/impl/RiskCenterFacadeServiceImpl.java admin/src/test/java/com/jupiter/shortlink/admin/controller/RiskCenterControllerTest.java admin/src/test/java/com/jupiter/shortlink/admin/remote/AgentRiskRemoteServiceTest.java agent-service/src/main/java/com/jupiter/shortlink/agent/harness/security/InternalAgentApiFilter.java agent-service/src/main/java/com/jupiter/shortlink/agent/infrastructure/config/AgentProperties.java agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/RiskCenterInternalController.java agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/api/dto/RiskPolicyDisableReqDTO.java agent-service/src/main/java/com/jupiter/shortlink/agent/riskcenter/service/RiskCenterService.java agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/model/RiskPolicyDisableCommand.java agent-service/src/main/java/com/jupiter/shortlink/agent/riskpolicy/service/RiskPolicyService.java agent-service/src/main/java/com/jupiter/shortlink/agent/riskprofile/repository/JdbcShortLinkRiskProfileRepository.java agent-service/src/test/java/com/jupiter/shortlink/agent/harness/security/InternalAgentApiFilterTest.java agent-service/src/test/java/com/jupiter/shortlink/agent/riskcenter/RiskCenterInternalControllerTest.java agent-service/src/test/java/com/jupiter/shortlink/agent/riskpolicy/RiskPolicyServiceTest.java agent-service/src/test/java/com/jupiter/shortlink/agent/riskprofile/RiskProfileRepositoryTest.java plan/安全风控Agent/11_风险画像与策略拦截实施计划.md plan/安全风控Agent/11_风险画像与策略拦截实施计划/00_总控索引.md plan/安全风控Agent/11_风险画像与策略拦截实施计划/05_admin正式入口与E2E验收.md
 git commit -m "feat: expose admin risk center facade"
 git push
 ```
@@ -173,7 +173,7 @@ git push
 
 **Files:**
 
-- Create: `agent-service/src/test/java/com/nageoffer/shortlink/agent/e2e/RiskProfilePolicyE2eTest.java`
+- Create: `agent-service/src/test/java/com/jupiter/shortlink/agent/e2e/RiskProfilePolicyE2eTest.java`
 - Create: `scripts/risk-profile-policy-e2e.ps1`
 - Modify: `plan/安全风控Agent/05_验收清单.md`
 
@@ -310,7 +310,7 @@ Gateway 命中策略时返回 429/403/404，未命中时继续转发 project。
 - [x] **Step 7: 提交并推送**
 
 ```bash
-git add agent-service/src/test/java/com/nageoffer/shortlink/agent/e2e/RiskProfilePolicyE2eTest.java scripts/risk-profile-policy-e2e.ps1 plan/安全风控Agent/05_验收清单.md
+git add agent-service/src/test/java/com/jupiter/shortlink/agent/e2e/RiskProfilePolicyE2eTest.java scripts/risk-profile-policy-e2e.ps1 plan/安全风控Agent/05_验收清单.md
 git commit -m "test: add risk profile policy e2e validation"
 git push
 ```
