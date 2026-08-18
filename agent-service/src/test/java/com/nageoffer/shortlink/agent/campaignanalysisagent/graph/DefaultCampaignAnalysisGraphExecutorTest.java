@@ -801,20 +801,22 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         assertThat(result.dataSources()).hasSize(2);
         assertThat(result.dataSources().get(0).toString()).contains("campaign-analysis-graph");
         assertThat(result.dataSources().get(0).toString()).contains("intake");
+        assertThat(result.dataSources().get(0).toString()).contains("tool_call");
+        assertThat(result.dataSources().get(0).toString()).contains("insight_compute");
         assertThat(result.dataSources().get(0).toString()).contains("llm_analysis");
         assertThat(result.dataSources().get(0).toString()).contains("response_compose");
         assertThat(result.warnings()).isEmpty();
         List<Map<String, Object>> traceEvents = traceEvents(result);
         assertThat(traceEvents)
                 .extracting(each -> each.get("nodeName"))
-                .containsExactly("intake", "tool_planning", "llm_analysis", "response_compose", "checkpoint_save");
+                .containsExactly("intake", "tool_call", "insight_compute", "llm_analysis", "response_compose", "checkpoint_save");
         assertThat(traceEvents)
                 .allSatisfy(each -> assertThat(each)
                         .containsEntry("traceId", "trace-1")
                         .containsEntry("status", "success"));
         assertThat(traceEvents)
                 .allSatisfy(each -> assertThat(map(each.get("timing"))).containsKey("durationMs"));
-        assertThat(traceEvents.get(4)).containsKey("checkpointVersion");
+        assertThat(traceEvents.get(5)).containsKey("checkpointVersion");
         assertThat(checkpointStore.saved).hasSize(1);
         assertThat(checkpointStore.saved.get(0).threadId()).isEqualTo("session-1");
         assertThat(checkpointStore.saved.get(0).traceId()).isEqualTo("trace-1");
@@ -900,7 +902,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         List<Map<String, Object>> traceEvents = traceEvents(result);
         assertThat(traceEvents)
                 .extracting(each -> each.get("nodeName"))
-                .contains("intake", "tool_planning", "llm_analysis");
+                .contains("intake", "tool_call", "insight_compute", "llm_analysis");
         assertThat(traceEvents.get(traceEvents.size() - 1))
                 .containsEntry("nodeName", "graph_execution")
                 .containsEntry("status", "failed")

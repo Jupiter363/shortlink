@@ -3,6 +3,8 @@ package com.nageoffer.shortlink.agent.tool.shortlink;
 import com.nageoffer.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -17,6 +19,28 @@ public class GetShortLinkStatsTool extends AbstractShortLinkBusinessTool {
                 "get_short_link_stats",
                 "Get aggregated stats for one short link in a date range.",
                 schema()
+        );
+    }
+
+    @Tool(
+            name = "get_short_link_stats",
+            description = "Get aggregated stats for one owned short link in a date range."
+    )
+    public ToolResult getShortLinkStats(
+            @ToolParam(description = "Full short link URL.") String fullShortUrl,
+            @ToolParam(description = "Short link group id; ownership is checked by the admin gateway.") String gid,
+            @ToolParam(description = "Start date, yyyy-MM-dd.") String startDate,
+            @ToolParam(description = "End date, yyyy-MM-dd.") String endDate,
+            org.springframework.ai.chat.model.ToolContext toolContext
+    ) {
+        return executeFromSpringContext(
+                toolContext,
+                arguments(
+                        "fullShortUrl", fullShortUrl,
+                        "gid", gid,
+                        "startDate", startDate,
+                        "endDate", endDate
+                )
         );
     }
 

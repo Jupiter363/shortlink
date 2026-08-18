@@ -105,12 +105,13 @@ class AgentChatE2eTest {
                 .andExpect(jsonPath("$.data.dataSources[1].type").value("llm"))
                 .andExpect(jsonPath("$.data.dataSources[2].type").value("tool"))
                 .andExpect(jsonPath("$.data.traceEvents[0].nodeName").value("intake"))
-                .andExpect(jsonPath("$.data.traceEvents[1].nodeName").value("tool_planning"))
-                .andExpect(jsonPath("$.data.traceEvents[2].nodeName").value("llm_analysis"))
-                .andExpect(jsonPath("$.data.traceEvents[3].nodeName").value("response_compose"))
-                .andExpect(jsonPath("$.data.traceEvents[4].nodeName").value("checkpoint_save"))
-                .andExpect(jsonPath("$.data.traceEvents[4].status").value("success"))
-                .andExpect(jsonPath("$.data.traceEvents[4].checkpointVersion").exists())
+                .andExpect(jsonPath("$.data.traceEvents[1].nodeName").value("tool_call"))
+                .andExpect(jsonPath("$.data.traceEvents[2].nodeName").value("insight_compute"))
+                .andExpect(jsonPath("$.data.traceEvents[3].nodeName").value("llm_analysis"))
+                .andExpect(jsonPath("$.data.traceEvents[4].nodeName").value("response_compose"))
+                .andExpect(jsonPath("$.data.traceEvents[5].nodeName").value("checkpoint_save"))
+                .andExpect(jsonPath("$.data.traceEvents[5].status").value("success"))
+                .andExpect(jsonPath("$.data.traceEvents[5].checkpointVersion").exists())
                 .andReturn();
 
         String responseJson = mvcResult.getResponse().getContentAsString();
@@ -209,6 +210,7 @@ class AgentChatE2eTest {
                 jdbcTemplate,
                 "e2e-security-session-1",
                 "security-risk-graph",
+                "v1",
                 "get_group_stats",
                 "get_group_access_records"
         );
@@ -343,6 +345,7 @@ class AgentChatE2eTest {
                 jdbcTemplate,
                 "e2e-session-1",
                 "campaign-analysis-graph",
+                "v2",
                 "list_groups",
                 "page_short_links",
                 "get_group_stats",
@@ -403,7 +406,13 @@ class AgentChatE2eTest {
                         """, MediaType.APPLICATION_JSON));
     }
 
-    private void assertCheckpoint(JdbcTemplate jdbcTemplate, String sessionId, String graphName, String... expectedTools) {
+    private void assertCheckpoint(
+            JdbcTemplate jdbcTemplate,
+            String sessionId,
+            String graphName,
+            String graphVersion,
+            String... expectedTools
+    ) {
         Map<String, Object> row = jdbcTemplate.queryForMap("""
                         select thread_id,
                                trace_id,
@@ -419,7 +428,7 @@ class AgentChatE2eTest {
         assertThat(row)
                 .containsEntry("THREAD_ID", sessionId)
                 .containsEntry("GRAPH_NAME", graphName)
-                .containsEntry("GRAPH_VERSION", "v1")
+                .containsEntry("GRAPH_VERSION", graphVersion)
                 .containsEntry("STATUS", "FINISHED");
         assertThat(row.get("TRACE_ID")).isNotNull();
         String checkpointJson = String.valueOf(row.get("CHECKPOINT_JSON"));

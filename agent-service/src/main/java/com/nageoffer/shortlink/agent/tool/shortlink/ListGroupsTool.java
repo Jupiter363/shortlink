@@ -3,6 +3,7 @@ package com.nageoffer.shortlink.agent.tool.shortlink;
 import com.nageoffer.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -17,6 +18,14 @@ public class ListGroupsTool extends AbstractShortLinkBusinessTool {
                 "List short link groups for the current user.",
                 Map.of("type", "object", "properties", Map.of(), "required", new String[]{})
         );
+    }
+
+    @Tool(
+            name = "list_groups",
+            description = "List short link groups owned by the current authenticated user."
+    )
+    public ToolResult listGroups(org.springframework.ai.chat.model.ToolContext toolContext) {
+        return executeFromSpringContext(toolContext, Map.of());
     }
 
     @Override

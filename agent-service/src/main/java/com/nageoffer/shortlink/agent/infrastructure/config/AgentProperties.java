@@ -69,7 +69,11 @@ public class AgentProperties {
 
         private String name = "campaign-analysis-graph";
 
-        private String version = "v1";
+        /**
+         * The bounded tool_call/insight_compute DAG is checkpoint-incompatible
+         * with the original topology, so it owns a new persistent namespace.
+         */
+        private String version = "v2";
 
         private boolean checkpointEnabled = true;
 

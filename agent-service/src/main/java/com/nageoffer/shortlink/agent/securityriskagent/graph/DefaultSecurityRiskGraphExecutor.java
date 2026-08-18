@@ -5,11 +5,17 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
+import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
+import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
+import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.MysqlSaver;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpoint;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpointStore;
+import com.nageoffer.shortlink.agent.harness.checkpoint.AgentGraphThreadKeyFactory;
+import com.nageoffer.shortlink.agent.harness.checkpoint.GraphSessionExecutionCoordinator;
+import com.nageoffer.shortlink.agent.harness.checkpoint.MysqlGraphCompileConfigFactory;
 import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.infrastructure.llm.LlmChatClient;
@@ -29,7 +35,9 @@ import com.nageoffer.shortlink.agent.securityriskagent.prompt.SecurityRiskPrompt
 import com.nageoffer.shortlink.agent.securityriskagent.rule.SecurityRiskCardFactory;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -63,18 +71,23 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
     private final RiskEventPersistNode eventPersistNode;
     private final RiskAutoActionNode autoActionNode;
     private final RiskResponseComposeNode responseComposeNode;
+    private final BaseCheckpointSaver checkpointSaver;
     private final CompiledGraph graph;
+
+    private final GraphSessionExecutionCoordinator executionCoordinator = GraphSessionExecutionCoordinator.global();
 
     @Autowired
     public DefaultSecurityRiskGraphExecutor(
-            LlmChatClient llmChatClient,
+            @Qualifier("agentExplanationChatClient")
+            ChatClient chatClient,
             GraphCheckpointStore checkpointStore,
             AgentProperties agentProperties,
             AgentToolRegistry toolRegistry,
             JdbcShortLinkRiskProfileRepository shortLinkRiskProfileRepository,
             JdbcGroupRiskProfileRepository groupRiskProfileRepository,
             RiskCenterService riskCenterService,
-            RiskPolicyService riskPolicyService
+            RiskPolicyService riskPolicyService,
+            MysqlSaver mysqlSaver
     ) {
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
@@ -90,7 +103,7 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         );
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
-        this.llmExplanationNode = new RiskLlmExplanationNode(llmChatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
+        this.llmExplanationNode = new RiskLlmExplanationNode(chatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
         this.eventPersistNode = new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
         this.autoActionNode = new RiskAutoActionNode(riskPolicyService, agentProperties);
         this.responseComposeNode = new RiskResponseComposeNode(
@@ -98,6 +111,7 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                 SecurityRiskGraphDefinition.GRAPH_VERSION,
                 this.sanitizer
         );
+        this.checkpointSaver = mysqlSaver;
         this.graph = compileGraph();
     }
 
@@ -125,11 +139,106 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                 SecurityRiskGraphDefinition.GRAPH_VERSION,
                 this.sanitizer
         );
+        this.checkpointSaver = MemorySaver.builder().build();
+        this.graph = compileGraph();
+    }
+
+    /** Lightweight constructor for callers already migrated to ChatClient. */
+    public DefaultSecurityRiskGraphExecutor(
+            ChatClient chatClient,
+            GraphCheckpointStore checkpointStore,
+            AgentProperties agentProperties,
+            AgentToolRegistry toolRegistry
+    ) {
+        this.checkpointStore = checkpointStore;
+        this.agentProperties = agentProperties;
+        this.sanitizer = new SecurityRiskSanitizer();
+        this.intakeNode = new RiskIntakeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION
+        );
+        this.profileCandidateLoadNode = ProfileCandidateLoadNode.noop();
+        this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
+        this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
+        this.llmExplanationNode = new RiskLlmExplanationNode(
+                chatClient,
+                new SecurityRiskPromptBuilder(this.sanitizer),
+                this.sanitizer
+        );
+        this.eventPersistNode = RiskEventPersistNode.noop();
+        this.autoActionNode = RiskAutoActionNode.noop();
+        this.responseComposeNode = new RiskResponseComposeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION,
+                this.sanitizer
+        );
+        this.checkpointSaver = MemorySaver.builder().build();
+        this.graph = compileGraph();
+    }
+
+    /**
+     * Compatibility constructor used by non-Spring risk graph callers. It
+     * keeps the full repository/service wiring but uses an in-memory saver;
+     * Spring production wiring uses the ChatClient + MysqlSaver constructor.
+     */
+    public DefaultSecurityRiskGraphExecutor(
+            LlmChatClient llmChatClient,
+            GraphCheckpointStore checkpointStore,
+            AgentProperties agentProperties,
+            AgentToolRegistry toolRegistry,
+            JdbcShortLinkRiskProfileRepository shortLinkRiskProfileRepository,
+            JdbcGroupRiskProfileRepository groupRiskProfileRepository,
+            RiskCenterService riskCenterService,
+            RiskPolicyService riskPolicyService
+    ) {
+        this.checkpointStore = checkpointStore;
+        this.agentProperties = agentProperties;
+        this.sanitizer = new SecurityRiskSanitizer();
+        this.intakeNode = new RiskIntakeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION
+        );
+        this.profileCandidateLoadNode = new ProfileCandidateLoadNode(
+                shortLinkRiskProfileRepository,
+                groupRiskProfileRepository,
+                agentProperties.getRisk().getProfile().getTopCandidateSize()
+        );
+        this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
+        this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
+        this.llmExplanationNode = new RiskLlmExplanationNode(
+                llmChatClient,
+                new SecurityRiskPromptBuilder(this.sanitizer),
+                this.sanitizer
+        );
+        this.eventPersistNode = new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
+        this.autoActionNode = new RiskAutoActionNode(riskPolicyService, agentProperties);
+        this.responseComposeNode = new RiskResponseComposeNode(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION,
+                this.sanitizer
+        );
+        this.checkpointSaver = MemorySaver.builder().build();
         this.graph = compileGraph();
     }
 
     @Override
     public AgentRunResult execute(SecurityRiskGraphRequest request) {
+        String graphThreadId = AgentGraphThreadKeyFactory.create(
+                SecurityRiskGraphDefinition.GRAPH_NAME,
+                SecurityRiskGraphDefinition.GRAPH_VERSION,
+                request.sessionId()
+        );
+        try {
+            return executionCoordinator.execute(graphThreadId, () -> executeSerialized(request, graphThreadId));
+        } catch (Exception ex) {
+            if (request.isBatchExecution()) {
+                throw new IllegalStateException("Security risk graph execution failed", ex);
+            }
+            return fallbackResult(request, "Security risk graph failed.", "Graph execution failed");
+        }
+    }
+
+    private AgentRunResult executeSerialized(SecurityRiskGraphRequest request, String graphThreadId) {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("sessionId", request.sessionId());
         input.put("username", request.username());
@@ -140,7 +249,7 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         }
         try {
             Optional<OverAllState> state = graph.invoke(input, RunnableConfig.builder()
-                    .threadId(request.sessionId())
+                    .threadId(graphThreadId)
                     .build());
             if (state.isEmpty()) {
                 if (request.isBatchExecution()) {
@@ -178,7 +287,7 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                     .addEdge(RISK_EVENT_PERSIST_NODE, RISK_AUTO_ACTION_NODE)
                     .addEdge(RISK_AUTO_ACTION_NODE, RESPONSE_COMPOSE_NODE)
                     .addEdge(RESPONSE_COMPOSE_NODE, StateGraph.END)
-                    .compile();
+                    .compile(MysqlGraphCompileConfigFactory.create(checkpointSaver));
         } catch (GraphStateException ex) {
             throw new IllegalStateException("Security risk graph initialization failed", ex);
         }

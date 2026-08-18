@@ -5,11 +5,17 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.StateGraph;
 import com.alibaba.cloud.ai.graph.action.AsyncNodeAction;
+import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
+import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
+import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.MysqlSaver;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpoint;
 import com.nageoffer.shortlink.agent.harness.checkpoint.GraphCheckpointStore;
+import com.nageoffer.shortlink.agent.harness.checkpoint.AgentGraphThreadKeyFactory;
+import com.nageoffer.shortlink.agent.harness.checkpoint.GraphSessionExecutionCoordinator;
+import com.nageoffer.shortlink.agent.harness.checkpoint.MysqlGraphCompileConfigFactory;
 import com.nageoffer.shortlink.agent.harness.runtime.AgentRunResult;
 import com.nageoffer.shortlink.agent.infrastructure.config.AgentProperties;
 import com.nageoffer.shortlink.agent.infrastructure.llm.DeepSeekChatRequest;
@@ -21,7 +27,15 @@ import com.nageoffer.shortlink.agent.harness.tool.AgentTool;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
 import com.nageoffer.shortlink.agent.tool.registry.AgentToolRegistry;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,7 +64,8 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
             - Respond in the user's language unless the user explicitly asks otherwise.
             """;
     private static final String INTAKE_NODE = "intake";
-    private static final String TOOL_PLANNING_NODE = "tool_planning";
+    private static final String TOOL_CALL_NODE = "tool_call";
+    private static final String INSIGHT_COMPUTE_NODE = "insight_compute";
     private static final String LLM_ANALYSIS_NODE = "llm_analysis";
     private static final String RESPONSE_COMPOSE_NODE = "response_compose";
     private static final String CHECKPOINT_SAVE_NODE = "checkpoint_save";
@@ -63,7 +78,10 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final CampaignInsightCardFactory INSIGHT_CARD_FACTORY = new CampaignInsightCardFactory();
 
-    private final LlmChatClient llmChatClient;
+    private final ChatClient chatClient;
+
+    /** Compatibility-only client retained for existing non-Spring callers. */
+    private final LlmChatClient legacyLlmChatClient;
 
     private final GraphCheckpointStore checkpointStore;
 
@@ -71,25 +89,85 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
 
     private final AgentToolRegistry toolRegistry;
 
+    private final BaseCheckpointSaver checkpointSaver;
+
     private final CompiledGraph graph;
 
     private final ConcurrentMap<String, List<Object>> inFlightTraceEvents = new ConcurrentHashMap<>();
 
+    private final GraphSessionExecutionCoordinator executionCoordinator = GraphSessionExecutionCoordinator.global();
+
+    /**
+     * Spring production constructor. Native Graph checkpoints are persisted by
+     * the injected MysqlSaver through the CompileConfig created below.
+     */
+    @Autowired
+    public DefaultCampaignAnalysisGraphExecutor(
+            @Qualifier("agentExplanationChatClient")
+            ChatClient chatClient,
+            GraphCheckpointStore checkpointStore,
+            AgentProperties agentProperties,
+            AgentToolRegistry toolRegistry,
+            MysqlSaver mysqlSaver
+    ) {
+        this(chatClient, null, checkpointStore, agentProperties, toolRegistry, (BaseCheckpointSaver) mysqlSaver);
+    }
+
+    private DefaultCampaignAnalysisGraphExecutor(
+            ChatClient chatClient,
+            LlmChatClient llmChatClient,
+            GraphCheckpointStore checkpointStore,
+            AgentProperties agentProperties,
+            AgentToolRegistry toolRegistry,
+            BaseCheckpointSaver checkpointSaver
+    ) {
+        this.chatClient = chatClient;
+        this.legacyLlmChatClient = llmChatClient;
+        this.checkpointStore = checkpointStore;
+        this.agentProperties = agentProperties;
+        this.toolRegistry = toolRegistry;
+        this.checkpointSaver = checkpointSaver;
+        this.graph = compileGraph(agentProperties.getGraph().getName());
+    }
+
+    /**
+     * Compatibility constructor for lightweight callers that do not run a
+     * Spring context. Production wiring always uses the MysqlSaver overload.
+     */
     public DefaultCampaignAnalysisGraphExecutor(
             LlmChatClient llmChatClient,
             GraphCheckpointStore checkpointStore,
             AgentProperties agentProperties,
             AgentToolRegistry toolRegistry
     ) {
-        this.llmChatClient = llmChatClient;
-        this.checkpointStore = checkpointStore;
-        this.agentProperties = agentProperties;
-        this.toolRegistry = toolRegistry;
-        this.graph = compileGraph(agentProperties.getGraph().getName());
+        this(null, llmChatClient, checkpointStore, agentProperties, toolRegistry, (BaseCheckpointSaver) MemorySaver.builder().build());
+    }
+
+    /** Lightweight constructor for callers already migrated to ChatClient. */
+    public DefaultCampaignAnalysisGraphExecutor(
+            ChatClient chatClient,
+            GraphCheckpointStore checkpointStore,
+            AgentProperties agentProperties,
+            AgentToolRegistry toolRegistry
+    ) {
+        this(chatClient, null, checkpointStore, agentProperties, toolRegistry, (BaseCheckpointSaver) MemorySaver.builder().build());
     }
 
     @Override
     public AgentRunResult execute(CampaignAnalysisGraphRequest request) {
+        String graphThreadId = AgentGraphThreadKeyFactory.create(
+                agentProperties.getGraph().getName(),
+                agentProperties.getGraph().getVersion(),
+                request.sessionId()
+        );
+        try {
+            return executionCoordinator.execute(graphThreadId, () -> executeSerialized(request, graphThreadId));
+        } catch (Exception ex) {
+            return fallbackResult(request, "Campaign analysis graph failed.", GRAPH_EXECUTION_FAILED_WARNING);
+        }
+    }
+
+    private AgentRunResult executeSerialized(CampaignAnalysisGraphRequest request, String graphThreadId) {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("sessionId", request.sessionId());
         input.put("username", request.username());
@@ -100,7 +178,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         inFlightTraceEvents.put(traceKey, new CopyOnWriteArrayList<>());
         try {
             Optional<OverAllState> state = graph.invoke(input, RunnableConfig.builder()
-                    .threadId(request.sessionId())
+                    .threadId(graphThreadId)
                     .build());
             if (state.isEmpty()) {
                 return fallbackResult(request, "Campaign analysis graph produced no result.", "Graph execution returned empty state");
@@ -118,15 +196,17 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         try {
             return new StateGraph(graphName, Map::of)
                     .addNode(INTAKE_NODE, AsyncNodeAction.node_async(state -> tracedNode(INTAKE_NODE, state, this::intake)))
-                    .addNode(TOOL_PLANNING_NODE, AsyncNodeAction.node_async(state -> tracedNode(TOOL_PLANNING_NODE, state, this::planAndExecuteTools)))
+                    .addNode(TOOL_CALL_NODE, AsyncNodeAction.node_async(state -> tracedNode(TOOL_CALL_NODE, state, this::callTools)))
+                    .addNode(INSIGHT_COMPUTE_NODE, AsyncNodeAction.node_async(state -> tracedNode(INSIGHT_COMPUTE_NODE, state, this::computeInsights)))
                     .addNode(LLM_ANALYSIS_NODE, AsyncNodeAction.node_async(state -> tracedNode(LLM_ANALYSIS_NODE, state, this::analyzeWithLlm)))
                     .addNode(RESPONSE_COMPOSE_NODE, AsyncNodeAction.node_async(state -> tracedNode(RESPONSE_COMPOSE_NODE, state, this::composeResponse)))
                     .addEdge(StateGraph.START, INTAKE_NODE)
-                    .addEdge(INTAKE_NODE, TOOL_PLANNING_NODE)
-                    .addEdge(TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE)
+                    .addEdge(INTAKE_NODE, TOOL_CALL_NODE)
+                    .addEdge(TOOL_CALL_NODE, INSIGHT_COMPUTE_NODE)
+                    .addEdge(INSIGHT_COMPUTE_NODE, LLM_ANALYSIS_NODE)
                     .addEdge(LLM_ANALYSIS_NODE, RESPONSE_COMPOSE_NODE)
                     .addEdge(RESPONSE_COMPOSE_NODE, StateGraph.END)
-                    .compile();
+                    .compile(MysqlGraphCompileConfigFactory.create(checkpointSaver));
         } catch (GraphStateException ex) {
             throw new IllegalStateException("Campaign analysis graph initialization failed", ex);
         }
@@ -212,10 +292,11 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 summary.put("graphName", output.get("graphName"));
                 summary.put("graphVersion", output.get("graphVersion"));
             }
-            case TOOL_PLANNING_NODE -> {
+            case TOOL_CALL_NODE -> {
                 summary.put("toolCount", listSize(output.get("toolExecutions")));
                 summary.put("warningCount", listSize(output.get("toolWarnings")));
             }
+            case INSIGHT_COMPUTE_NODE -> summary.put("cardCount", listSize(output.get("derivedInsightCards")));
             case LLM_ANALYSIS_NODE -> {
                 summary.put("warningCount", listSize(output.get("warnings")));
                 summary.put("llmSource", !mapValue(output.get("llmDataSource")).isEmpty());
@@ -245,7 +326,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         );
     }
 
-    private Map<String, Object> planAndExecuteTools(OverAllState state) {
+    private Map<String, Object> callTools(OverAllState state) {
         String message = state.value("message", "");
         String sessionId = state.value("sessionId", "");
         String username = state.value("username", "");
@@ -262,7 +343,15 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         return Map.of(
                 "toolExecutions", toolExecutions,
                 "toolWarnings", warnings,
-                "visitedNodes", List.of(INTAKE_NODE, TOOL_PLANNING_NODE)
+                "visitedNodes", List.of(INTAKE_NODE, TOOL_CALL_NODE)
+        );
+    }
+
+    private Map<String, Object> computeInsights(OverAllState state) {
+        List<Map<String, Object>> toolExecutions = state.value("toolExecutions", List.of());
+        return Map.of(
+                "derivedInsightCards", INSIGHT_CARD_FACTORY.build(toolExecutions),
+                "visitedNodes", List.of(INTAKE_NODE, TOOL_CALL_NODE, INSIGHT_COMPUTE_NODE)
         );
     }
 
@@ -438,22 +527,44 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         Map<String, Object> llmDataSource = Map.of();
         String answer;
         try {
-            DeepSeekChatResponse chatResponse = llmChatClient.chat(new DeepSeekChatRequest(
-                    List.of(
-                            new DeepSeekChatRequest.Message("system", SYSTEM_PROMPT),
-                            new DeepSeekChatRequest.Message("user", userPrompt(state))
-                    ),
-                    null,
-                    null,
-                    null
-            ));
-            answer = chatResponse.content();
-            llmDataSource = Map.of(
-                    "type", "llm",
-                    "provider", "deepseek",
-                    "model", chatResponse.model(),
-                    "finishReason", chatResponse.finishReason()
-            );
+            if (chatClient != null) {
+                ChatResponse chatResponse = chatClient.prompt()
+                        .system(SYSTEM_PROMPT)
+                        .user(userPrompt(state))
+                        // Tool execution is a separate bounded graph node;
+                        // explanation must never start an implicit ReAct loop.
+                        .toolCallbacks(List.of())
+                        .call()
+                        .chatResponse();
+                Generation generation = chatResponse == null ? null : chatResponse.getResult();
+                if (generation == null || generation.getOutput() == null) {
+                    throw new LlmChatClientException("DeepSeek chat response is empty");
+                }
+                answer = generation.getOutput().getText();
+                llmDataSource = Map.of(
+                        "type", "llm",
+                        "provider", "deepseek",
+                        "model", chatModel(chatResponse),
+                        "finishReason", chatFinishReason(generation)
+                );
+            } else {
+                DeepSeekChatResponse chatResponse = legacyLlmChatClient.chat(new DeepSeekChatRequest(
+                        List.of(
+                                new DeepSeekChatRequest.Message("system", SYSTEM_PROMPT),
+                                new DeepSeekChatRequest.Message("user", userPrompt(state))
+                        ),
+                        null,
+                        null,
+                        null
+                ));
+                answer = chatResponse.content();
+                llmDataSource = Map.of(
+                        "type", "llm",
+                        "provider", "deepseek",
+                        "model", chatResponse.model(),
+                        "finishReason", chatResponse.finishReason()
+                );
+            }
         } catch (LlmApiKeyNotConfiguredException ex) {
             answer = "Agent service is ready, but DeepSeek API key is not configured.";
             warnings.add(ex.getMessage());
@@ -466,8 +577,20 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
                 "answer", answer,
                 "llmDataSource", llmDataSource,
                 "warnings", warnings,
-                "visitedNodes", List.of(INTAKE_NODE, TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE)
+                "visitedNodes", List.of(INTAKE_NODE, TOOL_CALL_NODE, INSIGHT_COMPUTE_NODE, LLM_ANALYSIS_NODE)
         );
+    }
+
+    private String chatModel(ChatResponse response) {
+        ChatResponseMetadata metadata = response == null ? null : response.getMetadata();
+        return metadata != null && StringUtils.hasText(metadata.getModel()) ? metadata.getModel() : "unknown";
+    }
+
+    private String chatFinishReason(Generation generation) {
+        ChatGenerationMetadata metadata = generation == null ? null : generation.getMetadata();
+        return metadata != null && StringUtils.hasText(metadata.getFinishReason())
+                ? metadata.getFinishReason()
+                : "unknown";
     }
 
     private String userPrompt(OverAllState state) {
@@ -476,7 +599,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         if (toolExecutions.isEmpty()) {
             return message;
         }
-        List<Object> derivedInsightCards = INSIGHT_CARD_FACTORY.build(toolExecutions);
+        List<Object> derivedInsightCards = state.value("derivedInsightCards", List.of());
         StringBuilder prompt = new StringBuilder(message)
                 .append("\n\nTool execution context:\n")
                 .append(toJson(INSIGHT_CARD_FACTORY.sanitizeForPrompt(toolExecutions)));
@@ -498,7 +621,13 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
     }
 
     private Map<String, Object> composeResponse(OverAllState state) {
-        List<String> nodes = List.of(INTAKE_NODE, TOOL_PLANNING_NODE, LLM_ANALYSIS_NODE, RESPONSE_COMPOSE_NODE);
+        List<String> nodes = List.of(
+                INTAKE_NODE,
+                TOOL_CALL_NODE,
+                INSIGHT_COMPUTE_NODE,
+                LLM_ANALYSIS_NODE,
+                RESPONSE_COMPOSE_NODE
+        );
         return Map.of(
                 "cards", sanitizeForResponse(buildCards(state)),
                 "pendingActions", List.of(),
@@ -518,7 +647,7 @@ public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGra
         for (Map<String, Object> execution : toolExecutions) {
             cards.add(buildToolCard(execution));
         }
-        cards.addAll(INSIGHT_CARD_FACTORY.build(toolExecutions));
+        cards.addAll(state.value("derivedInsightCards", List.of()));
         return cards;
     }
 

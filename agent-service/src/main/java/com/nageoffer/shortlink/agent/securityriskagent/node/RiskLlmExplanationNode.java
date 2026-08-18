@@ -10,6 +10,12 @@ import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceClas
 import com.nageoffer.shortlink.agent.securityriskagent.evidence.RiskEvidenceStatus;
 import com.nageoffer.shortlink.agent.securityriskagent.prompt.SecurityRiskPromptBuilder;
 import com.nageoffer.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +33,10 @@ public class RiskLlmExplanationNode {
     private static final String NO_EVIDENCE_ANSWER =
             "No security risk evidence was found for the requested scope.";
 
-    private final LlmChatClient llmChatClient;
+    private final ChatClient chatClient;
+
+    /** Compatibility-only bridge for existing focused graph callers. */
+    private final LlmChatClient legacyLlmChatClient;
 
     private final SecurityRiskPromptBuilder promptBuilder;
 
@@ -36,11 +45,28 @@ public class RiskLlmExplanationNode {
     private final RiskEvidenceClassifier evidenceClassifier;
 
     public RiskLlmExplanationNode(
+            ChatClient chatClient,
+            SecurityRiskPromptBuilder promptBuilder,
+            SecurityRiskSanitizer sanitizer
+    ) {
+        this.chatClient = chatClient;
+        this.legacyLlmChatClient = null;
+        this.promptBuilder = promptBuilder;
+        this.sanitizer = sanitizer;
+        this.evidenceClassifier = new RiskEvidenceClassifier();
+    }
+
+    /**
+     * Source-compatible constructor for callers that still provide the old
+     * request/response test double. Spring production wiring uses ChatClient.
+     */
+    public RiskLlmExplanationNode(
             LlmChatClient llmChatClient,
             SecurityRiskPromptBuilder promptBuilder,
             SecurityRiskSanitizer sanitizer
     ) {
-        this.llmChatClient = llmChatClient;
+        this.chatClient = null;
+        this.legacyLlmChatClient = llmChatClient;
         this.promptBuilder = promptBuilder;
         this.sanitizer = sanitizer;
         this.evidenceClassifier = new RiskEvidenceClassifier();
@@ -143,21 +169,29 @@ public class RiskLlmExplanationNode {
         }
         String answer;
         try {
-            DeepSeekChatResponse chatResponse = llmChatClient.chat(new DeepSeekChatRequest(
-                    List.of(
-                            new DeepSeekChatRequest.Message("system", promptBuilder.systemPrompt()),
-                            new DeepSeekChatRequest.Message("user", promptBuilder.userPrompt(message, toolExecutions, riskCards))
-                    ),
-                    null,
-                    null,
-                    null
-            ));
-            answer = sanitizer.sanitizeText(chatResponse.content());
+            ChatResponse chatResponse;
+            if (chatClient != null) {
+                chatResponse = chatClient.prompt()
+                        .system(promptBuilder.systemPrompt())
+                        .user(promptBuilder.userPrompt(message, toolExecutions, riskCards))
+                        // Tool execution is deterministic in the preceding
+                        // graph node; explanation must not open a ReAct loop.
+                        .toolCallbacks(List.of())
+                        .call()
+                        .chatResponse();
+            } else {
+                chatResponse = legacyChatResponse(message, toolExecutions, riskCards);
+            }
+            Generation generation = chatResponse == null ? null : chatResponse.getResult();
+            if (generation == null || generation.getOutput() == null) {
+                throw new LlmChatClientException("DeepSeek chat response is empty");
+            }
+            answer = sanitizer.sanitizeText(generation.getOutput().getText());
             llmDataSource = Map.of(
                     "type", "llm",
                     "provider", "deepseek",
-                    "model", chatResponse.model(),
-                    "finishReason", chatResponse.finishReason()
+                    "model", model(chatResponse),
+                    "finishReason", finishReason(generation)
             );
         } catch (LlmApiKeyNotConfiguredException ex) {
             if (failFast) {
@@ -173,6 +207,50 @@ public class RiskLlmExplanationNode {
             warnings.add(sanitizer.sanitizeText(ex.getMessage()));
         }
         return result(answer, llmDataSource, warnings);
+    }
+
+    private ChatResponse legacyChatResponse(
+            String message,
+            List<Map<String, Object>> toolExecutions,
+            List<Object> riskCards
+    ) {
+        DeepSeekChatResponse response = legacyLlmChatClient.chat(new DeepSeekChatRequest(
+                List.of(
+                        new DeepSeekChatRequest.Message("system", promptBuilder.systemPrompt()),
+                        new DeepSeekChatRequest.Message("user", promptBuilder.userPrompt(message, toolExecutions, riskCards))
+                ),
+                null,
+                null,
+                null
+        ));
+        if (response == null) {
+            throw new LlmChatClientException("DeepSeek chat response is empty");
+        }
+        Generation generation = new Generation(
+                new org.springframework.ai.chat.messages.AssistantMessage(response.content()),
+                ChatGenerationMetadata.builder().finishReason(response.finishReason()).build()
+        );
+        ChatResponseMetadata metadata = ChatResponseMetadata.builder()
+                .id(response.id())
+                .model(response.model())
+                .build();
+        return new ChatResponse(List.of(generation), metadata);
+    }
+
+    private String model(ChatResponse response) {
+        ChatResponseMetadata metadata = response == null ? null : response.getMetadata();
+        if (metadata != null && StringUtils.hasText(metadata.getModel())) {
+            return metadata.getModel();
+        }
+        return "unknown";
+    }
+
+    private String finishReason(Generation generation) {
+        ChatGenerationMetadata metadata = generation == null ? null : generation.getMetadata();
+        if (metadata != null && StringUtils.hasText(metadata.getFinishReason())) {
+            return metadata.getFinishReason();
+        }
+        return "unknown";
     }
 
     private Map<String, Object> result(

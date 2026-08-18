@@ -34,6 +34,24 @@ abstract class AbstractShortLinkBusinessTool implements AgentTool {
         return gateway.get(path, context, queryParams);
     }
 
+    /**
+     * Executes the legacy harness method while keeping request identity outside
+     * the model-visible tool arguments.  Spring AI supplies the username through
+     * its trusted ToolContext and the HTTP gateway forwards it in the internal
+     * username header.  The admin endpoint remains the source of truth for gid
+     * ownership validation.
+     */
+    protected ToolResult executeFromSpringContext(
+            org.springframework.ai.chat.model.ToolContext springContext,
+            Map<String, Object> arguments
+    ) {
+        ToolContext context = ToolContext.fromSpringContext(springContext, arguments);
+        if (context.username() == null || context.username().isBlank()) {
+            return ToolResult.failure("Missing trusted tool context username");
+        }
+        return execute(context);
+    }
+
     protected String requiredText(Map<String, Object> arguments, String name) {
         Object value = arguments.get(name);
         if (value == null || value.toString().isBlank()) {
@@ -69,6 +87,17 @@ abstract class AbstractShortLinkBusinessTool implements AgentTool {
         if (value != null && !value.toString().isBlank()) {
             queryParams.put(name, value.toString());
         }
+    }
+
+    protected Map<String, Object> arguments(Object... keyValues) {
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        for (int index = 0; index + 1 < keyValues.length; index += 2) {
+            Object value = keyValues[index + 1];
+            if (value != null) {
+                arguments.put(String.valueOf(keyValues[index]), value);
+            }
+        }
+        return arguments;
     }
 
     protected Map<String, Object> objectSchema(Map<String, Object> properties, String... required) {

@@ -3,6 +3,8 @@ package com.nageoffer.shortlink.agent.tool.shortlink;
 import com.nageoffer.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
 import com.nageoffer.shortlink.agent.harness.tool.ToolContext;
 import com.nageoffer.shortlink.agent.harness.tool.ToolResult;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -17,6 +19,30 @@ public class GetGroupAccessRecordsTool extends AbstractShortLinkBusinessTool {
                 "get_group_access_records",
                 "Page access records for a short link group in a date range.",
                 schema()
+        );
+    }
+
+    @Tool(
+            name = "get_group_access_records",
+            description = "Page access records for an owned short link group in a date range."
+    )
+    public ToolResult getGroupAccessRecords(
+            @ToolParam(description = "Short link group id; ownership is checked by the admin gateway.") String gid,
+            @ToolParam(description = "Start date, yyyy-MM-dd.") String startDate,
+            @ToolParam(description = "End date, yyyy-MM-dd.") String endDate,
+            @ToolParam(required = false, description = "Page number, defaults to 1.") Long current,
+            @ToolParam(required = false, description = "Page size, defaults to 10.") Long size,
+            org.springframework.ai.chat.model.ToolContext toolContext
+    ) {
+        return executeFromSpringContext(
+                toolContext,
+                arguments(
+                        "gid", gid,
+                        "startDate", startDate,
+                        "endDate", endDate,
+                        "current", current,
+                        "size", size
+                )
         );
     }
 
