@@ -28,48 +28,54 @@ public class ShortLinkRiskDetector {
         ShortLinkRiskMetrics metrics = toMetrics(stats);
         Set<RiskReasonCode> reasonCodes = EnumSet.noneOf(RiskReasonCode.class);
 
-        int trafficScore = scoreRange(
-                valueOrZero(metrics.pvGrowth2hVs24hAvg()),
-                TRAFFIC_SPIKE_WARNING,
-                TRAFFIC_SPIKE_STRONG,
-                RiskScoreWeights.TRAFFIC_SPIKE_MAX
-        );
+        int trafficScore =
+                scoreRange(
+                        valueOrZero(metrics.pvGrowth2hVs24hAvg()),
+                        TRAFFIC_SPIKE_WARNING,
+                        TRAFFIC_SPIKE_STRONG,
+                        RiskScoreWeights.TRAFFIC_SPIKE_MAX);
         if (trafficScore >= 12) {
             reasonCodes.add(RiskReasonCode.TRAFFIC_SPIKE);
         }
 
-        int concentrationScore = scoreRange(
-                max(metrics.topIpShare(), metrics.topVisitorShare()),
-                IP_CONCENTRATION_WARNING,
-                IP_CONCENTRATION_STRONG,
-                RiskScoreWeights.IP_VISITOR_CONCENTRATION_MAX
-        );
+        int concentrationScore =
+                scoreRange(
+                        max(metrics.topIpShare(), metrics.topVisitorShare()),
+                        IP_CONCENTRATION_WARNING,
+                        IP_CONCENTRATION_STRONG,
+                        RiskScoreWeights.IP_VISITOR_CONCENTRATION_MAX);
         if (concentrationScore >= 6) {
             reasonCodes.add(RiskReasonCode.IP_CONCENTRATION);
         }
 
-        int peakHourScore = scoreRange(
-                valueOrZero(metrics.peakHourShare()),
-                PEAK_HOUR_WARNING,
-                PEAK_HOUR_STRONG,
-                RiskScoreWeights.PEAK_HOUR_BURST_MAX
-        );
+        int peakHourScore =
+                scoreRange(
+                        valueOrZero(metrics.peakHourShare()),
+                        PEAK_HOUR_WARNING,
+                        PEAK_HOUR_STRONG,
+                        RiskScoreWeights.PEAK_HOUR_BURST_MAX);
         if (peakHourScore >= 5) {
             reasonCodes.add(RiskReasonCode.PEAK_HOUR_BURST);
         }
 
-        int repeatVisitScore = scoreRange(
-                valueOrZero(metrics.repeatVisitRatio()),
-                REPEAT_VISIT_WARNING,
-                REPEAT_VISIT_STRONG,
-                RiskScoreWeights.REPEAT_VISIT_MAX
-        );
+        int repeatVisitScore =
+                scoreRange(
+                        valueOrZero(metrics.repeatVisitRatio()),
+                        REPEAT_VISIT_WARNING,
+                        REPEAT_VISIT_STRONG,
+                        RiskScoreWeights.REPEAT_VISIT_MAX);
         if (repeatVisitScore >= 5) {
             reasonCodes.add(RiskReasonCode.HIGH_REPEAT_VISIT);
         }
 
         int profileConcentrationScore = profileConcentrationScore(metrics, reasonCodes);
-        int riskScore = clampScore(trafficScore + concentrationScore + peakHourScore + repeatVisitScore + profileConcentrationScore);
+        int riskScore =
+                clampScore(
+                        trafficScore
+                                + concentrationScore
+                                + peakHourScore
+                                + repeatVisitScore
+                                + profileConcentrationScore);
 
         return new ShortLinkRiskProfile(
                 stats.gid(),
@@ -85,8 +91,7 @@ public class ShortLinkRiskDetector {
                 reasonCodes,
                 RiskWatchStatus.NONE,
                 List.of(),
-                ""
-        );
+                "");
     }
 
     private ShortLinkRiskMetrics toMetrics(ShortLinkRiskSourceStats stats) {
@@ -105,21 +110,21 @@ public class ShortLinkRiskDetector {
                 stats.topBrowserShare(),
                 round4(ratio(stats.pv2h(), stats.uv2h())),
                 stats.peakHourShare(),
-                stats.repeatVisitRatio()
-        );
+                stats.repeatVisitRatio());
     }
 
-    private int profileConcentrationScore(ShortLinkRiskMetrics metrics, Set<RiskReasonCode> reasonCodes) {
+    private int profileConcentrationScore(
+            ShortLinkRiskMetrics metrics, Set<RiskReasonCode> reasonCodes) {
         double topDeviceShare = valueOrZero(metrics.topDeviceShare());
         double topRegionShare = valueOrZero(metrics.topRegionShare());
         double topBrowserShare = valueOrZero(metrics.topBrowserShare());
         double strongestShare = Math.max(topDeviceShare, Math.max(topRegionShare, topBrowserShare));
-        int score = scoreRange(
-                strongestShare,
-                PROFILE_CONCENTRATION_WARNING,
-                PROFILE_CONCENTRATION_STRONG,
-                RiskScoreWeights.DEVICE_REGION_BROWSER_MAX
-        );
+        int score =
+                scoreRange(
+                        strongestShare,
+                        PROFILE_CONCENTRATION_WARNING,
+                        PROFILE_CONCENTRATION_STRONG,
+                        RiskScoreWeights.DEVICE_REGION_BROWSER_MAX);
         if (score >= 5) {
             if (topDeviceShare >= PROFILE_CONCENTRATION_WARNING) {
                 reasonCodes.add(RiskReasonCode.DEVICE_CONCENTRATION);
@@ -134,7 +139,7 @@ public class ShortLinkRiskDetector {
         return score;
     }
 
-    private double pvGrowth2hVs24hAverage(int pv2h, int pv24h) {
+    private double pvGrowth2hVs24hAverage(long pv2h, long pv24h) {
         if (pv2h <= 0 || pv24h <= 0) {
             return 0D;
         }

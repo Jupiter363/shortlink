@@ -674,7 +674,7 @@
                             </select>
                         </div>
                     </div>
-                    <label for="internalTokenInput">Internal token</label>
+                    <label for="internalTokenInput">Login session token</label>
                     <input id="internalTokenInput" name="internalToken" type="password" autocomplete="off">
                     <div id="presetPromptsPanel" class="preset-prompts">
                         <h3>Preset prompts</h3>
@@ -794,12 +794,12 @@
 
 <script>
     (function () {
-        var healthEndpoint = "/internal/short-link-agent/v1/health";
-        var chatEndpoint = "/internal/short-link-agent/v1/chat";
+        var healthEndpoint = "/api/short-link/admin/v1/agent/health";
+        var chatEndpoint = "/api/short-link/admin/v1/agent/chat";
         var sessionKey = "shortLinkAgentConsoleSessionId";
         var usernameKey = "shortLinkAgentConsoleUsername";
         var agentTypeKey = "shortLinkAgentConsoleAgentType";
-        var internalTokenKey = "shortLinkAgentConsoleInternalToken";
+        var internalTokenKey = "shortLinkAgentConsoleSessionToken";
 
         var healthDot = document.getElementById("healthDot");
         var healthText = document.getElementById("healthText");
@@ -914,7 +914,8 @@
             var merged = headers || {};
             var token = internalToken();
             if (token) {
-                merged["X-Agent-Internal-Token"] = token;
+                merged["token"] = token;
+                merged["username"] = username();
             }
             return merged;
         }
@@ -1355,12 +1356,20 @@
             var response = await fetch(url, options);
             var contentType = response.headers.get("content-type") || "";
             var body = contentType.indexOf("application/json") >= 0
-                    ? await response.json()
+                    ? parseExactJson(await response.text())
                     : await response.text();
             if (!response.ok) {
                 throw new Error(typeof body === "string" ? body : JSON.stringify(body));
             }
             return body;
+        }
+
+        function parseExactJson(text) {
+            return JSON.parse(text.replace(/"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g, function (token) {
+                if (token.charAt(0) === '"' || /[.eE]/.test(token)) return token;
+                var number = BigInt(token);
+                return number > 9007199254740991n || number < -9007199254740991n ? '"' + token + '"' : token;
+            }));
         }
 
         async function checkHealth() {

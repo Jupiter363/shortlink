@@ -1,4 +1,10 @@
 target/
+baseline-tests.log
+command-tests.log
+integration-containers.log
+.work/
+__pycache__/
+*.py[cod]
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

@@ -21,7 +21,8 @@ public class RiskResponseComposeNode {
 
     private final SecurityRiskSanitizer sanitizer;
 
-    public RiskResponseComposeNode(String graphName, String graphVersion, SecurityRiskSanitizer sanitizer) {
+    public RiskResponseComposeNode(
+            String graphName, String graphVersion, SecurityRiskSanitizer sanitizer) {
         this.graphName = graphName;
         this.graphVersion = graphVersion;
         this.sanitizer = sanitizer;
@@ -33,11 +34,13 @@ public class RiskResponseComposeNode {
                 state.value("toolExecutions", List.of()),
                 state.value("llmDataSource", Map.of()),
                 state.value("profileRiskDataSource", Map.of()),
-                state.value("activatedPolicies", List.of())
-        );
+                state.value("activatedPolicies", List.of()));
     }
 
-    public Map<String, Object> compose(List<Object> cards, List<Map<String, Object>> toolExecutions, Map<String, Object> llmDataSource) {
+    public Map<String, Object> compose(
+            List<Object> cards,
+            List<Map<String, Object>> toolExecutions,
+            Map<String, Object> llmDataSource) {
         return compose(cards, toolExecutions, llmDataSource, Map.of(), List.of());
     }
 
@@ -46,43 +49,61 @@ public class RiskResponseComposeNode {
             List<Map<String, Object>> toolExecutions,
             Map<String, Object> llmDataSource,
             Map<String, Object> profileRiskDataSource,
-            List<Object> activatedPolicies
-    ) {
-        List<String> nodes = List.of(
-                INTAKE_NODE,
-                "profile_candidate_load",
-                RISK_TOOL_PLANNING_NODE,
-                RISK_SCORING_NODE,
-                LLM_EXPLANATION_NODE,
-                "risk_event_persist",
-                "risk_auto_action",
-                RESPONSE_COMPOSE_NODE
-        );
+            List<Object> activatedPolicies) {
+        List<String> nodes =
+                List.of(
+                        INTAKE_NODE,
+                        "profile_candidate_load",
+                        RISK_TOOL_PLANNING_NODE,
+                        RISK_SCORING_NODE,
+                        LLM_EXPLANATION_NODE,
+                        "risk_event_persist",
+                        "risk_auto_action",
+                        RESPONSE_COMPOSE_NODE);
         return Map.of(
                 "cards", sanitize(cards),
                 "pendingActions", pendingActions(cards, activatedPolicies),
                 "toolCalls", sanitize(toolExecutions),
-                "dataSources", sanitize(dataSources(llmDataSource, profileRiskDataSource, activatedPolicies, toolExecutions, nodes)),
-                "visitedNodes", nodes
-        );
+                "dataSources",
+                        sanitize(
+                                dataSources(
+                                        llmDataSource,
+                                        profileRiskDataSource,
+                                        activatedPolicies,
+                                        toolExecutions,
+                                        nodes)),
+                "visitedNodes", nodes);
     }
 
     private List<Object> pendingActions(List<Object> cards, List<Object> activatedPolicies) {
         List<Object> pendingActions = new ArrayList<>();
         if (activatedPolicies != null && !activatedPolicies.isEmpty()) {
-            pendingActions.add(Map.of(
-                    "type", "auto_limit_rate",
-                    "title", "Auto LIMIT_RATE policy activated",
-                    "status", "executed",
-                    "policies", sanitize(activatedPolicies)
-            ));
+            pendingActions.add(
+                    Map.of(
+                            "type",
+                            "auto_limit_rate",
+                            "title",
+                            "Automatic policy command outcomes",
+                            "status",
+                            activatedPolicies.stream()
+                                            .allMatch(
+                                                    value ->
+                                                            value instanceof Map<?, ?> receipt
+                                                                    && "COMMITTED"
+                                                                            .equals(
+                                                                                    receipt.get(
+                                                                                            "status")))
+                                    ? "executed"
+                                    : "not_fully_applied",
+                            "policies",
+                            sanitize(activatedPolicies)));
         }
         if (hasHighRiskCard(cards)) {
-            pendingActions.add(Map.of(
-                    "type", "review_security_risk",
-                    "title", "Review high risk traffic signal",
-                    "status", "pending_confirmation"
-            ));
+            pendingActions.add(
+                    Map.of(
+                            "type", "review_security_risk",
+                            "title", "Review high risk traffic signal",
+                            "status", "pending_confirmation"));
         }
         return pendingActions;
     }
@@ -99,15 +120,14 @@ public class RiskResponseComposeNode {
             Map<String, Object> profileRiskDataSource,
             List<Object> activatedPolicies,
             List<Map<String, Object>> toolExecutions,
-            List<String> nodes
-    ) {
+            List<String> nodes) {
         List<Object> dataSources = new ArrayList<>();
-        dataSources.add(Map.of(
-                "type", "graph",
-                "name", graphName,
-                "version", graphVersion,
-                "nodes", nodes
-        ));
+        dataSources.add(
+                Map.of(
+                        "type", "graph",
+                        "name", graphName,
+                        "version", graphVersion,
+                        "nodes", nodes));
         if (profileRiskDataSource != null && !profileRiskDataSource.isEmpty()) {
             dataSources.add(profileRiskDataSource);
         }
@@ -115,16 +135,11 @@ public class RiskResponseComposeNode {
             dataSources.add(llmDataSource);
         }
         if (activatedPolicies != null && !activatedPolicies.isEmpty()) {
-            dataSources.add(Map.of(
-                    "type", "risk_policy",
-                    "executions", sanitize(activatedPolicies)
-            ));
+            dataSources.add(
+                    Map.of("type", "risk_policy", "executions", sanitize(activatedPolicies)));
         }
         if (toolExecutions != null && !toolExecutions.isEmpty()) {
-            dataSources.add(Map.of(
-                    "type", "tool",
-                    "executions", sanitize(toolExecutions)
-            ));
+            dataSources.add(Map.of("type", "tool", "executions", sanitize(toolExecutions)));
         }
         return dataSources;
     }

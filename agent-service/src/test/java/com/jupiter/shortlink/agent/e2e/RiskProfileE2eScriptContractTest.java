@@ -1,13 +1,14 @@
 package com.jupiter.shortlink.agent.e2e;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+@org.junit.jupiter.api.Tag("e2e")
 class RiskProfileE2eScriptContractTest {
 
     @Test
@@ -29,7 +30,8 @@ class RiskProfileE2eScriptContractTest {
         if (Files.exists(fromRepositoryRoot)) {
             return fromRepositoryRoot;
         }
-        Path fromModule = workingDirectory.resolve("../scripts/risk-profile-policy-e2e.ps1").normalize();
+        Path fromModule =
+                workingDirectory.resolve("../scripts/risk-profile-policy-e2e.ps1").normalize();
         assertThat(fromModule).exists();
         return fromModule;
     }

@@ -20,11 +20,11 @@ public class SecurityRiskRuleEngine {
     }
 
     public static SecurityRiskRuleEngine defaultEngine(SecurityRiskSanitizer sanitizer) {
-        return new SecurityRiskRuleEngine(List.of(
-                new TopIpConcentrationRule(sanitizer),
-                new HighRepeatVisitRule(),
-                new HourBurstRule()
-        ));
+        return new SecurityRiskRuleEngine(
+                List.of(
+                        new TopIpConcentrationRule(sanitizer),
+                        new HighRepeatVisitRule(),
+                        new HourBurstRule()));
     }
 
     public List<RiskSignal> evaluate(List<Map<String, Object>> toolExecutions) {
@@ -33,9 +33,15 @@ public class SecurityRiskRuleEngine {
             if (!Boolean.TRUE.equals(execution.get("success")) || !isStatsTool(execution)) {
                 continue;
             }
+            if (!(execution.get("data") instanceof Map<?, ?> envelope)
+                    || !com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence.usable(envelope)
+                    || !(envelope.get("metrics") instanceof Map<?, ?> windows)
+                    || !(windows.get("requested") instanceof Map<?, ?> metrics)) continue;
+            Map<String, Object> adapted = new java.util.LinkedHashMap<>(execution);
+            adapted.put("data", metrics);
             for (RiskRule rule : rules) {
                 try {
-                    signals.addAll(rule.evaluate(execution));
+                    signals.addAll(rule.evaluate(adapted));
                 } catch (RuntimeException ignored) {
                     // A single deterministic rule must not fail the whole graph.
                 }

@@ -4,352 +4,313 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jupiter.shortlink.admin.common.biz.user.UserContext;
 import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
-import com.jupiter.shortlink.admin.common.convention.exception.RemoteException;
 import com.jupiter.shortlink.admin.common.convention.result.Result;
 import com.jupiter.shortlink.admin.common.convention.result.Results;
 import com.jupiter.shortlink.admin.dao.entity.GroupDO;
-import com.jupiter.shortlink.admin.dto.resp.AgentRiskActiveShortLinkRespDTO;
-import com.jupiter.shortlink.admin.dto.resp.AgentRiskShortLinkStatsWindowRespDTO;
 import com.jupiter.shortlink.admin.dto.resp.ShortLinkGroupRespDTO;
+import com.jupiter.shortlink.admin.dto.resp.analytics.StatsEnvelope;
+import com.jupiter.shortlink.admin.remote.CommandRiskRemoteService;
 import com.jupiter.shortlink.admin.remote.ShortLinkActualRemoteService;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkGroupStatsReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkStatsReqDTO;
+import com.jupiter.shortlink.admin.remote.analytics.AgentAnalyticsFacade;
+import com.jupiter.shortlink.admin.remote.dto.req.*;
 import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsAccessRecordRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsBrowserRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsDeviceRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsLocaleCNRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsTopIpRespDTO;
 import com.jupiter.shortlink.admin.service.GroupService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Collections;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
+/** Agent tools and scheduled profiles both reuse the authorized Analytics API. */
 @RestController
-@RequiredArgsConstructor
 public class AgentToolInternalController {
-
-    private static final long RISK_PAGE_SIZE = 500L;
-
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
-
-    private static final DateTimeFormatter PROJECT_DATE_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
     private final GroupService groupService;
-
     private final ShortLinkActualRemoteService shortLinkActualRemoteService;
+    private final AgentAnalyticsFacade analytics;
+    private CommandRiskRemoteService policies;
+    @Autowired private com.jupiter.shortlink.admin.remote.analytics.LinkPageAnalyticsService pages;
+
+    public AgentToolInternalController(
+            GroupService groupService,
+            ShortLinkActualRemoteService shortLinkActualRemoteService,
+            AgentAnalyticsFacade analytics) {
+        this.groupService = groupService;
+        this.shortLinkActualRemoteService = shortLinkActualRemoteService;
+        this.analytics = analytics;
+    }
+
+    @Autowired
+    public AgentToolInternalController(
+            GroupService groups,
+            ShortLinkActualRemoteService links,
+            AgentAnalyticsFacade analytics,
+            CommandRiskRemoteService policies) {
+        this(groups, links, analytics);
+        this.policies = policies;
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/policies/current")
+    public Result<List<CommandRiskRemoteService.Snapshot>> currentPolicies(
+            @RequestBody CommandRiskRemoteService.Current request) {
+        requirePrincipal();
+        return Results.success(policies.current(request));
+    }
+
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/policies/commands/{commandId}")
+    public Result<CommandRiskRemoteService.Receipt> policyResult(@PathVariable String commandId) {
+        requirePrincipal();
+        try {
+            return Results.success(policies.result(commandId));
+        } catch (feign.FeignException.NotFound absent) {
+            return Results.success(null);
+        }
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/policies/activate")
+    public Result<CommandRiskRemoteService.Receipt> activatePolicy(
+            @RequestBody Map<String, Object> request) {
+        requirePrincipal();
+        return Results.success(policies.activate(request));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/policies/revoke")
+    public Result<CommandRiskRemoteService.Receipt> revokePolicy(
+            @RequestBody CommandRiskRemoteService.Revoke request) {
+        requirePrincipal();
+        return Results.success(policies.revoke(request));
+    }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/groups")
     public Result<List<ShortLinkGroupRespDTO>> listGroups() {
+        requirePrincipal();
         return Results.success(groupService.listGroup());
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/short-links/page")
-    public Result<Page<ShortLinkPageRespDTO>> pageShortLinks(ShortLinkPageReqDTO requestParam) {
-        requireOwnedGid(requestParam.getGid());
-        return shortLinkActualRemoteService.pageShortLink(
-                requestParam.getGid(),
-                requestParam.getOrderTag(),
-                requestParam.getCurrent(),
-                requestParam.getSize()
-        );
+    public Result<Page<ShortLinkPageRespDTO>> pageShortLinks(ShortLinkPageReqDTO request) {
+        requireOwnedGid(request.getGid());
+        if (request.getCurrent() < 1 || request.getSize() < 1 || request.getSize() > 500)
+            throw new ClientException("Invalid link page budget");
+        return pages == null
+                ? shortLinkActualRemoteService.pageShortLink(
+                        request.getGid(),
+                        request.getOrderTag(),
+                        request.getCurrent(),
+                        request.getSize())
+                : pages.page(request);
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/short-link/stats")
-    public Result<ShortLinkStatsRespDTO> shortLinkStats(ShortLinkStatsReqDTO requestParam) {
-        requireOwnedGid(requestParam.getGid());
-        return shortLinkActualRemoteService.oneShortLinkStats(
-                requestParam.getFullShortUrl(),
-                requestParam.getGid(),
-                requestParam.getStartDate(),
-                requestParam.getEndDate()
-        );
+    public Result<StatsEnvelope> shortLinkStats(ShortLinkStatsReqDTO request) {
+        requireOwnedGid(request.getGid());
+        return Results.success(
+                analytics.query(
+                        request.getGid(),
+                        request.getFullShortUrl(),
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        null,
+                        null,
+                        null,
+                        500,
+                        "METRICS"));
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/group/stats")
-    public Result<ShortLinkStatsRespDTO> groupStats(ShortLinkGroupStatsReqDTO requestParam) {
-        requireOwnedGid(requestParam.getGid());
-        return shortLinkActualRemoteService.groupShortLinkStats(
-                requestParam.getGid(),
-                requestParam.getStartDate(),
-                requestParam.getEndDate()
-        );
+    public Result<StatsEnvelope> groupStats(ShortLinkGroupStatsReqDTO request) {
+        requireOwnedGid(request.getGid());
+        return Results.success(
+                analytics.query(
+                        request.getGid(),
+                        null,
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        null,
+                        null,
+                        null,
+                        500,
+                        "METRICS"));
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/group/access-records")
-    public Result<Page<ShortLinkStatsAccessRecordRespDTO>> groupAccessRecords(
-            ShortLinkGroupStatsAccessRecordReqDTO requestParam) {
-        requireOwnedGid(requestParam.getGid());
-        return shortLinkActualRemoteService.groupShortLinkStatsAccessRecord(
-                requestParam.getGid(),
-                requestParam.getStartDate(),
-                requestParam.getEndDate(),
-                requestParam.getCurrent(),
-                requestParam.getSize()
-        );
+    public Result<StatsEnvelope> groupAccessRecords(
+            ShortLinkGroupStatsAccessRecordReqDTO request,
+            @RequestParam(required = false) String snapshotId,
+            @RequestParam(required = false) String cursor) {
+        requireOwnedGid(request.getGid());
+        if (request.getCurrent() > 1 && (snapshotId == null || cursor == null))
+            throw new ClientException("Continuation requires snapshotId and cursor");
+        return Results.success(
+                analytics.query(
+                        request.getGid(),
+                        null,
+                        request.getStartDate(),
+                        request.getEndDate(),
+                        null,
+                        snapshotId,
+                        cursor,
+                        Math.toIntExact(request.getSize()),
+                        "ACCESS_RECORDS"));
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/risk/active-short-links")
-    public Result<List<AgentRiskActiveShortLinkRespDTO>> riskActiveShortLinks(@RequestParam("since") String since) {
-        LocalDateTime sinceTime = parseDateTime(since);
-        String startTime = formatProjectDateTime(sinceTime);
-        String endTime = formatProjectDateTime(sinceTime.plusDays(7));
-        List<AgentRiskActiveShortLinkRespDTO> activeLinks = new ArrayList<>();
-        for (ShortLinkGroupRespDTO group : safeList(groupService.listGroup())) {
-            String gid = group.getGid();
-            long current = 1L;
-            while (true) {
-                Page<ShortLinkPageRespDTO> page = data(shortLinkActualRemoteService.pageShortLink(
+    public Result<StatsEnvelope> riskActiveShortLinks(
+            @RequestParam String since,
+            @RequestParam String endTime,
+            @RequestParam(required = false) String gid,
+            @RequestParam(required = false) String snapshotId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "500") int pageSize) {
+        requirePrincipal();
+        if (gid != null) requireOwnedGid(gid);
+        return Results.success(
+                analytics.query(
                         gid,
-                        "totalPv",
-                        current,
-                        RISK_PAGE_SIZE
-                ));
-                List<ShortLinkPageRespDTO> records = pageRecords(page);
-                for (ShortLinkPageRespDTO link : records) {
-                    if (safeInt(link.getTotalPv()) < 1 && safeInt(link.getTodayPv()) < 1) {
-                        continue;
-                    }
-                    ShortLinkStatsRespDTO stats = data(shortLinkActualRemoteService.oneShortLinkStats(
-                            link.getFullShortUrl(),
-                            gid,
-                            startTime,
-                            endTime
-                    ));
-                    if (stats == null || safeInt(stats.getPv()) < 1) {
-                        continue;
-                    }
-                    activeLinks.add(AgentRiskActiveShortLinkRespDTO.builder()
-                            .gid(gid)
-                            .domain(resolveDomain(link))
-                            .shortUri(link.getShortUri())
-                            .fullShortUrl(link.getFullShortUrl())
-                            .pv(stats.getPv())
-                            .uv(stats.getUv())
-                            .uip(stats.getUip())
-                            .build());
-                }
-                if (page == null || records.isEmpty() || current >= page.getPages()) {
-                    break;
-                }
-                current++;
-            }
-        }
-        return Results.success(activeLinks);
+                        null,
+                        since,
+                        endTime,
+                        null,
+                        snapshotId,
+                        cursor,
+                        pageSize,
+                        "ACTIVE_LINKS"));
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
-    public Result<AgentRiskShortLinkStatsWindowRespDTO> riskShortLinkWindowStats(
-            @RequestParam("gid") String gid,
-            @RequestParam("fullShortUrl") String fullShortUrl,
-            @RequestParam("startTime") String startTime,
-            @RequestParam("endTime") String endTime) {
+    public Result<StatsEnvelope> riskShortLinkWindowStats(
+            @RequestParam String gid,
+            @RequestParam String fullShortUrl,
+            @RequestParam String startTime,
+            @RequestParam String endTime) {
         requireOwnedGid(gid);
-        LocalDateTime windowStart = parseDateTime(startTime);
-        LocalDateTime windowEnd = parseDateTime(endTime);
-        if (!windowEnd.isAfter(windowStart)) {
-            throw new ClientException("Risk stats endTime must be after startTime");
-        }
-        ShortLinkStatsRespDTO stats = data(shortLinkActualRemoteService.oneShortLinkStats(
-                fullShortUrl,
-                gid,
-                formatProjectDateTime(windowStart),
-                formatProjectDateTime(windowEnd)
-        ));
-        int pv = safeInt(stats.getPv());
-        return Results.success(AgentRiskShortLinkStatsWindowRespDTO.builder()
-                .gid(gid)
-                .domain(domainOf(fullShortUrl))
-                .shortUri(shortUriOf(fullShortUrl))
-                .fullShortUrl(fullShortUrl)
-                .startTime(startTime)
-                .endTime(endTime)
-                .pv(stats.getPv())
-                .uv(stats.getUv())
-                .uip(stats.getUip())
-                .topIpShare(maxTopIpShare(stats.getTopIpStats(), pv))
-                .topVisitorShare(null)
-                .topRegionShare(maxRatio(stats.getLocaleCnStats(), pv))
-                .topDeviceShare(maxDeviceRatio(stats.getDeviceStats(), pv))
-                .topBrowserShare(maxBrowserRatio(stats.getBrowserStats(), pv))
-                .peakHourShare(maxHourShare(stats.getHourStats(), pv, windowStart, windowEnd))
-                .repeatVisitRatio(null)
-                .build());
+        return Results.success(
+                analytics.query(
+                        gid, fullShortUrl, startTime, endTime, null, null, null, 500, "METRICS"));
     }
+
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/risk/short-link-windows")
+    public Result<StatsEnvelope> riskShortLinkWindows(
+            @RequestParam String gid,
+            @RequestParam String fullShortUrl,
+            @RequestParam String endTime) {
+        requireOwnedGid(gid);
+        return Results.success(
+                analytics.query(
+                        gid,
+                        fullShortUrl,
+                        null,
+                        endTime,
+                        List.of("2h", "24h", "7d"),
+                        null,
+                        null,
+                        500,
+                        "METRICS"));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/authorization/resolve")
+    public Result<Map<String, Object>> resolve(@RequestBody ResolveRequest request) {
+        requirePrincipal();
+        if (request.gid() != null) requireOwnedGid(request.gid());
+        return Results.success(
+                analytics.resolve(
+                        request.gid(),
+                        request.fullShortUrl(),
+                        request.linkIds(),
+                        request.afterLinkId(),
+                        request.ownershipVersion()));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/risk/active-link-query")
+    public Result<StatsEnvelope> activeLinkQuery(@RequestBody ActiveLinkQuery request) {
+        requirePrincipal();
+        if (request.linkIds() == null
+                || request.linkIds().isEmpty()
+                || request.linkIds().size() > 500)
+            throw new ClientException("Active candidate scope must contain 1..500 links");
+        return Results.success(
+                analytics.query(
+                        null,
+                        null,
+                        request.since(),
+                        request.endTime(),
+                        null,
+                        request.snapshotId(),
+                        request.cursor(),
+                        500,
+                        "ACTIVE_LINKS",
+                        request.linkIds()));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs")
+    public Result<Map<String, Object>> submitStatisticsJob(
+            @RequestBody StatisticsJobRequest request) {
+        requireOwnedGid(request.gid());
+        return Results.success(
+                analytics.submitJob(
+                        request.requestId(),
+                        request.gid(),
+                        request.fullShortUrl(),
+                        request.startDate(),
+                        request.endDate(),
+                        request.queryKind()));
+    }
+
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}")
+    public Result<Map<String, Object>> statisticsJobStatus(@PathVariable String jobId) {
+        requirePrincipal();
+        return Results.success(analytics.jobStatus(jobId));
+    }
+
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}/page")
+    public Result<Map<String, Object>> statisticsJobPage(
+            @PathVariable String jobId,
+            @RequestParam(defaultValue = "0") int pageIndex,
+            @RequestParam(defaultValue = "500") int size) {
+        requirePrincipal();
+        return Results.success(analytics.jobPage(jobId, pageIndex, size));
+    }
+
+    public record StatisticsJobRequest(
+            String requestId,
+            String gid,
+            String fullShortUrl,
+            String startDate,
+            String endDate,
+            String queryKind) {}
 
     private void requireOwnedGid(String gid) {
-        Long groupCount = groupService.count(Wrappers.lambdaQuery(GroupDO.class)
-                .eq(GroupDO::getUsername, UserContext.getUsername())
-                .eq(GroupDO::getGid, gid)
-                .eq(GroupDO::getDelFlag, 0));
-        if (groupCount == null || groupCount < 1) {
-            throw new ClientException("Agent tool request gid is not owned by current user");
+        requirePrincipal();
+        if (gid == null
+                || gid.isBlank()
+                || groupService.count(
+                                Wrappers.lambdaQuery(GroupDO.class)
+                                        .eq(GroupDO::getUsername, UserContext.getUsername())
+                                        .eq(GroupDO::getGid, gid)
+                                        .eq(GroupDO::getDelFlag, 0))
+                        != 1) {
+            throw new ClientException("Agent request requires an owned active group");
         }
     }
 
-    private <T> T data(Result<T> result) {
-        if (result == null) {
-            throw new RemoteException("Agent tool downstream response is missing");
-        }
-        if (!result.isSuccess()) {
-            throw new RemoteException("Agent tool downstream request failed");
-        }
-        if (result.getData() == null) {
-            throw new RemoteException("Agent tool downstream data is missing");
-        }
-        return result.getData();
+    private void requirePrincipal() {
+        if (UserContext.getUserId() == null
+                || UserContext.getUsername() == null
+                || UserContext.getAuthVersion() == null)
+            throw new ClientException("Agent request requires a current trusted principal");
     }
 
-    private List<ShortLinkPageRespDTO> pageRecords(Page<ShortLinkPageRespDTO> page) {
-        if (page == null || page.getRecords() == null) {
-            return List.of();
-        }
-        return page.getRecords();
-    }
-
-    private <T> List<T> safeList(List<T> values) {
-        return values == null ? List.of() : values;
-    }
-
-    private LocalDateTime parseDateTime(String value) {
-        try {
-            return LocalDateTime.parse(value);
-        } catch (DateTimeParseException ignored) {
-            return OffsetDateTime.parse(value)
-                    .atZoneSameInstant(BUSINESS_ZONE)
-                    .toLocalDateTime();
+    public record ResolveRequest(
+            String gid,
+            String fullShortUrl,
+            List<Long> linkIds,
+            Long afterLinkId,
+            String ownershipVersion) {
+        public ResolveRequest(String gid, String fullShortUrl, List<Long> linkIds) {
+            this(gid, fullShortUrl, linkIds, null, null);
         }
     }
 
-    private String formatProjectDateTime(LocalDateTime value) {
-        return PROJECT_DATE_TIME_FORMATTER.format(value);
-    }
-
-    private String resolveDomain(ShortLinkPageRespDTO link) {
-        if (link.getDomain() != null && !link.getDomain().isBlank()) {
-            return link.getDomain();
-        }
-        return domainOf(link.getFullShortUrl());
-    }
-
-    private String domainOf(String fullShortUrl) {
-        if (fullShortUrl == null) {
-            return "";
-        }
-        int slashIndex = fullShortUrl.indexOf('/');
-        return slashIndex < 0 ? fullShortUrl : fullShortUrl.substring(0, slashIndex);
-    }
-
-    private String shortUriOf(String fullShortUrl) {
-        if (fullShortUrl == null) {
-            return "";
-        }
-        int slashIndex = fullShortUrl.indexOf('/');
-        return slashIndex < 0 ? "" : fullShortUrl.substring(slashIndex + 1);
-    }
-
-    private int safeInt(Integer value) {
-        return value == null ? 0 : value;
-    }
-
-    private Double maxTopIpShare(List<ShortLinkStatsTopIpRespDTO> topIpStats, int pv) {
-        if (pv < 1 || topIpStats == null || topIpStats.isEmpty()) {
-            return null;
-        }
-        Integer maxCount = topIpStats.stream()
-                .map(ShortLinkStatsTopIpRespDTO::getCnt)
-                .filter(Objects::nonNull)
-                .max(Integer::compareTo)
-                .orElse(null);
-        return maxCount == null ? null : ratio(maxCount, pv);
-    }
-
-    private Double maxRatio(List<ShortLinkStatsLocaleCNRespDTO> rows, int pv) {
-        if (rows == null || rows.isEmpty()) {
-            return null;
-        }
-        return rows.stream()
-                .map(row -> ratioOrCount(row.getRatio(), row.getCnt(), pv))
-                .filter(Objects::nonNull)
-                .max(Double::compareTo)
-                .orElse(null);
-    }
-
-    private Double maxDeviceRatio(List<ShortLinkStatsDeviceRespDTO> rows, int pv) {
-        if (rows == null || rows.isEmpty()) {
-            return null;
-        }
-        return rows.stream()
-                .map(row -> ratioOrCount(row.getRatio(), row.getCnt(), pv))
-                .filter(Objects::nonNull)
-                .max(Double::compareTo)
-                .orElse(null);
-    }
-
-    private Double maxBrowserRatio(List<ShortLinkStatsBrowserRespDTO> rows, int pv) {
-        if (rows == null || rows.isEmpty()) {
-            return null;
-        }
-        return rows.stream()
-                .map(row -> ratioOrCount(row.getRatio(), row.getCnt(), pv))
-                .filter(Objects::nonNull)
-                .max(Double::compareTo)
-                .orElse(null);
-    }
-
-    private Double ratioOrCount(Double ratio, Integer count, int pv) {
-        if (ratio != null) {
-            return ratio;
-        }
-        if (count == null || pv < 1) {
-            return null;
-        }
-        return ratio(count, pv);
-    }
-
-    private Double maxHourShare(List<Integer> hourStats, int pv, LocalDateTime windowStart, LocalDateTime windowEnd) {
-        if (pv < 1 || hourStats == null || hourStats.isEmpty()) {
-            return null;
-        }
-        List<Integer> selectedHours = hourStats;
-        if (windowStart.toLocalDate().equals(windowEnd.toLocalDate())) {
-            int startHour = Math.max(0, Math.min(23, windowStart.getHour()));
-            int endHourExclusive = windowEnd.getHour();
-            if (windowEnd.getMinute() > 0 || windowEnd.getSecond() > 0 || windowEnd.getNano() > 0) {
-                endHourExclusive++;
-            }
-            endHourExclusive = Math.max(startHour + 1, Math.min(24, endHourExclusive));
-            selectedHours = hourStats.subList(
-                    Math.min(startHour, hourStats.size()),
-                    Math.min(endHourExclusive, hourStats.size())
-            );
-        }
-        if (selectedHours.isEmpty()) {
-            return null;
-        }
-        Integer maxHourPv = Collections.max(selectedHours);
-        return ratio(maxHourPv, pv);
-    }
-
-    private Double ratio(int numerator, int denominator) {
-        if (denominator < 1) {
-            return null;
-        }
-        return Math.min(1D, Math.max(0D, numerator * 1D / denominator));
-    }
+    public record ActiveLinkQuery(
+            List<Long> linkIds, String since, String endTime, String snapshotId, String cursor) {}
 }

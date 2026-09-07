@@ -1,0 +1,9 @@
+ShortLink id-generator
+
+This module is a controlled adaptation of the Segment design in Meituan-Dianping Leaf.
+Upstream repository: https://github.com/Meituan-Dianping/Leaf
+Upstream commit: 86a6441d263497b9f9ee321de13422b9c63f0c06
+Upstream license: Apache License, Version 2.0 (included as META-INF/LICENSE).
+The upstream tree contains no NOTICE file. This notice describes this project's attribution.
+Project modifications include range allocation, bounded concurrency and JDBC deadlines,
+52-bit exhaustion handling, configuration controls and an independent short-code codec.

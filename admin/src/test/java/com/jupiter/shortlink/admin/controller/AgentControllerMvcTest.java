@@ -1,13 +1,20 @@
 package com.jupiter.shortlink.admin.controller;
 
-import com.jupiter.shortlink.admin.common.biz.user.UserContext;
-import com.jupiter.shortlink.admin.common.biz.user.UserTransmitFilter;
-import com.jupiter.shortlink.admin.common.convention.result.Result;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.jupiter.shortlink.admin.common.biz.user.*;
 import com.jupiter.shortlink.admin.common.convention.result.Results;
 import com.jupiter.shortlink.admin.common.convention.web.GlobalExceptionHandler;
 import com.jupiter.shortlink.admin.config.AgentAdminConfiguration;
+import com.jupiter.shortlink.admin.dao.entity.UserDO;
+import com.jupiter.shortlink.admin.dao.mapper.UserMapper;
 import com.jupiter.shortlink.admin.remote.AgentRemoteService;
 import com.jupiter.shortlink.admin.remote.dto.req.AgentChatReqDTO;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -17,99 +24,81 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 class AgentControllerMvcTest {
+    private static final String SECRET = "agent-mvc-internal-secret-32-bytes";
+    private final AgentRemoteService remote = mock(AgentRemoteService.class);
+    private final UserMapper users = mock(UserMapper.class);
 
     @AfterEach
-    void tearDown() {
+    void cleanup() {
         UserContext.removeUser();
     }
 
-    @Test
-    void chatUsesGatewayInjectedHeadersAndIgnoresBodyUsername() throws Exception {
-        AgentRemoteService remoteService = mock(AgentRemoteService.class);
-        AgentAdminConfiguration configuration = new AgentAdminConfiguration();
-        configuration.setInternalToken("internal-token");
-        MockMvc mockMvc = mockMvc(remoteService, configuration);
-        when(remoteService.chat(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                request("session-1", "security-risk", "analyze campaign")
-        )).thenReturn(Results.success(Map.of("sessionId", "session-1")));
-
-        mockMvc.perform(post("/api/short-link/admin/v1/agent/chat")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("username", "trusted-user")
-                        .header("userId", "1001")
-                        .header("realName", "Trusted Name")
-                        .content("""
-                                {
-                                  "sessionId": "session-1",
-                                  "agentType": "security-risk",
-                                  "username": "spoofed-user",
-                                  "message": "analyze campaign"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("0"))
-                .andExpect(jsonPath("$.data.sessionId").value("session-1"));
-
-        ArgumentCaptor<AgentChatReqDTO> requestCaptor = ArgumentCaptor.forClass(AgentChatReqDTO.class);
-        verify(remoteService).chat(
-                eq("internal-token"),
-                eq("trusted-user"),
-                eq("1001"),
-                eq("Trusted Name"),
-                requestCaptor.capture()
-        );
-        assertThat(requestCaptor.getValue().getSessionId()).isEqualTo("session-1");
-        assertThat(requestCaptor.getValue().getAgentType()).isEqualTo("security-risk");
-        assertThat(requestCaptor.getValue().getMessage()).isEqualTo("analyze campaign");
-        assertThat(UserContext.getUsername()).isNull();
-    }
-
-    @Test
-    void chatRejectsRequestWithoutGatewayInjectedUsername() throws Exception {
-        AgentRemoteService remoteService = mock(AgentRemoteService.class);
-        AgentAdminConfiguration configuration = new AgentAdminConfiguration();
-        MockMvc mockMvc = mockMvc(remoteService, configuration);
-
-        mockMvc.perform(post("/api/short-link/admin/v1/agent/chat")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "sessionId": "session-1",
-                                  "message": "analyze campaign"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("A000001"))
-                .andExpect(jsonPath("$.message").value("Agent request requires authenticated user context"));
-    }
-
-    private MockMvc mockMvc(AgentRemoteService remoteService, AgentAdminConfiguration configuration) {
-        return MockMvcBuilders
-                .standaloneSetup(new AgentController(remoteService, configuration))
-                .addFilters(new UserTransmitFilter())
+    private MockMvc mvc() {
+        var config = new AgentAdminConfiguration();
+        config.setInternalToken(SECRET);
+        var user = new UserDO();
+        user.setId(1001L);
+        user.setUsername("trusted-user");
+        user.setAuthVersion(7L);
+        user.setDelFlag(0);
+        user.setDisabled(false);
+        when(users.selectOne(any())).thenReturn(user);
+        return MockMvcBuilders.standaloneSetup(new AgentController(remote, config))
+                .addFilters(new UserTransmitFilter(new TrustedManagementIdentity(users), SECRET))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
-    private AgentChatReqDTO request(String sessionId, String agentType, String message) {
-        AgentChatReqDTO request = new AgentChatReqDTO();
-        request.setSessionId(sessionId);
-        request.setAgentType(agentType);
-        request.setMessage(message);
-        return request;
+    @Test
+    void forwardsOnlyVerifiedTenantUsernameAndVersion() throws Exception {
+        var mvc = mvc();
+        when(remote.chat(eq(SECRET), eq("trusted-user"), eq("1001"), isNull(), eq(7L), any()))
+                .thenReturn(Results.success(Map.of("sessionId", "session-1")));
+        mvc.perform(
+                        post("/api/short-link/admin/v1/agent/chat")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("X-Internal-Token", SECRET)
+                                .header("x-shortlink-tenant-id", "1001")
+                                .header("x-shortlink-username", "trusted-user")
+                                .header("x-shortlink-auth-version", "7")
+                                .header("username", "attacker")
+                                .header("realName", "attacker")
+                                .content(
+                                        "{\"sessionId\":\"session-1\",\"agentType\":\"security-risk\",\"username\":\"attacker\",\"message\":\"analyze\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("0"));
+        var request = ArgumentCaptor.forClass(AgentChatReqDTO.class);
+        verify(remote)
+                .chat(
+                        eq(SECRET),
+                        eq("trusted-user"),
+                        eq("1001"),
+                        isNull(),
+                        eq(7L),
+                        request.capture());
+        assertThat(request.getValue().getMessage()).isEqualTo("analyze");
+        assertThat(UserContext.getUsername()).isNull();
+    }
+
+    @Test
+    void serviceTokenAndCurrentDatabaseVersionAreRequired() throws Exception {
+        var mvc = mvc();
+        mvc.perform(
+                        post("/api/short-link/admin/v1/agent/chat")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("username", "trusted-user")
+                                .content("{\"sessionId\":\"s1\",\"message\":\"analyze\"}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(
+                        post("/api/short-link/admin/v1/agent/chat")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("X-Internal-Token", SECRET)
+                                .header("x-shortlink-tenant-id", "1001")
+                                .header("x-shortlink-username", "trusted-user")
+                                .header("x-shortlink-auth-version", "6")
+                                .content("{\"sessionId\":\"s1\",\"message\":\"analyze\"}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(remote);
     }
 }

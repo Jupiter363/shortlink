@@ -24,8 +24,7 @@ public record GroupRiskProfile(
         List<ShortLinkRiskProfile> topRiskShortLinks,
         List<RiskTrendPoint> riskTrend7d,
         String agentSummary,
-        String batchId
-) {
+        String batchId) {
 
     public GroupRiskProfile {
         gid = gid == null ? "" : gid;
@@ -38,12 +37,22 @@ public record GroupRiskProfile(
         avgRiskScore = Math.max(0D, Math.min(avgRiskScore, 100D));
         maxRiskScore = clampScore(maxRiskScore);
         groupRiskScore = clampScore(groupRiskScore);
-        groupRiskLevel = groupRiskLevel == null ? RiskLevel.fromScore(groupRiskScore) : groupRiskLevel;
+        groupRiskLevel =
+                groupRiskLevel == null ? RiskLevel.fromScore(groupRiskScore) : groupRiskLevel;
         groupReasonCodes = groupReasonCodes == null ? List.of() : List.copyOf(groupReasonCodes);
         topRiskShortLinks = topRiskShortLinks == null ? List.of() : List.copyOf(topRiskShortLinks);
         riskTrend7d = riskTrend7d == null ? List.of() : List.copyOf(riskTrend7d);
         agentSummary = agentSummary == null ? "" : agentSummary;
         batchId = batchId == null ? "" : batchId;
+    }
+
+    public String tenantId() {
+        return topRiskShortLinks.stream()
+                .map(ShortLinkRiskProfile::evidence)
+                .filter(java.util.Objects::nonNull)
+                .map(StatsEvidence::tenantId)
+                .findFirst()
+                .orElse(null);
     }
 
     public GroupRiskProfile(
@@ -63,8 +72,7 @@ public record GroupRiskProfile(
             List<RiskReasonCode> groupReasonCodes,
             List<ShortLinkRiskProfile> topRiskShortLinks,
             List<RiskTrendPoint> riskTrend7d,
-            String agentSummary
-    ) {
+            String agentSummary) {
         this(
                 gid,
                 profileWindowStart,
@@ -83,8 +91,7 @@ public record GroupRiskProfile(
                 topRiskShortLinks,
                 riskTrend7d,
                 agentSummary,
-                legacyBatchId(profileWindowEnd)
-        );
+                legacyBatchId(profileWindowEnd));
     }
 
     public GroupRiskProfile withBatchId(String newBatchId) {
@@ -106,8 +113,7 @@ public record GroupRiskProfile(
                 topRiskShortLinks,
                 riskTrend7d,
                 agentSummary,
-                newBatchId
-        );
+                newBatchId);
     }
 
     private static int nonNegative(int value) {

@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS t_agent_risk_analysis_job (
 
 CREATE TABLE IF NOT EXISTS t_agent_risk_event (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id VARCHAR(32),
+    link_id BIGINT,
     event_id VARCHAR(128) NOT NULL,
     target_type VARCHAR(32) NOT NULL,
     gid VARCHAR(64) NOT NULL DEFAULT '',
@@ -92,12 +94,15 @@ CREATE TABLE IF NOT EXISTS t_agent_risk_event (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     CONSTRAINT uk_agent_risk_event_event_id UNIQUE (event_id),
+    KEY idx_agent_risk_event_tenant_link (tenant_id, link_id, event_time, id),
     KEY idx_agent_risk_event_gid_time (gid, event_time),
     KEY idx_agent_risk_event_target_time (target_type, domain, short_uri, event_time)
 );
 
 CREATE TABLE IF NOT EXISTS t_agent_risk_snapshot (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id VARCHAR(32),
+    link_id BIGINT,
     target_type VARCHAR(32) NOT NULL,
     gid VARCHAR(64) NOT NULL DEFAULT '',
     domain VARCHAR(256) NOT NULL DEFAULT '',
@@ -116,24 +121,28 @@ CREATE TABLE IF NOT EXISTS t_agent_risk_snapshot (
     update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     CONSTRAINT uk_agent_risk_snapshot_target UNIQUE (target_type, gid, domain, short_uri),
+    KEY idx_agent_risk_snapshot_tenant_link (tenant_id, link_id, last_scan_time),
     KEY idx_agent_risk_snapshot_gid_score (gid, risk_score)
 );
 
 CREATE TABLE IF NOT EXISTS t_agent_short_link_risk_profile (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    evidence_created_at BIGINT NOT NULL DEFAULT 0,
     batch_id VARCHAR(128) NOT NULL,
+    tenant_id VARCHAR(32),
+    link_id BIGINT,
     gid VARCHAR(64) NOT NULL,
     domain VARCHAR(256) NOT NULL,
     short_uri VARCHAR(128) NOT NULL,
     full_short_url VARCHAR(512) NOT NULL,
     profile_window_start TIMESTAMP NOT NULL,
     profile_window_end TIMESTAMP NOT NULL,
-    pv_2h INTEGER NOT NULL DEFAULT 0,
-    uv_2h INTEGER NOT NULL DEFAULT 0,
-    pv_24h INTEGER NOT NULL DEFAULT 0,
-    uv_24h INTEGER NOT NULL DEFAULT 0,
-    pv_7d INTEGER NOT NULL DEFAULT 0,
-    uv_7d INTEGER NOT NULL DEFAULT 0,
+    pv_2h BIGINT NOT NULL DEFAULT 0,
+    uv_2h BIGINT NOT NULL DEFAULT 0,
+    pv_24h BIGINT NOT NULL DEFAULT 0,
+    uv_24h BIGINT NOT NULL DEFAULT 0,
+    pv_7d BIGINT NOT NULL DEFAULT 0,
+    uv_7d BIGINT NOT NULL DEFAULT 0,
     pv_growth_2h_vs_24h_avg DECIMAL(12,4),
     top_ip_share DECIMAL(12,4),
     top_visitor_share DECIMAL(12,4),
@@ -154,11 +163,14 @@ CREATE TABLE IF NOT EXISTS t_agent_short_link_risk_profile (
     CONSTRAINT uk_agent_short_link_profile_batch_target UNIQUE (batch_id, gid, domain, short_uri),
     KEY idx_agent_short_link_profile_gid_time (gid, profile_window_end),
     KEY idx_agent_short_link_profile_target_time (domain, short_uri, profile_window_end),
-    KEY idx_agent_short_link_profile_gid_score (gid, risk_score)
+    KEY idx_agent_short_link_profile_gid_score (gid, risk_score),
+    KEY idx_agent_profile_tenant_link_time (tenant_id, link_id, profile_window_end)
 );
 
 CREATE TABLE IF NOT EXISTS t_agent_group_risk_profile (
+    evidence_created_at BIGINT NOT NULL DEFAULT 0,
     id BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id VARCHAR(32),
     batch_id VARCHAR(128) NOT NULL,
     gid VARCHAR(64) NOT NULL,
     profile_window_start TIMESTAMP NOT NULL,
@@ -187,6 +199,8 @@ CREATE TABLE IF NOT EXISTS t_agent_group_risk_profile (
 
 CREATE TABLE IF NOT EXISTS t_agent_risk_review (
     id BIGINT NOT NULL AUTO_INCREMENT,
+    tenant_id VARCHAR(32),
+    link_id BIGINT,
     review_id VARCHAR(128) NOT NULL,
     event_id VARCHAR(128) NOT NULL DEFAULT '',
     target_type VARCHAR(32) NOT NULL,
@@ -203,32 +217,8 @@ CREATE TABLE IF NOT EXISTS t_agent_risk_review (
     PRIMARY KEY (id),
     CONSTRAINT uk_agent_risk_review_review_id UNIQUE (review_id),
     KEY idx_agent_risk_review_event_id (event_id),
+    KEY idx_agent_risk_review_tenant_link (tenant_id, link_id, review_time, id),
     KEY idx_agent_risk_review_gid_time (gid, review_time)
-);
-
-CREATE TABLE IF NOT EXISTS t_agent_risk_policy (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    policy_id VARCHAR(128) NOT NULL,
-    policy_key VARCHAR(512) NOT NULL,
-    action VARCHAR(64) NOT NULL,
-    target_type VARCHAR(32) NOT NULL,
-    gid VARCHAR(64) NOT NULL DEFAULT '',
-    domain VARCHAR(256) NOT NULL DEFAULT '',
-    short_uri VARCHAR(128) NOT NULL DEFAULT '',
-    ip_hash VARCHAR(128) NOT NULL DEFAULT '',
-    policy_payload_json LONGTEXT NOT NULL,
-    status VARCHAR(32) NOT NULL,
-    effective_time TIMESTAMP NOT NULL,
-    expire_time TIMESTAMP,
-    source VARCHAR(64) NOT NULL,
-    trace_id VARCHAR(128) NOT NULL DEFAULT '',
-    event_id VARCHAR(128) NOT NULL DEFAULT '',
-    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    CONSTRAINT uk_agent_risk_policy_policy_id UNIQUE (policy_id),
-    KEY idx_agent_risk_policy_key_status (policy_key, status),
-    KEY idx_agent_risk_policy_gid_status (gid, status)
 );
 
 CREATE TABLE IF NOT EXISTS t_agent_risk_action_audit (

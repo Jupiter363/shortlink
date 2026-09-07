@@ -4,15 +4,12 @@ import com.alibaba.ttl.TransmittableThreadLocal;
 
 import java.util.Optional;
 
-/**
- * 用户上下文
- */
+/** 用户上下文 */
 public final class UserContext {
 
-    /**
-     * 用的阿里巴巴开源的安全线程TTL
-     */
-    private static final ThreadLocal<UserInfoDTO> USER_THREAD_LOCAL = new TransmittableThreadLocal<>();
+    /** 用的阿里巴巴开源的安全线程TTL */
+    private static final ThreadLocal<UserInfoDTO> USER_THREAD_LOCAL =
+            new TransmittableThreadLocal<>();
 
     /**
      * 设置用户至上下文
@@ -31,6 +28,12 @@ public final class UserContext {
     public static String getUserId() {
         UserInfoDTO userInfoDTO = USER_THREAD_LOCAL.get();
         return Optional.ofNullable(userInfoDTO).map(UserInfoDTO::getUserId).orElse(null);
+    }
+
+    public static Long getAuthVersion() {
+        return Optional.ofNullable(USER_THREAD_LOCAL.get())
+                .map(UserInfoDTO::getAuthVersion)
+                .orElse(null);
     }
 
     /**
@@ -52,9 +55,8 @@ public final class UserContext {
         UserInfoDTO userInfoDTO = USER_THREAD_LOCAL.get();
         return Optional.ofNullable(userInfoDTO).map(UserInfoDTO::getRealName).orElse(null);
     }
-    /**
-     * 清理用户上下文
-     */
+
+    /** 清理用户上下文 */
     public static void removeUser() {
         USER_THREAD_LOCAL.remove();
     }

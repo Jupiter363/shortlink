@@ -7,12 +7,12 @@ public record ShortLinkRiskSourceStats(
         String domain,
         String shortUri,
         String fullShortUrl,
-        int pv2h,
-        int uv2h,
-        int pv24h,
-        int uv24h,
-        int pv7d,
-        int uv7d,
+        long pv2h,
+        long uv2h,
+        long pv24h,
+        long uv24h,
+        long pv7d,
+        long uv7d,
         Double topIpShare,
         Double topVisitorShare,
         Double topRegionShare,
@@ -21,8 +21,7 @@ public record ShortLinkRiskSourceStats(
         Double peakHourShare,
         Double repeatVisitRatio,
         LocalDateTime profileWindowStart,
-        LocalDateTime profileWindowEnd
-) {
+        LocalDateTime profileWindowEnd) {
 
     public static Builder builder() {
         return new Builder();
@@ -34,12 +33,12 @@ public record ShortLinkRiskSourceStats(
         private String domain = "";
         private String shortUri = "";
         private String fullShortUrl = "";
-        private int pv2h;
-        private int uv2h;
-        private int pv24h;
-        private int uv24h;
-        private int pv7d;
-        private int uv7d;
+        private long pv2h;
+        private long uv2h;
+        private long pv24h;
+        private long uv24h;
+        private long pv7d;
+        private long uv7d;
         private Double topIpShare;
         private Double topVisitorShare;
         private Double topRegionShare;
@@ -70,32 +69,32 @@ public record ShortLinkRiskSourceStats(
             return this;
         }
 
-        public Builder pv2h(int pv2h) {
+        public Builder pv2h(long pv2h) {
             this.pv2h = nonNegative(pv2h);
             return this;
         }
 
-        public Builder uv2h(int uv2h) {
+        public Builder uv2h(long uv2h) {
             this.uv2h = nonNegative(uv2h);
             return this;
         }
 
-        public Builder pv24h(int pv24h) {
+        public Builder pv24h(long pv24h) {
             this.pv24h = nonNegative(pv24h);
             return this;
         }
 
-        public Builder uv24h(int uv24h) {
+        public Builder uv24h(long uv24h) {
             this.uv24h = nonNegative(uv24h);
             return this;
         }
 
-        public Builder pv7d(int pv7d) {
+        public Builder pv7d(long pv7d) {
             this.pv7d = nonNegative(pv7d);
             return this;
         }
 
-        public Builder uv7d(int uv7d) {
+        public Builder uv7d(long uv7d) {
             this.uv7d = nonNegative(uv7d);
             return this;
         }
@@ -165,15 +164,14 @@ public record ShortLinkRiskSourceStats(
                     peakHourShare,
                     repeatVisitRatio,
                     profileWindowStart,
-                    profileWindowEnd
-            );
+                    profileWindowEnd);
         }
 
         private String valueOrEmpty(String value) {
             return value == null ? "" : value;
         }
 
-        private int nonNegative(int value) {
+        private long nonNegative(long value) {
             return Math.max(0, value);
         }
 

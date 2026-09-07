@@ -1,19 +1,22 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.graph;
 
-import com.jupiter.shortlink.agent.harness.runtime.AgentRunResult;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.jupiter.shortlink.agent.harness.checkpoint.GraphCheckpoint;
 import com.jupiter.shortlink.agent.harness.checkpoint.GraphCheckpointStore;
+import com.jupiter.shortlink.agent.harness.runtime.AgentRunResult;
+import com.jupiter.shortlink.agent.harness.tool.AgentTool;
+import com.jupiter.shortlink.agent.harness.tool.ToolContext;
+import com.jupiter.shortlink.agent.harness.tool.ToolDescriptor;
+import com.jupiter.shortlink.agent.harness.tool.ToolResult;
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
 import com.jupiter.shortlink.agent.infrastructure.llm.DeepSeekChatRequest;
 import com.jupiter.shortlink.agent.infrastructure.llm.DeepSeekChatResponse;
 import com.jupiter.shortlink.agent.infrastructure.llm.LlmApiKeyNotConfiguredException;
 import com.jupiter.shortlink.agent.infrastructure.llm.LlmChatClient;
 import com.jupiter.shortlink.agent.infrastructure.llm.LlmChatClientException;
-import com.jupiter.shortlink.agent.harness.tool.AgentTool;
-import com.jupiter.shortlink.agent.harness.tool.ToolContext;
-import com.jupiter.shortlink.agent.harness.tool.ToolDescriptor;
-import com.jupiter.shortlink.agent.harness.tool.ToolResult;
 import com.jupiter.shortlink.agent.tool.registry.AgentToolRegistry;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -21,36 +24,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeRunsListGroupsToolAndAddsToolDataToLlmPrompt() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "campaign answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        CapturingAgentTool listGroupsTool = new CapturingAgentTool(
-                "list_groups",
-                ToolResult.success(List.of(Map.of("gid", "g1", "name", "Marketing", "shortLinkCount", 3)))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(listGroupsTool))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "campaign answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        CapturingAgentTool listGroupsTool =
+                new CapturingAgentTool(
+                        "list_groups",
+                        ToolResult.success(
+                                List.of(
+                                        Map.of(
+                                                "gid",
+                                                "g1",
+                                                "name",
+                                                "Marketing",
+                                                "shortLinkCount",
+                                                3))));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(List.of(listGroupsTool)));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "show groups",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(trustedRequest("session-1", "zhangsan", "show groups", "trace-1"));
 
         assertThat(listGroupsTool.context.username()).isEqualTo("zhangsan");
         assertThat(listGroupsTool.context.arguments()).isEmpty();
@@ -66,30 +72,30 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeBuildsGroupSummaryCardFromListGroupsTool() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "group answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        List<Map<String, Object>> groups = List.of(
-                Map.of("gid", "g1", "name", "Marketing", "shortLinkCount", 3),
-                Map.of("gid", "g2", "name", "Product", "shortLinkCount", 2)
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("list_groups", ToolResult.success(groups))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "group answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        List<Map<String, Object>> groups =
+                List.of(
+                        Map.of("gid", "g1", "name", "Marketing", "shortLinkCount", 3),
+                        Map.of("gid", "g2", "name", "Product", "shortLinkCount", 2));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "list_groups", ToolResult.success(groups)))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "show group",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(trustedRequest("session-1", "zhangsan", "show group", "trace-1"));
 
         Map<String, Object> card = card(result, 0);
         assertThat(card)
@@ -103,43 +109,60 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executePlansMultipleReadToolsForOverviewRequest() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "overview answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        CapturingAgentTool listGroupsTool = new CapturingAgentTool(
-                "list_groups",
-                ToolResult.success(List.of(Map.of("gid", "g1", "name", "Marketing", "shortLinkCount", 3)))
-        );
-        CapturingAgentTool pageTool = new CapturingAgentTool(
-                "page_short_links",
-                ToolResult.success(Map.of(
-                        "records", List.of(Map.of("fullShortUrl", "nurl.ink/a", "describe", "Launch")),
-                        "total", 1L,
-                        "current", 1L,
-                        "size", 10L
-                ))
-        );
-        CapturingAgentTool statsTool = new CapturingAgentTool(
-                "get_group_stats",
-                ToolResult.success(Map.of("pv", 120, "uv", 40, "uip", 30))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(listGroupsTool, pageTool, statsTool))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "overview answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        CapturingAgentTool listGroupsTool =
+                new CapturingAgentTool(
+                        "list_groups",
+                        ToolResult.success(
+                                List.of(
+                                        Map.of(
+                                                "gid",
+                                                "g1",
+                                                "name",
+                                                "Marketing",
+                                                "shortLinkCount",
+                                                3))));
+        CapturingAgentTool pageTool =
+                new CapturingAgentTool(
+                        "page_short_links",
+                        ToolResult.success(
+                                Map.of(
+                                        "records",
+                                                List.of(
+                                                        Map.of(
+                                                                "fullShortUrl",
+                                                                "nurl.ink/a",
+                                                                "describe",
+                                                                "Launch")),
+                                        "total", 1L,
+                                        "current", 1L,
+                                        "size", 10L)));
+        CapturingAgentTool statsTool =
+                new CapturingAgentTool(
+                        "get_group_stats",
+                        ToolResult.success(Map.of("pv", 120, "uv", 40, "uip", 30)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(List.of(listGroupsTool, pageTool, statsTool)));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "show groups and link list and stats gid=g1 startDate=2026-07-01 endDate=2026-07-07 current=1 size=10",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "show groups and link list and stats gid=g1 startDate=2026-07-01"
+                                    + " endDate=2026-07-07 current=1 size=10",
+                                "trace-1"));
 
         assertThat(listGroupsTool.context).as("list_groups should be planned").isNotNull();
         assertThat(pageTool.context).as("page_short_links should be planned").isNotNull();
@@ -167,30 +190,32 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeExtractsArgumentsWithFullwidthChineseDelimiters() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "stats answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        CapturingAgentTool statsTool = new CapturingAgentTool(
-                "get_group_stats",
-                ToolResult.success(Map.of("pv", 120, "uv", 40, "uip", 30))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(statsTool))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "stats answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        CapturingAgentTool statsTool =
+                new CapturingAgentTool(
+                        "get_group_stats",
+                        ToolResult.success(Map.of("pv", 120, "uv", 40, "uip", 30)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(List.of(statsTool)));
 
-        executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "\u7edf\u8ba1 gid\uff1ag1\uff0c startDate\uff1a2026-07-01\uff1b endDate\uff1a2026-07-07",
-                "trace-1"
-        ));
+        executor.execute(
+                trustedRequest(
+                        "session-1",
+                        "zhangsan",
+                        "\u7edf\u8ba1 gid\uff1ag1\uff0c startDate\uff1a2026-07-01\uff1b"
+                            + " endDate\uff1a2026-07-07",
+                        "trace-1"));
 
         assertThat(statsTool.context).as("get_group_stats should be planned").isNotNull();
         assertThat(statsTool.context.arguments())
@@ -201,87 +226,108 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executePlansComposableToolsForChineseCampaignAnalysisRequest() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "涓枃鎶曟斁鍒嗘瀽",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        CapturingAgentTool listGroupsTool = new CapturingAgentTool(
-                "list_groups",
-                ToolResult.success(List.of(Map.of("gid", "g1", "name", "钀ラ攢娲诲姩", "shortLinkCount", 3)))
-        );
-        CapturingAgentTool pageTool = new CapturingAgentTool(
-                "page_short_links",
-                ToolResult.success(Map.of("records", List.of(Map.of("fullShortUrl", "nurl.ink/a"))))
-        );
-        CapturingAgentTool statsTool = new CapturingAgentTool(
-                "get_group_stats",
-                ToolResult.success(Map.of("pv", 35, "uv", 13, "uip", 1))
-        );
-        CapturingAgentTool recordsTool = new CapturingAgentTool(
-                "get_group_access_records",
-                ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1"))))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(listGroupsTool, pageTool, statsTool, recordsTool))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "涓枃鎶曟斁鍒嗘瀽",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        CapturingAgentTool listGroupsTool =
+                new CapturingAgentTool(
+                        "list_groups",
+                        ToolResult.success(
+                                List.of(
+                                        Map.of(
+                                                "gid",
+                                                "g1",
+                                                "name",
+                                                "钀ラ攢娲诲姩",
+                                                "shortLinkCount",
+                                                3))));
+        CapturingAgentTool pageTool =
+                new CapturingAgentTool(
+                        "page_short_links",
+                        ToolResult.success(
+                                Map.of("records", List.of(Map.of("fullShortUrl", "nurl.ink/a")))));
+        CapturingAgentTool statsTool =
+                new CapturingAgentTool(
+                        "get_group_stats",
+                        ToolResult.success(Map.of("pv", 35, "uv", 13, "uip", 1)));
+        CapturingAgentTool recordsTool =
+                new CapturingAgentTool(
+                        "get_group_access_records",
+                        ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1")))));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(listGroupsTool, pageTool, statsTool, recordsTool)));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "show groups and page short links and stats and access records gid=Q70DpK startDate=2024-01-01 endDate=2026-12-31 current=1 size=3",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "show groups and page short links and stats and access records"
+                                    + " gid=Q70DpK startDate=2026-07-01 endDate=2026-07-07"
+                                    + " current=1 size=3",
+                                "trace-1"));
 
         assertThat(result.toolCalls())
                 .extracting(each -> map(each).get("name"))
-                .containsExactly("list_groups", "page_short_links", "get_group_stats", "get_group_access_records");
+                .containsExactly(
+                        "list_groups",
+                        "page_short_links",
+                        "get_group_stats",
+                        "get_group_access_records");
         assertThat(pageTool.context.arguments())
                 .containsEntry("gid", "Q70DpK")
                 .containsEntry("current", 1L)
                 .containsEntry("size", 3L);
         assertThat(statsTool.context.arguments())
-                .containsEntry("startDate", "2024-01-01")
-                .containsEntry("endDate", "2026-12-31");
-        assertThat(recordsTool.context.arguments())
-                .containsEntry("size", 3L);
+                .containsEntry("startDate", "2026-07-01")
+                .containsEntry("endDate", "2026-07-07");
+        assertThat(recordsTool.context.arguments()).containsEntry("size", 3L);
     }
 
     @Test
     void executeTrimsTrailingSentencePunctuationFromNumericArguments() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "overview answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        CapturingAgentTool pageTool = new CapturingAgentTool(
-                "page_short_links",
-                ToolResult.success(Map.of("records", List.of(Map.of("fullShortUrl", "nurl.ink/a"))))
-        );
-        CapturingAgentTool recordsTool = new CapturingAgentTool(
-                "get_group_access_records",
-                ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1"))))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(pageTool, recordsTool))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "overview answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        CapturingAgentTool pageTool =
+                new CapturingAgentTool(
+                        "page_short_links",
+                        ToolResult.success(
+                                Map.of("records", List.of(Map.of("fullShortUrl", "nurl.ink/a")))));
+        CapturingAgentTool recordsTool =
+                new CapturingAgentTool(
+                        "get_group_access_records",
+                        ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1")))));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(List.of(pageTool, recordsTool)));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "page short links and access records gid=g1 startDate=2026-07-01 endDate=2026-07-07 current=1 size=3.",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "page short links and access records gid=g1 startDate=2026-07-01"
+                                    + " endDate=2026-07-07 current=1 size=3.",
+                                "trace-1"));
 
         assertThat(result.toolCalls())
                 .extracting(each -> map(each).get("success"))
@@ -292,36 +338,40 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeKeepsSingleShortLinkStatsRequestToStatsToolOnly() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "short link stats answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        CapturingAgentTool pageTool = new CapturingAgentTool(
-                "page_short_links",
-                ToolResult.success(Map.of("records", List.of()))
-        );
-        CapturingAgentTool statsTool = new CapturingAgentTool(
-                "get_short_link_stats",
-                ToolResult.success(Map.of("pv", 12, "uv", 4, "uip", 3))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(pageTool, statsTool))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "short link stats answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        CapturingAgentTool pageTool =
+                new CapturingAgentTool(
+                        "page_short_links", ToolResult.success(Map.of("records", List.of())));
+        CapturingAgentTool statsTool =
+                new CapturingAgentTool(
+                        "get_short_link_stats",
+                        ToolResult.success(Map.of("pv", 12, "uv", 4, "uip", 3)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(List.of(pageTool, statsTool)));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "stats for short link fullShortUrl=nurl.ink/a gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "stats for short link fullShortUrl=nurl.ink/a gid=g1"
+                                    + " startDate=2026-07-01 endDate=2026-07-07",
+                                "trace-1"));
 
-        assertThat(pageTool.context).as("single short link stats should not request a page").isNull();
+        assertThat(pageTool.context)
+                .as("single short link stats should not request a page")
+                .isNull();
         assertThat(statsTool.context).as("get_short_link_stats should be planned").isNotNull();
         assertThat(result.toolCalls())
                 .extracting(each -> map(each).get("name"))
@@ -333,37 +383,43 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeKeepsAccessRecordsPageRequestToAccessRecordsToolOnly() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "access records answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        CapturingAgentTool pageTool = new CapturingAgentTool(
-                "page_short_links",
-                ToolResult.success(Map.of("records", List.of()))
-        );
-        CapturingAgentTool recordsTool = new CapturingAgentTool(
-                "get_group_access_records",
-                ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1"))))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(pageTool, recordsTool))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "access records answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        CapturingAgentTool pageTool =
+                new CapturingAgentTool(
+                        "page_short_links", ToolResult.success(Map.of("records", List.of())));
+        CapturingAgentTool recordsTool =
+                new CapturingAgentTool(
+                        "get_group_access_records",
+                        ToolResult.success(Map.of("records", List.of(Map.of("ip", "127.0.0.1")))));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(List.of(pageTool, recordsTool)));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "page access records gid=g1 startDate=2026-07-01 endDate=2026-07-07 current=1 size=10",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "page access records gid=g1 startDate=2026-07-01 endDate=2026-07-07"
+                                    + " current=1 size=10",
+                                "trace-1"));
 
-        assertThat(pageTool.context).as("access records paging should not request short link page").isNull();
-        assertThat(recordsTool.context).as("get_group_access_records should be planned").isNotNull();
+        assertThat(pageTool.context)
+                .as("access records paging should not request short link page")
+                .isNull();
+        assertThat(recordsTool.context)
+                .as("get_group_access_records should be planned")
+                .isNotNull();
         assertThat(result.toolCalls())
                 .extracting(each -> map(each).get("name"))
                 .containsExactly("get_group_access_records");
@@ -374,32 +430,37 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeBuildsStatsSummaryCardFromGroupStatsTool() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "stats answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        Map<String, Object> stats = Map.of(
-                "pv", 120,
-                "uv", 40,
-                "uip", 30,
-                "daily", List.of(Map.of("date", "2026-07-01", "pv", 20))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_stats", ToolResult.success(stats))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "stats answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        Map<String, Object> stats =
+                Map.of(
+                        "pv", 120,
+                        "uv", 40,
+                        "uip", 30,
+                        "daily", List.of(Map.of("date", "2026-07-01", "pv", 20)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "get_group_stats", ToolResult.success(stats)))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                                "trace-1"));
 
         assertThat(result.toolCalls()).hasSize(1);
         Map<String, Object> card = card(result, 0);
@@ -414,52 +475,59 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .containsEntry("gid", "g1")
                 .containsEntry("startDate", "2026-07-01")
                 .containsEntry("endDate", "2026-07-07");
-        assertThat(card.get("rawData")).isEqualTo(stats);
+        assertThat(card.get("rawData"))
+                .isEqualTo(com.jupiter.shortlink.agent.StatsTestFixtures.envelope(stats));
     }
 
     @Test
     void executeBuildsTrafficAnomalyCardsFromStatsTool() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "anomaly answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        Map<String, Object> stats = Map.of(
-                "pv", 120,
-                "uv", 20,
-                "uip", 18,
-                "topIpStats", List.of(
-                        Map.of("ip", "192.168.1.10", "cnt", 50),
-                        Map.of("ip", "10.0.0.8", "cnt", 8)
-                )
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_stats", ToolResult.success(stats))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "anomaly answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        Map<String, Object> stats =
+                Map.of(
+                        "pv", 120,
+                        "uv", 20,
+                        "uip", 18,
+                        "topIpStats",
+                                List.of(
+                                        Map.of("ip", "192.168.1.10", "cnt", 50),
+                                        Map.of("ip", "10.0.0.8", "cnt", 8)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "get_group_stats", ToolResult.success(stats)))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                                "trace-1"));
 
         List<Map<String, Object>> anomalies = cardsOfType(result, "traffic_anomaly");
         assertThat(anomalies)
                 .extracting(each -> map(each.get("summary")).get("reasonCode"))
                 .containsExactly("high_repeat_visits", "low_uip_share", "top_ip_concentration");
         assertThat(anomalies)
-                .allSatisfy(each -> assertThat(each)
-                        .containsEntry("sourceTool", "get_group_stats")
-                        .containsEntry("severity", "warning"));
+                .allSatisfy(
+                        each ->
+                                assertThat(each)
+                                        .containsEntry("sourceTool", "get_group_stats")
+                                        .containsEntry("severity", "warning"));
         Map<String, Object> topIpCard = anomalies.get(2);
-        assertThat(map(topIpCard.get("evidence")))
-                .containsEntry("maskedTopIp", "192.168.*.*");
+        assertThat(map(topIpCard.get("evidence"))).containsEntry("maskedTopIp", "192.168.*.*");
         assertThat(topIpCard.toString()).doesNotContain("192.168.1.10");
         assertThat(chatClient.request.messages().get(1).content())
                 .contains("Derived insight context")
@@ -470,32 +538,36 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeAddsInsightExplanationContractWhenDerivedCardsExist() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "contract answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        Map<String, Object> stats = Map.of(
-                "pv", 120,
-                "uv", 20,
-                "uip", 18,
-                "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 50))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_stats", ToolResult.success(stats))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "contract answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        Map<String, Object> stats =
+                Map.of(
+                        "pv", 120,
+                        "uv", 20,
+                        "uip", 18,
+                        "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 50)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "get_group_stats", ToolResult.success(stats)))));
 
-        executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "trace-1"
-        ));
+        executor.execute(
+                trustedRequest(
+                        "session-1",
+                        "zhangsan",
+                        "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                        "trace-1"));
 
         assertThat(chatClient.request.messages().get(1).content())
                 .contains("Insight explanation contract")
@@ -511,27 +583,31 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeSkipsInsightExplanationContractWhenNoDerivedCardsExist() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "stats answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "stats answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
         Map<String, Object> stats = Map.of("pv", 10, "uv", 8, "uip", 7);
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_stats", ToolResult.success(stats))))
-        );
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "get_group_stats", ToolResult.success(stats)))));
 
-        executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "trace-1"
-        ));
+        executor.execute(
+                trustedRequest(
+                        "session-1",
+                        "zhangsan",
+                        "stats gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                        "trace-1"));
 
         assertThat(chatClient.request.messages().get(1).content())
                 .contains("Tool execution context")
@@ -541,54 +617,68 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeBuildsPerformanceInsightCardsFromStatsTool() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "insight answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        Map<String, Object> stats = Map.of(
-                "pv", 170,
-                "uv", 80,
-                "uip", 70,
-                "daily", List.of(
-                        Map.of("date", "2026-07-01", "pv", 20),
-                        Map.of("date", "2026-07-02", "pv", 22),
-                        Map.of("date", "2026-07-03", "pv", 100)
-                ),
-                "hourStats", List.of(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 50, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-                "deviceStats", List.of(Map.of("device", "Mobile", "cnt", 90, "ratio", 0.72))
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("get_short_link_stats", ToolResult.success(stats))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "insight answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        Map<String, Object> stats =
+                Map.of(
+                        "pv",
+                        170,
+                        "uv",
+                        80,
+                        "uip",
+                        70,
+                        "daily",
+                        List.of(
+                                Map.of("date", "2026-07-01", "pv", 20),
+                                Map.of("date", "2026-07-02", "pv", 22),
+                                Map.of("date", "2026-07-03", "pv", 100)),
+                        "hourStats",
+                        List.of(
+                                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 50, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                1, 1),
+                        "deviceStats",
+                        List.of(Map.of("device", "Mobile", "cnt", 90, "ratio", 0.72)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "get_short_link_stats",
+                                                ToolResult.success(stats)))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "stats for short link fullShortUrl=nurl.ink/a gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "stats for short link fullShortUrl=nurl.ink/a gid=g1"
+                                    + " startDate=2026-07-01 endDate=2026-07-07",
+                                "trace-1"));
 
         List<Map<String, Object>> insights = cardsOfType(result, "performance_insight");
         assertThat(insights)
                 .extracting(each -> map(each.get("summary")).get("reasonCode"))
                 .containsExactly("daily_pv_spike", "hour_concentration", "profile_concentration");
         assertThat(insights)
-                .allSatisfy(each -> assertThat(each)
-                        .containsEntry("sourceTool", "get_short_link_stats")
-                        .containsEntry("severity", "info"));
+                .allSatisfy(
+                        each ->
+                                assertThat(each)
+                                        .containsEntry("sourceTool", "get_short_link_stats")
+                                        .containsEntry("severity", "info"));
         assertThat(map(insights.get(0).get("metrics")))
                 .containsEntry("latestPv", 100L)
                 .containsEntry("deltaPv", 79L);
-        assertThat(map(insights.get(2).get("summary")))
-                .containsEntry("dimension", "device");
-        assertThat(map(insights.get(2).get("evidence")))
-                .containsEntry("label", "Mobile");
+        assertThat(map(insights.get(2).get("summary"))).containsEntry("dimension", "device");
+        assertThat(map(insights.get(2).get("evidence"))).containsEntry("label", "Mobile");
         assertThat(chatClient.request.messages().get(1).content())
                 .contains("Derived insight context")
                 .contains("performance_insight")
@@ -597,37 +687,44 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeBuildsDailyTrendInsightFromLatestDateWhenDailyRowsAreUnordered() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "insight answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        Map<String, Object> stats = Map.of(
-                "pv", 163,
-                "uv", 90,
-                "uip", 70,
-                "daily", List.of(
-                        Map.of("date", "2026-07-04", "pv", 100),
-                        Map.of("date", "2026-07-01", "pv", 20),
-                        Map.of("date", "2026-07-03", "pv", 22),
-                        Map.of("date", "2026-07-02", "pv", 21)
-                )
-        );
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("get_short_link_stats", ToolResult.success(stats))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "insight answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        Map<String, Object> stats =
+                Map.of(
+                        "pv", 163,
+                        "uv", 90,
+                        "uip", 70,
+                        "daily",
+                                List.of(
+                                        Map.of("date", "2026-07-04", "pv", 100),
+                                        Map.of("date", "2026-07-01", "pv", 20),
+                                        Map.of("date", "2026-07-03", "pv", 22),
+                                        Map.of("date", "2026-07-02", "pv", 21)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "get_short_link_stats",
+                                                ToolResult.success(stats)))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "stats for short link fullShortUrl=nurl.ink/a gid=g1 startDate=2026-07-01 endDate=2026-07-04",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "stats for short link fullShortUrl=nurl.ink/a gid=g1"
+                                    + " startDate=2026-07-01 endDate=2026-07-04",
+                                "trace-1"));
 
         List<Map<String, Object>> insights = cardsOfType(result, "performance_insight");
         assertThat(insights)
@@ -637,36 +734,50 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .containsEntry("latestPv", 100L)
                 .containsEntry("baselinePvAverage", 21.0D)
                 .containsEntry("deltaPv", 79L);
-        assertThat(map(insights.get(0).get("evidence")))
-                .containsEntry("date", "2026-07-04");
+        assertThat(map(insights.get(0).get("evidence"))).containsEntry("date", "2026-07-04");
     }
 
     @Test
     void executeBuildsShortLinkPageCardFromPageTool() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "page answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        List<Map<String, Object>> rows = List.of(
-                Map.of("fullShortUrl", "nurl.ink/a", "describe", "Launch", "todayPv", 42, "totalPv", 120)
-        );
-        Map<String, Object> pageData = Map.of("records", rows, "total", 1L, "current", 1L, "size", 10L);
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("page_short_links", ToolResult.success(pageData))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "page answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        List<Map<String, Object>> rows =
+                List.of(
+                        Map.of(
+                                "fullShortUrl",
+                                "nurl.ink/a",
+                                "describe",
+                                "Launch",
+                                "todayPv",
+                                42,
+                                "totalPv",
+                                120));
+        Map<String, Object> pageData =
+                Map.of("records", rows, "total", 1L, "current", 1L, "size", 10L);
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "page_short_links",
+                                                ToolResult.success(pageData)))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "list link gid=g1 current=1 size=10",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "list link gid=g1 current=1 size=10",
+                                "trace-1"));
 
         Map<String, Object> card = card(result, 0);
         assertThat(card)
@@ -682,30 +793,46 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeBuildsAccessRecordsCardFromAccessRecordsTool() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "records answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        List<Map<String, Object>> rows = List.of(
-                Map.of("ip", "127.0.0.1", "user", "visitor-001", "browser", "Chrome", "network", "WiFi")
-        );
-        Map<String, Object> pageData = Map.of("records", rows, "total", 1L, "current", 1L, "size", 10L);
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("get_group_access_records", ToolResult.success(pageData))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "records answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        List<Map<String, Object>> rows =
+                List.of(
+                        Map.of(
+                                "ip",
+                                "127.0.0.1",
+                                "user",
+                                "visitor-001",
+                                "browser",
+                                "Chrome",
+                                "network",
+                                "WiFi"));
+        Map<String, Object> pageData =
+                Map.of("records", rows, "total", 1L, "current", 1L, "size", 10L);
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "get_group_access_records",
+                                                ToolResult.success(pageData)))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "access record gid=g1 startDate=2026-07-01 endDate=2026-07-07 current=1 size=10",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest(
+                                "session-1",
+                                "zhangsan",
+                                "access record gid=g1 startDate=2026-07-01 endDate=2026-07-07"
+                                    + " current=1 size=10",
+                                "trace-1"));
 
         Map<String, Object> card = card(result, 0);
         assertThat(card)
@@ -723,9 +850,7 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .containsEntry("network", "WiFi")
                 .doesNotContainKey("user");
         Map<String, Object> rawRecord = map(list(map(card.get("rawData")).get("records")).get(0));
-        assertThat(rawRecord)
-                .containsEntry("ip", "127.0.*.*")
-                .doesNotContainKey("user");
+        assertThat(rawRecord).containsEntry("ip", "127.0.*.*").doesNotContainKey("user");
         assertThat(result.toolCalls().toString())
                 .contains("127.0.*.*")
                 .doesNotContain("127.0.0.1")
@@ -734,33 +859,32 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .contains("127.0.*.*")
                 .doesNotContain("127.0.0.1")
                 .doesNotContain("visitor-001");
-        assertThat(result.toString())
-                .doesNotContain("127.0.0.1")
-                .doesNotContain("visitor-001");
+        assertThat(result.toString()).doesNotContain("127.0.0.1").doesNotContain("visitor-001");
     }
 
     @Test
     void executeBuildsWarningCardWhenToolFails() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "degraded answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new CapturingGraphCheckpointStore(),
-                new AgentProperties(),
-                new AgentToolRegistry(List.of(new CapturingAgentTool("list_groups", ToolResult.failure("business api unavailable"))))
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "degraded answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new CapturingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        new AgentToolRegistry(
+                                List.of(
+                                        new CapturingAgentTool(
+                                                "list_groups",
+                                                ToolResult.failure("business api unavailable")))));
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "show group",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(trustedRequest("session-1", "zhangsan", "show group", "trace-1"));
 
         assertThat(result.answer()).isEqualTo("degraded answer");
         assertThat(result.warnings()).contains("Tool list_groups failed: business api unavailable");
@@ -773,27 +897,22 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeCallsLlmAndReturnsTraceableResult() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "plain answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "plain answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
         CapturingGraphCheckpointStore checkpointStore = new CapturingGraphCheckpointStore();
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                checkpointStore,
-                new AgentProperties(),
-                emptyToolRegistry()
-        );
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient, checkpointStore, new AgentProperties(), emptyToolRegistry());
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "plain user message",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest("session-1", "zhangsan", "plain user message", "trace-1"));
 
         assertThat(result.sessionId()).isEqualTo("session-1");
         assertThat(result.traceId()).isEqualTo("trace-1");
@@ -809,19 +928,28 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         List<Map<String, Object>> traceEvents = traceEvents(result);
         assertThat(traceEvents)
                 .extracting(each -> each.get("nodeName"))
-                .containsExactly("intake", "tool_call", "insight_compute", "llm_analysis", "response_compose", "checkpoint_save");
+                .containsExactly(
+                        "intake",
+                        "tool_call",
+                        "insight_compute",
+                        "llm_analysis",
+                        "response_compose",
+                        "checkpoint_save");
         assertThat(traceEvents)
-                .allSatisfy(each -> assertThat(each)
-                        .containsEntry("traceId", "trace-1")
-                        .containsEntry("status", "success"));
+                .allSatisfy(
+                        each ->
+                                assertThat(each)
+                                        .containsEntry("traceId", "trace-1")
+                                        .containsEntry("status", "success"));
         assertThat(traceEvents)
                 .allSatisfy(each -> assertThat(map(each.get("timing"))).containsKey("durationMs"));
         assertThat(traceEvents.get(5)).containsKey("checkpointVersion");
         assertThat(checkpointStore.saved).hasSize(1);
-        assertThat(checkpointStore.saved.get(0).threadId()).isEqualTo("session-1");
+        assertThat(checkpointStore.saved.get(0).threadId()).isEqualTo("zhangsan:1001:7:session-1");
         assertThat(checkpointStore.saved.get(0).traceId()).isEqualTo("trace-1");
         assertThat(checkpointStore.saved.get(0).graphName()).isEqualTo("campaign-analysis-graph");
-        assertThat(checkpointStore.saved.get(0).checkpointJson()).contains("\"answer\":\"plain answer\"");
+        assertThat(checkpointStore.saved.get(0).checkpointJson())
+                .contains("\"answer\":\"plain answer\"");
         assertThat(chatClient.request.messages())
                 .extracting(DeepSeekChatRequest.Message::role)
                 .containsExactly("system", "user");
@@ -830,13 +958,19 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeReportsMissingApiKeySeparatelyFromProviderFailure() {
-        DefaultCampaignAnalysisGraphExecutor missingKeyExecutor = newExecutor(request -> {
-            throw new LlmApiKeyNotConfiguredException("DeepSeek API key not configured");
-        });
-        DefaultCampaignAnalysisGraphExecutor providerFailureExecutor = newExecutor(request -> {
-            throw new LlmChatClientException("DeepSeek chat request failed");
-        });
-        CampaignAnalysisGraphRequest request = new CampaignAnalysisGraphRequest("session-1", "zhangsan", "hello", "trace-1");
+        DefaultCampaignAnalysisGraphExecutor missingKeyExecutor =
+                newExecutor(
+                        request -> {
+                            throw new LlmApiKeyNotConfiguredException(
+                                    "DeepSeek API key not configured");
+                        });
+        DefaultCampaignAnalysisGraphExecutor providerFailureExecutor =
+                newExecutor(
+                        request -> {
+                            throw new LlmChatClientException("DeepSeek chat request failed");
+                        });
+        CampaignAnalysisGraphRequest request =
+                trustedRequest("session-1", "zhangsan", "hello", "trace-1");
 
         AgentRunResult missingKeyResult = missingKeyExecutor.execute(request);
         AgentRunResult providerFailureResult = providerFailureExecutor.execute(request);
@@ -848,26 +982,24 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeKeepsAgentAnswerWhenCheckpointSaveFails() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(new DeepSeekChatResponse(
-                "chat-1",
-                "deepseek-v4-flash",
-                "plain answer",
-                "stop",
-                new DeepSeekChatResponse.Usage(10, 20, 30)
-        ));
-        DefaultCampaignAnalysisGraphExecutor executor = new DefaultCampaignAnalysisGraphExecutor(
-                chatClient,
-                new FailingGraphCheckpointStore(),
-                new AgentProperties(),
-                emptyToolRegistry()
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient(
+                        new DeepSeekChatResponse(
+                                "chat-1",
+                                "deepseek-v4-flash",
+                                "plain answer",
+                                "stop",
+                                new DeepSeekChatResponse.Usage(10, 20, 30)));
+        DefaultCampaignAnalysisGraphExecutor executor =
+                new DefaultCampaignAnalysisGraphExecutor(
+                        chatClient,
+                        new FailingGraphCheckpointStore(),
+                        new AgentProperties(),
+                        emptyToolRegistry());
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "plain user message",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        trustedRequest("session-1", "zhangsan", "plain user message", "trace-1"));
 
         assertThat(result.answer()).isEqualTo("plain answer");
         assertThat(result.warnings()).contains("Graph checkpoint save failed");
@@ -884,20 +1016,17 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
     @Test
     void executeReturnsSafeFailureTraceWhenGraphNodeThrows() {
-        DefaultCampaignAnalysisGraphExecutor executor = newExecutor(request -> {
-            throw new RuntimeException("jdbc:mysql://internal-host:3306/secret");
-        });
+        DefaultCampaignAnalysisGraphExecutor executor =
+                newExecutor(
+                        request -> {
+                            throw new RuntimeException("jdbc:mysql://internal-host:3306/secret");
+                        });
 
-        AgentRunResult result = executor.execute(new CampaignAnalysisGraphRequest(
-                "session-1",
-                "zhangsan",
-                "hello",
-                "trace-1"
-        ));
+        AgentRunResult result =
+                executor.execute(trustedRequest("session-1", "zhangsan", "hello", "trace-1"));
 
         assertThat(result.answer()).isEqualTo("Campaign analysis graph failed.");
-        assertThat(result.warnings())
-                .containsExactly("Graph execution failed");
+        assertThat(result.warnings()).containsExactly("Graph execution failed");
         assertThat(result.toString()).doesNotContain("jdbc:mysql://internal-host:3306/secret");
         List<Map<String, Object>> traceEvents = traceEvents(result);
         assertThat(traceEvents)
@@ -908,14 +1037,31 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .containsEntry("status", "failed")
                 .containsEntry("error", "Graph execution failed");
         assertThat(traceEvents)
-                .anySatisfy(each -> assertThat(each)
-                        .containsEntry("nodeName", "llm_analysis")
-                        .containsEntry("status", "failed")
-                        .containsEntry("error", "Graph node execution failed"));
+                .anySatisfy(
+                        each ->
+                                assertThat(each)
+                                        .containsEntry("nodeName", "llm_analysis")
+                                        .containsEntry("status", "failed")
+                                        .containsEntry("error", "Graph node execution failed"));
+    }
+
+    private static CampaignAnalysisGraphRequest trustedRequest(
+            String session, String username, String message, String trace) {
+        return new CampaignAnalysisGraphRequest(
+                session,
+                username,
+                message,
+                trace,
+                new com.jupiter.shortlink.agent.harness.security.AgentPrincipal(
+                        "1001", username, 7, false));
     }
 
     private DefaultCampaignAnalysisGraphExecutor newExecutor(LlmChatClient chatClient) {
-        return new DefaultCampaignAnalysisGraphExecutor(chatClient, new CapturingGraphCheckpointStore(), new AgentProperties(), emptyToolRegistry());
+        return new DefaultCampaignAnalysisGraphExecutor(
+                chatClient,
+                new CapturingGraphCheckpointStore(),
+                new AgentProperties(),
+                emptyToolRegistry());
     }
 
     private AgentToolRegistry emptyToolRegistry() {
@@ -947,7 +1093,8 @@ class DefaultCampaignAnalysisGraphExecutorTest {
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> traceEvents(AgentRunResult result) {
         try {
-            return (List<Map<String, Object>>) AgentRunResult.class.getMethod("traceEvents").invoke(result);
+            return (List<Map<String, Object>>)
+                    AgentRunResult.class.getMethod("traceEvents").invoke(result);
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError("AgentRunResult must expose traceEvents", ex);
         }
@@ -980,7 +1127,8 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         }
 
         @Override
-        public Optional<GraphCheckpoint> loadLatest(String threadId, String graphName, String graphVersion) {
+        public Optional<GraphCheckpoint> loadLatest(
+                String threadId, String graphName, String graphVersion) {
             return saved.stream()
                     .filter(each -> each.threadId().equals(threadId))
                     .filter(each -> each.graphName().equals(graphName))
@@ -997,7 +1145,8 @@ class DefaultCampaignAnalysisGraphExecutorTest {
         }
 
         @Override
-        public Optional<GraphCheckpoint> loadLatest(String threadId, String graphName, String graphVersion) {
+        public Optional<GraphCheckpoint> loadLatest(
+                String threadId, String graphName, String graphVersion) {
             return Optional.empty();
         }
     }
@@ -1012,7 +1161,15 @@ class DefaultCampaignAnalysisGraphExecutorTest {
 
         private CapturingAgentTool(String name, ToolResult result) {
             this.descriptor = new ToolDescriptor(name, "Test tool", Map.of());
-            this.result = result;
+            this.result =
+                    name.endsWith("_stats")
+                                    && result.success()
+                                    && result.data() instanceof Map<?, ?> stats
+                                    && !stats.isEmpty()
+                            ? ToolResult.success(
+                                    com.jupiter.shortlink.agent.StatsTestFixtures.envelope(
+                                            (Map<String, Object>) stats))
+                            : result;
         }
 
         @Override

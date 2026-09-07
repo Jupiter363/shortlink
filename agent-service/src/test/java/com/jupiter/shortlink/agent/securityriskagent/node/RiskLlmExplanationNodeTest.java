@@ -1,11 +1,14 @@
 package com.jupiter.shortlink.agent.securityriskagent.node;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.jupiter.shortlink.agent.infrastructure.llm.DeepSeekChatRequest;
 import com.jupiter.shortlink.agent.infrastructure.llm.DeepSeekChatResponse;
 import com.jupiter.shortlink.agent.infrastructure.llm.LlmChatClient;
 import com.jupiter.shortlink.agent.securityriskagent.prompt.SecurityRiskPromptBuilder;
 import com.jupiter.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -17,31 +20,47 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 class RiskLlmExplanationNodeTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"NO_DATA", "SOURCE_FAILURE"})
     void applyReclassifiesAvailableRiskCardsAfterPlanningRecordedAStaleStatus(String staleStatus) {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient("risk card answer");
-        RiskLlmExplanationNode node = new RiskLlmExplanationNode(
-                chatClient,
-                new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
-                new SecurityRiskSanitizer()
-        );
-        OverAllState state = new OverAllState(Map.of(
-                "message", "analyze risk",
-                "toolExecutions", List.of(Map.of(
-                        "name", "get_group_stats",
-                        "success", true,
-                        "data", Map.of()
-                )),
-                "riskCards", List.of(Map.of("riskScore", 85)),
-                "toolWarnings", List.of(),
-                "evidenceRequested", true,
-                "evidenceStatus", staleStatus
-        ));
+        RiskLlmExplanationNode node =
+                new RiskLlmExplanationNode(
+                        chatClient,
+                        new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
+                        new SecurityRiskSanitizer());
+        OverAllState state =
+                new OverAllState(
+                        Map.of(
+                                "message",
+                                "analyze risk",
+                                "toolExecutions",
+                                List.of(
+                                        Map.of(
+                                                "name",
+                                                "get_group_stats",
+                                                "success",
+                                                true,
+                                                "data",
+                                                Map.of())),
+                                "riskCards",
+                                List.of(
+                                        Map.of(
+                                                "riskScore",
+                                                85,
+                                                "evidence",
+                                                Map.of(
+                                                        "meta",
+                                                        com.jupiter.shortlink.agent
+                                                                .StatsTestFixtures.meta()))),
+                                "toolWarnings",
+                                List.of(),
+                                "evidenceRequested",
+                                true,
+                                "evidenceStatus",
+                                staleStatus));
 
         Map<String, Object> output = node.apply(state);
 
@@ -52,22 +71,26 @@ class RiskLlmExplanationNodeTest {
 
     @Test
     void explainCallsLlmWithSanitizedPromptAndSanitizesAnswer() {
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient("answer ip=10.0.0.9 user=visitor-002 token=abc");
-        RiskLlmExplanationNode node = new RiskLlmExplanationNode(
-                chatClient,
-                new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
-                new SecurityRiskSanitizer()
-        );
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient("answer ip=10.0.0.9 user=visitor-002 token=abc");
+        RiskLlmExplanationNode node =
+                new RiskLlmExplanationNode(
+                        chatClient,
+                        new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
+                        new SecurityRiskSanitizer());
 
-        Map<String, Object> output = node.explain(
-                "risk ip=192.168.1.10 user=visitor-001 token=raw",
-                List.of(Map.of(
-                        "success", true,
-                        "data", Map.of("ip", "172.16.1.2", "username", "admin")
-                )),
-                List.of(Map.of("evidence", Map.of("ip", "8.8.8.8", "uid", "u-001"))),
-                List.of("tool warning ip=127.0.0.1 user=ops")
-        );
+        Map<String, Object> output =
+                node.explain(
+                        "risk ip=192.168.1.10 user=visitor-001 token=raw",
+                        List.of(
+                                Map.of(
+                                        "success",
+                                        true,
+                                        "data",
+                                        com.jupiter.shortlink.agent.StatsTestFixtures.envelope(
+                                                Map.of("ip", "172.16.1.2", "username", "admin")))),
+                        List.of(Map.of("evidence", Map.of("ip", "8.8.8.8", "uid", "u-001"))),
+                        List.of("tool warning ip=127.0.0.1 user=ops"));
 
         assertThat(chatClient.request.messages().get(0).content()).contains("Security Risk Agent");
         assertThat(chatClient.request.messages().get(1).content())
@@ -93,31 +116,35 @@ class RiskLlmExplanationNodeTest {
                 .contains("127.0.*.*")
                 .doesNotContain("127.0.0.1")
                 .doesNotContain("ops");
-        assertThat(output.get("visitedNodes")).isEqualTo(List.of("intake", "risk_tool_planning", "risk_scoring", "llm_explanation"));
+        assertThat(output.get("visitedNodes"))
+                .isEqualTo(
+                        List.of("intake", "risk_tool_planning", "risk_scoring", "llm_explanation"));
     }
 
     @Test
     void explainReturnsDeterministicFallbackWhenAllEvidenceToolsFail() {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient("must not be used");
-        RiskLlmExplanationNode node = new RiskLlmExplanationNode(
-                chatClient,
-                new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
-                new SecurityRiskSanitizer()
-        );
+        RiskLlmExplanationNode node =
+                new RiskLlmExplanationNode(
+                        chatClient,
+                        new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
+                        new SecurityRiskSanitizer());
 
-        Map<String, Object> output = node.explain(
-                "analyze risk",
-                List.of(Map.of(
-                        "name", "get_group_stats",
-                        "success", false,
-                        "message", "business api unavailable"
-                )),
-                List.of(),
-                List.of("Agent tool get_group_stats failed: business api unavailable")
-        );
+        Map<String, Object> output =
+                node.explain(
+                        "analyze risk",
+                        List.of(
+                                Map.of(
+                                        "name", "get_group_stats",
+                                        "success", false,
+                                        "message", "business api unavailable")),
+                        List.of(),
+                        List.of("Agent tool get_group_stats failed: business api unavailable"));
 
         assertThat(output.get("answer"))
-                .isEqualTo("Security risk evidence is temporarily unavailable because all requested data sources failed.");
+                .isEqualTo(
+                        "Security risk evidence is temporarily unavailable because all requested"
+                            + " data sources failed.");
         assertThat(output.get("llmDataSource")).isEqualTo(Map.of());
         assertThat(output.get("warnings").toString())
                 .contains("Agent tool get_group_stats failed")
@@ -128,22 +155,26 @@ class RiskLlmExplanationNodeTest {
     @Test
     void explainCallsLlmWhenUsableToolEvidenceExistsWithoutRiskCards() {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient("tool evidence answer");
-        RiskLlmExplanationNode node = new RiskLlmExplanationNode(
-                chatClient,
-                new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
-                new SecurityRiskSanitizer()
-        );
+        RiskLlmExplanationNode node =
+                new RiskLlmExplanationNode(
+                        chatClient,
+                        new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
+                        new SecurityRiskSanitizer());
 
-        Map<String, Object> output = node.explain(
-                "analyze risk",
-                List.of(Map.of(
-                        "name", "get_group_stats",
-                        "success", true,
-                        "data", Map.of("pv", 10, "uv", 8)
-                )),
-                List.of(),
-                List.of()
-        );
+        Map<String, Object> output =
+                node.explain(
+                        "analyze risk",
+                        List.of(
+                                Map.of(
+                                        "name",
+                                        "get_group_stats",
+                                        "success",
+                                        true,
+                                        "data",
+                                        com.jupiter.shortlink.agent.StatsTestFixtures.envelope(
+                                                Map.of("pv", 10, "uv", 8)))),
+                        List.of(),
+                        List.of());
 
         assertThat(output.get("answer")).isEqualTo("tool evidence answer");
         assertThat(output.get("llmDataSource").toString()).contains("deepseek-v4-flash");
@@ -152,24 +183,21 @@ class RiskLlmExplanationNodeTest {
 
     @ParameterizedTest
     @MethodSource("emptyEvidenceData")
-    void explainDoesNotCallLlmWhenSuccessfulToolExecutionContainsNoUsableEvidence(Object emptyData) {
+    void explainDoesNotCallLlmWhenSuccessfulToolExecutionContainsNoUsableEvidence(
+            Object emptyData) {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient("must not be used");
-        RiskLlmExplanationNode node = new RiskLlmExplanationNode(
-                chatClient,
-                new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
-                new SecurityRiskSanitizer()
-        );
+        RiskLlmExplanationNode node =
+                new RiskLlmExplanationNode(
+                        chatClient,
+                        new SecurityRiskPromptBuilder(new SecurityRiskSanitizer()),
+                        new SecurityRiskSanitizer());
         Map<String, Object> execution = new LinkedHashMap<>();
         execution.put("name", "get_group_stats");
         execution.put("success", true);
         execution.put("data", emptyData);
 
-        Map<String, Object> output = node.explain(
-                "analyze risk",
-                List.of(execution),
-                List.of(),
-                List.of()
-        );
+        Map<String, Object> output =
+                node.explain("analyze risk", List.of(execution), List.of(), List.of());
 
         assertThat(output.get("answer"))
                 .isEqualTo("No security risk evidence was found for the requested scope.");
@@ -184,8 +212,7 @@ class RiskLlmExplanationNodeTest {
                 Arguments.of(Map.of()),
                 Arguments.of(List.of()),
                 Arguments.of("   "),
-                Arguments.of((Object) new Object[0])
-        );
+                Arguments.of((Object) new Object[0]));
     }
 
     private static class CapturingLlmChatClient implements LlmChatClient {
@@ -206,8 +233,7 @@ class RiskLlmExplanationNodeTest {
                     "deepseek-v4-flash",
                     answer,
                     "stop",
-                    new DeepSeekChatResponse.Usage(10, 20, 30)
-            );
+                    new DeepSeekChatResponse.Usage(10, 20, 30));
         }
     }
 }

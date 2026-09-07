@@ -11,10 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 public record ProfileRiskAnalysisContext(
-        String gid,
-        GroupRiskProfile groupProfile,
-        List<ShortLinkRiskProfile> shortLinkProfiles
-) {
+        String gid, GroupRiskProfile groupProfile, List<ShortLinkRiskProfile> shortLinkProfiles) {
 
     public ProfileRiskAnalysisContext {
         gid = gid == null ? "" : gid;
@@ -39,14 +36,15 @@ public record ProfileRiskAnalysisContext(
         if (groupProfile != null) {
             dataSource.put("groupProfile", groupProfileMap(groupProfile));
         }
-        dataSource.put("shortLinkProfiles", shortLinkProfiles.stream()
-                .map(this::shortLinkMap)
-                .toList());
+        dataSource.put(
+                "shortLinkProfiles", shortLinkProfiles.stream().map(this::shortLinkMap).toList());
         return dataSource;
     }
 
     public String batchId() {
-        if (groupProfile != null && groupProfile.batchId() != null && !groupProfile.batchId().isBlank()) {
+        if (groupProfile != null
+                && groupProfile.batchId() != null
+                && !groupProfile.batchId().isBlank()) {
             return groupProfile.batchId();
         }
         return shortLinkProfiles.stream()
@@ -85,19 +83,28 @@ public record ProfileRiskAnalysisContext(
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("batchId", profile.batchId());
         value.put("gid", profile.gid());
-        value.put("profileWindowStart", profile.profileWindowStart() == null ? "" : profile.profileWindowStart().toString());
-        value.put("profileWindowEnd", profile.profileWindowEnd() == null ? "" : profile.profileWindowEnd().toString());
+        value.put(
+                "profileWindowStart",
+                profile.profileWindowStart() == null
+                        ? ""
+                        : profile.profileWindowStart().toString());
+        value.put(
+                "profileWindowEnd",
+                profile.profileWindowEnd() == null ? "" : profile.profileWindowEnd().toString());
         value.put("totalShortLinksScanned", profile.totalShortLinksScanned());
         value.put("lowRiskCount", profile.lowRiskCount());
         value.put("mediumRiskCount", profile.mediumRiskCount());
         value.put("highRiskCount", profile.highRiskCount());
         value.put("watchingCount", profile.watchingCount());
-        value.put("disabledCount", profile.disabledCount());
+        value.put("recommendedDisableCount", profile.disabledCount());
+        value.put("policyStateSource", "COMMAND_REQUIRED");
         value.put("avgRiskScore", profile.avgRiskScore());
         value.put("maxRiskScore", profile.maxRiskScore());
         value.put("groupRiskScore", profile.groupRiskScore());
         value.put("groupRiskLevel", profile.groupRiskLevel().name());
-        value.put("groupReasonCodes", profile.groupReasonCodes().stream().map(RiskReasonCode::name).toList());
+        value.put(
+                "groupReasonCodes",
+                profile.groupReasonCodes().stream().map(RiskReasonCode::name).toList());
         value.put("riskTrend7d", profile.riskTrend7d().stream().map(this::trendMap).toList());
         value.put("agentSummary", profile.agentSummary());
         return value;
@@ -113,16 +120,34 @@ public record ProfileRiskAnalysisContext(
 
     private Map<String, Object> shortLinkMap(ShortLinkRiskProfile profile) {
         Map<String, Object> value = new LinkedHashMap<>();
+        value.put(
+                "evidence",
+                profile.evidence() == null
+                        ? Map.of("availability", "UNAVAILABLE")
+                        : profile.evidence().toMap());
+        value.put(
+                "statisticsStatus",
+                profile.evidence() == null
+                        ? "UNKNOWN"
+                        : profile.evidence().meta().get("freshness"));
         value.put("batchId", profile.batchId());
         value.put("gid", profile.gid());
         value.put("domain", profile.domain());
         value.put("shortUri", profile.shortUri());
         value.put("fullShortUrl", profile.fullShortUrl());
-        value.put("profileWindowStart", profile.profileWindowStart() == null ? "" : profile.profileWindowStart().toString());
-        value.put("profileWindowEnd", profile.profileWindowEnd() == null ? "" : profile.profileWindowEnd().toString());
+        value.put(
+                "profileWindowStart",
+                profile.profileWindowStart() == null
+                        ? ""
+                        : profile.profileWindowStart().toString());
+        value.put(
+                "profileWindowEnd",
+                profile.profileWindowEnd() == null ? "" : profile.profileWindowEnd().toString());
         value.put("riskScore", profile.riskScore());
         value.put("riskLevel", profile.riskLevel().name());
-        value.put("reasonCodes", profile.reasonCodes().stream().map(RiskReasonCode::name).sorted().toList());
+        value.put(
+                "reasonCodes",
+                profile.reasonCodes().stream().map(RiskReasonCode::name).sorted().toList());
         value.put("metrics", metricsMap(profile.metrics()));
         value.put("watchStatus", profile.watchStatus().name());
         value.put("latestPolicyActions", profile.latestPolicyActions());

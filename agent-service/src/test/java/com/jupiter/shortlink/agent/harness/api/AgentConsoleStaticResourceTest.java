@@ -1,5 +1,10 @@
 package com.jupiter.shortlink.agent.harness.api;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,18 +19,12 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringJUnitConfig
 @WebAppConfiguration
 @ContextConfiguration(classes = AgentConsoleStaticResourceTest.StaticResourceConfig.class)
 class AgentConsoleStaticResourceTest {
 
-    @Autowired
-    private WebApplicationContext context;
+    @Autowired private WebApplicationContext context;
 
     private MockMvc mockMvc;
 
@@ -39,7 +38,7 @@ class AgentConsoleStaticResourceTest {
         mockMvc.perform(get("/agent-console/index.html"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Short Link Agent Console")))
-                .andExpect(content().string(containsString("/internal/short-link-agent/v1/chat")))
+                .andExpect(content().string(containsString("/api/short-link/admin/v1/agent/chat")))
                 .andExpect(content().string(containsString("Trace ID")))
                 .andExpect(content().string(containsString("Warnings")))
                 .andExpect(content().string(containsString("Insight Dashboard")))
@@ -59,7 +58,8 @@ class AgentConsoleStaticResourceTest {
                 .andExpect(content().string(containsString("select:focus")))
                 .andExpect(content().string(containsString("id=\"internalTokenInput\"")))
                 .andExpect(content().string(containsString("id=\"presetPromptsPanel\"")))
-                .andExpect(content().string(containsString("data-agent-type=\"campaign-analysis\"")))
+                .andExpect(
+                        content().string(containsString("data-agent-type=\"campaign-analysis\"")))
                 .andExpect(content().string(containsString("data-agent-type=\"security-risk\"")))
                 .andExpect(content().string(containsString("applyPresetPrompt")))
                 .andExpect(content().string(containsString("id=\"copyTraceIdButton\"")))
@@ -68,7 +68,12 @@ class AgentConsoleStaticResourceTest {
                 .andExpect(content().string(containsString("id=\"toolDataSourceFilterInput\"")))
                 .andExpect(content().string(containsString("filteredDataSources")))
                 .andExpect(content().string(containsString("renderFilteredDebugData")))
-                .andExpect(content().string(containsString("X-Agent-Internal-Token")))
+                .andExpect(
+                        content()
+                                .string(
+                                        org.hamcrest.Matchers.not(
+                                                containsString("X-Agent-Internal-Token"))))
+                .andExpect(content().string(containsString("parseExactJson")))
                 .andExpect(content().string(containsString("buildHeaders")))
                 .andExpect(content().string(containsString("sessionStorage")))
                 .andExpect(content().string(containsString("renderCards")))
@@ -77,7 +82,11 @@ class AgentConsoleStaticResourceTest {
                 .andExpect(content().string(containsString("renderTraceEvents")))
                 .andExpect(content().string(containsString("showLoading")))
                 .andExpect(content().string(containsString("Sanitized data")))
-                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("rawData.records"))))
+                .andExpect(
+                        content()
+                                .string(
+                                        org.hamcrest.Matchers.not(
+                                                containsString("rawData.records"))))
                 .andExpect(content().string(containsString("Tool Calls")))
                 .andExpect(content().string(containsString("Data Sources")));
     }

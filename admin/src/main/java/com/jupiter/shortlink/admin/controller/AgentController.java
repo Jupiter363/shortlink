@@ -6,7 +6,9 @@ import com.jupiter.shortlink.admin.common.convention.result.Result;
 import com.jupiter.shortlink.admin.config.AgentAdminConfiguration;
 import com.jupiter.shortlink.admin.remote.AgentRemoteService;
 import com.jupiter.shortlink.admin.remote.dto.req.AgentChatReqDTO;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,8 +33,8 @@ public class AgentController {
                 username,
                 UserContext.getUserId(),
                 UserContext.getRealName(),
-                requestParam
-        );
+                UserContext.getAuthVersion(),
+                requestParam);
     }
 
     @GetMapping("/api/short-link/admin/v1/agent/health")
@@ -42,8 +44,8 @@ public class AgentController {
                 internalToken(),
                 username,
                 UserContext.getUserId(),
-                UserContext.getRealName()
-        );
+                UserContext.getRealName(),
+                UserContext.getAuthVersion());
     }
 
     private String requireUsername() {

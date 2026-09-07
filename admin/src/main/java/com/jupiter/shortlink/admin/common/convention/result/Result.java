@@ -6,41 +6,30 @@ import lombok.experimental.Accessors;
 import java.io.Serial;
 import java.io.Serializable;
 
-/**
- * 全局返回对象
- */
+/** 全局返回对象 */
 @Data
 @Accessors(chain = true)
 public class Result<T> implements Serializable {
 
-    @Serial
-    private static final long serialVersionUID = 5679018624309023727L;
+    @Serial private static final long serialVersionUID = 5679018624309023727L;
 
-    /**
-     * 正确返回码
-     */
+    /** 正确返回码 */
     public static final String SUCCESS_CODE = "0";
 
-    /**
-     * 返回码
-     */
+    /** 返回码 */
     private String code;
 
-    /**
-     * 返回消息
-     */
+    /** 返回消息 */
     private String message;
 
-    /**
-     * 响应数据
-     */
+    /** 响应数据 */
     private T data;
 
-    /**
-     * 请求ID
-     */
+    /** 请求ID */
     private String requestId;
 
+    @com.fasterxml.jackson.annotation.JsonProperty(
+            access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
     public boolean isSuccess() {
         return SUCCESS_CODE.equals(code);
     }

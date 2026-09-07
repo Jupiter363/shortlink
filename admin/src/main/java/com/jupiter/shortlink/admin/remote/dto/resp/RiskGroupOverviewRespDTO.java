@@ -10,17 +10,18 @@ public class RiskGroupOverviewRespDTO {
 
     private String gid;
 
-    private int totalShortLinksScanned;
+    private long totalShortLinksScanned;
 
-    private int lowRiskCount;
+    private long lowRiskCount;
 
-    private int mediumRiskCount;
+    private long mediumRiskCount;
 
-    private int highRiskCount;
+    private long highRiskCount;
 
-    private int watchingCount;
+    private long watchingCount;
 
-    private int disabledCount;
+    private Long disabledCount;
+    private String currentPolicyCoverage;
 
     private double avgRiskScore;
 
@@ -37,4 +38,5 @@ public class RiskGroupOverviewRespDTO {
     private List<Map<String, Object>> riskTrend7d;
 
     private String agentSummary;
+    private Map<String, Object> manualReview;
 }

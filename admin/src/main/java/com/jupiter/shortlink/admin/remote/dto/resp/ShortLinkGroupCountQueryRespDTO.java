@@ -2,19 +2,13 @@ package com.jupiter.shortlink.admin.remote.dto.resp;
 
 import lombok.Data;
 
-/**
- * 短链接分组查询返回参数
- */
+/** 短链接分组查询返回参数 */
 @Data
 public class ShortLinkGroupCountQueryRespDTO {
 
-    /**
-     * 分组标识
-     */
+    /** 分组标识 */
     private String gid;
 
-    /**
-     * 分组短链接数
-     */
-    private Integer shortLinkCount;
+    /** 分组短链接数 */
+    private Long shortLinkCount;
 }

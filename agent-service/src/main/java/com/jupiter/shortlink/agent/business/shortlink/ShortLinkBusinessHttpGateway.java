@@ -1,17 +1,16 @@
 package com.jupiter.shortlink.agent.business.shortlink;
 
-import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
+import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -28,10 +27,14 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     private final AgentProperties agentProperties;
 
     private final RestTemplate restTemplate;
+    private com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport transport;
 
     @Autowired
-    public ShortLinkBusinessHttpGateway(AgentProperties agentProperties, RestTemplateBuilder restTemplateBuilder) {
-        this(agentProperties, restTemplateBuilder.build());
+    public ShortLinkBusinessHttpGateway(
+            AgentProperties agentProperties,
+            com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport transport) {
+        this(agentProperties, (RestTemplate) null);
+        this.transport = transport;
     }
 
     ShortLinkBusinessHttpGateway(AgentProperties agentProperties, RestTemplate restTemplate) {
@@ -43,13 +46,23 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     @SuppressWarnings("unchecked")
     public ToolResult get(String path, ToolContext context, Map<String, Object> queryParams) {
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    uri(path, queryParams),
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers(context)),
-                    Map.class
-            );
-            Map<String, Object> body = response.getBody();
+            Map<String, Object> body;
+            if (transport != null)
+                body =
+                        transport.exchange(
+                                "GET",
+                                uri(path, queryParams),
+                                headers(context).toSingleValueMap(),
+                                null);
+            else {
+                ResponseEntity<Map> response =
+                        restTemplate.exchange(
+                                uri(path, queryParams),
+                                HttpMethod.GET,
+                                new HttpEntity<>(headers(context)),
+                                Map.class);
+                body = response.getBody();
+            }
             if (body == null) {
                 return ToolResult.failure("Short link business API returned empty response");
             }
@@ -57,28 +70,68 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
                 return ToolResult.failure(message(body));
             }
             return ToolResult.success(body.get("data"));
-        } catch (RestClientException ex) {
-            return ToolResult.failure("Short link business API request failed: " + ex.getMessage());
+        } catch (RuntimeException ex) {
+            return ToolResult.failure("Short link business API is unavailable or unauthorized");
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public ToolResult post(String path, ToolContext context, Map<String, Object> payload) {
+        try {
+            Map<String, Object> body =
+                    transport != null
+                            ? transport.exchange(
+                                    "POST",
+                                    uri(path, Map.of()),
+                                    headers(context).toSingleValueMap(),
+                                    payload)
+                            : restTemplate
+                                    .exchange(
+                                            uri(path, Map.of()),
+                                            HttpMethod.POST,
+                                            new HttpEntity<>(payload, headers(context)),
+                                            Map.class)
+                                    .getBody();
+            if (body == null)
+                return ToolResult.failure("Statistics job API returned an empty response");
+            return isSuccess(body)
+                    ? ToolResult.success(body.get("data"))
+                    : ToolResult.failure(message(body));
+        } catch (RuntimeException failure) {
+            return ToolResult.failure("Statistics job API is unavailable or unauthorized");
         }
     }
 
     private URI uri(String path, Map<String, Object> queryParams) {
-        UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(baseUrl() + normalizePath(path));
-        safeQueryParams(queryParams).forEach((key, value) -> {
-            if (value != null) {
-                builder.queryParam(key, value);
-            }
-        });
-        return builder.build(true).toUri();
+        UriComponentsBuilder builder =
+                UriComponentsBuilder.fromHttpUrl(baseUrl() + normalizePath(path));
+        safeQueryParams(queryParams)
+                .forEach(
+                        (key, value) -> {
+                            if (value != null) {
+                                builder.queryParam(key, value);
+                            }
+                        });
+        return builder.build().encode().toUri();
     }
 
     private HttpHeaders headers(ToolContext context) {
         HttpHeaders headers = new HttpHeaders();
-        if (context != null && StringUtils.hasText(context.username())) {
-            headers.add(USERNAME_HEADER, context.username());
+        if (context == null
+                || context.principal() == null
+                || !context.username().equals(context.principal().username())) {
+            throw new IllegalArgumentException("Trusted Agent principal is required");
+        }
+        headers.add(USERNAME_HEADER, context.principal().username());
+        if (context.principal().system()) headers.add("X-Agent-Principal-Mode", "SYSTEM");
+        else {
+            headers.add("X-Agent-UserId", context.principal().tenantId());
+            headers.add("X-Agent-Auth-Version", Long.toString(context.principal().authVersion()));
         }
         String internalToken = agentProperties.getBusiness().getInternalToken();
+        if (internalToken == null || internalToken.length() < 24)
+            throw new SecurityException("Service credential is unavailable");
         if (StringUtils.hasText(internalToken)) {
             headers.add(INTERNAL_TOKEN_HEADER, internalToken);
         }

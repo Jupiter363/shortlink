@@ -4,6 +4,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.graph.CampaignAnalysisG
 import com.jupiter.shortlink.agent.campaignanalysisagent.graph.CampaignAnalysisGraphRequest;
 import com.jupiter.shortlink.agent.securityriskagent.graph.SecurityRiskGraphExecutor;
 import com.jupiter.shortlink.agent.securityriskagent.graph.SecurityRiskGraphRequest;
+
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -21,8 +22,7 @@ public class DefaultAgentRunHarness implements AgentRunHarness {
 
     public DefaultAgentRunHarness(
             CampaignAnalysisGraphExecutor graphExecutor,
-            SecurityRiskGraphExecutor securityRiskGraphExecutor
-    ) {
+            SecurityRiskGraphExecutor securityRiskGraphExecutor) {
         this.graphExecutor = graphExecutor;
         this.securityRiskGraphExecutor = securityRiskGraphExecutor;
     }
@@ -32,29 +32,35 @@ public class DefaultAgentRunHarness implements AgentRunHarness {
         String traceId = UUID.randomUUID().toString();
         String agentType = normalizedAgentType(request.agentType());
         if (SECURITY_RISK_AGENT_TYPE.equals(agentType)) {
-            return securityRiskGraphExecutor.execute(new SecurityRiskGraphRequest(
-                    request.sessionId(),
-                    request.username(),
-                    request.message(),
-                    traceId
-            ));
+            return securityRiskGraphExecutor.execute(
+                    new SecurityRiskGraphRequest(
+                            request.sessionId(),
+                            request.username(),
+                            request.message(),
+                            traceId,
+                            null,
+                            request.principal()));
         }
         if (!"campaign-analysis".equals(agentType)) {
             return unsupportedAgentTypeResult(request, traceId, agentType);
         }
-        return graphExecutor.execute(new CampaignAnalysisGraphRequest(
-                request.sessionId(),
-                request.username(),
-                request.message(),
-                traceId
-        ));
+        return graphExecutor.execute(
+                new CampaignAnalysisGraphRequest(
+                        request.sessionId(),
+                        request.username(),
+                        request.message(),
+                        traceId,
+                        request.principal()));
     }
 
     private String normalizedAgentType(String agentType) {
-        return StringUtils.hasText(agentType) ? agentType.trim().toLowerCase() : "campaign-analysis";
+        return StringUtils.hasText(agentType)
+                ? agentType.trim().toLowerCase()
+                : "campaign-analysis";
     }
 
-    private AgentRunResult unsupportedAgentTypeResult(AgentRunRequest request, String traceId, String agentType) {
+    private AgentRunResult unsupportedAgentTypeResult(
+            AgentRunRequest request, String traceId, String agentType) {
         String warning = "Unsupported agent type: " + agentType;
         return new AgentRunResult(
                 request.sessionId(),
@@ -65,7 +71,6 @@ public class DefaultAgentRunHarness implements AgentRunHarness {
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of(warning)
-        );
+                List.of(warning));
     }
 }

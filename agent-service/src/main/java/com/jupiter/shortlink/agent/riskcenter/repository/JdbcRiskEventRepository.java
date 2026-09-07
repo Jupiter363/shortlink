@@ -7,9 +7,10 @@ import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.jupiter.shortlink.agent.riskcommon.safety.RiskSensitiveDataGuard;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
@@ -24,6 +25,119 @@ import java.util.Optional;
 
 @Repository
 public class JdbcRiskEventRepository {
+    private static List<Object> scopeArguments(
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope
+                    scope) {
+        if (scope == null || scope.tenantId() == null || scope.links().size() > 500)
+            throw new SecurityException("Current resource scope is required");
+        List<Object> args = new ArrayList<>();
+        args.add(scope.tenantId());
+        scope.links().stream()
+                .map(
+                        row ->
+                                com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence.number(
+                                        row.get("linkId")))
+                .distinct()
+                .forEach(args::add);
+        return args;
+    }
+
+    private String authorizedWhere(List<Object> args) {
+        return " WHERE tenant_id=? AND target_type='SHORT_LINK' AND link_id IN ("
+                + String.join(",", java.util.Collections.nCopies(args.size() - 1, "?"))
+                + ")";
+    }
+
+    public List<RiskEvent> listAuthorized(
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope
+                    scope,
+            int page,
+            int size) {
+        if (scope.links().isEmpty()) return List.of();
+        List<Object> args = scopeArguments(scope);
+        String sql =
+                "SELECT * FROM t_agent_risk_event"
+                        + authorizedWhere(args)
+                        + " ORDER BY event_time DESC,id DESC LIMIT ? OFFSET ?";
+        args.add(safeLimit(size));
+        args.add(Math.multiplyExact((long) Math.max(0, page - 1), safeLimit(size)));
+        return jdbcTemplate.query(sql, (rs, n) -> mapEvent(rs), args.toArray());
+    }
+
+    public long countAuthorized(
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope
+                    scope) {
+        if (scope.links().isEmpty()) return 0;
+        List<Object> args = scopeArguments(scope);
+        Long count =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM t_agent_risk_event" + authorizedWhere(args),
+                        Long.class,
+                        args.toArray());
+        return count == null ? 0 : count;
+    }
+
+    public Optional<RiskEvent> findAuthorizedEvent(
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope
+                    scope,
+            String eventId) {
+        if (scope.links().isEmpty()) return Optional.empty();
+        List<Object> args = scopeArguments(scope);
+        String sql = "SELECT * FROM t_agent_risk_event" + authorizedWhere(args) + " AND event_id=?";
+        args.add(eventId);
+        return jdbcTemplate.query(sql, (rs, n) -> mapEvent(rs), args.toArray()).stream()
+                .findFirst();
+    }
+
+    public List<RiskEvent> listAuthorizedGroup(
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope
+                    scope,
+            String gid,
+            int page,
+            int size) {
+        scopeArguments(scope);
+        return jdbcTemplate.query(
+                "SELECT * FROM t_agent_risk_event WHERE tenant_id=? AND gid=? AND"
+                    + " target_type='GROUP' ORDER BY event_time DESC,id DESC LIMIT ? OFFSET ?",
+                (rs, n) -> mapEvent(rs),
+                scope.tenantId(),
+                gid,
+                safeLimit(size),
+                Math.multiplyExact((long) Math.max(0, page - 1), safeLimit(size)));
+    }
+
+    public long countAuthorizedGroup(
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope
+                    scope,
+            String gid) {
+        scopeArguments(scope);
+        Long count =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM t_agent_risk_event WHERE tenant_id=? AND gid=? AND"
+                            + " target_type='GROUP'",
+                        Long.class,
+                        scope.tenantId(),
+                        gid);
+        return count == null ? 0 : count;
+    }
+
+    public Optional<RiskEvent> findAuthorizedGroupEvent(
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope
+                    scope,
+            String gid,
+            String eventId) {
+        scopeArguments(scope);
+        return jdbcTemplate
+                .query(
+                        "SELECT * FROM t_agent_risk_event WHERE tenant_id=? AND gid=? AND"
+                            + " target_type='GROUP' AND event_id=?",
+                        (rs, n) -> mapEvent(rs),
+                        scope.tenantId(),
+                        gid,
+                        eventId)
+                .stream()
+                .findFirst();
+    }
 
     private final JdbcTemplate jdbcTemplate;
     private final RiskJsonCodec jsonCodec;
@@ -37,8 +151,7 @@ public class JdbcRiskEventRepository {
     public JdbcRiskEventRepository(
             JdbcTemplate jdbcTemplate,
             RiskJsonCodec jsonCodec,
-            RiskSensitiveDataGuard sensitiveDataGuard
-    ) {
+            RiskSensitiveDataGuard sensitiveDataGuard) {
         this.jdbcTemplate = jdbcTemplate;
         this.jsonCodec = jsonCodec;
         this.sensitiveDataGuard = sensitiveDataGuard;
@@ -54,44 +167,47 @@ public class JdbcRiskEventRepository {
             return;
         }
         try {
-            jdbcTemplate.update("""
-                        insert into t_agent_risk_event (
-                            event_id,
-                            target_type,
-                            gid,
-                            domain,
-                            short_uri,
-                            full_short_url,
-                            risk_score,
-                            risk_level,
-                            reason_codes_json,
-                            evidence_json,
-                            recommended_actions_json,
-                            agent_summary,
-                            trace_id,
-                            session_id,
-                            source,
-                            event_time
-                        )
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                event.eventId(),
-                event.targetType().name(),
-                event.gid(),
-                event.domain(),
-                event.shortUri(),
-                event.fullShortUrl(),
-                event.riskScore(),
-                event.riskLevel().name(),
-                reasonCodesJson,
-                evidenceJson,
-                recommendedActionsJson,
-                event.agentSummary(),
-                event.traceId(),
-                event.sessionId(),
-                event.source().name(),
-                Timestamp.valueOf(event.eventTime())
-            );
+            jdbcTemplate.update(
+                    """
+                    insert into t_agent_risk_event (
+                        tenant_id,link_id,
+                        event_id,
+                        target_type,
+                        gid,
+                        domain,
+                        short_uri,
+                        full_short_url,
+                        risk_score,
+                        risk_level,
+                        reason_codes_json,
+                        evidence_json,
+                        recommended_actions_json,
+                        agent_summary,
+                        trace_id,
+                        session_id,
+                        source,
+                        event_time
+                    )
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    event.tenantId(),
+                    event.linkId(),
+                    event.eventId(),
+                    event.targetType().name(),
+                    event.gid(),
+                    event.domain(),
+                    event.shortUri(),
+                    event.fullShortUrl(),
+                    event.riskScore(),
+                    event.riskLevel().name(),
+                    reasonCodesJson,
+                    evidenceJson,
+                    recommendedActionsJson,
+                    event.agentSummary(),
+                    event.traceId(),
+                    event.sessionId(),
+                    event.source().name(),
+                    Timestamp.valueOf(event.eventTime()));
         } catch (DuplicateKeyException ex) {
             updateExisting(event, reasonCodesJson, evidenceJson, recommendedActionsJson);
         }
@@ -101,28 +217,30 @@ public class JdbcRiskEventRepository {
             RiskEvent event,
             String reasonCodesJson,
             String evidenceJson,
-            String recommendedActionsJson
-    ) {
-        return jdbcTemplate.update("""
-                        update t_agent_risk_event
-                        set target_type = ?,
-                            gid = ?,
-                            domain = ?,
-                            short_uri = ?,
-                            full_short_url = ?,
-                            risk_score = ?,
-                            risk_level = ?,
-                            reason_codes_json = ?,
-                            evidence_json = ?,
-                            recommended_actions_json = ?,
-                            agent_summary = ?,
-                            trace_id = ?,
-                            session_id = ?,
-                            source = ?,
-                            event_time = ?,
-                            update_time = CURRENT_TIMESTAMP
-                        where event_id = ?
-                        """,
+            String recommendedActionsJson) {
+        return jdbcTemplate.update(
+                """
+                update t_agent_risk_event
+                set tenant_id=?,link_id=?,target_type = ?,
+                    gid = ?,
+                    domain = ?,
+                    short_uri = ?,
+                    full_short_url = ?,
+                    risk_score = ?,
+                    risk_level = ?,
+                    reason_codes_json = ?,
+                    evidence_json = ?,
+                    recommended_actions_json = ?,
+                    agent_summary = ?,
+                    trace_id = ?,
+                    session_id = ?,
+                    source = ?,
+                    event_time = ?,
+                    update_time = CURRENT_TIMESTAMP
+                where event_id = ?
+                """,
+                event.tenantId(),
+                event.linkId(),
                 event.targetType().name(),
                 event.gid(),
                 event.domain(),
@@ -138,23 +256,24 @@ public class JdbcRiskEventRepository {
                 event.sessionId(),
                 event.source().name(),
                 Timestamp.valueOf(event.eventTime()),
-                event.eventId()
-        );
+                event.eventId());
     }
 
     public Optional<RiskEvent> findByEventId(String eventId) {
-        List<RiskEvent> events = jdbcTemplate.query("""
+        List<RiskEvent> events =
+                jdbcTemplate.query(
+                        """
                         select *
                         from t_agent_risk_event
                         where event_id = ?
                         """,
-                (rs, rowNum) -> mapEvent(rs),
-                eventId
-        );
+                        (rs, rowNum) -> mapEvent(rs),
+                        eventId);
         return events.stream().findFirst();
     }
 
-    public List<RiskEvent> listEvents(String gid, RiskTargetType targetType, int pageNo, int pageSize) {
+    public List<RiskEvent> listEvents(
+            String gid, RiskTargetType targetType, int pageNo, int pageSize) {
         return listEvents(gid, targetType, "", "", pageNo, pageSize);
     }
 
@@ -164,35 +283,36 @@ public class JdbcRiskEventRepository {
             String domain,
             String shortUri,
             int pageNo,
-            int pageSize
-    ) {
+            int pageSize) {
         QuerySpec querySpec = querySpec(gid, targetType, domain, shortUri);
         List<Object> args = new ArrayList<>(querySpec.args());
         args.add(safeLimit(pageSize));
         args.add(offset(pageNo, pageSize));
-        return jdbcTemplate.query("""
-                        select *
-                        from t_agent_risk_event
-                        %s
-                        order by event_time desc, id desc
-                        limit ? offset ?
-                        """.formatted(querySpec.whereClause()),
+        return jdbcTemplate.query(
+                """
+                select *
+                from t_agent_risk_event
+                %s
+                order by event_time desc, id desc
+                limit ? offset ?
+                """
+                        .formatted(querySpec.whereClause()),
                 (rs, rowNum) -> mapEvent(rs),
-                args.toArray()
-        );
+                args.toArray());
     }
 
     public long countEvents(String gid, RiskTargetType targetType, String domain, String shortUri) {
         QuerySpec querySpec = querySpec(gid, targetType, domain, shortUri);
-        Long count = jdbcTemplate.queryForObject(
-                "select count(1) from t_agent_risk_event " + querySpec.whereClause(),
-                Long.class,
-                querySpec.args().toArray()
-        );
+        Long count =
+                jdbcTemplate.queryForObject(
+                        "select count(1) from t_agent_risk_event " + querySpec.whereClause(),
+                        Long.class,
+                        querySpec.args().toArray());
         return count == null ? 0L : count;
     }
 
-    private QuerySpec querySpec(String gid, RiskTargetType targetType, String domain, String shortUri) {
+    private QuerySpec querySpec(
+            String gid, RiskTargetType targetType, String domain, String shortUri) {
         List<String> clauses = new ArrayList<>();
         List<Object> args = new ArrayList<>();
         if (StringUtils.hasText(gid)) {
@@ -232,21 +352,16 @@ public class JdbcRiskEventRepository {
                 rs.getString("trace_id"),
                 rs.getString("session_id"),
                 RiskEventSource.valueOf(rs.getString("source")),
-                localDateTime(rs.getTimestamp("event_time"))
-        );
+                localDateTime(rs.getTimestamp("event_time")));
     }
 
     private List<String> reasonCodeNames(List<RiskReasonCode> reasonCodes) {
-        return reasonCodes.stream()
-                .map(RiskReasonCode::name)
-                .toList();
+        return reasonCodes.stream().map(RiskReasonCode::name).toList();
     }
 
     private List<RiskReasonCode> reasonCodes(String reasonCodesJson) {
         String[] values = jsonCodec.fromJson(reasonCodesJson, String[].class);
-        return List.of(values).stream()
-                .map(RiskReasonCode::valueOf)
-                .toList();
+        return List.of(values).stream().map(RiskReasonCode::valueOf).toList();
     }
 
     private Map<String, Object> evidence(String evidenceJson) {
@@ -273,6 +388,5 @@ public class JdbcRiskEventRepository {
         return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
-    private record QuerySpec(String whereClause, List<Object> args) {
-    }
+    private record QuerySpec(String whereClause, List<Object> args) {}
 }

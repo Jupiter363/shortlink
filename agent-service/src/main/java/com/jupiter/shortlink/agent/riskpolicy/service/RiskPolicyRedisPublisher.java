@@ -1,48 +1,19 @@
 package com.jupiter.shortlink.agent.riskpolicy.service;
 
 import com.jupiter.shortlink.agent.riskpolicy.model.RiskPolicy;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+/** Migration guard: no Redis dependency and no Spring bean. */
+@Deprecated(forRemoval = true)
+public final class RiskPolicyRedisPublisher {
+    public RiskPolicyRedisPublisher(Object ignored) {}
 
-@Service
-public class RiskPolicyRedisPublisher {
+    public RiskPolicyRedisPublisher(Object ignored, java.time.Clock clock) {}
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
-
-    private final StringRedisTemplate stringRedisTemplate;
-    private final Clock clock;
-
-    @Autowired
-    public RiskPolicyRedisPublisher(StringRedisTemplate stringRedisTemplate) {
-        this(stringRedisTemplate, Clock.system(SHANGHAI));
+    public boolean publish(RiskPolicy ignored) {
+        throw new SecurityException("Policy publication belongs to Command");
     }
 
-    public RiskPolicyRedisPublisher(StringRedisTemplate stringRedisTemplate, Clock clock) {
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.clock = clock;
-    }
-
-    public boolean publish(RiskPolicy policy) {
-        if (policy.expireTime() == null) {
-            stringRedisTemplate.opsForValue().set(policy.policyKey(), policy.policyPayloadJson());
-            return true;
-        }
-
-        Duration ttl = Duration.between(LocalDateTime.now(clock), policy.expireTime());
-        if (!ttl.isPositive()) {
-            return false;
-        }
-        stringRedisTemplate.opsForValue().set(policy.policyKey(), policy.policyPayloadJson(), ttl);
-        return true;
-    }
-
-    public void revoke(RiskPolicy policy) {
-        stringRedisTemplate.delete(policy.policyKey());
+    public void revoke(RiskPolicy ignored) {
+        throw new SecurityException("Policy revocation belongs to Command");
     }
 }

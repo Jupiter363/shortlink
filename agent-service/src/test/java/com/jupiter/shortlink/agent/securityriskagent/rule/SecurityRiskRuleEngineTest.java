@@ -1,12 +1,13 @@
 package com.jupiter.shortlink.agent.securityriskagent.rule;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.jupiter.shortlink.agent.securityriskagent.model.RiskSignal;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class SecurityRiskRuleEngineTest {
 
@@ -14,12 +15,21 @@ class SecurityRiskRuleEngineTest {
 
     @Test
     void evaluateCreatesTopIpConcentrationSignalWithMaskedEvidence() {
-        List<RiskSignal> signals = ruleEngine.evaluate(List.of(statsExecution(Map.of(
-                "pv", 100,
-                "uv", 80,
-                "uip", 20,
-                "topIpStats", List.of(Map.of("ip", "192.168.1.10", "cnt", 45))
-        ))));
+        List<RiskSignal> signals =
+                ruleEngine.evaluate(
+                        List.of(
+                                statsExecution(
+                                        Map.of(
+                                                "pv", 100,
+                                                "uv", 80,
+                                                "uip", 20,
+                                                "topIpStats",
+                                                        List.of(
+                                                                Map.of(
+                                                                        "ip",
+                                                                        "192.168.1.10",
+                                                                        "cnt",
+                                                                        45))))));
 
         RiskSignal signal = firstSignal(signals, "top_ip_concentration");
 
@@ -37,12 +47,15 @@ class SecurityRiskRuleEngineTest {
 
     @Test
     void evaluateCreatesHighRepeatVisitsSignal() {
-        List<RiskSignal> signals = ruleEngine.evaluate(List.of(statsExecution(Map.of(
-                "pv", 120,
-                "uv", 20,
-                "uip", 18,
-                "topIpStats", List.of()
-        ))));
+        List<RiskSignal> signals =
+                ruleEngine.evaluate(
+                        List.of(
+                                statsExecution(
+                                        Map.of(
+                                                "pv", 120,
+                                                "uv", 20,
+                                                "uip", 18,
+                                                "topIpStats", List.of()))));
 
         RiskSignal signal = firstSignal(signals, "high_repeat_visits");
 
@@ -56,13 +69,20 @@ class SecurityRiskRuleEngineTest {
 
     @Test
     void evaluateCreatesHourBurstSignal() {
-        List<RiskSignal> signals = ruleEngine.evaluate(List.of(statsExecution(Map.of(
-                "pv", 100,
-                "uv", 90,
-                "uip", 80,
-                "hourStats", List.of(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 70, 30),
-                "topIpStats", List.of()
-        ))));
+        List<RiskSignal> signals =
+                ruleEngine.evaluate(
+                        List.of(
+                                statsExecution(
+                                        Map.of(
+                                                "pv", 100,
+                                                "uv", 90,
+                                                "uip", 80,
+                                                "hourStats",
+                                                        List.of(
+                                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 70,
+                                                                30),
+                                                "topIpStats", List.of()))));
 
         RiskSignal signal = firstSignal(signals, "hour_burst");
 
@@ -75,21 +95,37 @@ class SecurityRiskRuleEngineTest {
 
     @Test
     void evaluateSkipsFailedAndNonStatsToolExecutions() {
-        List<RiskSignal> signals = ruleEngine.evaluate(List.of(
-                Map.of("name", "get_group_access_records", "success", true, "data", Map.of("pv", 100)),
-                Map.of("name", "get_group_stats", "success", false, "data", Map.of("pv", 100))
-        ));
+        List<RiskSignal> signals =
+                ruleEngine.evaluate(
+                        List.of(
+                                Map.of(
+                                        "name",
+                                        "get_group_access_records",
+                                        "success",
+                                        true,
+                                        "data",
+                                        Map.of("pv", 100)),
+                                Map.of(
+                                        "name",
+                                        "get_group_stats",
+                                        "success",
+                                        false,
+                                        "data",
+                                        Map.of("pv", 100))));
 
         assertThat(signals).isEmpty();
     }
 
     private Map<String, Object> statsExecution(Map<String, Object> data) {
         return Map.of(
-                "name", "get_group_stats",
-                "success", true,
-                "arguments", Map.of("gid", "g1", "startDate", "2026-07-01", "endDate", "2026-07-07"),
-                "data", data
-        );
+                "name",
+                "get_group_stats",
+                "success",
+                true,
+                "arguments",
+                Map.of("gid", "g1", "startDate", "2026-07-01", "endDate", "2026-07-07"),
+                "data",
+                com.jupiter.shortlink.agent.StatsTestFixtures.envelope(data));
     }
 
     private RiskSignal firstSignal(List<RiskSignal> signals, String reasonCode) {

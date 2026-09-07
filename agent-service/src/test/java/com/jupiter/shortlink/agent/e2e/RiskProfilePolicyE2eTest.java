@@ -1,5 +1,14 @@
 package com.jupiter.shortlink.agent.e2e;
 
+import static com.jupiter.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.jupiter.shortlink.agent.harness.checkpoint.GraphCheckpoint;
 import com.jupiter.shortlink.agent.harness.runtime.AgentRunResult;
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
@@ -34,6 +43,7 @@ import com.jupiter.shortlink.agent.riskprofile.source.ShortLinkStatsWindow;
 import com.jupiter.shortlink.agent.securityriskagent.graph.DefaultSecurityRiskGraphExecutor;
 import com.jupiter.shortlink.agent.securityriskagent.graph.SecurityRiskGraphRequest;
 import com.jupiter.shortlink.agent.tool.registry.AgentToolRegistry;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,7 +52,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
-import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,14 +64,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static com.jupiter.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import javax.sql.DataSource;
 
+@org.junit.jupiter.api.Tag("e2e")
 class RiskProfilePolicyE2eTest {
 
     private static final Instant BATCH_NOW = Instant.parse("2026-07-10T02:00:00Z");
@@ -71,50 +75,58 @@ class RiskProfilePolicyE2eTest {
     private static final String OWNER_TOKEN = "risk-profile-e2e-owner";
 
     @Test
-    void profileBatchFeedsSecurityRiskAgentAndPublishesLimitRatePolicyWithoutSensitiveCheckpointData() {
+    void
+            profileBatchFeedsSecurityRiskAgentAndPublishesLimitRatePolicyWithoutSensitiveCheckpointData() {
         JdbcTemplate jdbcTemplate = jdbcTemplate("risk_profile_policy_e2e_" + System.nanoTime());
-        JdbcShortLinkRiskProfileRepository shortLinkRepository = new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
-        JdbcGroupRiskProfileRepository groupRepository = new JdbcGroupRiskProfileRepository(jdbcTemplate);
+        JdbcShortLinkRiskProfileRepository shortLinkRepository =
+                new JdbcShortLinkRiskProfileRepository(jdbcTemplate);
+        JdbcGroupRiskProfileRepository groupRepository =
+                new JdbcGroupRiskProfileRepository(jdbcTemplate);
         JdbcRiskEventRepository eventRepository = new JdbcRiskEventRepository(jdbcTemplate);
-        JdbcRiskSnapshotRepository snapshotRepository = new JdbcRiskSnapshotRepository(jdbcTemplate);
+        JdbcRiskSnapshotRepository snapshotRepository =
+                new JdbcRiskSnapshotRepository(jdbcTemplate);
         JdbcRiskReviewRepository reviewRepository = new JdbcRiskReviewRepository(jdbcTemplate);
         JdbcRiskPolicyRepository policyRepository = new JdbcRiskPolicyRepository(jdbcTemplate);
-        JdbcRiskActionAuditRepository auditRepository = new JdbcRiskActionAuditRepository(jdbcTemplate);
+        JdbcRiskActionAuditRepository auditRepository =
+                new JdbcRiskActionAuditRepository(jdbcTemplate);
         JdbcGraphCheckpointStore checkpointStore = new JdbcGraphCheckpointStore(jdbcTemplate);
         AgentProperties properties = agentProperties();
         seedSevenDayGroupTrend(jdbcTemplate, groupRepository);
-        FakeRiskStatsSourceGateway sourceGateway = new FakeRiskStatsSourceGateway(List.of(
-                candidate("high001"),
-                candidate("low001")
-        ));
-        sourceGateway.put("high001", new StatsSet(
-                window(600, 50, 30, 0.82, 0.78, 0.50, 0.65, 0.60, 0.74, 0.88),
-                window(900, 300, 200, null, null, null, null, null, null, null),
-                window(2100, 1200, 800, null, null, null, null, null, null, null)
-        ));
-        sourceGateway.put("low001", new StatsSet(
-                window(20, 18, 16, 0.08, 0.05, 0.18, 0.22, 0.20, 0.16, 0.08),
-                window(260, 220, 180, null, null, null, null, null, null, null),
-                window(1800, 1500, 1200, null, null, null, null, null, null, null)
-        ));
-        RiskProfileBatchService batchService = new RiskProfileBatchService(
-                sourceGateway,
-                new ShortLinkRiskProfileService(sourceGateway, shortLinkRepository, new ShortLinkRiskDetector()),
-                groupRepository,
-                new GroupRiskProfileAggregator(),
-                properties
-        );
+        FakeRiskStatsSourceGateway sourceGateway =
+                new FakeRiskStatsSourceGateway(List.of(candidate("high001"), candidate("low001")));
+        sourceGateway.put(
+                "high001",
+                new StatsSet(
+                        window(600, 50, 30, 0.82, 0.78, 0.50, 0.65, 0.60, 0.74, 0.88),
+                        window(900, 300, 200, null, null, null, null, null, null, null),
+                        window(2100, 1200, 800, null, null, null, null, null, null, null)));
+        sourceGateway.put(
+                "low001",
+                new StatsSet(
+                        window(20, 18, 16, 0.08, 0.05, 0.18, 0.22, 0.20, 0.16, 0.08),
+                        window(260, 220, 180, null, null, null, null, null, null, null),
+                        window(1800, 1500, 1200, null, null, null, null, null, null, null)));
+        RiskProfileBatchService batchService =
+                new RiskProfileBatchService(
+                        sourceGateway,
+                        new ShortLinkRiskProfileService(
+                                sourceGateway, shortLinkRepository, new ShortLinkRiskDetector()),
+                        groupRepository,
+                        new GroupRiskProfileAggregator(),
+                        properties);
 
-        JdbcRiskProfileBatchRepository batchRepository = new JdbcRiskProfileBatchRepository(jdbcTemplate);
+        JdbcRiskProfileBatchRepository batchRepository =
+                new JdbcRiskProfileBatchRepository(jdbcTemplate);
         LocalDateTime leaseNow = LocalDateTime.now(ZoneId.of("Asia/Shanghai"));
-        assertThat(batchRepository.tryAcquire(
-                "risk-profile:" + BATCH_NOW.getEpochSecond(),
-                BATCH_END_TIME.minusHours(2),
-                BATCH_END_TIME,
-                OWNER_TOKEN,
-                leaseNow,
-                Duration.ofDays(1)
-        )).isTrue();
+        assertThat(
+                        batchRepository.tryAcquire(
+                                "risk-profile:" + BATCH_NOW.getEpochSecond(),
+                                BATCH_END_TIME.minusHours(2),
+                                BATCH_END_TIME,
+                                OWNER_TOKEN,
+                                leaseNow,
+                                Duration.ofDays(1)))
+                .isTrue();
 
         RiskProfileBatchResult batchResult = batchService.runOnce(BATCH_NOW, OWNER_TOKEN);
 
@@ -138,46 +150,45 @@ class RiskProfilePolicyE2eTest {
                         LocalDate.of(2026, 7, 7),
                         LocalDate.of(2026, 7, 8),
                         LocalDate.of(2026, 7, 9),
-                        LocalDate.of(2026, 7, 10)
-                );
+                        LocalDate.of(2026, 7, 10));
 
         StringRedisTemplate stringRedisTemplate = mock(StringRedisTemplate.class);
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        RiskPolicyService riskPolicyService = new RiskPolicyService(
-                policyRepository,
-                auditRepository,
-                new RiskPolicyRedisPublisher(stringRedisTemplate, CLOCK),
-                properties
-        );
-        RiskCenterService riskCenterService = new RiskCenterService(
-                eventRepository,
-                snapshotRepository,
-                reviewRepository,
-                shortLinkRepository,
-                groupRepository,
-                riskPolicyService
-        );
-        CapturingLlmChatClient chatClient = new CapturingLlmChatClient(
-                "E2E risk explanation ip=192.168.1.10 user=visitor-001"
-        );
-        DefaultSecurityRiskGraphExecutor executor = new DefaultSecurityRiskGraphExecutor(
-                chatClient,
-                checkpointStore,
-                properties,
-                new AgentToolRegistry(List.of()),
-                shortLinkRepository,
-                groupRepository,
-                riskCenterService,
-                riskPolicyService
-        );
+        RiskPolicyService riskPolicyService =
+                new RiskPolicyService(
+                        policyRepository,
+                        auditRepository,
+                        new RiskPolicyRedisPublisher(stringRedisTemplate, CLOCK),
+                        properties);
+        RiskCenterService riskCenterService =
+                new RiskCenterService(
+                        eventRepository,
+                        snapshotRepository,
+                        reviewRepository,
+                        shortLinkRepository,
+                        groupRepository,
+                        riskPolicyService);
+        CapturingLlmChatClient chatClient =
+                new CapturingLlmChatClient("E2E risk explanation ip=192.168.1.10 user=visitor-001");
+        DefaultSecurityRiskGraphExecutor executor =
+                new DefaultSecurityRiskGraphExecutor(
+                        chatClient,
+                        checkpointStore,
+                        properties,
+                        new AgentToolRegistry(List.of()),
+                        shortLinkRepository,
+                        groupRepository,
+                        riskCenterService,
+                        riskPolicyService);
 
-        AgentRunResult result = executor.execute(new SecurityRiskGraphRequest(
-                "risk-profile-e2e-session",
-                "risk-operator",
-                "analyze profile gid=gid-001 ip=192.168.1.10 user=visitor-001",
-                "trace-risk-profile-e2e"
-        ));
+        AgentRunResult result =
+                executor.execute(
+                        new SecurityRiskGraphRequest(
+                                "risk-profile-e2e-session",
+                                "risk-operator",
+                                "analyze profile gid=gid-001 ip=192.168.1.10 user=visitor-001",
+                                "trace-risk-profile-e2e"));
 
         assertThat(result.answer())
                 .contains("192.168.*.*")
@@ -207,27 +218,30 @@ class RiskProfilePolicyE2eTest {
         assertThat(eventRepository.listEvents("gid-001", RiskTargetType.SHORT_LINK, 1, 10))
                 .extracting(event -> event.shortUri())
                 .containsExactly("high001");
-        assertThat(snapshotRepository.findByTarget(RiskTargetType.SHORT_LINK, "gid-001", "nurl.ink", "high001"))
+        assertThat(
+                        snapshotRepository.findByTarget(
+                                RiskTargetType.SHORT_LINK, "gid-001", "nurl.ink", "high001"))
                 .isPresent();
-        assertThat(snapshotRepository.findByTarget(RiskTargetType.SHORT_LINK, "gid-001", "nurl.ink", "low001"))
+        assertThat(
+                        snapshotRepository.findByTarget(
+                                RiskTargetType.SHORT_LINK, "gid-001", "nurl.ink", "low001"))
                 .isEmpty();
         String policyKey = "risk:policy:short-link:rate-limit:nurl.ink:high001";
         assertThat(policyRepository.findActiveByPolicyKey(policyKey))
                 .isPresent()
                 .get()
-                .satisfies(policy -> {
-                    assertThat(policy.action()).isEqualTo(RiskPolicyAction.LIMIT_RATE);
-                    assertThat(policy.gid()).isEqualTo("gid-001");
-                    assertThat(policy.eventId()).isNotBlank();
-                    assertThat(auditRepository.countByPolicyId(policy.policyId())).isEqualTo(1);
-                });
+                .satisfies(
+                        policy -> {
+                            assertThat(policy.action()).isEqualTo(RiskPolicyAction.LIMIT_RATE);
+                            assertThat(policy.gid()).isEqualTo("gid-001");
+                            assertThat(policy.eventId()).isNotBlank();
+                            assertThat(auditRepository.countByPolicyId(policy.policyId()))
+                                    .isEqualTo(1);
+                        });
         verify(valueOperations).set(eq(policyKey), contains("LIMIT_RATE"));
 
-        Optional<GraphCheckpoint> checkpoint = checkpointStore.loadLatest(
-                "risk-profile-e2e-session",
-                "security-risk-graph",
-                "v1"
-        );
+        Optional<GraphCheckpoint> checkpoint =
+                checkpointStore.loadLatest("risk-profile-e2e-session", "security-risk-graph", "v1");
         assertThat(checkpoint).isPresent();
         assertThat(checkpoint.get().checkpointJson())
                 .contains("profile_candidate_load")
@@ -254,38 +268,39 @@ class RiskProfilePolicyE2eTest {
     }
 
     private void seedSevenDayGroupTrend(
-            JdbcTemplate jdbcTemplate,
-            JdbcGroupRiskProfileRepository groupRepository
-    ) {
+            JdbcTemplate jdbcTemplate, JdbcGroupRiskProfileRepository groupRepository) {
         LocalDate startDate = LocalDate.of(2026, 7, 4);
         for (int index = 0; index < 7; index++) {
             LocalDate date = startDate.plusDays(index);
             LocalDateTime endTime = date.atTime(index == 6 ? 8 : 10, 0);
             int score = 35 + index;
-            saveGroupProfile(jdbcTemplate, groupRepository, new GroupRiskProfile(
-                    "gid-001",
-                    endTime.minusHours(2),
-                    endTime,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                    0,
-                    score,
-                    score,
-                    score,
-                    RiskLevel.fromScore(score),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    ""
-            ));
+            saveGroupProfile(
+                    jdbcTemplate,
+                    groupRepository,
+                    new GroupRiskProfile(
+                            "gid-001",
+                            endTime.minusHours(2),
+                            endTime,
+                            1,
+                            1,
+                            0,
+                            0,
+                            0,
+                            0,
+                            score,
+                            score,
+                            score,
+                            RiskLevel.fromScore(score),
+                            List.of(),
+                            List.of(),
+                            List.of(),
+                            ""));
         }
     }
 
     private ShortLinkActiveCandidate candidate(String shortUri) {
-        return new ShortLinkActiveCandidate("gid-001", "nurl.ink", shortUri, "nurl.ink/" + shortUri);
+        return new ShortLinkActiveCandidate(
+                "gid-001", "nurl.ink", shortUri, "nurl.ink/" + shortUri);
     }
 
     private WindowFixture window(
@@ -298,8 +313,7 @@ class RiskProfilePolicyE2eTest {
             Double topDeviceShare,
             Double topBrowserShare,
             Double peakHourShare,
-            Double repeatVisitRatio
-    ) {
+            Double repeatVisitRatio) {
         return new WindowFixture(
                 pv,
                 uv,
@@ -310,20 +324,21 @@ class RiskProfilePolicyE2eTest {
                 topDeviceShare,
                 topBrowserShare,
                 peakHourShare,
-                repeatVisitRatio
-        );
+                repeatVisitRatio);
     }
 
     private JdbcTemplate jdbcTemplate(String databaseName) {
         DataSource dataSource = h2DataSource(databaseName);
-        new ResourceDatabasePopulator(new ClassPathResource("sql/agent_service_schema.sql")).execute(dataSource);
+        new ResourceDatabasePopulator(new ClassPathResource("sql/agent_service_schema.sql"))
+                .execute(dataSource);
         return new JdbcTemplate(dataSource);
     }
 
     private DataSource h2DataSource(String name) {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:" + name + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1");
+        dataSource.setUrl(
+                "jdbc:h2:mem:" + name + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1");
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         return dataSource;
@@ -339,11 +354,10 @@ class RiskProfilePolicyE2eTest {
             Double topDeviceShare,
             Double topBrowserShare,
             Double peakHourShare,
-            Double repeatVisitRatio
-    ) {
-    }
+            Double repeatVisitRatio) {}
 
-    private record StatsSet(WindowFixture twoHours, WindowFixture twentyFourHours, WindowFixture sevenDays) {
+    private record StatsSet(
+            WindowFixture twoHours, WindowFixture twentyFourHours, WindowFixture sevenDays) {
 
         WindowFixture byDuration(Duration duration) {
             if (Duration.ofHours(2).equals(duration)) {
@@ -384,8 +398,12 @@ class RiskProfilePolicyE2eTest {
         }
 
         @Override
-        public ShortLinkStatsWindow loadStatsWindow(ShortLinkActiveCandidate candidate, Instant start, Instant end) {
-            WindowFixture fixture = statsByShortUri.get(candidate.shortUri()).byDuration(Duration.between(start, end));
+        public ShortLinkStatsWindow loadStatsWindow(
+                ShortLinkActiveCandidate candidate, Instant start, Instant end) {
+            WindowFixture fixture =
+                    statsByShortUri
+                            .get(candidate.shortUri())
+                            .byDuration(Duration.between(start, end));
             return new ShortLinkStatsWindow(
                     candidate.gid(),
                     candidate.domain(),
@@ -402,8 +420,7 @@ class RiskProfilePolicyE2eTest {
                     fixture.topDeviceShare(),
                     fixture.topBrowserShare(),
                     fixture.peakHourShare(),
-                    fixture.repeatVisitRatio()
-            );
+                    fixture.repeatVisitRatio());
         }
     }
 
@@ -424,8 +441,7 @@ class RiskProfilePolicyE2eTest {
                     "deepseek-v4-flash",
                     answer,
                     "stop",
-                    new DeepSeekChatResponse.Usage(10, 20, 30)
-            );
+                    new DeepSeekChatResponse.Usage(10, 20, 30));
         }
     }
 }

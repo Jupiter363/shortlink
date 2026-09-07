@@ -1,46 +1,27 @@
 package com.jupiter.shortlink.gateway.risk;
 
+import com.jupiter.shortlink.risk.TrustedProxyResolver;
+
 import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.util.StringUtils;
 
 import java.net.InetSocketAddress;
+import java.util.List;
 
 public class RiskClientIpResolver {
 
-    private final boolean trustedProxyEnabled;
+    private final TrustedProxyResolver resolver;
 
-    public RiskClientIpResolver(boolean trustedProxyEnabled) {
-        this.trustedProxyEnabled = trustedProxyEnabled;
+    public RiskClientIpResolver(List<String> trustedProxyCidrs) {
+        this.resolver = new TrustedProxyResolver(trustedProxyCidrs);
     }
 
     public String resolve(ServerHttpRequest request) {
-        if (trustedProxyEnabled) {
-            String forwardedFor = firstForwardedFor(request.getHeaders().getFirst("X-Forwarded-For"));
-            if (StringUtils.hasText(forwardedFor)) {
-                return forwardedFor;
-            }
-            String realIp = request.getHeaders().getFirst("X-Real-IP");
-            if (StringUtils.hasText(realIp)) {
-                return realIp.trim();
-            }
-        }
         InetSocketAddress remoteAddress = request.getRemoteAddress();
         if (remoteAddress == null || remoteAddress.getAddress() == null) {
-            return "unknown";
+            throw new IllegalArgumentException("Missing peer address");
         }
-        return remoteAddress.getAddress().getHostAddress();
-    }
-
-    private String firstForwardedFor(String forwardedFor) {
-        if (!StringUtils.hasText(forwardedFor)) {
-            return "";
-        }
-        String[] parts = forwardedFor.split(",");
-        for (String part : parts) {
-            if (StringUtils.hasText(part)) {
-                return part.trim();
-            }
-        }
-        return "";
+        return resolver.resolve(
+                remoteAddress.getAddress().getHostAddress(),
+                request.getHeaders().getFirst("X-Forwarded-For"));
     }
 }

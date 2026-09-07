@@ -1,6 +1,8 @@
 package com.jupiter.shortlink.agent.securityriskagent.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient;
+import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
@@ -8,7 +10,7 @@ import com.jupiter.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRe
 import com.jupiter.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import com.jupiter.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
 import com.jupiter.shortlink.agent.securityriskagent.model.RiskAnalysisInput;
-import com.jupiter.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
+
 import org.springframework.util.StringUtils;
 
 import java.util.List;
@@ -21,20 +23,30 @@ public class ProfileCandidateLoadNode {
 
     private static final String INTAKE_NODE = "intake";
     private static final String PROFILE_CANDIDATE_LOAD_NODE = "profile_candidate_load";
-    private static final Pattern GID_PATTERN = Pattern.compile("gid\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
+    private static final Pattern GID_PATTERN =
+            Pattern.compile("gid\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
 
     private final JdbcShortLinkRiskProfileRepository shortLinkRepository;
     private final JdbcGroupRiskProfileRepository groupRepository;
     private final int topCandidateSize;
+    private final AgentAuthorityClient authority;
 
     public ProfileCandidateLoadNode(
             JdbcShortLinkRiskProfileRepository shortLinkRepository,
             JdbcGroupRiskProfileRepository groupRepository,
-            int topCandidateSize
-    ) {
+            int topCandidateSize) {
+        this(shortLinkRepository, groupRepository, topCandidateSize, null);
+    }
+
+    public ProfileCandidateLoadNode(
+            JdbcShortLinkRiskProfileRepository shortLinkRepository,
+            JdbcGroupRiskProfileRepository groupRepository,
+            int topCandidateSize,
+            AgentAuthorityClient authority) {
         this.shortLinkRepository = shortLinkRepository;
         this.groupRepository = groupRepository;
-        this.topCandidateSize = Math.max(1, topCandidateSize);
+        this.topCandidateSize = Math.min(100, Math.max(1, topCandidateSize));
+        this.authority = authority;
     }
 
     public static ProfileCandidateLoadNode noop() {
@@ -43,19 +55,27 @@ public class ProfileCandidateLoadNode {
 
     public Map<String, Object> apply(OverAllState state) {
         Object analysisInputState = state.value("analysisInput").orElse(null);
-        RiskAnalysisInput analysisInput = analysisInputState == null
-                ? null
-                : RiskAnalysisInput.fromStateValue(analysisInputState)
-                        .orElseThrow(() -> new IllegalStateException("Invalid structured risk analysis input"));
-        ProfileRiskAnalysisContext context = load(
-                state.value("message", ""),
-                analysisInput
-        );
+        RiskAnalysisInput analysisInput =
+                analysisInputState == null
+                                || (analysisInputState instanceof Map<?, ?> map && map.isEmpty())
+                        ? null
+                        : RiskAnalysisInput.fromStateValue(analysisInputState)
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalStateException(
+                                                        "Invalid structured risk analysis input"));
+        ProfileRiskAnalysisContext context =
+                load(
+                        state.value("message", ""),
+                        analysisInput,
+                        AgentPrincipal.fromState(state.value("principal").orElse(null)));
         return Map.of(
-                "profileRiskContext", context,
-                "profileRiskDataSource", context.isEmpty() ? Map.of() : context.toDataSource(),
-                "visitedNodes", List.of(INTAKE_NODE, PROFILE_CANDIDATE_LOAD_NODE)
-        );
+                "profileRiskContext",
+                context,
+                "profileRiskDataSource",
+                context.isEmpty() ? Map.of() : context.toDataSource(),
+                "visitedNodes",
+                List.of(INTAKE_NODE, PROFILE_CANDIDATE_LOAD_NODE));
     }
 
     public ProfileRiskAnalysisContext load(String message) {
@@ -63,53 +83,51 @@ public class ProfileCandidateLoadNode {
     }
 
     public ProfileRiskAnalysisContext load(String message, RiskAnalysisInput analysisInput) {
-        if (analysisInput != null) {
-            return load(analysisInput);
-        }
-        String gid = extractGid(message);
+        return load(message, analysisInput, null);
+    }
+
+    public ProfileRiskAnalysisContext load(
+            String message, RiskAnalysisInput analysisInput, AgentPrincipal principal) {
+        String gid = analysisInput == null ? extractGid(message) : analysisInput.gid();
         if (!StringUtils.hasText(gid) || shortLinkRepository == null || groupRepository == null) {
             return ProfileRiskAnalysisContext.empty();
         }
-        Optional<GroupRiskProfile> groupProfile = groupRepository.findLatestByGid(gid);
-        List<ShortLinkRiskProfile> shortLinkProfiles = shortLinkRepository.findTopRiskByGid(gid, topCandidateSize).stream()
-                .filter(profile -> profile.riskLevel() != RiskLevel.LOW)
-                .toList();
+        if (principal == null || authority == null)
+            throw new SecurityException("Current profile read authorization is required");
+        AgentAuthorityClient.AuthorizedScope scope = authority.resolve(principal, gid, null, null);
+        String batchId = analysisInput == null ? null : analysisInput.batchId();
+        Optional<GroupRiskProfile> groupProfile =
+                groupRepository.findAuthorized(scope, gid, batchId);
+        List<ShortLinkRiskProfile> shortLinkProfiles =
+                shortLinkRepository.findAuthorized(scope, batchId, topCandidateSize).stream()
+                        .filter(profile -> profile.riskLevel() != RiskLevel.LOW)
+                        .toList();
+        if (analysisInput != null) {
+            shortLinkProfiles =
+                    shortLinkProfiles.stream()
+                            .filter(
+                                    profile ->
+                                            analysisInput.candidates().stream()
+                                                    .anyMatch(
+                                                            candidate ->
+                                                                    candidate
+                                                                                    .domain()
+                                                                                    .equals(
+                                                                                            profile
+                                                                                                    .domain())
+                                                                            && candidate
+                                                                                    .shortUri()
+                                                                                    .equals(
+                                                                                            profile
+                                                                                                    .shortUri())))
+                            .toList();
+            if (shortLinkProfiles.size()
+                    != Math.min(topCandidateSize, analysisInput.candidates().size())) {
+                throw new IllegalStateException(
+                        "Structured profile candidates are unavailable within the current scope");
+            }
+        }
         return new ProfileRiskAnalysisContext(gid, groupProfile.orElse(null), shortLinkProfiles);
-    }
-
-    private ProfileRiskAnalysisContext load(RiskAnalysisInput analysisInput) {
-        if (shortLinkRepository == null || groupRepository == null) {
-            return ProfileRiskAnalysisContext.empty();
-        }
-        Optional<GroupRiskProfile> groupProfile = groupRepository.findByBatchIdAndGid(
-                analysisInput.batchId(),
-                analysisInput.gid()
-        );
-        List<ShortLinkRiskProfile> shortLinkProfiles = analysisInput.candidates().stream()
-                .limit(topCandidateSize)
-                .map(candidate -> loadStructuredCandidate(analysisInput, candidate))
-                .toList();
-        return new ProfileRiskAnalysisContext(
-                analysisInput.gid(),
-                groupProfile.orElse(null),
-                shortLinkProfiles
-        );
-    }
-
-    private ShortLinkRiskProfile loadStructuredCandidate(
-            RiskAnalysisInput analysisInput,
-            RiskProfileTargetRef candidate
-    ) {
-        ShortLinkRiskProfile profile = shortLinkRepository.findByBatchIdAndTarget(
-                analysisInput.batchId(),
-                analysisInput.gid(),
-                candidate.domain(),
-                candidate.shortUri()
-        ).orElseThrow(() -> new IllegalStateException("Structured risk profile candidate was not found"));
-        if (profile.riskLevel() == RiskLevel.LOW) {
-            throw new IllegalStateException("Structured risk profile candidate is not eligible");
-        }
-        return profile;
     }
 
     private String extractGid(String message) {
@@ -128,9 +146,6 @@ public class ProfileCandidateLoadNode {
     }
 
     private boolean isTrailingArgumentPunctuation(char value) {
-        return value == '.'
-                || value == ';'
-                || value == '\u3002'
-                || value == '\uFF1B';
+        return value == '.' || value == ';' || value == '\u3002' || value == '\uFF1B';
     }
 }

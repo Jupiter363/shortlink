@@ -23,8 +23,7 @@ public record RiskSnapshot(
         String policyStatus,
         String lastEventId,
         String lastTraceId,
-        LocalDateTime lastScanTime
-) {
+        LocalDateTime lastScanTime) {
 
     public RiskSnapshot {
         targetType = targetType == null ? RiskTargetType.SHORT_LINK : targetType;
@@ -58,8 +57,7 @@ public record RiskSnapshot(
                 policyStatus,
                 lastEventId,
                 lastTraceId,
-                lastScanTime
-        );
+                lastScanTime);
     }
 
     public RiskSnapshot asFalsePositive() {
@@ -77,12 +75,27 @@ public record RiskSnapshot(
                 policyStatus,
                 lastEventId,
                 lastTraceId,
-                lastScanTime
-        );
+                lastScanTime);
     }
 
     private static String valueOrEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private Map<?, ?> identity() {
+        if (riskCards.isEmpty()) return Map.of();
+        Object metrics = riskCards.get(0).get("metrics");
+        return metrics instanceof Map<?, ?> map ? map : Map.of();
+    }
+
+    public String tenantId() {
+        Object value = identity().get("tenantId");
+        return value == null ? null : String.valueOf(value);
+    }
+
+    public Long linkId() {
+        Object value = identity().get("linkId");
+        return value == null ? null : new java.math.BigDecimal(value.toString()).longValueExact();
     }
 
     private static String valueOrDefault(String value, String defaultValue) {

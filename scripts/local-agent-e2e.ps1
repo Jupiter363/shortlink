@@ -17,6 +17,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+throw 'This legacy Project/Redis-statistics launcher is retired. Use deploy/README.md for the Command/Redirect/Analytics topology. E2E acceptance is deferred; do not run the old topology against the refactored schema.'
+
 function Show-Usage {
     @"
 Local Agent E2E launcher

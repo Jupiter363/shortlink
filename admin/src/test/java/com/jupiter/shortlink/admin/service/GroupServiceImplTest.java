@@ -1,52 +1,53 @@
 package com.jupiter.shortlink.admin.service;
 
-import com.jupiter.shortlink.admin.common.biz.user.UserContext;
-import com.jupiter.shortlink.admin.common.biz.user.UserInfoDTO;
-import com.jupiter.shortlink.admin.common.convention.exception.RemoteException;
-import com.jupiter.shortlink.admin.common.convention.result.Result;
-import com.jupiter.shortlink.admin.dao.entity.GroupDO;
-import com.jupiter.shortlink.admin.dao.mapper.GroupMapper;
-import com.jupiter.shortlink.admin.remote.ShortLinkActualRemoteService;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.jupiter.shortlink.admin.common.biz.user.*;
+import com.jupiter.shortlink.admin.remote.GroupCommandRemoteService;
 import com.jupiter.shortlink.admin.service.impl.GroupServiceImpl;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.redisson.api.RedissonClient;
-import org.springframework.test.util.ReflectionTestUtils;
+
+import org.junit.jupiter.api.*;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 class GroupServiceImplTest {
-
     @AfterEach
-    void tearDown() {
+    void cleanup() {
         UserContext.removeUser();
     }
 
     @Test
-    void listGroupFailsWhenProjectCountQueryReturnsBusinessFailure() {
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        GroupMapper groupMapper = mock(GroupMapper.class);
-        GroupServiceImpl service = new GroupServiceImpl(remoteService, mock(RedissonClient.class));
-        ReflectionTestUtils.setField(service, "baseMapper", groupMapper);
-        UserContext.setUser(UserInfoDTO.builder().username("zhangsan").build());
-        when(groupMapper.selectList(any())).thenReturn(List.of(GroupDO.builder()
-                .gid("g1")
-                .name("group-1")
-                .username("zhangsan")
-                .build()));
-        when(remoteService.listGroupShortLinkCount(List.of("g1")))
-                .thenReturn(new Result<List<ShortLinkGroupCountQueryRespDTO>>()
-                        .setCode("B000001")
-                        .setMessage("project count query failed"));
-
+    void commandFailureIsNotConvertedIntoAnEmptyGroupList() {
+        var command = mock(GroupCommandRemoteService.class);
+        var service = new GroupServiceImpl(command);
+        UserContext.setUser(new UserInfoDTO("101", "alice", null, 1L));
+        when(command.list()).thenThrow(new IllegalStateException("Command unavailable"));
         assertThatThrownBy(service::listGroup)
-                .isInstanceOf(RemoteException.class)
-                .hasMessage("Group short link count request failed");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Command unavailable");
+    }
+
+    @Test
+    void anotherUsernameCannotChooseTheWritePrincipal() {
+        var command = mock(GroupCommandRemoteService.class);
+        var service = new GroupServiceImpl(command);
+        UserContext.setUser(new UserInfoDTO("101", "alice", null, 1L));
+        assertThatThrownBy(() -> service.saveGroup("bob", "foreign"))
+                .isInstanceOf(RuntimeException.class);
+        verifyNoInteractions(command);
+    }
+
+    @Test
+    void countsArePreservedBeyondIntegerRange() {
+        var command = mock(GroupCommandRemoteService.class);
+        var service = new GroupServiceImpl(command);
+        UserContext.setUser(new UserInfoDTO("101", "alice", null, 1L));
+        when(command.list())
+                .thenReturn(
+                        List.of(
+                                new GroupCommandRemoteService.Group(
+                                        "g", "group", 0, 3000000000L, 0, 1)));
+        assertThat(service.listGroup().get(0).getShortLinkCount()).isEqualTo(3000000000L);
     }
 }

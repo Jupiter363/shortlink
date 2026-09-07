@@ -10,19 +10,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ShortLinkCreateRespDTO {
+    private Long linkId;
+    private Long routeVersion;
+    private Long targetRevision;
+    private String shortUri;
 
-    /**
-     * 分组标识
-     */
+    /** 分组标识 */
     private String gid;
 
-    /**
-     * 原始链接
-     */
+    /** 原始链接 */
     private String originUrl;
 
-    /**
-     * 短链接
-     */
+    /** 短链接 */
     private String fullShortUrl;
 }

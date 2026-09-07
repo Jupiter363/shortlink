@@ -1,321 +1,272 @@
 package com.jupiter.shortlink.admin.controller;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
-import com.jupiter.shortlink.admin.common.biz.user.UserTransmitFilter;
-import com.jupiter.shortlink.admin.common.biz.user.UserContext;
-import com.jupiter.shortlink.admin.common.biz.user.UserInfoDTO;
+import com.jupiter.shortlink.admin.common.biz.user.*;
 import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
-import com.jupiter.shortlink.admin.common.convention.result.Result;
 import com.jupiter.shortlink.admin.common.convention.result.Results;
-import com.jupiter.shortlink.admin.common.convention.web.GlobalExceptionHandler;
 import com.jupiter.shortlink.admin.config.AgentAdminConfiguration;
-import com.jupiter.shortlink.admin.remote.AgentRiskRemoteService;
-import com.jupiter.shortlink.admin.remote.dto.req.RiskPolicyDisableReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.RiskReviewReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.RiskGroupOverviewRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.RiskPageRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.RiskReviewRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkCardRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkDetailRespDTO;
+import com.jupiter.shortlink.admin.remote.*;
+import com.jupiter.shortlink.admin.remote.dto.req.*;
+import com.jupiter.shortlink.admin.remote.dto.resp.*;
 import com.jupiter.shortlink.admin.service.GroupService;
 import com.jupiter.shortlink.admin.service.impl.RiskCenterFacadeServiceImpl;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+
+import feign.FeignException;
+import feign.Request;
+import feign.Response;
+
+import org.junit.jupiter.api.*;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.*;
 
 class RiskCenterControllerTest {
+    private static final String TOKEN = "risk-center-component-internal-token-32";
+    private final GroupService groups = mock(GroupService.class);
+    private final AgentRiskRemoteService agent = mock(AgentRiskRemoteService.class);
+    private final CommandRiskRemoteService command = mock(CommandRiskRemoteService.class);
+    private RiskCenterController controller;
+
+    @BeforeEach
+    void setup() {
+        var config = new AgentAdminConfiguration();
+        config.setInternalToken(TOKEN);
+        controller =
+                new RiskCenterController(
+                        new RiskCenterFacadeServiceImpl(agent, config, groups, command));
+        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name", 1L));
+        when(groups.count(any(Wrapper.class))).thenReturn(1L);
+    }
 
     @AfterEach
-    void tearDown() {
+    void cleanup() {
         UserContext.removeUser();
     }
 
     @Test
-    void groupOverviewChecksOwnedGidAndForwardsTrustedHeaders() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        when(fixture.groupService.count(any(Wrapper.class))).thenAnswer(invocation -> {
-            assertThat(UserContext.getUsername()).isEqualTo("trusted-user");
-            return 1L;
-        });
-        RiskGroupOverviewRespDTO overview = new RiskGroupOverviewRespDTO();
-        overview.setGid("g1");
-        Result<RiskGroupOverviewRespDTO> expected = Results.success(overview);
-        when(fixture.remoteService.groupOverview("internal-token", "trusted-user", "1001", "Trusted Name", "g1"))
-                .thenReturn(expected);
-
-        Result<RiskGroupOverviewRespDTO> actual = fixture.controller.groupOverview("g1");
-
-        assertThat(actual).isSameAs(expected);
-        verify(fixture.remoteService).groupOverview("internal-token", "trusted-user", "1001", "Trusted Name", "g1");
+    void ownershipFailureStopsBeforeAgentOrCommand() {
+        when(groups.count(any(Wrapper.class))).thenReturn(0L);
+        assertThatThrownBy(() -> controller.groupShortLinks("other"))
+                .isInstanceOf(ClientException.class);
+        verifyNoInteractions(agent, command);
     }
 
     @Test
-    void groupShortLinksRejectsGidOutsideCurrentUserGroups() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(0L);
-
-        assertThatThrownBy(() -> fixture.controller.groupShortLinks("other-gid"))
-                .isInstanceOf(ClientException.class)
-                .hasMessage("Risk center request gid is not owned by current user");
-        verify(fixture.remoteService, never()).groupShortLinks(any(), any(), any(), any(), any());
+    void unavailableCommandPreservesLongCountsQualityAndUnknownState() {
+        var card = card();
+        when(agent.groupShortLinks(TOKEN, "trusted-user", "1001", 1L, "g1"))
+                .thenReturn(Results.success(List.of(card)));
+        when(command.current(any())).thenThrow(failure(503));
+        var actual = controller.groupShortLinks("g1").getData().get(0);
+        assertThat(actual.getPv2h()).isEqualTo(3_000_000_000L);
+        assertThat(actual.getStatsMeta()).containsEntry("availability", "UNAVAILABLE");
+        assertThat(actual.getCurrentPolicy()).containsEntry("state", "UNKNOWN");
+        assertThat(actual.getLatestPolicyActions()).containsExactly("LIMIT_RATE");
     }
 
     @Test
-    void shortLinkDetailRejectsGidOutsideCurrentUserBeforeRemoteLookup() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(0L);
-
-        assertThatThrownBy(() -> fixture.controller.shortLinkDetail("g1", "nurl.ink", "abc123"))
-                .isInstanceOf(ClientException.class)
-                .hasMessage("Risk center request gid is not owned by current user");
-        verify(fixture.remoteService, never()).shortLinkDetail(any(), any(), any(), any(), any(), any(), any());
-    }
-
-    @Test
-    void shortLinkDetailRejectsSuccessfulResponseWithoutReturnedCard() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        RiskShortLinkDetailRespDTO detail = new RiskShortLinkDetailRespDTO();
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(fixture.remoteService.shortLinkDetail(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1",
-                "nurl.ink",
-                "abc123"
-        )).thenReturn(Results.success(detail));
-
-        assertThatThrownBy(() -> fixture.controller.shortLinkDetail("g1", "nurl.ink", "abc123"))
-                .isInstanceOf(ClientException.class)
-                .hasMessage("Risk center request gid is not owned by current user");
-    }
-
-    @Test
-    void shortLinkDetailForwardsOwnedGidToAgentBeforeTargetLookup() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(1L);
-        RiskShortLinkCardRespDTO card = new RiskShortLinkCardRespDTO();
-        card.setGid("g1");
-        card.setDomain("nurl.ink");
-        card.setShortUri("abc123");
-        RiskShortLinkDetailRespDTO detail = new RiskShortLinkDetailRespDTO();
+    void currentFactOverridesHistoricalSuggestionWithoutClaimingPropagation() {
+        var card = card();
+        var detail = new RiskShortLinkDetailRespDTO();
         detail.setCard(card);
-        Result<RiskShortLinkDetailRespDTO> expected = Results.success(detail);
-        when(fixture.remoteService.shortLinkDetail(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1",
-                "nurl.ink",
-                "abc123"
-        )).thenReturn(expected);
-
-        Result<RiskShortLinkDetailRespDTO> actual = fixture.controller.shortLinkDetail("g1", "nurl.ink", "abc123");
-
-        assertThat(actual).isSameAs(expected);
-        verify(fixture.remoteService).shortLinkDetail(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1",
-                "nurl.ink",
-                "abc123"
-        );
+        detail.setLatestSnapshot(Map.of("policyStatus", "ACTIVE"));
+        when(agent.shortLinkDetail(TOKEN, "trusted-user", "1001", 1L, "g1", "nurl.ink", "abc123"))
+                .thenReturn(Results.success(detail));
+        when(command.current(any()))
+                .thenAnswer(
+                        call -> {
+                            long now = System.currentTimeMillis();
+                            return List.of(
+                                    new CommandRiskRemoteService.Snapshot(
+                                            "1001:7",
+                                            4,
+                                            now,
+                                            null,
+                                            now + 1000,
+                                            "KNOWN_ALLOWED",
+                                            false,
+                                            true,
+                                            "UTC",
+                                            List.of(),
+                                            List.of(),
+                                            null));
+                        });
+        var result = controller.shortLinkDetail("g1", "nurl.ink", "abc123").getData();
+        assertThat(result.getCard().getCurrentPolicy())
+                .containsEntry("state", "KNOWN_ALLOWED")
+                .containsEntry("policyRevision", 4L)
+                .containsEntry("propagationState", "NOT_OBSERVED");
+        assertThat(result.getLatestSnapshot())
+                .doesNotContainKey("policyStatus")
+                .containsEntry("policyStatusSource", "HISTORICAL_ONLY");
     }
 
     @Test
-    void eventsRequireOwnedGidAndForwardPagination() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(1L);
-        RiskPageRespDTO<?> page = new RiskPageRespDTO<>();
-        page.setPageNo(2);
-        page.setPageSize(20);
-        page.setTotal(0L);
-        Result<RiskPageRespDTO<?>> expected = Results.success(page);
-        when(fixture.remoteService.events(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1",
-                "SHORT_LINK",
-                "nurl.ink",
-                "abc123",
-                2,
-                20
-        )).thenReturn(expected);
-
-        Result<RiskPageRespDTO<?>> actual = fixture.controller.events(
-                "g1",
-                "SHORT_LINK",
-                "nurl.ink",
-                "abc123",
-                2,
-                20
-        );
-
-        assertThat(actual).isSameAs(expected);
+    void stalePolicyLeaseIsUnknown() {
+        var card = card();
+        when(agent.groupShortLinks(any(), any(), any(), any(), any()))
+                .thenReturn(Results.success(List.of(card)));
+        when(command.current(any()))
+                .thenReturn(
+                        List.of(
+                                new CommandRiskRemoteService.Snapshot(
+                                        "1001:7",
+                                        4,
+                                        1,
+                                        null,
+                                        1001,
+                                        "KNOWN_RESTRICTED",
+                                        true,
+                                        false,
+                                        "UTC",
+                                        List.of(),
+                                        List.of(),
+                                        null)));
+        assertThat(controller.groupShortLinks("g1").getData().get(0).getCurrentPolicy())
+                .containsEntry("state", "UNKNOWN");
     }
 
     @Test
-    void reviewUsesCurrentUserAsReviewerAndIgnoresSpoofedReviewer() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(1L);
-        RiskReviewReqDTO request = new RiskReviewReqDTO();
-        request.setEventId("event-1");
-        request.setTargetType("SHORT_LINK");
+    void returnedForeignIdentityNeverReachesPolicyLookup() {
+        var card = card();
+        card.setTenantId("2002");
+        when(agent.groupShortLinks(any(), any(), any(), any(), any()))
+                .thenReturn(Results.success(List.of(card)));
+        assertThatThrownBy(() -> controller.groupShortLinks("g1"))
+                .isInstanceOf(ClientException.class);
+        verifyNoInteractions(command);
+    }
+
+    @Test
+    void humanReviewIsLocalAndUsesTrustedReviewer() {
+        var request = new RiskReviewReqDTO();
         request.setGid("g1");
-        request.setDomain("nurl.ink");
-        request.setShortUri("abc123");
-        request.setFullShortUrl("nurl.ink/abc123");
-        request.setReviewAction("WATCH");
-        request.setReviewer("spoofed-user");
-        request.setReviewNote("watch this link");
-        RiskReviewRespDTO response = new RiskReviewRespDTO();
-        response.setReviewId("review-1");
-        when(fixture.remoteService.review(any(), any(), any(), any(), any()))
-                .thenReturn(Results.success(response));
-
-        Result<RiskReviewRespDTO> actual = fixture.controller.review(request);
-
-        assertThat(actual.isSuccess()).isTrue();
-        ArgumentCaptor<RiskReviewReqDTO> requestCaptor = ArgumentCaptor.forClass(RiskReviewReqDTO.class);
-        verify(fixture.remoteService).review(
-                eq("internal-token"),
-                eq("trusted-user"),
-                eq("1001"),
-                eq("Trusted Name"),
-                requestCaptor.capture()
-        );
-        assertThat(requestCaptor.getValue().getReviewer()).isEqualTo("trusted-user");
-        assertThat(requestCaptor.getValue().getReviewNote()).isEqualTo("watch this link");
+        request.setReviewAction("FALSE_POSITIVE");
+        request.setReviewer("spoof");
+        when(agent.review(any(), any(), any(), any(), any()))
+                .thenReturn(Results.success(new RiskReviewRespDTO()));
+        controller.review(request);
+        assertThat(request.getReviewer()).isEqualTo("trusted-user");
+        verify(agent).review(TOKEN, "trusted-user", "1001", 1L, request);
+        verifyNoInteractions(command);
     }
 
     @Test
-    void disablePolicyRequiresOwnedGidAndUsesCurrentUserAsReviewer() {
-        Fixture fixture = fixture();
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(1L);
-        RiskPolicyDisableReqDTO request = new RiskPolicyDisableReqDTO();
-        request.setGid("g1");
-        request.setReviewer("spoofed-user");
-        request.setReason("false positive");
-        request.setTraceId("trace-1");
-        when(fixture.remoteService.disablePolicy(any(), any(), any(), any(), any(), any()))
-                .thenReturn(Results.success(Map.of("disabled", true)));
-
-        Result<Map<String, Object>> actual = fixture.controller.disablePolicy("policy-1", request);
-
-        assertThat(actual.isSuccess()).isTrue();
-        ArgumentCaptor<RiskPolicyDisableReqDTO> requestCaptor = ArgumentCaptor.forClass(RiskPolicyDisableReqDTO.class);
-        verify(fixture.remoteService).disablePolicy(
-                eq("internal-token"),
-                eq("trusted-user"),
-                eq("1001"),
-                eq("Trusted Name"),
-                eq("policy-1"),
-                requestCaptor.capture()
-        );
-        assertThat(requestCaptor.getValue().getReviewer()).isEqualTo("trusted-user");
-        assertThat(requestCaptor.getValue().getReason()).isEqualTo("false positive");
-        assertThat(requestCaptor.getValue().getTraceId()).isEqualTo("trace-1");
+    void explicitRevocationNeedsNoStatisticsAndReturnsCommitNotDisabled() {
+        when(command.revoke(any()))
+                .thenReturn(
+                        new CommandRiskRemoteService.Receipt(
+                                "manual-0001", "COMMITTED", "policy-1", 8, 123));
+        var result = controller.disablePolicy("policy-1", revoke()).getData();
+        assertThat(result)
+                .containsEntry("commandState", "COMMITTED")
+                .containsEntry("propagationState", "PENDING")
+                .doesNotContainKey("disabled");
+        verify(command).revoke(new CommandRiskRemoteService.Revoke("manual-0001", 7, "policy-1"));
+        verifyNoInteractions(agent);
+        verifyNoInteractions(
+                groups); // Historical gid must not block revocation after a move/deleted group.
     }
 
     @Test
-    void disablePolicyBindsGidFromJsonAndUsesCurrentUserAsReviewer() throws Exception {
-        Fixture fixture = fixture();
-        MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(fixture.controller)
-                .addFilters(new UserTransmitFilter())
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-        when(fixture.groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(fixture.remoteService.disablePolicy(any(), any(), any(), any(), any(), any()))
-                .thenReturn(Results.success(Map.of("disabled", true)));
+    void unknownCommitAcknowledgementPreservesCommandIdForReconciliation() {
+        when(command.revoke(any())).thenThrow(failure(503));
+        var result = controller.disablePolicy("policy-1", revoke()).getData();
+        assertThat(result)
+                .containsEntry("commandId", "manual-0001")
+                .containsEntry("commandState", "PENDING_CONFIRMATION")
+                .doesNotContainKey("disabled");
+    }
 
-        mockMvc.perform(post("/api/short-link/admin/v1/risk/policies/policy-1/disable")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .header("username", "trusted-user")
-                        .header("userId", "1001")
-                        .header("realName", "Trusted Name")
-                        .content("""
-                                {
-                                  "gid": "g1",
-                                  "reviewer": "spoofed-user",
-                                  "reason": "false positive",
-                                  "traceId": "trace-1"
-                                }
-                                """))
+    @Test
+    void permissionFailureIsNotPresentedAsPendingCommit() {
+        when(command.revoke(any())).thenThrow(failure(403));
+        assertThatThrownBy(() -> controller.disablePolicy("policy-1", revoke()))
+                .isInstanceOf(FeignException.Forbidden.class);
+    }
+
+    @Test
+    void httpBoundaryRequiresTrustedIdentityAndIgnoresLegacySpoofing() throws Exception {
+        UserContext.removeUser();
+        var identity = mock(TrustedManagementIdentity.class);
+        when(identity.verify("1001", "trusted-user", "1"))
+                .thenReturn(new UserInfoDTO("1001", "trusted-user", "Trusted Name", 1L));
+        var mvc =
+                MockMvcBuilders.standaloneSetup(controller)
+                        .addFilters(new UserTransmitFilter(identity, TOKEN))
+                        .build();
+        when(command.revoke(any()))
+                .thenReturn(
+                        new CommandRiskRemoteService.Receipt(
+                                "manual-0001", "COMMITTED", "policy-1", 8, 123));
+        String path = "/api/short-link/admin/v1/risk/policies/policy-1/disable";
+        String body =
+                "{\"gid\":\"g1\",\"linkId\":7,\"commandId\":\"manual-0001\",\"reviewer\":\"spoof\"}";
+        mvc.perform(
+                        post(path)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("username", "spoof")
+                                .content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(
+                        post(path)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("X-Internal-Token", TOKEN)
+                                .header("x-shortlink-tenant-id", "1001")
+                                .header("x-shortlink-username", "trusted-user")
+                                .header("x-shortlink-auth-version", "1")
+                                .header("username", "spoof")
+                                .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("0"));
-
-        ArgumentCaptor<RiskPolicyDisableReqDTO> requestCaptor = ArgumentCaptor.forClass(RiskPolicyDisableReqDTO.class);
-        verify(fixture.remoteService).disablePolicy(
-                eq("internal-token"),
-                eq("trusted-user"),
-                eq("1001"),
-                eq("Trusted Name"),
-                eq("policy-1"),
-                requestCaptor.capture()
-        );
-        assertThat(requestCaptor.getValue().getGid()).isEqualTo("g1");
-        assertThat(requestCaptor.getValue().getReviewer()).isEqualTo("trusted-user");
+                .andExpect(jsonPath("$.data.commandState").value("COMMITTED"))
+                .andExpect(jsonPath("$.data.disabled").doesNotExist());
+        assertThat(UserContext.getUserId()).isNull();
     }
 
-    @Test
-    void riskCenterRequiresGatewayInjectedUserContext() {
-        Fixture fixture = fixture();
-
-        assertThatThrownBy(() -> fixture.controller.groupOverview("g1"))
-                .isInstanceOf(ClientException.class)
-                .hasMessage("Risk center request requires authenticated user context");
+    private RiskPolicyDisableReqDTO revoke() {
+        var r = new RiskPolicyDisableReqDTO();
+        r.setGid("g1");
+        r.setCommandId("manual-0001");
+        r.setLinkId(7L);
+        return r;
     }
 
-    private Fixture fixture() {
-        GroupService groupService = mock(GroupService.class);
-        AgentRiskRemoteService remoteService = mock(AgentRiskRemoteService.class);
-        AgentAdminConfiguration configuration = new AgentAdminConfiguration();
-        configuration.setInternalToken("internal-token");
-        RiskCenterFacadeServiceImpl facadeService = new RiskCenterFacadeServiceImpl(
-                remoteService,
-                configuration,
-                groupService
-        );
-        return new Fixture(groupService, remoteService, new RiskCenterController(facadeService));
+    private RiskShortLinkCardRespDTO card() {
+        var r = new RiskShortLinkCardRespDTO();
+        r.setGid("g1");
+        r.setTenantId("1001");
+        r.setLinkId(7L);
+        r.setDomain("nurl.ink");
+        r.setShortUri("abc123");
+        r.setPv2h(3_000_000_000L);
+        r.setStatsMeta(Map.of("availability", "UNAVAILABLE", "provisional", true));
+        r.setLatestPolicyActions(List.of("LIMIT_RATE"));
+        return r;
     }
 
-    private record Fixture(
-            GroupService groupService,
-            AgentRiskRemoteService remoteService,
-            RiskCenterController controller
-    ) {
+    private FeignException failure(int status) {
+        var request =
+                Request.create(
+                        Request.HttpMethod.POST,
+                        "http://command/internal",
+                        Map.of(),
+                        new byte[0],
+                        java.nio.charset.StandardCharsets.UTF_8,
+                        null);
+        return FeignException.errorStatus(
+                "command",
+                Response.builder()
+                        .status(status)
+                        .reason("component failure")
+                        .request(request)
+                        .headers(Map.of())
+                        .build());
     }
 }

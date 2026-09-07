@@ -1,0 +1,26 @@
+{
+  "name": "shortlink-clickhouse-derived-v1",
+  "config": {
+    "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+    "tasks.max": "2",
+    "topics": "shortlink.click.enriched.v1,shortlink.request.enriched.v1,shortlink.stats.5m.v1",
+    "topic2TableMap": "shortlink.click.enriched.v1=derived_events,shortlink.request.enriched.v1=derived_events,shortlink.stats.5m.v1=derived_windows",
+    "hostname": "clickhouse",
+    "port": "8123",
+    "database": "shortlink_analytics",
+    "username": "shortlink_sink",
+    "password": "${file:/run/secrets/clickhouse.properties:password}",
+    "ssl": "false",
+    "exactlyOnce": "false",
+    "reportInsertedOffsets": "true",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "consumer.override.isolation.level": "read_committed",
+    "consumer.override.max.poll.records": "500",
+    "errors.tolerance": "none",
+    "errors.retry.timeout": "60000",
+    "clickhouseSettings": "async_insert=0,wait_for_async_insert=1",
+    "ignorePartitionsWhenBatching": "false"
+  }
+}

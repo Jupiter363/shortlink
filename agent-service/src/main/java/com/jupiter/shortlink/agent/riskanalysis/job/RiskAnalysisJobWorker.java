@@ -1,5 +1,7 @@
 package com.jupiter.shortlink.agent.riskanalysis.job;
 
+import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient;
+import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskprofile.model.GroupRiskProfile;
@@ -13,6 +15,7 @@ import com.jupiter.shortlink.agent.securityriskagent.graph.SecurityRiskGraphRequ
 import com.jupiter.shortlink.agent.securityriskagent.model.RiskAnalysisInput;
 import com.jupiter.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
 import com.jupiter.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -55,6 +58,7 @@ public class RiskAnalysisJobWorker {
     private final int topCandidateSize;
 
     private final String username;
+    private AgentAuthorityClient authority;
 
     private final Supplier<String> ownerTokenSupplier;
 
@@ -69,8 +73,8 @@ public class RiskAnalysisJobWorker {
             JdbcShortLinkRiskProfileRepository shortLinkRepository,
             JdbcGroupRiskProfileRepository groupRepository,
             RiskAnalysisJobLeaseManager leaseManager,
-            AgentProperties agentProperties
-    ) {
+            AgentProperties agentProperties,
+            AgentAuthorityClient authority) {
         this(
                 jobRepository,
                 graphExecutor,
@@ -78,15 +82,20 @@ public class RiskAnalysisJobWorker {
                 groupRepository,
                 leaseManager,
                 Clock.system(SHANGHAI),
-                Duration.ofMinutes(Math.max(1, agentProperties.getRisk().getAnalysis().getJobLeaseMinutes())),
+                Duration.ofMinutes(
+                        Math.max(1, agentProperties.getRisk().getAnalysis().getJobLeaseMinutes())),
                 Math.max(1, agentProperties.getRisk().getAnalysis().getMaxAttempts()),
-                Duration.ofSeconds(Math.max(1, agentProperties.getRisk().getAnalysis().getRetryInitialSeconds())),
-                Duration.ofSeconds(Math.max(1, agentProperties.getRisk().getAnalysis().getRetryMaxSeconds())),
+                Duration.ofSeconds(
+                        Math.max(
+                                1,
+                                agentProperties.getRisk().getAnalysis().getRetryInitialSeconds())),
+                Duration.ofSeconds(
+                        Math.max(1, agentProperties.getRisk().getAnalysis().getRetryMaxSeconds())),
                 Math.max(1, agentProperties.getRisk().getProfile().getTopCandidateSize()),
-                DEFAULT_USERNAME,
+                agentProperties.getBusiness().getUsername(),
                 () -> "risk-analysis-" + UUID.randomUUID(),
-                () -> "risk-trace-" + UUID.randomUUID()
-        );
+                () -> "risk-trace-" + UUID.randomUUID());
+        this.authority = authority;
     }
 
     public RiskAnalysisJobWorker(
@@ -103,8 +112,7 @@ public class RiskAnalysisJobWorker {
             int topCandidateSize,
             String username,
             Supplier<String> ownerTokenSupplier,
-            Supplier<String> traceIdSupplier
-    ) {
+            Supplier<String> traceIdSupplier) {
         this.jobRepository = jobRepository;
         this.graphExecutor = graphExecutor;
         this.shortLinkRepository = shortLinkRepository;
@@ -125,29 +133,25 @@ public class RiskAnalysisJobWorker {
         LocalDateTime now = LocalDateTime.now(clock);
         String ownerToken = ownerTokenSupplier.get();
         String traceId = traceIdSupplier.get();
-        Optional<RiskAnalysisJob> claimed = jobRepository.claimNext(
-                ownerToken,
-                traceId,
-                now,
-                leaseDuration,
-                maxAttempts
-        );
+        Optional<RiskAnalysisJob> claimed =
+                jobRepository.claimNext(ownerToken, traceId, now, leaseDuration, maxAttempts);
         if (claimed.isEmpty()) {
             return false;
         }
         RiskAnalysisJob job = claimed.get();
-        try (RiskAnalysisJobLeaseManager.Lease lease = leaseManager.start(job, leaseDuration, clock)) {
+        try (RiskAnalysisJobLeaseManager.Lease lease =
+                leaseManager.start(job, leaseDuration, clock)) {
             try {
                 graphExecutor.execute(graphRequest(job));
                 lease.assertOwned();
                 LocalDateTime completionTime = LocalDateTime.now(clock);
-                boolean recorded = jobRepository.recordSuccess(
-                        job.jobId(),
-                        job.ownerToken(),
-                        job.traceId(),
-                        job.attemptCount(),
-                        completionTime
-                );
+                boolean recorded =
+                        jobRepository.recordSuccess(
+                                job.jobId(),
+                                job.ownerToken(),
+                                job.traceId(),
+                                job.attemptCount(),
+                                completionTime);
                 if (!recorded) {
                     throw new RiskAnalysisJobLeaseLostException(job.jobId());
                 }
@@ -156,16 +160,16 @@ public class RiskAnalysisJobWorker {
             } catch (RuntimeException ex) {
                 lease.assertOwned();
                 LocalDateTime failureTime = LocalDateTime.now(clock);
-                boolean recorded = jobRepository.recordFailure(
-                        job.jobId(),
-                        job.ownerToken(),
-                        job.traceId(),
-                        job.attemptCount(),
-                        maxAttempts,
-                        failureTime,
-                        failureTime.plus(retryBackoff(job.attemptCount())),
-                        failureMessage(ex)
-                );
+                boolean recorded =
+                        jobRepository.recordFailure(
+                                job.jobId(),
+                                job.ownerToken(),
+                                job.traceId(),
+                                job.attemptCount(),
+                                maxAttempts,
+                                failureTime,
+                                failureTime.plus(retryBackoff(job.attemptCount())),
+                                failureMessage(ex));
                 if (!recorded) {
                     throw new RiskAnalysisJobLeaseLostException(job.jobId(), ex);
                 }
@@ -179,40 +183,56 @@ public class RiskAnalysisJobWorker {
                 || !SecurityRiskGraphDefinition.GRAPH_VERSION.equals(job.graphVersion())) {
             throw new IllegalStateException("Unsupported security risk graph definition");
         }
-        Optional<GroupRiskProfile> groupProfile = groupRepository.findByBatchIdAndGid(
-                job.batchId(),
-                job.gid()
-        );
-        List<ShortLinkRiskProfile> candidates = RiskProfileCandidateSelector.top(
-                safeProfiles(shortLinkRepository.findByBatchIdAndGid(job.batchId(), job.gid())).stream()
-                        .filter(profile -> job.batchId().equals(profile.batchId()))
-                        .filter(profile -> job.gid().equals(profile.gid()))
-                        .filter(profile -> profile.riskLevel() != RiskLevel.LOW)
-                        .toList(),
-                topCandidateSize
-        );
-        LocalDateTime profileWindowEnd = groupProfile
-                .map(GroupRiskProfile::profileWindowEnd)
-                .orElseGet(() -> candidates.stream()
-                        .map(ShortLinkRiskProfile::profileWindowEnd)
-                        .filter(value -> value != null)
-                        .max(LocalDateTime::compareTo)
-                        .orElseThrow(() -> new IllegalStateException("Risk profile batch data was not found")));
-        RiskAnalysisInput analysisInput = new RiskAnalysisInput(
-                job.batchId(),
-                job.gid(),
-                profileWindowEnd,
-                candidates.stream()
-                        .map(profile -> new RiskProfileTargetRef(profile.domain(), profile.shortUri()))
-                        .toList()
-        );
+        if (authority == null)
+            throw new SecurityException("Current scheduled profile authorization is required");
+        AgentPrincipal principal = AgentPrincipal.system(username);
+        AgentAuthorityClient.AuthorizedScope scope =
+                authority.resolve(principal, job.gid(), null, null);
+        Optional<GroupRiskProfile> groupProfile =
+                groupRepository.findAuthorized(scope, job.gid(), job.batchId());
+        List<ShortLinkRiskProfile> candidates =
+                RiskProfileCandidateSelector.top(
+                        safeProfiles(
+                                        shortLinkRepository.findAuthorized(
+                                                scope, job.batchId(), topCandidateSize))
+                                .stream()
+                                .filter(profile -> job.batchId().equals(profile.batchId()))
+                                .filter(profile -> job.gid().equals(profile.gid()))
+                                .filter(profile -> profile.riskLevel() != RiskLevel.LOW)
+                                .toList(),
+                        topCandidateSize);
+        LocalDateTime profileWindowEnd =
+                groupProfile
+                        .map(GroupRiskProfile::profileWindowEnd)
+                        .orElseGet(
+                                () ->
+                                        candidates.stream()
+                                                .map(ShortLinkRiskProfile::profileWindowEnd)
+                                                .filter(value -> value != null)
+                                                .max(LocalDateTime::compareTo)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new IllegalStateException(
+                                                                        "Risk profile batch data"
+                                                                            + " was not found")));
+        RiskAnalysisInput analysisInput =
+                new RiskAnalysisInput(
+                        job.batchId(),
+                        job.gid(),
+                        profileWindowEnd,
+                        candidates.stream()
+                                .map(
+                                        profile ->
+                                                new RiskProfileTargetRef(
+                                                        profile.domain(), profile.shortUri()))
+                                .toList());
         return new SecurityRiskGraphRequest(
                 job.sessionId(),
                 username,
                 "Analyze security risk profiles for the scheduled batch.",
                 job.traceId(),
-                analysisInput
-        );
+                analysisInput,
+                principal);
     }
 
     private Duration retryBackoff(int attemptCount) {

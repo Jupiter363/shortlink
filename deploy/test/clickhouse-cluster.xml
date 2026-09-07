@@ -1,0 +1,13 @@
+<clickhouse>
+  <logger><level>warning</level><console>true</console></logger>
+  <max_server_memory_usage>805306368</max_server_memory_usage>
+  <macros><shard>01</shard><replica from_env="CLICKHOUSE_REPLICA"/></macros>
+  <zookeeper><node><host>keeper</host><port>9181</port></node></zookeeper>
+  <remote_servers>
+    <shortlink_replica_it><shard><internal_replication>true</internal_replication>
+      <replica><host>clickhouse-r1</host><port>9000</port><user>shortlink_it</user><password>shortlink-it-only</password></replica>
+      <replica><host>clickhouse-r2</host><port>9000</port><user>shortlink_it</user><password>shortlink-it-only</password></replica>
+    </shard></shortlink_replica_it>
+  </remote_servers>
+  <distributed_ddl><path>/shortlink-it/task_queue/ddl</path></distributed_ddl>
+</clickhouse>

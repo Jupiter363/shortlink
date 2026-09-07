@@ -25,8 +25,7 @@ public record RiskEvent(
         String traceId,
         String sessionId,
         RiskEventSource source,
-        LocalDateTime eventTime
-) {
+        LocalDateTime eventTime) {
 
     public RiskEvent {
         eventId = valueOrEmpty(eventId);
@@ -39,7 +38,8 @@ public record RiskEvent(
         riskLevel = riskLevel == null ? RiskLevel.fromScore(riskScore) : riskLevel;
         reasonCodes = reasonCodes == null ? List.of() : List.copyOf(reasonCodes);
         evidence = evidence == null ? Map.of() : Map.copyOf(evidence);
-        recommendedActions = recommendedActions == null ? List.of() : List.copyOf(recommendedActions);
+        recommendedActions =
+                recommendedActions == null ? List.of() : List.copyOf(recommendedActions);
         agentSummary = valueOrEmpty(agentSummary);
         traceId = valueOrEmpty(traceId);
         sessionId = valueOrEmpty(sessionId);
@@ -49,6 +49,16 @@ public record RiskEvent(
 
     private static String valueOrEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    public String tenantId() {
+        Object value = evidence.get("tenantId");
+        return value == null ? null : String.valueOf(value);
+    }
+
+    public Long linkId() {
+        Object value = evidence.get("linkId");
+        return value == null ? null : new java.math.BigDecimal(value.toString()).longValueExact();
     }
 
     private static int clampScore(int score) {

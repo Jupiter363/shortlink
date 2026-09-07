@@ -5,12 +5,12 @@ import java.util.Map;
 
 public record RiskGroupOverviewRespDTO(
         String gid,
-        int totalShortLinksScanned,
-        int lowRiskCount,
-        int mediumRiskCount,
-        int highRiskCount,
-        int watchingCount,
-        int disabledCount,
+        long totalShortLinksScanned,
+        long lowRiskCount,
+        long mediumRiskCount,
+        long highRiskCount,
+        long watchingCount,
+        Long disabledCount,
         double avgRiskScore,
         int maxRiskScore,
         int groupRiskScore,
@@ -18,6 +18,5 @@ public record RiskGroupOverviewRespDTO(
         List<String> groupReasonCodes,
         List<RiskShortLinkCardRespDTO> topRiskShortLinks,
         List<Map<String, Object>> riskTrend7d,
-        String agentSummary
-) {
-}
+        String agentSummary,
+        Map<String, Object> manualReview) {}

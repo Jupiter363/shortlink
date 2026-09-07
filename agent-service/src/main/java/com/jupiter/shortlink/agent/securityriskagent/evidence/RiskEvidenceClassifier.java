@@ -1,6 +1,5 @@
 package com.jupiter.shortlink.agent.securityriskagent.evidence;
 
-import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -10,9 +9,8 @@ public final class RiskEvidenceClassifier {
     public RiskEvidenceStatus classify(
             boolean evidenceRequested,
             List<Map<String, Object>> toolExecutions,
-            List<?> riskCards
-    ) {
-        if (riskCards != null && !riskCards.isEmpty()) {
+            List<?> riskCards) {
+        if (riskCards != null && riskCards.stream().anyMatch(this::hasUsableEvidence)) {
             return RiskEvidenceStatus.AVAILABLE;
         }
         if (!evidenceRequested) {
@@ -48,17 +46,28 @@ public final class RiskEvidenceClassifier {
             return false;
         }
         if (data instanceof Map<?, ?> map) {
-            return !map.isEmpty();
+            if (map.containsKey("meta"))
+                return com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence.usable(map);
+            if (map.get("evidence") instanceof Map<?, ?> evidence
+                    && evidence.get("meta") instanceof Map<?, ?> metadata) {
+                return "AVAILABLE".equals(metadata.get("availability"))
+                        && "COMPLETE".equals(metadata.get("completeness"))
+                        && metadata.get("snapshotId") instanceof String id
+                        && !id.isBlank();
+            }
+            if (map.get("shortLinkProfiles") instanceof Collection<?> profiles)
+                return profiles.stream().anyMatch(this::hasUsableEvidence);
+            return false;
         }
         if (data instanceof Collection<?> collection) {
-            return !collection.isEmpty();
+            return collection.stream().anyMatch(this::hasUsableEvidence);
         }
         if (data instanceof CharSequence text) {
-            return !text.toString().isBlank();
+            return false;
         }
         if (data.getClass().isArray()) {
-            return Array.getLength(data) > 0;
+            return false;
         }
-        return true;
+        return false;
     }
 }

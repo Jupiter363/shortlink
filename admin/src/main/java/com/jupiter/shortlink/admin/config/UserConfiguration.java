@@ -3,6 +3,7 @@ package com.jupiter.shortlink.admin.config;
 import com.jupiter.shortlink.admin.common.biz.agent.AgentInternalToolApiFilter;
 import com.jupiter.shortlink.admin.common.biz.user.UserFlowRiskControlFilter;
 import com.jupiter.shortlink.admin.common.biz.user.UserTransmitFilter;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -13,9 +14,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 public class UserConfiguration {
 
     @Bean
-    public FilterRegistrationBean<UserTransmitFilter> globalUserTransmitFilter() {
+    public FilterRegistrationBean<UserTransmitFilter> globalUserTransmitFilter(
+            com.jupiter.shortlink.admin.common.biz.user.TrustedManagementIdentity identities,
+            @org.springframework.beans.factory.annotation.Value("${shortlink.internal-token:}")
+                    String token) {
         FilterRegistrationBean<UserTransmitFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new UserTransmitFilter());
+        registration.setFilter(new UserTransmitFilter(identities, token));
         registration.addUrlPatterns("/*");
         registration.setOrder(0);
         return registration;
@@ -23,9 +27,15 @@ public class UserConfiguration {
 
     @Bean
     public FilterRegistrationBean<AgentInternalToolApiFilter> agentInternalToolApiFilter(
-            AgentAdminConfiguration agentAdminConfiguration) {
-        FilterRegistrationBean<AgentInternalToolApiFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new AgentInternalToolApiFilter(agentAdminConfiguration));
+            AgentAdminConfiguration agentAdminConfiguration,
+            com.jupiter.shortlink.admin.dao.mapper.UserMapper users,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${shortlink.agent.system-username:}")
+                    String systemUsername) {
+        FilterRegistrationBean<AgentInternalToolApiFilter> registration =
+                new FilterRegistrationBean<>();
+        registration.setFilter(
+                new AgentInternalToolApiFilter(agentAdminConfiguration, users, systemUsername));
         registration.addUrlPatterns("/internal/short-link-admin/v1/agent-tools/*");
         registration.setOrder(1);
         return registration;
@@ -36,8 +46,11 @@ public class UserConfiguration {
     public FilterRegistrationBean<UserFlowRiskControlFilter> globalUserFlowRiskControlFilter(
             StringRedisTemplate stringRedisTemplate,
             UserFlowRiskControlConfiguration userFlowRiskControlConfiguration) {
-        FilterRegistrationBean<UserFlowRiskControlFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new UserFlowRiskControlFilter(stringRedisTemplate, userFlowRiskControlConfiguration));
+        FilterRegistrationBean<UserFlowRiskControlFilter> registration =
+                new FilterRegistrationBean<>();
+        registration.setFilter(
+                new UserFlowRiskControlFilter(
+                        stringRedisTemplate, userFlowRiskControlConfiguration));
         registration.addUrlPatterns("/*");
         registration.setOrder(10);
         return registration;

@@ -1,214 +1,211 @@
 package com.jupiter.shortlink.admin.controller;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
-import com.jupiter.shortlink.admin.common.biz.user.UserContext;
-import com.jupiter.shortlink.admin.common.biz.user.UserInfoDTO;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jupiter.shortlink.admin.common.biz.user.*;
 import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
-import com.jupiter.shortlink.admin.common.convention.result.Result;
 import com.jupiter.shortlink.admin.common.convention.result.Results;
-import com.jupiter.shortlink.admin.dao.entity.GroupDO;
 import com.jupiter.shortlink.admin.dto.resp.ShortLinkGroupRespDTO;
+import com.jupiter.shortlink.admin.dto.resp.analytics.StatsEnvelope;
 import com.jupiter.shortlink.admin.remote.ShortLinkActualRemoteService;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkGroupStatsReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkStatsReqDTO;
+import com.jupiter.shortlink.admin.remote.analytics.AgentAnalyticsFacade;
+import com.jupiter.shortlink.admin.remote.dto.req.*;
 import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsAccessRecordRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsRespDTO;
 import com.jupiter.shortlink.admin.service.GroupService;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
 
-import java.util.List;
+import org.junit.jupiter.api.*;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import java.util.*;
 
 class AgentToolInternalControllerTest {
+    private GroupService groups;
+    private ShortLinkActualRemoteService links;
+    private AgentAnalyticsFacade analytics;
+    private AgentToolInternalController controller;
+
+    @BeforeEach
+    void setUp() {
+        groups = mock(GroupService.class);
+        links = mock(ShortLinkActualRemoteService.class);
+        analytics = mock(AgentAnalyticsFacade.class);
+        controller = new AgentToolInternalController(groups, links, analytics);
+        UserContext.setUser(new UserInfoDTO("1001", "zhangsan", "DB name", 7L));
+        when(groups.count(any(Wrapper.class))).thenReturn(1L);
+    }
 
     @AfterEach
     void tearDown() {
         UserContext.removeUser();
     }
 
+    private StatsEnvelope envelope() {
+        return new StatsEnvelope(
+                Map.of("pv", 4_000_000_000L),
+                List.of(),
+                Map.of("snapshotId", "snapshot-1", "provisional", true, "completeness", "PARTIAL"));
+    }
+
+    private ShortLinkStatsReqDTO single() {
+        var q = new ShortLinkStatsReqDTO();
+        q.setGid("g1");
+        q.setFullShortUrl("nurl.ink/abc123");
+        q.setStartDate("2026-07-01");
+        q.setEndDate("2026-07-07");
+        return q;
+    }
+
+    private ShortLinkGroupStatsReqDTO group() {
+        var q = new ShortLinkGroupStatsReqDTO();
+        q.setGid("g1");
+        q.setStartDate("2026-07-01");
+        q.setEndDate("2026-07-07");
+        return q;
+    }
+
+    private ShortLinkGroupStatsAccessRecordReqDTO access() {
+        var q = new ShortLinkGroupStatsAccessRecordReqDTO();
+        q.setGid("g1");
+        q.setStartDate("2026-07-01");
+        q.setEndDate("2026-07-07");
+        q.setCurrent(2L);
+        q.setSize(50L);
+        return q;
+    }
+
+    private ShortLinkPageReqDTO page() {
+        var q = new ShortLinkPageReqDTO();
+        q.setGid("g1");
+        q.setOrderTag("todayPv");
+        q.setCurrent(2L);
+        q.setSize(50L);
+        return q;
+    }
+
     @Test
-    void listGroupsReturnsGroupsForCurrentTrustedUser() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkGroupRespDTO group = new ShortLinkGroupRespDTO();
+    void listGroupsUsesCurrentTrustedPrincipal() {
+        var group = new ShortLinkGroupRespDTO();
         group.setGid("g1");
-        group.setName("campaign");
-        when(groupService.listGroup()).thenReturn(List.of(group));
-
-        Result<List<ShortLinkGroupRespDTO>> actual = controller.listGroups();
-
-        assertThat(actual.isSuccess()).isTrue();
-        assertThat(actual.getData()).containsExactly(group);
-        verify(groupService).listGroup();
+        when(groups.listGroup()).thenReturn(List.of(group));
+        assertThat(controller.listGroups().getData()).containsExactly(group);
+        verify(groups).listGroup();
     }
 
     @Test
-    void pageShortLinksForwardsRequestToProjectApi() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkPageReqDTO request = new ShortLinkPageReqDTO();
-        request.setGid("g1");
-        request.setOrderTag("todayPv");
-        request.setCurrent(2L);
-        request.setSize(50L);
-        Result<Page<ShortLinkPageRespDTO>> expected = Results.success(new Page<>());
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.pageShortLink("g1", "todayPv", 2L, 50L)).thenReturn(expected);
-
-        Result<Page<ShortLinkPageRespDTO>> actual = controller.pageShortLinks(request);
-
-        assertThat(actual).isSameAs(expected);
-        verify(remoteService).pageShortLink("g1", "todayPv", 2L, 50L);
+    void everyEntryRejectsMissingCurrentPrincipalBeforeDelegation() {
+        UserContext.removeUser();
+        assertThatThrownBy(controller::listGroups)
+                .isInstanceOf(ClientException.class)
+                .hasMessage("Agent request requires a current trusted principal");
+        assertThatThrownBy(() -> controller.shortLinkStats(single()))
+                .isInstanceOf(ClientException.class);
+        verifyNoInteractions(links, analytics);
+        verify(groups, never()).listGroup();
     }
 
     @Test
-    void shortLinkStatsForwardsRequestToProjectApi() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkStatsReqDTO request = new ShortLinkStatsReqDTO();
-        request.setFullShortUrl("nurl.ink/a");
-        request.setGid("g1");
-        request.setStartDate("2026-07-01");
-        request.setEndDate("2026-07-07");
-        Result<ShortLinkStatsRespDTO> expected = Results.success(new ShortLinkStatsRespDTO());
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.oneShortLinkStats("nurl.ink/a", "g1", "2026-07-01", "2026-07-07"))
+    void legacyIdentityWithoutAuthVersionIsRejected() {
+        UserContext.setUser(new UserInfoDTO("1001", "zhangsan", "legacy"));
+        assertThatThrownBy(() -> controller.pageShortLinks(page()))
+                .isInstanceOf(ClientException.class);
+        verifyNoInteractions(links, analytics);
+    }
+
+    @Test
+    void pageShortLinksForwardsBoundedPageToCommand() {
+        var expected = Results.success(new Page<ShortLinkPageRespDTO>());
+        when(links.pageShortLink("g1", "todayPv", 2L, 50L)).thenReturn(expected);
+        assertThat(controller.pageShortLinks(page())).isSameAs(expected);
+        verify(links).pageShortLink("g1", "todayPv", 2L, 50L);
+        verifyNoInteractions(analytics);
+    }
+
+    @Test
+    void pageBudgetIsRejectedBeforeRemoteCall() {
+        var q = page();
+        q.setSize(501L);
+        assertThatThrownBy(() -> controller.pageShortLinks(q))
+                .isInstanceOf(ClientException.class)
+                .hasMessage("Invalid link page budget");
+        verifyNoInteractions(links);
+    }
+
+    @Test
+    void singleStatsReuseEnvelopeAndPreserveQualityAndLongCounters() {
+        var expected = envelope();
+        when(analytics.query(
+                        "g1",
+                        "nurl.ink/abc123",
+                        "2026-07-01",
+                        "2026-07-07",
+                        null,
+                        null,
+                        null,
+                        500,
+                        "METRICS"))
                 .thenReturn(expected);
-
-        Result<ShortLinkStatsRespDTO> actual = controller.shortLinkStats(request);
-
-        assertThat(actual).isSameAs(expected);
-        verify(remoteService).oneShortLinkStats("nurl.ink/a", "g1", "2026-07-01", "2026-07-07");
+        var result = controller.shortLinkStats(single());
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getData()).isSameAs(expected);
+        assertThat(result.getData().metrics().get("pv")).isEqualTo(4_000_000_000L);
+        assertThat(result.getData().metrics()).doesNotContainKey("uv");
+        verifyNoInteractions(links);
     }
 
     @Test
-    void groupStatsForwardsRequestToProjectApi() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkGroupStatsReqDTO request = new ShortLinkGroupStatsReqDTO();
-        request.setGid("g1");
-        request.setStartDate("2026-07-01");
-        request.setEndDate("2026-07-07");
-        Result<ShortLinkStatsRespDTO> expected = Results.success(new ShortLinkStatsRespDTO());
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.groupShortLinkStats("g1", "2026-07-01", "2026-07-07")).thenReturn(expected);
-
-        Result<ShortLinkStatsRespDTO> actual = controller.groupStats(request);
-
-        assertThat(actual).isSameAs(expected);
-        verify(remoteService).groupShortLinkStats("g1", "2026-07-01", "2026-07-07");
-    }
-
-    @Test
-    void groupAccessRecordsForwardsPaginationToProjectApi() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkGroupStatsAccessRecordReqDTO request = new ShortLinkGroupStatsAccessRecordReqDTO();
-        request.setGid("g1");
-        request.setStartDate("2026-07-01");
-        request.setEndDate("2026-07-07");
-        request.setCurrent(2L);
-        request.setSize(50L);
-        Result<Page<ShortLinkStatsAccessRecordRespDTO>> expected = Results.success(new Page<>());
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.groupShortLinkStatsAccessRecord("g1", "2026-07-01", "2026-07-07", 2L, 50L))
+    void groupStatsReuseAnalyticsInsteadOfProjectStatistics() {
+        var expected = envelope();
+        when(analytics.query(
+                        "g1", null, "2026-07-01", "2026-07-07", null, null, null, 500, "METRICS"))
                 .thenReturn(expected);
-
-        Result<Page<ShortLinkStatsAccessRecordRespDTO>> actual = controller.groupAccessRecords(request);
-
-        assertThat(actual).isSameAs(expected);
-        verify(remoteService).groupShortLinkStatsAccessRecord("g1", "2026-07-01", "2026-07-07", 2L, 50L);
+        assertThat(controller.groupStats(group()).getData()).isSameAs(expected);
+        verifyNoInteractions(links);
     }
 
     @Test
-    void pageShortLinksRejectsGidOutsideTrustedUserGroups() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkPageReqDTO request = new ShortLinkPageReqDTO();
-        request.setGid("other-user-gid");
-        request.setCurrent(1L);
-        request.setSize(10L);
-        UserContext.setUser(new UserInfoDTO("1001", "zhangsan", "Zhang San"));
-        when(groupService.count(any(Wrapper.class))).thenReturn(0L);
-
-        assertThatThrownBy(() -> controller.pageShortLinks(request))
-                .isInstanceOf(ClientException.class)
-                .hasMessage("Agent tool request gid is not owned by current user");
-        verify(remoteService, never()).pageShortLink(any(), any(), any(), any());
+    void accessContinuationForwardsSnapshotAndCursorTogether() {
+        var expected = envelope();
+        when(analytics.query(
+                        "g1",
+                        null,
+                        "2026-07-01",
+                        "2026-07-07",
+                        null,
+                        "snapshot-1",
+                        "cursor-2",
+                        50,
+                        "ACCESS_RECORDS"))
+                .thenReturn(expected);
+        assertThat(controller.groupAccessRecords(access(), "snapshot-1", "cursor-2").getData())
+                .isSameAs(expected);
+        verifyNoInteractions(links);
     }
 
     @Test
-    void shortLinkStatsRejectsGidOutsideTrustedUserGroups() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkStatsReqDTO request = new ShortLinkStatsReqDTO();
-        request.setFullShortUrl("nurl.ink/a");
-        request.setGid("other-user-gid");
-        request.setStartDate("2026-07-01");
-        request.setEndDate("2026-07-07");
-        UserContext.setUser(new UserInfoDTO("1001", "zhangsan", "Zhang San"));
-        when(groupService.count(any(Wrapper.class))).thenReturn(0L);
-
-        assertThatThrownBy(() -> controller.shortLinkStats(request))
+    void accessContinuationCannotRestartSilentlyWithoutSnapshotOrCursor() {
+        assertThatThrownBy(() -> controller.groupAccessRecords(access(), null, "cursor"))
                 .isInstanceOf(ClientException.class)
-                .hasMessage("Agent tool request gid is not owned by current user");
-        verify(remoteService, never()).oneShortLinkStats(any(), any(), any(), any());
+                .hasMessage("Continuation requires snapshotId and cursor");
+        assertThatThrownBy(() -> controller.groupAccessRecords(access(), "snapshot", null))
+                .isInstanceOf(ClientException.class);
+        verifyNoInteractions(analytics, links);
     }
 
     @Test
-    void groupStatsRejectsGidOutsideTrustedUserGroups() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkGroupStatsReqDTO request = new ShortLinkGroupStatsReqDTO();
-        request.setGid("other-user-gid");
-        request.setStartDate("2026-07-01");
-        request.setEndDate("2026-07-07");
-        UserContext.setUser(new UserInfoDTO("1001", "zhangsan", "Zhang San"));
-        when(groupService.count(any(Wrapper.class))).thenReturn(0L);
-
-        assertThatThrownBy(() -> controller.groupStats(request))
+    void allGroupRoutesRejectForeignGroupBeforeAnyRemoteQuery() {
+        when(groups.count(any(Wrapper.class))).thenReturn(0L);
+        assertThatThrownBy(() -> controller.pageShortLinks(page()))
                 .isInstanceOf(ClientException.class)
-                .hasMessage("Agent tool request gid is not owned by current user");
-        verify(remoteService, never()).groupShortLinkStats(any(), any(), any());
-    }
-
-    @Test
-    void groupAccessRecordsRejectsGidOutsideTrustedUserGroups() {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        AgentToolInternalController controller = new AgentToolInternalController(groupService, remoteService);
-        ShortLinkGroupStatsAccessRecordReqDTO request = new ShortLinkGroupStatsAccessRecordReqDTO();
-        request.setGid("other-user-gid");
-        request.setStartDate("2026-07-01");
-        request.setEndDate("2026-07-07");
-        request.setCurrent(1L);
-        request.setSize(10L);
-        UserContext.setUser(new UserInfoDTO("1001", "zhangsan", "Zhang San"));
-        when(groupService.count(any(Wrapper.class))).thenReturn(0L);
-
-        assertThatThrownBy(() -> controller.groupAccessRecords(request))
-                .isInstanceOf(ClientException.class)
-                .hasMessage("Agent tool request gid is not owned by current user");
-        verify(remoteService, never()).groupShortLinkStatsAccessRecord(any(), any(), any(), any(), any());
+                .hasMessage("Agent request requires an owned active group");
+        assertThatThrownBy(() -> controller.shortLinkStats(single()))
+                .isInstanceOf(ClientException.class);
+        assertThatThrownBy(() -> controller.groupStats(group()))
+                .isInstanceOf(ClientException.class);
+        assertThatThrownBy(() -> controller.groupAccessRecords(access(), "snapshot", "cursor"))
+                .isInstanceOf(ClientException.class);
+        verifyNoInteractions(links, analytics);
     }
 }

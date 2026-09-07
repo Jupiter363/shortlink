@@ -10,6 +10,7 @@ import com.jupiter.shortlink.agent.securityriskagent.evidence.RiskEvidenceClassi
 import com.jupiter.shortlink.agent.securityriskagent.evidence.RiskEvidenceStatus;
 import com.jupiter.shortlink.agent.securityriskagent.prompt.SecurityRiskPromptBuilder;
 import com.jupiter.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
@@ -28,8 +29,10 @@ public class RiskLlmExplanationNode {
     private static final String RISK_SCORING_NODE = "risk_scoring";
     private static final String LLM_EXPLANATION_NODE = "llm_explanation";
     private static final String EVIDENCE_UNAVAILABLE_ANSWER =
-            "Security risk evidence is temporarily unavailable because all requested data sources failed.";
-    private static final String EVIDENCE_UNAVAILABLE_WARNING = "Security risk evidence is unavailable";
+            "Security risk evidence is temporarily unavailable because all requested data sources"
+                + " failed.";
+    private static final String EVIDENCE_UNAVAILABLE_WARNING =
+            "Security risk evidence is unavailable";
     private static final String NO_EVIDENCE_ANSWER =
             "No security risk evidence was found for the requested scope.";
 
@@ -47,8 +50,7 @@ public class RiskLlmExplanationNode {
     public RiskLlmExplanationNode(
             ChatClient chatClient,
             SecurityRiskPromptBuilder promptBuilder,
-            SecurityRiskSanitizer sanitizer
-    ) {
+            SecurityRiskSanitizer sanitizer) {
         this.chatClient = chatClient;
         this.legacyLlmChatClient = null;
         this.promptBuilder = promptBuilder;
@@ -57,14 +59,13 @@ public class RiskLlmExplanationNode {
     }
 
     /**
-     * Source-compatible constructor for callers that still provide the old
-     * request/response test double. Spring production wiring uses ChatClient.
+     * Source-compatible constructor for callers that still provide the old request/response test
+     * double. Spring production wiring uses ChatClient.
      */
     public RiskLlmExplanationNode(
             LlmChatClient llmChatClient,
             SecurityRiskPromptBuilder promptBuilder,
-            SecurityRiskSanitizer sanitizer
-    ) {
+            SecurityRiskSanitizer sanitizer) {
         this.chatClient = null;
         this.legacyLlmChatClient = llmChatClient;
         this.promptBuilder = promptBuilder;
@@ -76,27 +77,24 @@ public class RiskLlmExplanationNode {
         List<Map<String, Object>> toolExecutions = state.value("toolExecutions", List.of());
         List<Object> riskCards = state.value("riskCards", List.of());
         boolean evidenceRequested = state.value("evidenceRequested", false);
-        RiskEvidenceStatus evidenceStatus = evidenceClassifier.classify(
-                evidenceRequested,
-                toolExecutions,
-                riskCards
-        );
+        RiskEvidenceStatus evidenceStatus =
+                evidenceClassifier.classify(evidenceRequested, toolExecutions, riskCards);
         return explain(
                 state.value("message", ""),
                 toolExecutions,
                 riskCards,
                 state.value("toolWarnings", List.of()),
-                state.value("analysisInput").isPresent(),
-                evidenceStatus
-        );
+                state.value("analysisInput")
+                        .filter(value -> !(value instanceof Map<?, ?> input) || !input.isEmpty())
+                        .isPresent(),
+                evidenceStatus);
     }
 
     public Map<String, Object> explain(
             String message,
             List<Map<String, Object>> toolExecutions,
             List<Object> riskCards,
-            List<String> toolWarnings
-    ) {
+            List<String> toolWarnings) {
         return explain(
                 message,
                 toolExecutions,
@@ -106,9 +104,7 @@ public class RiskLlmExplanationNode {
                 evidenceClassifier.classify(
                         hasRequestedEvidence(toolExecutions, riskCards),
                         toolExecutions,
-                        riskCards
-                )
-        );
+                        riskCards));
     }
 
     public Map<String, Object> explain(
@@ -116,8 +112,7 @@ public class RiskLlmExplanationNode {
             List<Map<String, Object>> toolExecutions,
             List<Object> riskCards,
             List<String> toolWarnings,
-            boolean failFast
-    ) {
+            boolean failFast) {
         return explain(
                 message,
                 toolExecutions,
@@ -127,9 +122,7 @@ public class RiskLlmExplanationNode {
                 evidenceClassifier.classify(
                         hasRequestedEvidence(toolExecutions, riskCards),
                         toolExecutions,
-                        riskCards
-                )
-        );
+                        riskCards));
     }
 
     public Map<String, Object> explain(
@@ -138,16 +131,14 @@ public class RiskLlmExplanationNode {
             List<Object> riskCards,
             List<String> toolWarnings,
             boolean failFast,
-            boolean evidenceRequested
-    ) {
+            boolean evidenceRequested) {
         return explain(
                 message,
                 toolExecutions,
                 riskCards,
                 toolWarnings,
                 failFast,
-                evidenceClassifier.classify(evidenceRequested, toolExecutions, riskCards)
-        );
+                evidenceClassifier.classify(evidenceRequested, toolExecutions, riskCards));
     }
 
     private Map<String, Object> explain(
@@ -156,10 +147,13 @@ public class RiskLlmExplanationNode {
             List<Object> riskCards,
             List<String> toolWarnings,
             boolean failFast,
-            RiskEvidenceStatus evidenceStatus
-    ) {
+            RiskEvidenceStatus evidenceStatus) {
         List<String> warnings = sanitizedWarnings(toolWarnings);
         Map<String, Object> llmDataSource = Map.of();
+        var jobAnswer =
+                com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.statusAnswer(
+                        toolExecutions);
+        if (jobAnswer.isPresent()) return result(jobAnswer.get(), llmDataSource, warnings);
         if (evidenceStatus == RiskEvidenceStatus.SOURCE_FAILURE) {
             warnings.add(EVIDENCE_UNAVAILABLE_WARNING);
             return result(EVIDENCE_UNAVAILABLE_ANSWER, llmDataSource, warnings);
@@ -171,14 +165,16 @@ public class RiskLlmExplanationNode {
         try {
             ChatResponse chatResponse;
             if (chatClient != null) {
-                chatResponse = chatClient.prompt()
-                        .system(promptBuilder.systemPrompt())
-                        .user(promptBuilder.userPrompt(message, toolExecutions, riskCards))
-                        // Tool execution is deterministic in the preceding
-                        // graph node; explanation must not open a ReAct loop.
-                        .toolCallbacks(List.of())
-                        .call()
-                        .chatResponse();
+                chatResponse =
+                        chatClient
+                                .prompt()
+                                .system(promptBuilder.systemPrompt())
+                                .user(promptBuilder.userPrompt(message, toolExecutions, riskCards))
+                                // Tool execution is deterministic in the preceding
+                                // graph node; explanation must not open a ReAct loop.
+                                .toolCallbacks(List.of())
+                                .call()
+                                .chatResponse();
             } else {
                 chatResponse = legacyChatResponse(message, toolExecutions, riskCards);
             }
@@ -187,12 +183,16 @@ public class RiskLlmExplanationNode {
                 throw new LlmChatClientException("DeepSeek chat response is empty");
             }
             answer = sanitizer.sanitizeText(generation.getOutput().getText());
-            llmDataSource = Map.of(
-                    "type", "llm",
-                    "provider", "deepseek",
-                    "model", model(chatResponse),
-                    "finishReason", finishReason(generation)
-            );
+            llmDataSource =
+                    Map.of(
+                            "type",
+                            "llm",
+                            "provider",
+                            "deepseek",
+                            "model",
+                            model(chatResponse),
+                            "finishReason",
+                            finishReason(generation));
         } catch (LlmApiKeyNotConfiguredException ex) {
             if (failFast) {
                 throw ex;
@@ -203,37 +203,41 @@ public class RiskLlmExplanationNode {
             if (failFast) {
                 throw ex;
             }
-            answer = "DeepSeek API request failed. Please check provider connectivity and configuration.";
+            answer =
+                    "DeepSeek API request failed. Please check provider connectivity and"
+                        + " configuration.";
             warnings.add(sanitizer.sanitizeText(ex.getMessage()));
         }
         return result(answer, llmDataSource, warnings);
     }
 
     private ChatResponse legacyChatResponse(
-            String message,
-            List<Map<String, Object>> toolExecutions,
-            List<Object> riskCards
-    ) {
-        DeepSeekChatResponse response = legacyLlmChatClient.chat(new DeepSeekChatRequest(
-                List.of(
-                        new DeepSeekChatRequest.Message("system", promptBuilder.systemPrompt()),
-                        new DeepSeekChatRequest.Message("user", promptBuilder.userPrompt(message, toolExecutions, riskCards))
-                ),
-                null,
-                null,
-                null
-        ));
+            String message, List<Map<String, Object>> toolExecutions, List<Object> riskCards) {
+        DeepSeekChatResponse response =
+                legacyLlmChatClient.chat(
+                        new DeepSeekChatRequest(
+                                List.of(
+                                        new DeepSeekChatRequest.Message(
+                                                "system", promptBuilder.systemPrompt()),
+                                        new DeepSeekChatRequest.Message(
+                                                "user",
+                                                promptBuilder.userPrompt(
+                                                        message, toolExecutions, riskCards))),
+                                null,
+                                null,
+                                null));
         if (response == null) {
             throw new LlmChatClientException("DeepSeek chat response is empty");
         }
-        Generation generation = new Generation(
-                new org.springframework.ai.chat.messages.AssistantMessage(response.content()),
-                ChatGenerationMetadata.builder().finishReason(response.finishReason()).build()
-        );
-        ChatResponseMetadata metadata = ChatResponseMetadata.builder()
-                .id(response.id())
-                .model(response.model())
-                .build();
+        Generation generation =
+                new Generation(
+                        new org.springframework.ai.chat.messages.AssistantMessage(
+                                response.content()),
+                        ChatGenerationMetadata.builder()
+                                .finishReason(response.finishReason())
+                                .build());
+        ChatResponseMetadata metadata =
+                ChatResponseMetadata.builder().id(response.id()).model(response.model()).build();
         return new ChatResponse(List.of(generation), metadata);
     }
 
@@ -254,22 +258,21 @@ public class RiskLlmExplanationNode {
     }
 
     private Map<String, Object> result(
-            String answer,
-            Map<String, Object> llmDataSource,
-            List<String> warnings
-    ) {
+            String answer, Map<String, Object> llmDataSource, List<String> warnings) {
         return Map.of(
                 "answer", answer,
                 "llmDataSource", llmDataSource,
                 "warnings", warnings,
-                "visitedNodes", List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE, RISK_SCORING_NODE, LLM_EXPLANATION_NODE)
-        );
+                "visitedNodes",
+                        List.of(
+                                INTAKE_NODE,
+                                RISK_TOOL_PLANNING_NODE,
+                                RISK_SCORING_NODE,
+                                LLM_EXPLANATION_NODE));
     }
 
     private boolean hasRequestedEvidence(
-            List<Map<String, Object>> toolExecutions,
-            List<Object> riskCards
-    ) {
+            List<Map<String, Object>> toolExecutions, List<Object> riskCards) {
         return (toolExecutions != null && !toolExecutions.isEmpty())
                 || (riskCards != null && !riskCards.isEmpty());
     }

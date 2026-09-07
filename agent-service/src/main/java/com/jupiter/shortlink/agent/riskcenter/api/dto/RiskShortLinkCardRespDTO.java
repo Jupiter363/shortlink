@@ -11,14 +11,17 @@ public record RiskShortLinkCardRespDTO(
         int riskScore,
         String riskLevel,
         List<String> reasonCodes,
-        int pv2h,
-        int uv2h,
-        int pv24h,
-        int uv24h,
-        int pv7d,
-        int uv7d,
+        long pv2h,
+        long uv2h,
+        long pv24h,
+        long uv24h,
+        long pv7d,
+        long uv7d,
         String watchStatus,
         List<String> latestPolicyActions,
-        String latestAgentSummary
-) {
-}
+        String latestAgentSummary,
+        String tenantId,
+        Long linkId,
+        java.util.Map<String, Object> statsMeta,
+        java.util.Map<String, Object> currentPolicy,
+        java.util.Map<String, Object> manualReview) {}

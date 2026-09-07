@@ -1,0 +1,80 @@
+[
+  {
+    "upstreamPath": "leaf-core/pom.xml",
+    "localPath": "upstream/leaf/leaf-core/pom.xml.reference",
+    "gitBlobSha1": "e298688076914965e8ca9428feb973ff839a6e69",
+    "sha256": "a13a1e3640b220ed16aa72e63a0a3740efe563ef43ccd41eb7f81809d31d8ab8"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/common/Result.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/common/Result.java",
+    "gitBlobSha1": "a4a44c92314fbbf4a061dee69d2873bd5bf4a582",
+    "sha256": "cdbe95b504e729e0dfbd21fcda8edbdf234e41f1340ad71abe4468dfc1038d4b"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/common/Status.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/common/Status.java",
+    "gitBlobSha1": "af2abeedc0e91e800c3958cb082031ed88d4e784",
+    "sha256": "998970b366bfca46ba9a0c0161dae5276f9d44afd1fdc82dbd86c352b02e640f"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/IDGen.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/IDGen.java",
+    "gitBlobSha1": "d8b8b98ef55b43b05c4c287cee64f9baae4f9a84",
+    "sha256": "b6d76805227b039b3d3b0bb3d108e67108620cbbaa6f9f48df484bd891b26dd1"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/segment/dao/IDAllocDao.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/segment/dao/IDAllocDao.java",
+    "gitBlobSha1": "bdec1a5ff4a5b6675eac959dea1ad6d902229721",
+    "sha256": "f6e3d6e493bfebeb2b9e680f214b13625164c6a8df14175ee7c6434ac3618611"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/segment/dao/IDAllocMapper.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/segment/dao/IDAllocMapper.java",
+    "gitBlobSha1": "6bbed1841530925141c8634ea37d4eb267296168",
+    "sha256": "6dd9c0b72e36f8d1496a67625b73a6bfb9aea7600dd24b17128e0f219be956de"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/segment/dao/impl/IDAllocDaoImpl.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/segment/dao/impl/IDAllocDaoImpl.java",
+    "gitBlobSha1": "d896d0be0ccc6d7fbdb78fcc8fcebbc07fca2c5a",
+    "sha256": "d3fd35e5670c07d15b991ce2698f3004b1500861ecb7c4f7769f89e014df185c"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/segment/model/LeafAlloc.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/segment/model/LeafAlloc.java",
+    "gitBlobSha1": "106f95f2e8e3df68e9a24a489f3b1b01dcaab1d9",
+    "sha256": "7e60353d0e09742e290645feae34354d14d73bb5b6b030d4601eb63110943f4b"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/segment/model/Segment.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/segment/model/Segment.java",
+    "gitBlobSha1": "875f4afbe8bc30a3c32f7cd79a4024755e6aaf9a",
+    "sha256": "7b64ba62e6fe37e3592d74e205e2f56452da9c66aa9b4f0ce847e3b5ffe6fb3c"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/segment/model/SegmentBuffer.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/segment/model/SegmentBuffer.java",
+    "gitBlobSha1": "567ab52fde449fbaa27000bdeb469cc52a8a8fb1",
+    "sha256": "e1368877c433916ff9acef8570c02bf4c097af68caa6fb590a8aa619f674ce1c"
+  },
+  {
+    "upstreamPath": "leaf-core/src/main/java/com/sankuai/inf/leaf/segment/SegmentIDGenImpl.java",
+    "localPath": "upstream/leaf/leaf-core/src/main/java/com/sankuai/inf/leaf/segment/SegmentIDGenImpl.java",
+    "gitBlobSha1": "21d13518ed43ce290b8236f4532cce843e6dc3a9",
+    "sha256": "06bb1821fe89463e93669d9cc97e48db01a412d19be590a079413b34d7fba265"
+  },
+  {
+    "upstreamPath": "LICENSE",
+    "localPath": "upstream/leaf/LICENSE",
+    "gitBlobSha1": "a0c175630f2ca165da857e59eec244ac96982a88",
+    "sha256": "27d746661136cdb7e3007a43ecc94669c9d849d3cf0e1848daaae7159bdebcc3"
+  },
+  {
+    "upstreamPath": "pom.xml",
+    "localPath": "upstream/leaf/pom.xml.reference",
+    "gitBlobSha1": "f2c66b6de38a9e0bc7eca4029d42164631924b83",
+    "sha256": "5eee91bcb435fe2e126d99ac3d5a614b8214fd8389f60efbadfa02ba0a90334f"
+  }
+]

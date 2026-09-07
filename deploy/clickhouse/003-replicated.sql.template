@@ -1,0 +1,126 @@
+CREATE DATABASE IF NOT EXISTS {{DATABASE}} ON CLUSTER {{CLUSTER}};
+CREATE TABLE IF NOT EXISTS {{DATABASE}}.event_receipts ON CLUSTER {{CLUSTER}} (
+ kind LowCardinality(String), cluster_id String, topic_id String, source_topic String,
+ source_partition UInt32, source_offset UInt64, received_at Int64, timestamp_type String,
+ event_id String, payload_hash FixedString(64), tenant_id String, link_id UInt64, occurred_at Int64,
+ visitor_hash String, ip_hash String, browser LowCardinality(String), os LowCardinality(String),
+ device LowCardinality(String), country LowCardinality(String), referer_domain String,
+ request_source LowCardinality(String), decision_stage LowCardinality(String), status UInt16,
+ reason String, validation_version String, validation_result String,
+ dataset_version String, parser_version String, hash_version String
+) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') PARTITION BY toYYYYMM(toDateTime(received_at/1000))
+ORDER BY (source_topic,source_partition,source_offset,cluster_id,topic_id)
+TTL toDateTime(received_at/1000) + INTERVAL 180 DAY;
+CREATE TABLE IF NOT EXISTS {{DATABASE}}.rebuild_input ON CLUSTER {{CLUSTER}} (
+ build_id String, window_start Int64, kind LowCardinality(String), tenant_id String, link_id UInt64,
+ event_id String, payload_hash FixedString(64), occurred_at Int64, received_at Int64,
+ visitor_hash String, ip_hash String, browser String, os String, device String, country String, referer_domain String,
+ request_source String, decision_stage String, status UInt16, validation_result String,
+ receipt_id String
+) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') PARTITION BY toYYYYMM(toDateTime(window_start/1000))
+ORDER BY (build_id,tenant_id,event_id,receipt_id);
+CREATE TABLE IF NOT EXISTS {{DATABASE}}.window_results ON CLUSTER {{CLUSTER}} (
+ tenant_id String, link_id UInt64, window_start Int64, window_end Int64,
+ build_id String, recovery_epoch String, revision UInt64, pv UInt64, uv Float64, uip Float64,
+ visitor_sketch String, ip_sketch String, metric_version String, dataset_version String
+) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') PARTITION BY toYYYYMM(toDateTime(window_start/1000))
+ORDER BY (build_id,window_start,tenant_id,link_id,revision);
+-- Immutable versions intentionally have no autonomous TTL: the control worker owns reference-aware cleanup.
+-- Production substitutes ReplicatedMergeTree with provisioned Keeper paths and per-shard routing;
+-- query service checks every configured replica's exact build coverage before publication/selection.
+
+-- Official ClickHouse Kafka Connect landing schemas match Java record JSON exactly.
+CREATE TABLE IF NOT EXISTS {{DATABASE}}.derived_events ON CLUSTER {{CLUSTER}} (
+ kind LowCardinality(String),
+ clusterId String,
+ topicId String,
+ sourceTopic String,
+ sourcePartition UInt32,
+ sourceOffset UInt64,
+ receivedAt Int64,
+ timestampType String,
+ eventId String,
+ payloadHash FixedString(64),
+ tenantId String,
+ linkId UInt64,
+ occurredAt Int64,
+ visitorHash String,
+ ipHash String,
+ browser String,
+ os String,
+ device String,
+ country String,
+ refererDomain String,
+ requestSource String,
+ decisionStage String,
+ status UInt16,
+ reason String,
+ validationVersion String,
+ validationResult String,
+ detailDatasetVersion String,
+ parserVersion String,
+ hashVersion String
+) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') ORDER BY (sourceTopic,sourcePartition,sourceOffset,clusterId,topicId)
+TTL toDateTime(greatest(receivedAt,0)/1000)+INTERVAL 180 DAY;
+CREATE MATERIALIZED VIEW IF NOT EXISTS {{DATABASE}}.derived_events_mv ON CLUSTER {{CLUSTER}} TO {{DATABASE}}.event_receipts AS
+SELECT kind AS kind,
+clusterId AS cluster_id,
+topicId AS topic_id,
+sourceTopic AS source_topic,
+sourcePartition AS source_partition,
+sourceOffset AS source_offset,
+receivedAt AS received_at,
+timestampType AS timestamp_type,
+eventId AS event_id,
+payloadHash AS payload_hash,
+tenantId AS tenant_id,
+linkId AS link_id,
+occurredAt AS occurred_at,
+visitorHash AS visitor_hash,
+ipHash AS ip_hash,
+browser AS browser,
+os AS os,
+device AS device,
+country AS country,
+refererDomain AS referer_domain,
+requestSource AS request_source,
+decisionStage AS decision_stage,
+status AS status,
+reason AS reason,
+validationVersion AS validation_version,
+validationResult AS validation_result,
+detailDatasetVersion AS dataset_version,
+parserVersion AS parser_version,
+hashVersion AS hash_version FROM {{DATABASE}}.derived_events;
+CREATE TABLE IF NOT EXISTS {{DATABASE}}.derived_windows ON CLUSTER {{CLUSTER}} (
+ tenantId String,
+ linkId UInt64,
+ windowStart Int64,
+ windowEnd Int64,
+ bucket Int32,
+ revision UInt64,
+ pv UInt64,
+ uv Float64,
+ uip Float64,
+ visitorSketch String,
+ ipSketch String,
+ buildId String,
+ recoveryEpoch String,
+ metricVersion String,
+ detailDatasetVersion String
+) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') ORDER BY (buildId,windowStart,tenantId,linkId,revision);
+CREATE MATERIALIZED VIEW IF NOT EXISTS {{DATABASE}}.derived_windows_mv ON CLUSTER {{CLUSTER}} TO {{DATABASE}}.window_results AS
+SELECT tenantId AS tenant_id,
+linkId AS link_id,
+windowStart AS window_start,
+windowEnd AS window_end,
+revision AS revision,
+pv AS pv,
+uv AS uv,
+uip AS uip,
+visitorSketch AS visitor_sketch,
+ipSketch AS ip_sketch,
+buildId AS build_id,
+recoveryEpoch AS recovery_epoch,
+metricVersion AS metric_version,
+detailDatasetVersion AS dataset_version FROM {{DATABASE}}.derived_windows WHERE bucket=-1;

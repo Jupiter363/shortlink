@@ -19,8 +19,7 @@ abstract class AbstractShortLinkBusinessTool implements AgentTool {
             ShortLinkBusinessGateway gateway,
             String name,
             String description,
-            Map<String, Object> inputSchema
-    ) {
+            Map<String, Object> inputSchema) {
         this.gateway = gateway;
         this.descriptor = new ToolDescriptor(name, description, inputSchema);
     }
@@ -34,17 +33,46 @@ abstract class AbstractShortLinkBusinessTool implements AgentTool {
         return gateway.get(path, context, queryParams);
     }
 
+    protected ToolResult statistics(
+            String path, ToolContext context, Map<String, Object> queryParams, String kind) {
+        var longRange = StatisticsQueryJobPlanner.longRange(queryParams, kind);
+        if (longRange.isPresent())
+            return gateway.post(
+                    "/internal/short-link-admin/v1/agent-tools/statistics/jobs",
+                    context,
+                    longRange.get().arguments());
+        ToolResult result = gateway.get(path, context, queryParams);
+        if (result == null
+                || result.success()
+                || result.message() == null
+                || !result.message().contains("TOO_LARGE")
+                || queryParams.containsKey("snapshotId")
+                || queryParams.containsKey("cursor")) return result;
+        Map<String, Object> request = new LinkedHashMap<>();
+        for (String key : java.util.List.of("gid", "fullShortUrl", "startDate", "endDate"))
+            if (queryParams.get(key) != null) request.put(key, queryParams.get(key));
+        request.put("queryKind", kind);
+        request.put(
+                "requestId",
+                java.util
+                        .UUID
+                        .nameUUIDFromBytes(
+                                request.toString()
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        .toString());
+        return gateway.post(
+                "/internal/short-link-admin/v1/agent-tools/statistics/jobs", context, request);
+    }
+
     /**
-     * Executes the legacy harness method while keeping request identity outside
-     * the model-visible tool arguments.  Spring AI supplies the username through
-     * its trusted ToolContext and the HTTP gateway forwards it in the internal
-     * username header.  The admin endpoint remains the source of truth for gid
-     * ownership validation.
+     * Executes the legacy harness method while keeping request identity outside the model-visible
+     * tool arguments. Spring AI supplies the username through its trusted ToolContext and the HTTP
+     * gateway forwards it in the internal username header. The admin endpoint remains the source of
+     * truth for gid ownership validation.
      */
     protected ToolResult executeFromSpringContext(
             org.springframework.ai.chat.model.ToolContext springContext,
-            Map<String, Object> arguments
-    ) {
+            Map<String, Object> arguments) {
         ToolContext context = ToolContext.fromSpringContext(springContext, arguments);
         if (context.username() == null || context.username().isBlank()) {
             return ToolResult.failure("Missing trusted tool context username");
@@ -69,12 +97,9 @@ abstract class AbstractShortLinkBusinessTool implements AgentTool {
         if (value == null || value.toString().isBlank()) {
             return defaultValue;
         }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
         try {
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException ex) {
+            return new java.math.BigDecimal(value.toString()).longValueExact();
+        } catch (NumberFormatException | ArithmeticException ex) {
             return null;
         }
     }
