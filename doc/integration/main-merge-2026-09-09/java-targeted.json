@@ -1,0 +1,53 @@
+{
+  "candidate": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/.work/merge-main-20260909/candidate-accepted",
+  "tree": "9c72bab0082175dfc8541331dec581c9c31a1612",
+  "label": "targeted",
+  "command": [
+    "/usr/bin/mvn",
+    "-o",
+    "-Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository",
+    "-Dstyle.color=never",
+    "-pl",
+    "shortlink-command",
+    "-am",
+    "-Dtest=SafeMetadataFetcherTest,SafeMetadataTransportTest",
+    "-Dsurefire.failIfNoSpecifiedTests=false",
+    "-Dsurefire.reportNameSuffix=accepted-targeted",
+    "test"
+  ],
+  "startedUtc": "2026-09-09T15:38:34.491680+00:00",
+  "endedUtc": "2026-09-09T15:40:30.471070+00:00",
+  "elapsedSeconds": 115.979382679,
+  "exitCode": 0,
+  "totals": {
+    "tests": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "sourceUnchanged": true,
+  "previousReportsUnchanged": true,
+  "sourceManifestSha256": "7d8ff55fe2faa8d36b8fd3596d9d5a0efeba67af0a08430a5c4579542363b94d",
+  "scriptSha256": "d032765903e255cfe15a45b8843fd1788213ce4863fd341bcb1186bfdb6be6f6",
+  "logSha256": "7c9bc58b504454b6417d189aba6a27a50a256bd57cde96470c8d1796d35d09a2",
+  "suites": [
+    {
+      "path": "shortlink-command/target/surefire-reports/TEST-com.jupiter.shortlink.command.metadata.SafeMetadataFetcherTest-accepted-targeted.xml",
+      "name": "com.jupiter.shortlink.command.metadata.SafeMetadataFetcherTest(accepted-targeted)",
+      "sha256": "a21e826ff999843cce51cab248ef010a88e64791af915ea0285a8497ae5f3de0",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "shortlink-command/target/surefire-reports/TEST-com.jupiter.shortlink.command.metadata.SafeMetadataTransportTest-accepted-targeted.xml",
+      "name": "com.jupiter.shortlink.command.metadata.SafeMetadataTransportTest(accepted-targeted)",
+      "sha256": "6c30641f0887850ad2fac56be171252e4ee2c4a901483ed6c4d26d06d548f1e7",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

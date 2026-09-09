@@ -1,0 +1,29 @@
+{
+  "status": "MATCHED_PRIOR_TESTED_SOURCE",
+  "receipt": ".work/fanout-bootstrap-20260909/implementation-test-receipt.json",
+  "historicalUnitTests": 18,
+  "historicalRealKafkaIntegrationTests": 2,
+  "historicalTestsRerunThisTurn": false,
+  "sources": [
+    {
+      "path": "shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/ChangeFanout.java",
+      "sha256": "9197fa4d63b989ef43f567c9a84d22d5eae2ca66fba30e92bd1ad465eead805c",
+      "matchesPriorTestedSource": true
+    },
+    {
+      "path": "shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/InvalidationBootstrap.java",
+      "sha256": "1907a2806a3f0044f460a11eee84ba7e63ee0b28bbc99625c6bdb8129bb1cf63",
+      "matchesPriorTestedSource": true
+    },
+    {
+      "path": "shortlink-redirect/src/test/java/com/jupiter/shortlink/redirect/event/ChangeFanoutIT.java",
+      "sha256": "017df7c14ee39e23051e312a4d0ed58a39c4b0f4b5cae20da0a9b6b4e599ae1c",
+      "matchesPriorTestedSource": true
+    },
+    {
+      "path": "shortlink-redirect/src/test/java/com/jupiter/shortlink/redirect/event/InvalidationBootstrapTest.java",
+      "sha256": "c43c4195c70ebce65382e9b4a9450d5163fc72b0c7be8b3237d537fa18bee34b",
+      "matchesPriorTestedSource": true
+    }
+  ]
+}

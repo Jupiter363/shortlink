@@ -1,0 +1,14 @@
+{
+  "candidateTree": "d9f1d52696f34ada775fe4e998533c934ad99166",
+  "command": [
+    "D:/New Folder for enviroment/node.exe",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\merge-main-20260909\\candidate-final\\scripts\\performance\\test_workload_diagnostics.js"
+  ],
+  "exitCode": 0,
+  "observedAtUtc": "2026-09-09T15:28:23.1177677Z",
+  "nodeSha256": "3331e1ffe19874215472217c5e94f5a0c6d8e18c4ac7111d3937aa0ad5e9b4a5",
+  "testSourceSha256": "d1381c38d88d4f4a9d5459decffaf111b61bcbc6406b8b94519a67b15f369770",
+  "workloadSourceSha256": "ca29f1f94771989001149f1a1c10902ec0cf00ae5901639c72b869a505fba900",
+  "logSha256": "b2066d362afec424abf94bbbe5687ab6f952f76184e326772ca0e9fb92b95075",
+  "noK6OrHttp": true
+}

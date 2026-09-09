@@ -1,0 +1,169 @@
+{
+  "commit": "ddfb9ec39f2f1c3a780f4118104214df276706ef",
+  "tree": "9c72bab0082175dfc8541331dec581c9c31a1612",
+  "candidate": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/.work/merge-main-20260909/candidate-accepted",
+  "runtime": {
+    "wslDistro": "shortlink-refactor-it",
+    "user": "root",
+    "java": {
+      "exitCode": 0,
+      "output": "openjdk version \"17.0.20\" 2026-07-21\nOpenJDK Runtime Environment (build 17.0.20+8-1-24.04-Ubuntu)\nOpenJDK 64-Bit Server VM (build 17.0.20+8-1-24.04-Ubuntu, mixed mode, sharing)\n"
+    },
+    "maven": {
+      "exitCode": 0,
+      "output": "\u001b[1mApache Maven 3.8.7\u001b[m\nMaven home: /usr/share/maven\nJava version: 17.0.20, vendor: Ubuntu, runtime: /usr/lib/jvm/java-17-openjdk-amd64\nDefault locale: en, platform encoding: UTF-8\nOS name: \"linux\", version: \"6.6.87.2-microsoft-standard-wsl2\", arch: \"amd64\", family: \"unix\"\n"
+    }
+  },
+  "sourceCount": 1026,
+  "sourceUnchanged": true,
+  "commitTreeMatches": true,
+  "moduleCount": 11,
+  "modules": {
+    "event-contract": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 41,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "id-generator": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "risk-core": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 101,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "shortlink-command": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 86,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "shortlink-redirect": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 157,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "analytics-flink": {
+      "receipt": "accepted-deps-receipt.json",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "analytics-worker": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "shortlink-analytics-api": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "admin": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 113,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "gateway": {
+      "receipt": "accepted-full-receipt.json",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "agent-service": {
+      "receipt": "accepted-deps-receipt.json",
+      "tests": 271,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "uniqueTotals": {
+    "tests": 830,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "initialUnfixedFull": {
+    "receipt": "test-receipt.json",
+    "exitCode": 1,
+    "tests": 245,
+    "failures": 1,
+    "reason": "Previously existing HttpClient5 deadline cancellation race; fixed and validated in accepted candidate."
+  },
+  "acceptedOfflineFull": {
+    "receipt": "accepted-full-receipt.json",
+    "exitCode": 1,
+    "totals": {
+      "tests": 557,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "elapsedSeconds": 491.70871311400003,
+    "reason": "Flink and Agent dependency resolution failed in offline cache; nine Java modules passed."
+  },
+  "acceptedOnlineCatchup": {
+    "receipt": "accepted-deps-receipt.json",
+    "exitCode": 0,
+    "totals": {
+      "tests": 314,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "elapsedSeconds": 248.56245979799996,
+    "requiredDependencyRepeatExcluded": {
+      "tests": 41,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "targeted": {
+    "receipt": "accepted-targeted-receipt.json",
+    "exitCode": 0,
+    "totals": {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "excludedFromUniqueTotals": true
+  },
+  "previousReportsUnchanged": true,
+  "javaProcessesAtCompletion": [],
+  "observedUtc": "2026-09-09T15:58:10.485175+00:00",
+  "scope": "Default unit suites. No IT/E2E/pressure, no package/install, no original target/JAR writes. Fixed dependency versions fetched using existing public Maven repository without POM/settings changes.",
+  "evidenceSha256": {
+    "accepted-full-receipt.json": "e50a864cd954ecc67c8338e9ce5e750d14ca9170b6ce047b69b8ed5881ff9de6",
+    "accepted-deps-receipt.json": "6a88fd1f7d2d1fc504788e769eed297b97bb2cb8f1e8773a85ba4de5435da8bf",
+    "accepted-targeted-receipt.json": "ca11d472ca9295fd5cd9d70eed28c7d8d1c855361dfae6f29ba3327a0971940a",
+    "accepted-source-manifest.json": "7d8ff55fe2faa8d36b8fd3596d9d5a0efeba67af0a08430a5c4579542363b94d",
+    "review.md": "4415130cdb31fe1060d53a9bba50a4c050401621fa02b4839a4c2750a44fa11d",
+    "core-review.md": "300d3df1b642a854df2bf237e6c9952db3f7b5449063c02b4a7abfeeabf588b4",
+    "metadata-review.md": "b9507f2b0ab6220011ff1fa243d391251fb0f243afc819cec855bdb4abab4a62",
+    "missing-dependency-inventory.json": "0422f20d9d69b92aac92749f71a62596fe7616eaf014f6f4ba8a974b7809de47"
+  },
+  "scriptSha256": "1d706f3291067ad24133fec4c278915a13a9332e2cc44608f72c1da8e285ca20",
+  "passed": true
+}

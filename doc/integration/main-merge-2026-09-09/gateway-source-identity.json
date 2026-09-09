@@ -1,0 +1,260 @@
+{
+  "currentLua": [
+    {
+      "path": "deploy/apisix/plugins/apisix/plugins/shortlink-boundary.lua",
+      "matches": true,
+      "currentSha256": "bdc55febf3d40d3b698ca0a7e3089cdcfcd2c409c391d619fae160252c7bd438",
+      "runtimeSha256": "bdc55febf3d40d3b698ca0a7e3089cdcfcd2c409c391d619fae160252c7bd438"
+    },
+    {
+      "path": "deploy/apisix/plugins/apisix/plugins/shortlink-execution-diagnostics.lua",
+      "matches": true,
+      "currentSha256": "cba5d920b5c0005caa672386d048a4bb7fa25993489aabbd5159f47a76a071cb",
+      "runtimeSha256": "cba5d920b5c0005caa672386d048a4bb7fa25993489aabbd5159f47a76a071cb"
+    },
+    {
+      "path": "deploy/apisix/plugins/apisix/plugins/shortlink-fd-preallocate.lua",
+      "matches": true,
+      "currentSha256": "374b34bfab3d6fd23a84b9b4a1e206f73fb138a97a4576aeed0e4cf8caecf8c5",
+      "runtimeSha256": "374b34bfab3d6fd23a84b9b4a1e206f73fb138a97a4576aeed0e4cf8caecf8c5"
+    },
+    {
+      "path": "deploy/apisix/plugins/apisix/plugins/shortlink-http-timing.lua",
+      "matches": true,
+      "currentSha256": "771ed5cdf20cd02d8e49f3d5df04464931028d4807a0830f0446c732a24b26c5",
+      "runtimeSha256": "771ed5cdf20cd02d8e49f3d5df04464931028d4807a0830f0446c732a24b26c5"
+    },
+    {
+      "path": "deploy/apisix/plugins/apisix/plugins/shortlink-kafka-batch.lua",
+      "matches": true,
+      "currentSha256": "3650358f2917bac8f2dd38240274a239d084ed24f3a2e8db1aad147fee66c146",
+      "runtimeSha256": "3650358f2917bac8f2dd38240274a239d084ed24f3a2e8db1aad147fee66c146"
+    },
+    {
+      "path": "deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua",
+      "matches": true,
+      "currentSha256": "048a88df815d6f48be00fd7a494b3cb427e81245aa177a8a4ce2978ae46ad875",
+      "runtimeSha256": "048a88df815d6f48be00fd7a494b3cb427e81245aa177a8a4ce2978ae46ad875"
+    },
+    {
+      "path": "deploy/apisix/plugins/apisix/plugins/shortlink-worker-identity.lua",
+      "matches": true,
+      "currentSha256": "555104f477cf06343f77714f2d59d141795bc3ff8f73a55779c3d3e295696f40",
+      "runtimeSha256": "555104f477cf06343f77714f2d59d141795bc3ff8f73a55779c3d3e295696f40"
+    }
+  ],
+  "deploymentProfile": [
+    {
+      "path": "D:\\学习\\Project\\马哥Project\\shortlink\\deploy\\apisix\\config.yaml",
+      "matches": true,
+      "currentSha256": "bc3cee7d636cab3d7258eb44c329a31e843c1c0b894c37e00cbe0bb84d9168cd",
+      "proofSha256": "bc3cee7d636cab3d7258eb44c329a31e843c1c0b894c37e00cbe0bb84d9168cd"
+    },
+    {
+      "path": "D:\\学习\\Project\\马哥Project\\shortlink\\deploy\\apisix\\apisix.yaml",
+      "matches": true,
+      "currentSha256": "00e4956c569dc690c71dd3d8228a402845f092d27b9dde52e07a9e9daa4cb97b",
+      "proofSha256": "00e4956c569dc690c71dd3d8228a402845f092d27b9dde52e07a9e9daa4cb97b"
+    }
+  ],
+  "runtimeIdentity": {
+    "path": ".work/performance/20260909T132900Z-09adb5ee/runtime-identity.json",
+    "sha256": "5208c51a124b1f66305e05446178ca96d30e6626114c4a88dca1c698f974f17d"
+  },
+  "newTestsRun": 0,
+  "newServiceOrNetworkActions": 0,
+  "kind": "EDGE_READ_ONLY_SOURCE_EVIDENCE_AUDIT",
+  "successfulHistoricalStages": [
+    {
+      "capacityPassed": true,
+      "status": "CAPACITY_STAGE_PASSED",
+      "eventFailureDeltas": {
+        "outbox.claim_failures": 0.0,
+        "metadata.intake_batches_failed": 0.0,
+        "metadata.intake_offset_commits_failed": 0.0,
+        "metadata.intake_records_rejected": 0.0,
+        "edge.failed": 0.0,
+        "edge.rejected": 0.0,
+        "redirect.click.failed": 0,
+        "redirect.click.rejected": 0,
+        "redirect.result.failed": 0,
+        "redirect.result.rejected": 0,
+        "outbox.ack_failures": 0.0,
+        "outbox.broker_failures": 0.0,
+        "outbox.retry_failures": 0.0,
+        "outbox.fenced_acknowledgements": 0.0
+      },
+      "label": "fanout-r7000",
+      "kafkaOffsetDelta": 1579500,
+      "sha256": "4da0f9a90c89ed31750b7a4dae5555b0f475311eaa19a6aa2a8385813f484003",
+      "measuredCorrectQps": 6999.95,
+      "runId": "20260909T132900Z-09adb5ee",
+      "all": {
+        "planned_arrivals": 526500,
+        "scheduled": 526500,
+        "sent": 526500,
+        "completed": 526500,
+        "received_http": 526500,
+        "correct": 526500,
+        "incorrect_http": 0,
+        "client_errors": 0,
+        "errors": 0,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 0,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 526500,
+          "mean": 3.2304357308528076,
+          "p50": 1.099113,
+          "p95": 11.506104,
+          "p99": 36.475447,
+          "p99_9": 105.967498,
+          "max": 226.517389
+        },
+        "scheduled_to_completion_ms": {
+          "count": 526500,
+          "mean": 3.407908516962968,
+          "p50": 1.24351,
+          "p95": 11.817839,
+          "p99": 37.132576,
+          "p99_9": 106.57672,
+          "max": 226.65846
+        }
+      },
+      "failedChecks": [],
+      "measure": {
+        "planned_arrivals": 420000,
+        "scheduled": 420000,
+        "sent": 420000,
+        "completed": 420000,
+        "received_http": 420000,
+        "correct": 420000,
+        "incorrect_http": 0,
+        "client_errors": 0,
+        "errors": 0,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 0,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 420000,
+          "mean": 3.7082609695785558,
+          "p50": 1.242481,
+          "p95": 13.287744,
+          "p99": 41.16839,
+          "p99_9": 113.907039,
+          "max": 226.517389
+        },
+        "scheduled_to_completion_ms": {
+          "count": 420000,
+          "mean": 3.891619048723793,
+          "p50": 1.390587,
+          "p95": 13.620469,
+          "p99": 41.991189,
+          "p99_9": 114.776141,
+          "max": 226.65846
+        }
+      },
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/result.json"
+    },
+    {
+      "capacityPassed": true,
+      "status": "CAPACITY_STAGE_PASSED",
+      "eventFailureDeltas": {
+        "outbox.claim_failures": 0.0,
+        "metadata.intake_batches_failed": 0.0,
+        "metadata.intake_offset_commits_failed": 0.0,
+        "metadata.intake_records_rejected": 0.0,
+        "edge.failed": 0.0,
+        "edge.rejected": 0.0,
+        "redirect.click.failed": 0,
+        "redirect.click.rejected": 0,
+        "redirect.result.failed": 0,
+        "redirect.result.rejected": 0,
+        "outbox.ack_failures": 0.0,
+        "outbox.broker_failures": 0.0,
+        "outbox.retry_failures": 0.0,
+        "outbox.fenced_acknowledgements": 0.0
+      },
+      "label": "fanout-r7000-repeat",
+      "kafkaOffsetDelta": 1579500,
+      "sha256": "e4e3751c1a051727ea492fcb625f3bef2230194c30a3bf3ddf757972f9ede8d8",
+      "measuredCorrectQps": 6999.916666666667,
+      "runId": "20260909T132900Z-09adb5ee",
+      "all": {
+        "planned_arrivals": 526500,
+        "scheduled": 526500,
+        "sent": 526500,
+        "completed": 526500,
+        "received_http": 526500,
+        "correct": 526500,
+        "incorrect_http": 0,
+        "client_errors": 0,
+        "errors": 0,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 0,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 526500,
+          "mean": 2.2616848763266524,
+          "p50": 0.974368,
+          "p95": 7.435078,
+          "p99": 20.19767,
+          "p99_9": 83.454593,
+          "max": 170.07285
+        },
+        "scheduled_to_completion_ms": {
+          "count": 526500,
+          "mean": 2.42144650636846,
+          "p50": 1.115508,
+          "p95": 7.673976,
+          "p99": 20.601985,
+          "p99_9": 84.51532,
+          "max": 170.2227
+        }
+      },
+      "failedChecks": [],
+      "measure": {
+        "planned_arrivals": 420000,
+        "scheduled": 420000,
+        "sent": 420000,
+        "completed": 420000,
+        "received_http": 420000,
+        "correct": 420000,
+        "incorrect_http": 0,
+        "client_errors": 0,
+        "errors": 0,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 0,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 420000,
+          "mean": 2.5562324844713853,
+          "p50": 1.070435,
+          "p95": 8.341861,
+          "p99": 23.933226,
+          "p99_9": 89.93918,
+          "max": 170.07285
+        },
+        "scheduled_to_completion_ms": {
+          "count": 420000,
+          "mean": 2.7190523422428248,
+          "p50": 1.207557,
+          "p95": 8.588515,
+          "p99": 24.356807,
+          "p99_9": 91.08607,
+          "max": 170.2227
+        }
+      },
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/result.json"
+    }
+  ],
+  "observedAt": "2026-09-09T15:26:06.5206271Z"
+}
