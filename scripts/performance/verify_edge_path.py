@@ -1,4 +1,7 @@
-"""Verify a READY performance fixture with exactly 12 sequential GET/HEAD probes.
+"""Verify a READY fixture with 12 cases and at most 15 sequential HTTP probes.
+
+Only EP12 may reread its metrics endpoint (four reads total, 25ms apart,
+one-second total deadline) while the four preceding edge log records publish.
 
 Run explicitly inside the dedicated WSL host, outside the APISIX net namespace:
   python3 -B scripts/performance/verify_edge_path.py /path/to/state.json
@@ -8,6 +11,7 @@ reloads or modifies services/configuration. It does not follow redirects, load
 test, consume Kafka, read observer secrets or print credentials/target URLs.
 """
 import argparse
+from contextlib import contextmanager
 import http.client
 import ipaddress
 import json
@@ -15,6 +19,7 @@ import math
 import os
 from pathlib import Path
 import re
+import signal
 import stat
 import subprocess
 import sys
@@ -23,6 +28,9 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 RECOVERY = "/api/short-link/v1/user/has-username?username=edgepathprobe"
 MAX_BODY = 256 * 1024
+AFTER_METRIC_READS = 4
+AFTER_METRIC_INTERVAL = .025
+AFTER_METRIC_BUDGET = 1.0
 METRIC_NAMES = {
     "shortlink_edge_events_attempted", "shortlink_edge_events_delivered",
     "shortlink_edge_events_failed", "shortlink_edge_events_rejected",
@@ -196,13 +204,95 @@ def _metrics(response):
             "meaning": "Presence and conservation check; pending may still include Kafka sends"}
 
 
+class _AfterObservationError(ValueError):
+    def __init__(self, reason, evidence):
+        super().__init__(reason)
+        self.evidence = evidence
+
+
+@contextmanager
+def _observation_budget():
+    # The verifier owns this single-threaded Linux netns child. A per-socket
+    # timeout alone would restart on successive reads and not bound the whole
+    # observation. Never replace another caller's active interval timer.
+    require(hasattr(signal, "setitimer"), "EP12 deadline requires the Linux verifier")
+    require(signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0), "EP12 found an active deadline timer")
+    previous = signal.getsignal(signal.SIGALRM)
+    def expired(signum, frame):
+        raise TimeoutError("EP12 observation deadline exceeded")
+    try:
+        signal.signal(signal.SIGALRM, expired)
+        signal.setitimer(signal.ITIMER_REAL, AFTER_METRIC_BUDGET)
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def _observe_after(before, read, *, clock=None, sleep=None):
+    """Retry only a valid, monotonic observation with fewer than four events."""
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    started = clock()
+    evidence = {"metricsReadAttempts": 0, "maximumMetricsReads": AFTER_METRIC_READS,
+                "additionalMetricsReads": 0, "attemptedDeltas": [],
+                "observationBudgetMs": int(AFTER_METRIC_BUDGET * 1000),
+                "retryIntervalMs": int(AFTER_METRIC_INTERVAL * 1000)}
+    def in_budget():
+        elapsed = clock() - started
+        require(0 <= elapsed < AFTER_METRIC_BUDGET, "EP12 observation deadline exceeded")
+    try:
+        require(before is not None, "Missing before observation")
+        previous = before
+        with _observation_budget():
+            for attempt in range(AFTER_METRIC_READS):
+                in_budget()
+                if attempt:
+                    # Do not schedule a sleep/read that cannot fit its interval.
+                    require(clock() - started + AFTER_METRIC_INTERVAL < AFTER_METRIC_BUDGET,
+                            "EP12 observation deadline exceeded")
+                    sleep(AFTER_METRIC_INTERVAL)
+                    in_budget()
+                evidence["metricsReadAttempts"] += 1
+                evidence["additionalMetricsReads"] = evidence["metricsReadAttempts"] - 1
+                value = read()  # Includes the unchanged _metrics structure/conservation checks.
+                in_budget()
+                require(before["bootId"] == value["bootId"] and before["instance"] == value["instance"] and
+                        before["metrics"]["shortlink_edge_started_at_seconds"] ==
+                        value["metrics"]["shortlink_edge_started_at_seconds"],
+                        "Edge boot changed during path verification")
+                for name in ("attempted", "delivered", "failed", "rejected"):
+                    key = "shortlink_edge_events_" + name
+                    require(value["metrics"][key] >= before["metrics"][key] and
+                            value["metrics"][key] >= previous["metrics"][key],
+                            "Edge event counter regressed during path verification")
+                require(value["metrics"]["shortlink_edge_retained_worker_generations"] >= 1,
+                        "No retained worker observation")
+                delta = value["metrics"]["shortlink_edge_events_attempted"] - before["metrics"]["shortlink_edge_events_attempted"]
+                evidence["attemptedDeltas"].append(delta)
+                if delta >= 4:
+                    value.update(attemptedDelta=delta, concurrentTrafficPossible=delta > 4,
+                                 **evidence, observationElapsedMs=round((clock()-started)*1000, 3))
+                    return value
+                previous = value
+        raise ValueError("Four APISIX business/denial probes were not observed")
+    except (OSError, ValueError, http.client.HTTPException) as error:
+        evidence["observationElapsedMs"] = round(max(0, clock()-started)*1000, 3)
+        # Fixed assertions/classes only, never transport response bodies/headers.
+        reason = str(error) if type(error) is ValueError else type(error).__name__
+        raise _AfterObservationError(reason, evidence) from error
+
+
 def _case(rows, case_id, action):
     try:
         rows.append({"id": case_id, "passed": True, "details": action()})
     except (OSError, ValueError, http.client.HTTPException) as error:
         # Error values are fixed assertions or exception class names, never raw headers/bodies.
         reason = str(error) if isinstance(error, ValueError) else type(error).__name__
-        rows.append({"id": case_id, "passed": False, "reason": reason})
+        failure = {"id": case_id, "passed": False, "reason": reason}
+        if isinstance(error, _AfterObservationError):
+            failure["details"] = error.evidence
+        rows.append(failure)
 
 
 def _inside(context):
@@ -215,18 +305,10 @@ def _inside(context):
     def edge(path, headers, method="GET"):
         return _http("127.0.0.1", 9080, path, headers, method, "127.0.0.1")
     def snapshot(label):
-        value = _metrics(_http("127.0.0.1", 9099, "/shortlink/metrics", {}, expected_source="127.0.0.1"))
+        def read():
+            return _metrics(_http("127.0.0.1", 9099, "/shortlink/metrics", {}, expected_source="127.0.0.1"))
+        value = _observe_after(snapshots.get("before"), read) if label == "after" else read()
         snapshots[label] = value
-        if label == "after":
-            before = snapshots.get("before")
-            require(before is not None and before["bootId"] == value["bootId"] and
-                    before["instance"] == value["instance"], "Edge boot changed during path verification")
-            delta = value["metrics"]["shortlink_edge_events_attempted"] - before["metrics"]["shortlink_edge_events_attempted"]
-            require(delta >= 4, "Four APISIX business/denial probes were not observed")
-            value["attemptedDelta"] = delta
-            value["concurrentTrafficPossible"] = delta > 4
-            text_has_worker = value["metrics"]["shortlink_edge_retained_worker_generations"] >= 1
-            require(text_has_worker, "No retained worker observation")
         return value
     _case(rows, "EP03_metrics_before", lambda: snapshot("before"))
     _case(rows, "EP04_direct_trusted_get", lambda: _redirect(direct(_headers(context)), context, "GET", False))
@@ -264,7 +346,7 @@ def verify(state_path, fixture=None):
     rows.extend(child["cases"])
     return {"suite": "performance_edge_path", "runId": context["runId"],
             "passed": all(row["passed"] for row in rows), "caseCount": len(rows),
-            "maximumHttpRequests": 12, "concurrency": 1, "followsRedirects": False, "cases": rows,
+            "maximumHttpRequests": 15, "concurrency": 1, "followsRedirects": False, "cases": rows,
             "path": {"directSocketSource": context["apisixIp"], "directForwardedClient": "127.0.0.1",
                      "edgeSocketSource": "127.0.0.1", "edgeForwardedClient": "127.0.0.1",
                      "meaning": "A uses container-to-host 8003; B uses netns loopback 9080 plus APISIX upstream"}}

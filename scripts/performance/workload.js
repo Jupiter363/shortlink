@@ -69,6 +69,12 @@ if (!OUTPUT || !__ENV.PERF_FIXTURE) throw new Error('PERF_OUTPUT and PERF_FIXTUR
 const ABORT_ON_FAILURE = boolean('PERF_ABORT_ON_FAILURE', true);
 const ALLOW_REJECTIONS = boolean('PERF_ALLOW_REJECTIONS', false);
 const FAIL_FAST_UNEXPECTED = boolean('PERF_FAIL_FAST_UNEXPECTED', false);
+const HTTP_PHASE_TIMINGS = boolean('PERF_HTTP_PHASE_TIMINGS', false);
+const SKIP_REDIRECT_ZERO_ROWS = boolean('PERF_SKIP_REDIRECT_ZERO_ROWS', false);
+const REDIRECT_INPUT_MODE = __ENV.PERF_REDIRECT_INPUT_MODE === undefined ? 'shared-array' : __ENV.PERF_REDIRECT_INPUT_MODE;
+if (!['shared-array', 'vu-precomputed'].includes(REDIRECT_INPUT_MODE) ||
+    ((REDIRECT_INPUT_MODE !== 'shared-array' || SKIP_REDIRECT_ZERO_ROWS) && MODE !== 'redirect'))
+  throw new Error('Redirect input/zero-row optimizations require redirect mode');
 if (FAIL_FAST_UNEXPECTED && ALLOW_REJECTIONS)
   throw new Error('PERF_FAIL_FAST_UNEXPECTED conflicts with PERF_ALLOW_REJECTIONS');
 const EXPECTED = integer('PERF_EXPECTED_STATUS', REDIRECT ? (UNKNOWN ? 404 : 302) : 200, 100, 599);
@@ -125,16 +131,29 @@ const criticalErrors = new Counter('perf_critical_errors');
 const latency = new Trend('perf_http_latency_ms', true);
 const roundtrip = new Trend('perf_roundtrip_ms', true);
 const clientElapsed = new Trend('perf_client_elapsed_ms', true);
+// One observation per entered VU, not per request; summary accepts only one shared native epoch.
+const scenarioStartEpoch = new Trend('perf_scenario_start_epoch_ms');
 const counterNames = ['perf_actual_sent', 'perf_completed', 'perf_received_http', 'perf_correct',
   'perf_correct_rows', 'perf_status_429', 'perf_status_503', 'perf_client_errors',
   'perf_fixture_exhausted', 'perf_mutation_unconfirmed', 'perf_write_unconfirmed', 'perf_critical_errors'];
 const thresholds = {};
+const nativeHttpTimings = Object.freeze({ sending: 'http_req_sending',
+  waiting_ttfb: 'http_req_waiting', receiving: 'http_req_receiving',
+  blocked: 'http_req_blocked', connecting: 'http_req_connecting',
+  tls_handshaking: 'http_req_tls_handshaking' });
 for (const phase of ['warmup', 'measure']) {
   for (const name of counterNames) thresholds[`${name}{phase:${phase}}`] = ['count>=0'];
   thresholds[`perf_correct_rate{phase:${phase}}`] = ['rate>=0'];
   thresholds[`perf_http_latency_ms{phase:${phase}}`] = ['max>=0'];
   thresholds[`perf_roundtrip_ms{phase:${phase}}`] = ['max>=0'];
   thresholds[`perf_client_elapsed_ms{phase:${phase}}`] = ['max>=0'];
+  if (HTTP_PHASE_TIMINGS) {
+    // k6 already records these samples with the request's fixed phase tag. Materialize
+    // only the native submetrics; do not emit six more custom samples per request.
+    thresholds[`http_reqs{phase:${phase}}`] = ['count>=0'];
+    for (const name of Object.values(nativeHttpTimings))
+      thresholds[`${name}{phase:${phase}}`] = ['max>=0'];
+  }
 }
 if (ABORT_ON_FAILURE && !ALLOW_REJECTIONS) {
   thresholds['perf_correct_rate{phase:measure}'] = [{ threshold: 'rate>=0.99',
@@ -170,11 +189,11 @@ function mixed(value) {
 }
 const SEED = hash(SEED_INPUT);
 function choose(index) {
-  const a = mixed(index ^ SEED), b = mixed(a ^ 0x9e3779b9), n = links.length;
-  if (DISTRIBUTION === 'uniform' || n === 1) return links[b % n];
+  const a = mixed(index ^ SEED), b = mixed(a ^ 0x9e3779b9), n = redirectInputs.length;
+  if (DISTRIBUTION === 'uniform' || n === 1) return redirectInputs[b % n];
   const hot = DISTRIBUTION === 'single80' ? 1 : Math.min(10, n);
-  if (hot === n) return links[b % n];
-  return links[a % 100 < 80 ? b % hot : hot + b % (n - hot)];
+  if (hot === n) return redirectInputs[b % n];
+  return redirectInputs[a % 100 < 80 ? b % hot : hot + b % (n - hot)];
 }
 function unknownCode(index) {
   let number = (SEED % 67108864) * 67108864 + index;
@@ -196,14 +215,48 @@ function headers(account) {
   }
   return result;
 }
+const phaseTags = Object.freeze({ warmup: Object.freeze({ phase: 'warmup' }),
+  measure: Object.freeze({ phase: 'measure' }) });
+// VU-local immutable inputs; k6 owns its separate cookie jar. The explicit replacement remains per call.
+const redirectHeaders = REDIRECT ? Object.freeze(headers(null)) : null;
+const redirectCookies = Object.freeze({ sl_uv: Object.freeze({
+  value: '0123456789abcdef0123456789abcdef', replace: true }) });
+const redirectOptions = REDIRECT ? Object.freeze(Object.fromEntries(['warmup', 'measure'].map(phase =>
+  [phase, Object.freeze({ headers: redirectHeaders, redirects: 0, timeout: '10s',
+    tags: phaseTags[phase], cookies: redirectCookies })]))) : null;
+const PRECOMPUTE_MAX_LINKS = 10;
+const PRECOMPUTE_MAX_CHARACTERS = 32768;
+const redirectInputs = (() => {
+  if (REDIRECT_INPUT_MODE === 'shared-array') return links;
+  if (WORKSET > PRECOMPUTE_MAX_LINKS) throw new Error('Precomputed redirect workset exceeds 10 links');
+  const rows = [];
+  let characters = 0;
+  for (let i = 0; i < links.length; i++) {
+    const source = links[i];
+    if (typeof source.shortUri !== 'string' || !/^[A-Za-z0-9]{9}$/.test(source.shortUri) ||
+        typeof source.originUrl !== 'string') throw new Error('Invalid precomputed redirect input');
+    const requestUrl = BASE + '/' + source.shortUri;
+    characters += source.shortUri.length + source.originUrl.length + requestUrl.length;
+    if (characters > PRECOMPUTE_MAX_CHARACTERS) throw new Error('Precomputed redirect character budget exceeded');
+    rows.push(Object.freeze({ shortUri: source.shortUri, originUrl: source.originUrl, requestUrl }));
+  }
+  return Object.freeze(rows);
+})();
 function creation(account, unique) {
   return { requestId: `${RUN}:${MODE}:${unique}`, domain: metadata.redirectHost,
     originUrl: `https://shortlink-perf.local/target/${RUN}/${unique}`, gid: account.gid,
     createdType: 0, validDateType: 0, validDate: null, describe: 'performance metadata-denied diagnostic' };
 }
 function header(response, name) {
-  const key = Object.keys(response.headers).find(k => k.toLowerCase() === name);
-  return key === undefined ? undefined : response.headers[key];
+  const values = response.headers;
+  if (values === null || values === undefined) throw new TypeError('Missing response headers');
+  // Preserve Object.keys(...).find order, own/enumerable keys and first case-insensitive
+  // match without constructing its key array and callback for every response.
+  for (const key in values) {
+    if (key.toLowerCase() === name && Object.prototype.hasOwnProperty.call(values, key))
+      return values[key];
+  }
+  return undefined;
 }
 function sameId(a, b) { return a !== null && a !== undefined && String(a) === String(b); }
 function created(data, body) {
@@ -218,24 +271,32 @@ let updateLink = null;
 let mutationBlocked = false;
 // Module state is VU-local; an unentered phase emits no synthetic samples.
 const seededMetricPhases = { warmup: false, measure: false };
+let scenarioAnchorRecorded = false;
 export default function () {
   const start = Date.now();
   const elapsed = start - exec.scenario.startTime;
   const phase = elapsed < WARMUP_MS ? 'warmup' : 'measure';
-  const tags = { phase };
+  const tags = phaseTags[phase];
   const phaseStart = phase === 'warmup' ? 0 : WARMUP_MS;
+  if (!scenarioAnchorRecorded) {
+    const epoch = exec.scenario.startTime;
+    if (Number.isSafeInteger(epoch) && epoch > 0 && epoch <= 8640000000000000)
+      scenarioStartEpoch.add(epoch);
+    scenarioAnchorRecorded = true;
+  }
   if (METRIC_SEED_MODE === 'per-request' || !seededMetricPhases[phase]) {
     for (const metric of [sent, completed, received, correct, correctRows, status429, status503,
       clientErrors, fixtureExhausted, mutationUnconfirmed, writeUnconfirmed, criticalErrors]) metric.add(0, tags);
     if (METRIC_SEED_MODE === 'per-vu-phase') seededMetricPhases[phase] = true;
   }
   const iteration = exec.scenario.iterationInTest;
-  let account = accounts[iteration % ACCOUNT_COUNT], body, selected, method = 'POST', path;
+  let account = REDIRECT ? null : accounts[iteration % ACCOUNT_COUNT], body, selected, method = 'POST', path;
   let expectedRows = 0;
   if (REDIRECT) {
     method = MODE === 'head' ? 'HEAD' : 'GET';
     selected = UNKNOWN ? null : choose(iteration);
-    path = '/' + (UNKNOWN ? unknownCode(MODE === 'unknown_fixed' ? 0 : iteration + 1) : selected.shortUri);
+    if (REDIRECT_INPUT_MODE === 'shared-array')
+      path = '/' + (UNKNOWN ? unknownCode(MODE === 'unknown_fixed' ? 0 : iteration + 1) : selected.shortUri);
   } else if (MODE === 'create' || MODE === 'idempotent') {
     path = PREFIX + '/create';
     body = MODE === 'idempotent' ? account.idempotent.body : creation(account, iteration);
@@ -283,17 +344,15 @@ export default function () {
     expectedRows = 1;
   }
   const requestBody = body ? JSON.stringify(body) : null;
-  const requestOptions = { headers: headers(account), redirects: 0, timeout: '10s', tags };
-  // Per-request replacement overrides the jar's sl_uv, including any prior Set-Cookie.
-  if (REDIRECT) requestOptions.cookies = {
-    sl_uv: { value: '0123456789abcdef0123456789abcdef', replace: true },
-  };
+  const requestOptions = REDIRECT ? redirectOptions[phase] :
+    { headers: headers(account), redirects: 0, timeout: '10s', tags };
   sent.add(1, tags);
   let response, ok = false, roundtripRecorded = false, criticalReason = null;
   let completionRecorded = false, clientFailure = false;
   const roundtripStarted = Date.now();
   try {
-    response = http.request(method, BASE + path, requestBody, requestOptions);
+    response = http.request(method, REDIRECT_INPUT_MODE === 'vu-precomputed' ? selected.requestUrl : BASE + path,
+      requestBody, requestOptions);
     roundtrip.add(Date.now() - roundtripStarted, tags);
     roundtripRecorded = true;
     completed.add(1, tags);
@@ -304,13 +363,14 @@ export default function () {
     if (response.status === 503) status503.add(1, tags);
     latency.add(response.timings.duration, tags);
     if (REDIRECT) {
-      if (!UNKNOWN && response.status === 302 && header(response, 'location') !== selected.originUrl)
+      const location = header(response, 'location');
+      if (!UNKNOWN && response.status === 302 && location !== selected.originUrl)
         criticalReason = 'wrong redirect target';
       if (MODE === 'head' && response.body !== '' && response.body !== null)
         criticalReason = 'HEAD body invariant';
       ok = response.status === EXPECTED;
-      if (EXPECTED === 302) ok = ok && !!selected && header(response, 'location') === selected.originUrl;
-      else ok = ok && header(response, 'location') === undefined;
+      if (EXPECTED === 302) ok = ok && !!selected && location === selected.originUrl;
+      else ok = ok && location === undefined;
       if (MODE === 'head') ok = ok && (response.body === '' || response.body === null);
     } else if (response.status === 200) {
       let value;
@@ -348,7 +408,7 @@ export default function () {
   correctRate.add(ok, tags);
   if (ok) {
     correct.add(1, tags);
-    correctRows.add(expectedRows, tags);
+    if (!SKIP_REDIRECT_ZERO_ROWS) correctRows.add(expectedRows, tags);
     if (MODE === 'update') updateLink.routeVersion = Number(updateLink.routeVersion) + 1;
   } else if (MODE === 'update') {
     // A timeout may follow a DB commit. Do not retry or guess the next version.
@@ -373,8 +433,51 @@ export function handleSummary(data) {
   }
   function count(name, phase) { return values(name, phase).count || 0; }
   function percentiles(trend) {
-    return { p50: trend['p(50)'] ?? null, p95: trend['p(95)'] ?? null,
+    return { avg: trend.avg ?? null, min: trend.min ?? null,
+      p50: trend['p(50)'] ?? null, p95: trend['p(95)'] ?? null,
       p99: trend['p(99)'] ?? null, p99_9: trend['p(99.9)'] ?? null, max: trend.max ?? null };
+  }
+  function iterationDuration() {
+    const count = values('iterations', 'all').count;
+    const measured = percentiles(values('iteration_duration', 'all'));
+    const available = Number.isSafeInteger(count) && count > 0 &&
+      Object.values(measured).every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0);
+    return { status: available ? 'AVAILABLE' : 'NOT_AVAILABLE',
+      reason: available ? null : 'BUILTIN_ITERATION_METRICS_MISSING_INVALID_OR_NO_COMPLETED_ITERATIONS',
+      completed_iterations: Number.isSafeInteger(count) && count >= 0 ? count : null,
+      values: available ? measured : null, unit: 'ms', scope: 'WHOLE_SINGLE_SCENARIO_COMPLETED_ITERATIONS',
+      meaning: 'Native k6 iteration duration includes script and HTTP work; not HTTP roundtrip or phase elapsed time' };
+  }
+  function timeAnchor() {
+    const metric = values('perf_scenario_start_epoch_ms', 'all');
+    const epoch = metric.min;
+    const available = Number.isSafeInteger(epoch) && epoch > 0 && epoch === metric.max &&
+      epoch + WARMUP_MS + MEASURE_MS <= 8640000000000000;
+    return { status: available ? 'AVAILABLE' : 'NOT_AVAILABLE',
+      reason: available ? null : 'SCENARIO_START_NOT_OBSERVED_OR_INCONSISTENT',
+      scenario_start_epoch_ms: available ? epoch : null,
+      scenario_start_utc: available ? new Date(epoch).toISOString() : null,
+      scheduled_measure_start_epoch_ms: available ? epoch + WARMUP_MS : null,
+      scheduled_end_epoch_ms: available ? epoch + WARMUP_MS + MEASURE_MS : null,
+      source: 'k6 execution.scenario.startTime; once per entered VU; min must equal max',
+      meaning: 'Native wall-clock scenario anchor; scheduled boundaries do not prove a phase completed' };
+  }
+  function httpTimingSection(phase) {
+    if (!HTTP_PHASE_TIMINGS) return { status: 'NOT_ENABLED', requests: null, components_ms: null };
+    const requests = values('http_reqs', phase).count;
+    const countValid = Number.isSafeInteger(requests) && requests >= 0;
+    const components = {};
+    for (const [part, metric] of Object.entries(nativeHttpTimings)) {
+      const measured = percentiles(values(metric, phase));
+      const valid = countValid && requests > 0 && Object.values(measured).every(value =>
+        typeof value === 'number' && Number.isFinite(value) && value >= 0);
+      components[part] = { status: valid ? 'AVAILABLE' : 'NOT_AVAILABLE',
+        reason: valid ? null : !countValid ? 'NATIVE_HTTP_REQUEST_COUNT_MISSING_OR_INVALID' :
+          requests === 0 ? 'NO_NATIVE_HTTP_REQUESTS' : 'NATIVE_HTTP_TIMING_MISSING_OR_INVALID',
+        values: valid ? measured : null };
+    }
+    return { status: Object.values(components).every(part => part.status === 'AVAILABLE') ?
+      'AVAILABLE' : 'NOT_AVAILABLE', requests: countValid ? requests : null, components_ms: components };
   }
   function section(phase) {
     const c = count('perf_completed', phase);
@@ -401,6 +504,10 @@ export function handleSummary(data) {
     config: { rate: RATE, time_unit: TIME_UNIT, warmup_ms: WARMUP_MS, measure_ms: MEASURE_MS,
       executor: arrivalScenario.executor, warmup_start_rate: WARMUP_START_RATE,
       metric_seed_mode: METRIC_SEED_MODE,
+      http_phase_timings: HTTP_PHASE_TIMINGS, redirect_input_mode: REDIRECT_INPUT_MODE,
+      skip_redirect_zero_rows: SKIP_REDIRECT_ZERO_ROWS,
+      precomputed_input_limits: { links_per_vu: PRECOMPUTE_MAX_LINKS,
+        utf16_code_units_per_vu: PRECOMPUTE_MAX_CHARACTERS },
       preallocated_vus: VUS, max_vus: VUS, accounts: ACCOUNT_COUNT, workset: WORKSET,
       fixture_workset_links: links.length, fixture_mutation_links: mutations.length,
       distribution: DISTRIBUTION, hot_workset: DISTRIBUTION === 'hot80' ? Math.min(10, WORKSET) :
@@ -418,9 +525,14 @@ export function handleSummary(data) {
     fixture_valid: all.fixture_exhausted === 0 && all.mutation_unconfirmed === 0 && all.critical_errors === 0,
     dropped_iterations: dropped, dropped_iterations_scope: 'whole_single_scenario',
     phase_drop_attribution: 'unavailable: k6 drops occur before iteration phase tags exist',
+    iteration_duration_ms: iterationDuration(), scenario_time_anchor: timeAnchor(),
     overall_transport_ms: { blocked: percentiles(values('http_req_blocked', 'all')),
       connecting: percentiles(values('http_req_connecting', 'all')),
       tls_handshaking: percentiles(values('http_req_tls_handshaking', 'all')) },
+    http_timing_breakdown: { enabled: HTTP_PHASE_TIMINGS, source: 'K6_NATIVE_HTTP_TIMINGS', unit: 'ms',
+      phase_assignment: 'Request keeps its iteration-start phase, including completion across the boundary',
+      meaning: 'waiting_ttfb includes network and remote processing; these timings do not isolate server CPU or pre-HTTP JS scheduling. Component percentiles must not be summed.',
+      all: httpTimingSection('all'), warmup: httpTimingSection('warmup'), measure: httpTimingSection('measure') },
     all, warmup, measure, selected: SAMPLE_PHASE === 'all' ? all : SAMPLE_PHASE === 'warmup' ? warmup : measure,
     notes: ['correct_rows counts HTTP-confirmed created/mutated rows; idempotent reads and redirects contribute zero',
       '429/503 responses remain in received/completed and latency metrics',

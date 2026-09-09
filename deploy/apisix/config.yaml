@@ -14,6 +14,7 @@ plugins:
   - limit-conn
   - response-rewrite
 nginx_config:
+  worker_processes: 2
   http_configuration_snippet: |
     lua_shared_dict shortlink_edge_metrics 1m;
     server {

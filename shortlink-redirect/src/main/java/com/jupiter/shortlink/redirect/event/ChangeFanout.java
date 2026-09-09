@@ -11,8 +11,9 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.context.SmartLifecycle;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.function.Function;
 
 /**
  * A stable, unique group per instance broadcasts every invalidation to every process. Authority
@@ -23,9 +24,10 @@ public final class ChangeFanout implements SmartLifecycle {
     private final RouteResolver routes;
     private final PolicyResolver policies;
     private final Map<String, Object> transport;
+    private final Function<Properties, Consumer<String, String>> consumerFactory;
     private volatile boolean running;
     private volatile boolean connected;
-    private KafkaConsumer<String, String> consumer;
+    private Consumer<String, String> consumer;
     private Thread worker;
 
     public ChangeFanout(RedirectProperties config, RouteResolver routes, PolicyResolver policies) {
@@ -37,10 +39,17 @@ public final class ChangeFanout implements SmartLifecycle {
             RouteResolver routes,
             PolicyResolver policies,
             Map<String, Object> transport) {
+        this(config, routes, policies, transport, KafkaConsumer::new);
+    }
+
+    ChangeFanout(RedirectProperties config, RouteResolver routes, PolicyResolver policies,
+                 Map<String, Object> transport,
+                 Function<Properties, Consumer<String, String>> consumerFactory) {
         this.config = config;
         this.routes = routes;
         this.policies = policies;
         this.transport = Map.copyOf(transport);
+        this.consumerFactory = consumerFactory;
     }
 
     @Override
@@ -67,7 +76,8 @@ public final class ChangeFanout implements SmartLifecycle {
                                 200,
                                 ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG,
                                 300000));
-        consumer = new KafkaConsumer<>(KafkaClientSecurity.apply(settings, transport));
+        consumer = consumerFactory.apply(KafkaClientSecurity.apply(settings, transport));
+        connected = false;
         running = true;
         worker = new Thread(this::run, "redirect-change-fanout");
         worker.setDaemon(true);
@@ -76,10 +86,18 @@ public final class ChangeFanout implements SmartLifecycle {
 
     private void run() {
         try {
-            consumer.subscribe(List.of(Topics.ROUTE_CHANGE, Topics.RISK_POLICY_CHANGE));
+            var bootstrap = new InvalidationBootstrap(consumer, () -> {
+                routes.invalidateAll();
+                policies.invalidateAll();
+            }, () -> connected = false);
+            consumer.subscribe(InvalidationBootstrap.TOPICS, bootstrap);
             while (running) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
-                connected = !consumer.assignment().isEmpty();
+                if (!running) break;
+                if (bootstrap.discardFetchedBootstrapBatch()) {
+                    connected = false;
+                    continue;
+                }
                 boolean batchSucceeded = true;
                 for (ConsumerRecord<String, String> record : records) {
                     try {
@@ -113,13 +131,19 @@ public final class ChangeFanout implements SmartLifecycle {
                 }
                 if (batchSucceeded && !records.isEmpty())
                     consumer.commitSync(Duration.ofSeconds(2));
+                connected = running && batchSucceeded && bootstrap.positionsReady()
+                        && !consumer.assignment().isEmpty();
             }
         } catch (WakeupException ignored) {
         } catch (Exception failure) {
             connected = false;
         } finally {
-            consumer.close(Duration.ofSeconds(3));
-            running = false;
+            connected = false;
+            try {
+                consumer.close(Duration.ofSeconds(3));
+            } finally {
+                running = false;
+            }
         }
     }
 

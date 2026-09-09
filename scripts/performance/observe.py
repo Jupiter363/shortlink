@@ -57,6 +57,92 @@ METADATA_EXECUTION_METRICS = {
 }
 METADATA_EXECUTION_LABELS = re.compile(
     r"\s*" + LABEL.pattern + r"(?:\s*,\s*" + LABEL.pattern + r")*\s*,?\s*")
+PUBLISHER_PREFIX = "shortlink_events_diagnostic_"
+PUBLISHER_REJECTIONS = "shortlink_events_rejected_reason_total"
+PUBLISHER_LANES = ("click", "result")
+PUBLISHER_PHASES = ("offer_lock_wait", "offer_lock_hold", "queue_to_send", "send_call",
+                    "ack_terminal_lock_wait", "terminal_lock_hold", "reservation_hold")
+PUBLISHER_FIRST_FIELDS = ("present", "epoch_millis", "reason_code", "event_bytes", "reserved_count",
+                          "queued_count", "outside_queue_count", "reserved_bytes", "awaiting_callback",
+                          "send_active", "terminal_active", "last_send_return_ago_nanos",
+                          "last_callback_ago_nanos", "last_terminal_ago_nanos")
+PUBLISHER_KAFKA_METRICS = (
+    "batch-size-avg", "batch-size-max", "batch-split-total", "compression-rate-avg",
+    "record-queue-time-avg", "record-queue-time-max", "request-latency-avg", "request-latency-max",
+    "requests-in-flight", "request-total", "bufferpool-wait-time-total", "bufferpool-wait-ratio",
+    "buffer-available-bytes", "buffer-total-bytes", "waiting-threads", "metadata-age",
+    "metadata-wait-time-ns-total", "record-retry-total", "record-error-total", "record-send-total",
+    "records-per-request-avg")
+
+
+def _publisher_schema():
+    schema = {PUBLISHER_PREFIX + name: {} for name in ("send_calls_total", "send_exceptions_total")}
+    schema[PUBLISHER_PREFIX + "callbacks_total"] = {"outcome": {"success", "failed"}}
+    for suffix in ("count", "sum", "max"):
+        schema[PUBLISHER_PREFIX + "duration_seconds_" + suffix] = {"phase": PUBLISHER_PHASES}
+    for name, kinds in (("limit", ("count", "bytes", "event_bytes", "timing_sample_every")),
+                        ("high_watermark", ("count", "bytes")),
+                        ("state", ("reserved", "queued", "outside_queue", "awaiting_callback",
+                                   "send_active", "terminal_active"))):
+        schema[PUBLISHER_PREFIX + name] = {"kind": kinds}
+    schema[PUBLISHER_PREFIX + "progress_age"] = {"phase": ("send_return", "callback", "terminal")}
+    schema[PUBLISHER_PREFIX + "first_rejection"] = {"field": PUBLISHER_FIRST_FIELDS}
+    for name in ("kafka", "kafka_available"):
+        schema[PUBLISHER_PREFIX + name] = {"metric": PUBLISHER_KAFKA_METRICS}
+    schema[PUBLISHER_REJECTIONS] = {"reason": ("closed", "event_size", "slots", "bytes", "queue_offer")}
+    return {name: dict(fields, lane=PUBLISHER_LANES) for name, fields in schema.items()}
+
+
+PUBLISHER_SCHEMA = _publisher_schema()
+PUBLISHER_EXPECTED_SERIES = 202
+HTTP_TIMING_PREFIX = "shortlink_edge_http_"
+HTTP_TIMING_SCHEMA = {
+    HTTP_TIMING_PREFIX + "seconds_count": {"phase": ("request", "upstream")},
+    HTTP_TIMING_PREFIX + "seconds_sum": {"phase": ("request", "upstream")},
+    HTTP_TIMING_PREFIX + "seconds_max": {"phase": ("request", "upstream")},
+    HTTP_TIMING_PREFIX + "samples_total": {"kind": ("eligible", "request_missing", "upstream_missing", "upstream_multiple", "upstream_invalid")},
+    HTTP_TIMING_PREFIX + "observed_worker_generations": {},
+    HTTP_TIMING_PREFIX + "observation_complete": {},
+}
+HTTP_TIMING_EXPECTED_SERIES = 13
+EDGE_SNAPSHOT_FIELDS = (
+    "shortlink_edge_snapshot_version", "shortlink_edge_raw_events_attempted", "shortlink_edge_raw_events_delivered",
+    "shortlink_edge_raw_events_failed", "shortlink_edge_raw_events_rejected", "shortlink_edge_raw_global_reconciled",
+    "shortlink_edge_registered_worker_generations", "shortlink_edge_registration_pending")
+
+
+def _publisher_name(name):
+    return isinstance(name, str) and (name.startswith(PUBLISHER_PREFIX) or name == PUBLISHER_REJECTIONS)
+
+
+def _publisher_labels(name, labels):
+    schema = PUBLISHER_SCHEMA.get(name)
+    return (schema is not None and isinstance(labels, dict) and set(labels) == set(schema)
+            and all(isinstance(value, str) and value in schema[key] for key, value in labels.items()))
+
+
+def _publisher_number(name, labels, value, *, native_missing=False):
+    if native_missing:
+        return name == PUBLISHER_PREFIX + "kafka"
+    if type(value) not in (int, float) or not math.isfinite(value):
+        return False
+    suffix = name[len(PUBLISHER_PREFIX):]
+    if suffix == "kafka_available":
+        return value in (0, 1)
+    if suffix == "progress_age":
+        return value == -1 or value >= 0
+    if suffix == "first_rejection":
+        field = labels["field"]
+        if field == "present":
+            return value in (0, 1)
+        if field == "reason_code":
+            return value == int(value) and 0 <= value <= 5
+        return value == int(value) and (value >= 0 or (field.startswith("last_") and value == -1))
+    if value < 0:
+        return False
+    integer = (suffix in ("limit", "high_watermark", "state") or name == PUBLISHER_REJECTIONS
+               or name.endswith("_total") or name.endswith("_seconds_count"))
+    return not integer or value == int(value)
 
 
 def unavailable(reason):
@@ -117,6 +203,11 @@ def _load(state_path):
         raise ValueError("INVALID_METADATA_INTENT_OBSERVATION_FLAG")
     if type(state.get("pipelineFailureObservationRequired", False)) is not bool:
         raise ValueError("INVALID_PIPELINE_FAILURE_OBSERVATION_FLAG")
+    if type(state.get("publisherDiagnosticObservationRequired", False)) is not bool:
+        raise ValueError("INVALID_PUBLISHER_DIAGNOSTIC_OBSERVATION_FLAG")
+    edge_version = state.get("edgeSnapshotVersionRequired")
+    if edge_version is not None and (type(edge_version) is not int or edge_version != 3):
+        raise ValueError("INVALID_EDGE_SNAPSHOT_VERSION_REQUIREMENT")
     if not isinstance(state.get("runId"), str) or not SAFE_NAME.fullmatch(state["runId"]):
         raise ValueError("Invalid run identity")
     folder = Path(state["folder"]).resolve()
@@ -134,7 +225,8 @@ def _load(state_path):
     if type(redis_port) is not int or not (
             (redis_container == "shortlink-refactor-it-redis-1" and redis_port == 16379)
             or (re.fullmatch(r"shortlink-perf-redis-[a-z0-9-]+", redis_container)
-                and redis_port == 16380)):
+                and redis_container != "shortlink-perf-redis-20260908-breakthrough" and redis_port == 16380)
+            or (redis_container == "shortlink-perf-redis-20260908-breakthrough" and redis_port == 16381)):
         raise ValueError("Invalid isolated Redis container/port combination")
     container = state.get("containerName", state.get("apisix"))
     if not isinstance(container, str) or not SAFE_NAME.fullmatch(container):
@@ -149,13 +241,105 @@ def _prometheus(text, edge=False):
     pipeline_series_invalid = False
     execution_series_invalid = False
     execution_seen = set()
+    publisher_series_invalid = False
+    publisher_seen = set()
+    publisher_missing = []
+    http_timing_invalid = False
+    http_timing_seen = set()
+    edge_snapshot_invalid = False
+    edge_snapshot_seen = set()
     for line in text.splitlines():
         match = PROM_LINE.fullmatch(line)
         if not match:
             if not edge and line.startswith("shortlink_metadata_execution_"):
                 execution_series_invalid = True
+            if not edge and _publisher_name(line.split("{", 1)[0].split(" ", 1)[0]):
+                publisher_series_invalid = True
+            if edge and line.startswith(HTTP_TIMING_PREFIX):
+                http_timing_invalid = True
+            if edge and (line.startswith("shortlink_edge_raw_") or line.split(" ", 1)[0].split("{", 1)[0] in EDGE_SNAPSHOT_FIELDS):
+                edge_snapshot_invalid = True
             continue
         name, encoded, raw = match.groups()
+        if edge and (name in EDGE_SNAPSHOT_FIELDS or name.startswith("shortlink_edge_raw_")):
+            try:
+                number = float(raw)
+            except ValueError:
+                number = float("nan")
+            if (name not in EDGE_SNAPSHOT_FIELDS or (encoded and encoded[1:-1].strip())
+                    or name in edge_snapshot_seen or not math.isfinite(number) or number < 0 or not number.is_integer()
+                    or (name == "shortlink_edge_snapshot_version" and number != 3)
+                    or (name == "shortlink_edge_raw_global_reconciled" and number not in (0, 1))):
+                edge_snapshot_invalid = True
+                omitted += 1
+                continue
+            edge_snapshot_seen.add(name)
+            values.append({"name": name, "labels": {}, "value": number})
+            if len(values) > 2000:
+                raise ValueError("SERIES_BUDGET")
+            continue
+        if edge and name.startswith(HTTP_TIMING_PREFIX):
+            pairs = LABEL.findall(encoded or "")
+            labels = dict(pairs)
+            schema = HTTP_TIMING_SCHEMA.get(name)
+            valid_encoding = not encoded or not encoded[1:-1].strip() or METADATA_EXECUTION_LABELS.fullmatch(encoded[1:-1])
+            if (schema is None or not valid_encoding or len(pairs) != len(labels) or set(labels) != set(schema)
+                    or any(value not in schema[key] for key, value in labels.items())):
+                http_timing_invalid = True
+                omitted += 1
+                continue
+            identity = (name, tuple(sorted(labels.items())))
+            if identity in http_timing_seen:
+                http_timing_invalid = True
+                omitted += 1
+                continue
+            http_timing_seen.add(identity)
+            try:
+                number = float(raw)
+            except ValueError:
+                number = float("nan")
+            integer = name.endswith(("_count", "_total", "_generations", "_complete"))
+            if (not math.isfinite(number) or number < 0 or (integer and not number.is_integer())
+                    or (name.endswith("_complete") and number not in (0, 1))):
+                http_timing_invalid = True
+                omitted += 1
+                continue
+            values.append({"name": name, "labels": labels, "value": number})
+            if len(values) > 2000:
+                raise ValueError("SERIES_BUDGET")
+            continue
+        if not edge and _publisher_name(name):
+            pairs = LABEL.findall(encoded or "")
+            labels = dict(pairs)
+            if (not encoded or not METADATA_EXECUTION_LABELS.fullmatch(encoded[1:-1])
+                    or len(pairs) != len(labels) or not _publisher_labels(name, labels)):
+                publisher_series_invalid = True
+                omitted += 1
+                continue
+            identity = (name, tuple(sorted(labels.items())))
+            if identity in publisher_seen:
+                publisher_series_invalid = True
+                omitted += 1
+                continue
+            publisher_seen.add(identity)
+            try:
+                number = float(raw)
+            except ValueError:
+                publisher_series_invalid = True
+                omitted += 1
+                continue
+            native_missing = name == PUBLISHER_PREFIX + "kafka" and math.isnan(number)
+            if not _publisher_number(name, labels, number, native_missing=native_missing):
+                publisher_series_invalid = True
+                omitted += 1
+                continue
+            if native_missing:
+                publisher_missing.append({"name": name, "labels": labels})
+            else:
+                values.append({"name": name, "labels": labels, "value": number})
+            if len(values) + len(publisher_missing) > 2000:
+                raise ValueError("SERIES_BUDGET")
+            continue
         execution_metric = name.startswith("shortlink_metadata_execution_")
         accepted = name.startswith("shortlink_edge_") if edge else name.startswith(
             ("jvm_", "process_cpu_", "process_uptime_", "process_start_time_",
@@ -229,11 +413,21 @@ def _prometheus(text, edge=False):
         values.append({"name": name, "labels": labels, "value": number})
         if len(values) > 2000:
             raise ValueError("SERIES_BUDGET")
-    if not values:
-        return unavailable("NO_ALLOWED_METRICS")
-    return {"status": "AVAILABLE", "metrics": values, "omittedSeries": omitted,
+    report = {"status": "AVAILABLE" if values else "NOT_AVAILABLE", "metrics": values, "omittedSeries": omitted,
             "pipelineFailureSeriesInvalid": pipeline_series_invalid,
-            "metadataExecutionSeriesInvalid": execution_series_invalid}
+            "metadataExecutionSeriesInvalid": execution_series_invalid,
+            "publisherDiagnosticSeriesInvalid": publisher_series_invalid,
+            "publisherDiagnosticMissing": publisher_missing}
+    if not values:
+        report["reason"] = "NO_ALLOWED_METRICS"
+    if not edge:
+        report["publisherDiagnostics"] = _publisher_diagnostics(report)
+    else:
+        report["httpTimingSeriesInvalid"] = http_timing_invalid
+        report["httpTiming"] = _edge_http_timing(report)
+        report["edgeSnapshotSeriesInvalid"] = edge_snapshot_invalid
+        report["edgeSnapshot"] = _edge_snapshot_metrics(report)
+    return report
 
 
 def _secret(state, folder):
@@ -435,7 +629,9 @@ def sample(state_path) -> dict:
               "outboxObservationRequired": state.get("outboxObservationRequired", False),
               "adminTransportObservationRequired": state.get("adminTransportObservationRequired", False),
               "metadataIntentObservationRequired": state.get("metadataIntentObservationRequired", False),
-              "pipelineFailureObservationRequired": state.get("pipelineFailureObservationRequired", False)}
+              "pipelineFailureObservationRequired": state.get("pipelineFailureObservationRequired", False),
+              "publisherDiagnosticObservationRequired": state.get("publisherDiagnosticObservationRequired", False),
+              "edgeSnapshotVersionRequired": state.get("edgeSnapshotVersionRequired")}
     actions = {name: (lambda port=port: _prometheus(_http(port, "/actuator/prometheus")))
                for name, port in SERVICES.items()}
     actions.update(redirectQuality=lambda: _quality(state, folder), apisix=lambda: _edge(state),
@@ -458,12 +654,203 @@ def sample(state_path) -> dict:
     report["observerOverrun"] = report["sampleDurationMs"] > 5000
     if report["metadataIntentObservationRequired"]:
         report["metadataIntent"] = metadata_intent(report)
+    _apply_publisher_requirement(report)
+    report["edgeHttpTiming"] = edge_http_timing_metrics(report)
+    _apply_edge_snapshot_requirement(report)
     report["drain"] = drained(report)
     return report
 
 
 def _metric_values(report, names):
     return [m["value"] for m in report.get("metrics", []) if m["name"] in names]
+
+
+def _publisher_diagnostics(report):
+    """Validate the complete fixed wire schema, including explicit native NaN pairs."""
+    if report.get("publisherDiagnosticSeriesInvalid"):
+        return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_INVALID")
+    if report.get("status") != "AVAILABLE":
+        return unavailable("PUBLISHER_DIAGNOSTIC_SERVICE_UNAVAILABLE")
+    metrics, missing = report.get("metrics"), report.get("publisherDiagnosticMissing", [])
+    if not isinstance(metrics, list) or not isinstance(missing, list):
+        return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_INVALID")
+    values = {}
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_INVALID")
+        name = metric.get("name")
+        if not _publisher_name(name):
+            continue
+        labels, value = metric.get("labels"), metric.get("value")
+        if not _publisher_labels(name, labels) or not _publisher_number(name, labels, value):
+            return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_INVALID")
+        key = (name, tuple(sorted(labels.items())))
+        if key in values:
+            return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_DUPLICATED")
+        values[key] = value
+    for metric in missing:
+        if (not isinstance(metric, dict) or set(metric) != {"name", "labels"}
+                or metric["name"] != PUBLISHER_PREFIX + "kafka"
+                or not _publisher_labels(metric["name"], metric["labels"])):
+            return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_INVALID")
+        key = (metric["name"], tuple(sorted(metric["labels"].items())))
+        if key in values:
+            return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_DUPLICATED")
+        values[key] = None
+    if not values:
+        return {"status": "NOT_PRESENT", "reason": "PUBLISHER_DIAGNOSTICS_NOT_REGISTERED"}
+    if len(values) != PUBLISHER_EXPECTED_SERIES:
+        return unavailable("PUBLISHER_DIAGNOSTIC_SERIES_INCOMPLETE")
+
+    def value(suffix, lane, **labels):
+        return values[(PUBLISHER_PREFIX + suffix, tuple(sorted(dict(labels, lane=lane).items())))]
+
+    lanes, native_missing_count = {}, 0
+    for lane in PUBLISHER_LANES:
+        native = {}
+        for name in PUBLISHER_KAFKA_METRICS:
+            number, available = value("kafka", lane, metric=name), value("kafka_available", lane, metric=name)
+            if (number is None) != (available == 0):
+                return unavailable("PUBLISHER_NATIVE_AVAILABILITY_MISMATCH")
+            if number is None:
+                native_missing_count += 1
+                native[name] = dict(unavailable("NATIVE_METRIC_UNINITIALIZED_OR_UNAVAILABLE"), value=None)
+            else:
+                native[name] = {"status": "AVAILABLE", "value": number}
+        timings = {}
+        for phase in PUBLISHER_PHASES:
+            count, total = value("duration_seconds_count", lane, phase=phase), value("duration_seconds_sum", lane, phase=phase)
+            timings[phase] = {"count": count, "totalSeconds": total,
+                              "maxSeconds": value("duration_seconds_max", lane, phase=phase),
+                              "meanSeconds": total / count if count else None}
+        lanes[lane] = {
+            "state": {kind: value("state", lane, kind=kind) for kind in PUBLISHER_SCHEMA[PUBLISHER_PREFIX + "state"]["kind"]},
+            "limits": {kind: value("limit", lane, kind=kind) for kind in PUBLISHER_SCHEMA[PUBLISHER_PREFIX + "limit"]["kind"]},
+            "highWatermark": {kind: value("high_watermark", lane, kind=kind) for kind in ("count", "bytes")},
+            "sendCalls": value("send_calls_total", lane), "sendExceptions": value("send_exceptions_total", lane),
+            "callbacks": {outcome: value("callbacks_total", lane, outcome=outcome) for outcome in ("success", "failed")},
+            "progressAgeNanos": {phase: value("progress_age", lane, phase=phase) for phase in ("send_return", "callback", "terminal")},
+            "firstRejection": {field: value("first_rejection", lane, field=field) for field in PUBLISHER_FIRST_FIELDS},
+            "timings": timings, "native": native,
+            "rejectedByReason": {reason: values[(PUBLISHER_REJECTIONS, tuple(sorted(dict(lane=lane, reason=reason).items())))]
+                                 for reason in PUBLISHER_SCHEMA[PUBLISHER_REJECTIONS]["reason"]}}
+    return {"status": "AVAILABLE", "seriesCount": len(values), "nativeUnavailableCount": native_missing_count,
+            "nativeReadiness": "PARTIAL" if native_missing_count else "READY", "lanes": lanes,
+            "meaning": "FIXED_202_SERIES_SCHEMA; NATIVE_UNAVAILABLE_IS_NOT_ZERO; NATIVE_AVG_MAX_ARE_ROLLING; "
+                       "STATE_GAUGES_ARE_NOT_ATOMIC_PARTITIONS; TIMERS_ARE_SAMPLED_AND_MEAN_REQUIRES_COUNT"}
+
+
+def publisher_diagnostic_metrics(snapshot) -> dict:
+    """Optional on older jars; the explicit required flag gates schema, not native readiness."""
+    return _publisher_diagnostics(snapshot.get("services", {}).get("shortlink-redirect", {}))
+
+
+def _apply_publisher_requirement(snapshot):
+    snapshot["publisherDiagnostics"] = publisher_diagnostic_metrics(snapshot)
+    if (snapshot.get("publisherDiagnosticObservationRequired") is True
+            and snapshot["publisherDiagnostics"]["status"] != "AVAILABLE"):
+        service = snapshot.get("services", {}).get("shortlink-redirect")
+        if isinstance(service, dict) and service.get("status") == "AVAILABLE":
+            service["status"] = "NOT_AVAILABLE"
+            service["reason"] = "REQUIRED_PUBLISHER_DIAGNOSTICS_UNAVAILABLE"
+
+
+def _edge_http_timing(report):
+    if report.get("httpTimingSeriesInvalid"):
+        return unavailable("EDGE_HTTP_TIMING_SERIES_INVALID")
+    if report.get("status") != "AVAILABLE":
+        return unavailable("EDGE_HTTP_TIMING_COLLECTOR_UNAVAILABLE")
+    metrics = report.get("metrics")
+    if not isinstance(metrics, list):
+        return unavailable("EDGE_HTTP_TIMING_SERIES_INVALID")
+    values = {}
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            return unavailable("EDGE_HTTP_TIMING_SERIES_INVALID")
+        name = metric.get("name")
+        if not isinstance(name, str) or not name.startswith(HTTP_TIMING_PREFIX):
+            continue
+        labels, value = metric.get("labels"), metric.get("value")
+        schema = HTTP_TIMING_SCHEMA.get(name)
+        if (schema is None or not isinstance(labels, dict) or set(labels) != set(schema)
+                or any(not isinstance(v, str) or v not in schema[k] for k, v in labels.items())
+                or type(value) not in (int, float) or not math.isfinite(value) or value < 0
+                or (name.endswith(("_count", "_total", "_generations", "_complete")) and value != int(value))
+                or (name.endswith("_complete") and value not in (0, 1))):
+            return unavailable("EDGE_HTTP_TIMING_SERIES_INVALID")
+        key = (name, tuple(sorted(labels.items())))
+        if key in values:
+            return unavailable("EDGE_HTTP_TIMING_SERIES_DUPLICATED")
+        values[key] = value
+    if not values:
+        return {"status": "NOT_PRESENT", "reason": "EDGE_HTTP_TIMING_NOT_ENABLED_OR_REGISTERED"}
+    if len(values) != HTTP_TIMING_EXPECTED_SERIES:
+        return unavailable("EDGE_HTTP_TIMING_SERIES_INCOMPLETE")
+    if values[(HTTP_TIMING_PREFIX + "observation_complete", ())] != 1:
+        return unavailable("EDGE_HTTP_TIMING_SNAPSHOT_INCOMPLETE")
+    phases = {}
+    for phase in ("request", "upstream"):
+        fields = {suffix: values[(HTTP_TIMING_PREFIX + "seconds_" + suffix, (("phase", phase),))]
+                  for suffix in ("count", "sum", "max")}
+        phases[phase] = {"count": fields["count"], "totalSeconds": fields["sum"],
+                         "maxSeconds": fields["max"], "meanSeconds": fields["sum"] / fields["count"] if fields["count"] else None}
+    return {"status": "AVAILABLE", "seriesCount": HTTP_TIMING_EXPECTED_SERIES, "phases": phases,
+            "observedWorkerGenerations": values[(HTTP_TIMING_PREFIX + "observed_worker_generations", ())],
+            "samples": {kind: values[(HTTP_TIMING_PREFIX + "samples_total", (("kind", kind),))]
+                        for kind in HTTP_TIMING_SCHEMA[HTTP_TIMING_PREFIX + "samples_total"]["kind"]},
+            "meaning": "OPTIONAL_HTTP_TIMING; GET_302_MATCHED_SHORTLINK_REDIRECT_ONLY; SECONDS; "
+                       "MISSING_OR_MULTIPLE_UPSTREAM_IS_NOT_ZERO; COUNT_ZERO_HAS_NO_MEAN; DOES_NOT_GATE_EVENT_DRAIN"}
+
+
+def edge_http_timing_metrics(snapshot) -> dict:
+    return _edge_http_timing(snapshot.get("apisix", {}))
+
+
+def _edge_snapshot_metrics(report):
+    if report.get("edgeSnapshotSeriesInvalid"):
+        return unavailable("EDGE_SNAPSHOT_SERIES_INVALID")
+    if report.get("status") != "AVAILABLE":
+        return unavailable("EDGE_SNAPSHOT_COLLECTOR_UNAVAILABLE")
+    metrics = report.get("metrics")
+    if not isinstance(metrics, list):
+        return unavailable("EDGE_SNAPSHOT_SERIES_INVALID")
+    values = {}
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            return unavailable("EDGE_SNAPSHOT_SERIES_INVALID")
+        name, value = metric.get("name"), metric.get("value")
+        if not isinstance(name, str) or (name not in EDGE_SNAPSHOT_FIELDS and not name.startswith("shortlink_edge_raw_")):
+            continue
+        if (name not in EDGE_SNAPSHOT_FIELDS or metric.get("labels") != {} or name in values
+                or type(value) not in (int, float) or not math.isfinite(value) or value < 0 or value != int(value)):
+            return unavailable("EDGE_SNAPSHOT_SERIES_INVALID")
+        values[name] = value
+    if not values:
+        return {"status": "NOT_PRESENT", "reason": "EDGE_SNAPSHOT_V3_NOT_REGISTERED"}
+    if len(values) != len(EDGE_SNAPSHOT_FIELDS):
+        return unavailable("EDGE_SNAPSHOT_SERIES_INCOMPLETE")
+    if values["shortlink_edge_snapshot_version"] != 3 or values["shortlink_edge_raw_global_reconciled"] not in (0, 1):
+        return unavailable("EDGE_SNAPSHOT_SERIES_INVALID")
+    raw = {name: values["shortlink_edge_raw_events_" + name] for name in ("attempted", "delivered", "failed", "rejected")}
+    return {"status": "AVAILABLE", "version": 3, "seriesCount": len(values), "rawCounters": raw,
+            "rawGlobalReconciled": values["shortlink_edge_raw_global_reconciled"] == 1,
+            "registeredWorkerGenerations": values["shortlink_edge_registered_worker_generations"],
+            "registrationPending": values["shortlink_edge_registration_pending"],
+            "meaning": "EVENT_COUNTERS_AND_PENDING_ARE_WORKER_RECORD_AGGREGATES; RAW_GLOBAL_IS_CROSS_CHECK_ONLY; "
+                       "RAW_MISMATCH_DURING_ACTIVE_PENDING_IS_NOT_A_FAILURE; DRAIN_REQUIRES_RECONCILED_AND_NO_SENDERS"}
+
+
+def edge_snapshot_metrics(snapshot) -> dict:
+    return _edge_snapshot_metrics(snapshot.get("apisix", {}))
+
+
+def _apply_edge_snapshot_requirement(snapshot):
+    snapshot["edgeSnapshot"] = edge_snapshot_metrics(snapshot)
+    if snapshot.get("edgeSnapshotVersionRequired") == 3 and snapshot["edgeSnapshot"]["status"] != "AVAILABLE":
+        edge = snapshot.get("apisix")
+        if isinstance(edge, dict) and edge.get("status") == "AVAILABLE":
+            edge["status"] = "NOT_AVAILABLE"
+            edge["reason"] = "REQUIRED_EDGE_SNAPSHOT_UNAVAILABLE"
 
 
 def metadata_execution_metrics(snapshot) -> dict:
@@ -572,6 +959,14 @@ def drained(snapshot) -> dict:
         reasons.append("INVALID_PIPELINE_FAILURE_OBSERVATION_FLAG")
     elif pipeline_required and pipeline_failure_counters(snapshot) is None:
         reasons.append("PIPELINE_FAILURE_COUNTERS_UNAVAILABLE")
+    publisher_required = snapshot.get("publisherDiagnosticObservationRequired", False)
+    if type(publisher_required) is not bool:
+        reasons.append("INVALID_PUBLISHER_DIAGNOSTIC_OBSERVATION_FLAG")
+    elif publisher_required and publisher_diagnostic_metrics(snapshot)["status"] != "AVAILABLE":
+        reasons.append("PUBLISHER_DIAGNOSTICS_UNAVAILABLE")
+    edge_version = snapshot.get("edgeSnapshotVersionRequired")
+    if edge_version is not None and (type(edge_version) is not int or edge_version != 3):
+        reasons.append("INVALID_EDGE_SNAPSHOT_VERSION_REQUIREMENT")
     try:
         observed = dt.datetime.fromisoformat(snapshot["observedAt"])
         age = (dt.datetime.now(dt.timezone.utc) - observed).total_seconds()
@@ -617,6 +1012,23 @@ def drained(snapshot) -> dict:
         reasons.append("EDGE_TERMINAL_COUNTERS_UNAVAILABLE")
     elif counters[0][0] != sum(values[0] for values in counters[1:]) + pending[0]:
         reasons.append("EDGE_COUNTER_MISMATCH")
+    edge_snapshot = edge_snapshot_metrics(snapshot)
+    if edge_snapshot["status"] == "AVAILABLE":
+        if edge_snapshot["registrationPending"] != 0:
+            reasons.append("EDGE_REGISTRATION_PENDING")
+        if pending == [0.0]:
+            if not edge_snapshot["rawGlobalReconciled"]:
+                reasons.append("EDGE_RAW_GLOBAL_NOT_RECONCILED")
+            active_senders = [m.get("value") for m in edge.get("metrics", [])
+                              if m.get("name") == "shortlink_edge_active_senders" and m.get("labels") == {}]
+            if active_senders != [0.0]:
+                reasons.append("EDGE_ACTIVE_SENDERS_UNKNOWN_OR_NONZERO")
+            if any(len(values) != 1 for values in counters) or any(
+                    edge_snapshot["rawCounters"][name] != values[0]
+                    for name, values in zip(("attempted", "delivered", "failed", "rejected"), counters) if len(values) == 1):
+                reasons.append("EDGE_RAW_GLOBAL_COUNTER_MISMATCH")
+    elif edge_version == 3 or edge_snapshot["status"] != "NOT_PRESENT":
+        reasons.append("EDGE_SNAPSHOT_UNAVAILABLE")
     database = snapshot.get("mysql", {})
     if database.get("status") != "AVAILABLE":
         reasons.append("MYSQL_QUEUES_UNAVAILABLE")

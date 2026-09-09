@@ -41,7 +41,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
+      test: ["CMD-SHELL", "KAFKA_HEAP_OPTS='-Xms16m -Xmx64m' KAFKA_JVM_PERFORMANCE_OPTS='-XX:ActiveProcessorCount=1 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.awt.headless=true' /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
       interval: 10s
       timeout: 10s
       retries: 20

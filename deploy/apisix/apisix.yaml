@@ -10,9 +10,10 @@ global_rules:
         queue_count: 1000
         queue_bytes: 8388608
         max_event_bytes: 4096
-        send_concurrency: 4
+        send_concurrency: 1
         send_batch_size: 32
         send_batch_bytes: 65536
+        send_linger_ms: 5
 routes:
   - id: shortlink-management
     priority: 100

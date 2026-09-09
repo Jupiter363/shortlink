@@ -37,6 +37,21 @@ local MAX_ITEMS, MAX_BYTES = 128, 1048576
 local MAX_REQUEST, MAX_RESPONSE = MAX_BYTES + 16384, 1048576
 local MAX_BROKERS, MAX_PARTITIONS = 64, 4096
 local AGE_SECONDS = 30
+local execution
+-- One adapter is owned by one sender slot. Optional phase state never crosses
+-- a send_batch invocation; phase completion also runs on exceptional paths.
+local function phase_done(self, outcome)
+    if self.exec_record and self.exec_phase then
+        execution.finish(self.exec_record,self.exec_phase,self.exec_started,outcome or "ok")
+        self.exec_phase,self.exec_started=nil,nil
+    end
+end
+local function phase(self, name)
+    if self.exec_record then
+        phase_done(self,"ok")
+        self.exec_phase=name;self.exec_started=execution.clock(self.exec_record)
+    end
+end
 
 local function fail(kind, terminal)
     error({kind=kind, terminal=terminal == true}, 0)
@@ -127,12 +142,15 @@ local function pool_identity(self, conf)
 end
 
 local function roundtrip(self, sock, req, correlation, deadline, decoder, counter, records)
+    if self.exec_record then phase(self,"encode") end
     if req.len + 4 > MAX_REQUEST then fail("request_too_large", true) end
     local payload = req:package()
+    if self.exec_record then phase(self,"socket_send") end
     remaining(sock, deadline, self.socket_timeout)
     if counter then self.stats[counter] = self.stats[counter] + 1 end
     if records then self.stats.produce_records = self.stats.produce_records + records end
     if not sock:send(payload) then fail("transport") end
+    if self.exec_record then phase(self,"ack_receive") end
     remaining(sock, deadline, self.socket_timeout)
     local header = sock:receive(4)
     if not header or #header ~= 4 then fail("transport") end
@@ -141,10 +159,12 @@ local function roundtrip(self, sock, req, correlation, deadline, decoder, counte
     remaining(sock, deadline, self.socket_timeout)
     local body = sock:receive(length)
     if not body or #body ~= length then fail("transport") end
+    if self.exec_record then phase(self,"response_decode") end
     local input = reader(body)
     if input:i32() ~= correlation then fail("invalid_response") end
     local result = decoder(input)
     input:done()
+    if self.exec_record then phase_done(self,"ok") end
     return result
 end
 
@@ -177,6 +197,7 @@ end
 -- closes its socket, including malformed ACKs, TLS/SASL errors and partial IO.
 local function exchange(self, conf, req, correlation, deadline, decoder, counter, records)
     local sock, reusable
+    if self.exec_record then phase(self,"connection") end
     local ok, result = pcall(function()
         sock = ngx.socket.tcp()
         if not sock then fail("transport") end
@@ -197,6 +218,7 @@ local function exchange(self, conf, req, correlation, deadline, decoder, counter
         return roundtrip(self, sock, req, correlation, deadline, decoder, counter, records)
     end)
     if not ok then
+        if self.exec_record then phase_done(self,"error") end
         close(sock)
         if type(result) ~= "table" or not result.kind then result = {kind="transport",terminal=false} end
         return nil, result
@@ -247,6 +269,7 @@ local function refresh(self, topic, deadline)
     -- rotates bootstrap broker; it never hides a second internal retry loop.
     self.seed = self.seed % #seeds + 1
     local conf = seeds[self.seed]
+    if self.exec_record then phase(self,"encode") end
     local req, correlation = next_request(self, request.MetadataRequest)
     req:int32(1); req:string(topic)
     local result, err = exchange(self, conf, req, correlation, deadline,
@@ -313,6 +336,7 @@ local function send(self, topic, items)
         mark_error(pending,{kind="metadata",terminal=nonretryable(metadata.errcode)})
         return
     end
+    if self.exec_record then phase(self,"prepare") end
     local groups, order = {}, {}
     for _,item in ipairs(pending) do
         if item._kafka_topic and item._kafka_topic ~= topic then fail("invalid_batch",true) end
@@ -337,6 +361,7 @@ local function send(self, topic, items)
         end
     end
     for _,id in ipairs(order) do
+        if self.exec_record then phase(self,"prepare") end
         if ngx.worker.exiting() then return end
         local group = groups[id]
         local parts, partition_count, record_count, selected = {}, 0, 0, {}
@@ -352,6 +377,7 @@ local function send(self, topic, items)
             end
         end
         if record_count > 0 then
+            if self.exec_record then phase(self,"encode") end
             local req, correlation = next_request(self, request.ProduceRequest)
             req:int16(-1); req:int32(self.request_timeout); req:int32(1); req:string(topic)
             req:int32(partition_count)
@@ -406,11 +432,22 @@ function _M.new(_, brokers, opts)
         stats={produce_requests=0,produce_records=0,metadata_requests=0}},mt)
 end
 
-function _M.send_batch(self, topic, items)
+function _M.send_batch(self, topic, items, diagnostics)
     if self.busy then return false,"concurrent_use" end
     self.busy = true
+    local started
+    if diagnostics then
+        execution=execution or require("apisix.plugins.shortlink-execution-diagnostics")
+        self.exec_record=diagnostics;started=execution.clock(diagnostics)
+        phase(self,"prepare")
+    end
     local ok, problem = pcall(send,self,topic,items)
+    if self.exec_record then phase_done(self,ok and "ok" or "error") end
     self.busy = false
+    local all_acked=ok
+    if ok then for _,item in ipairs(items) do if not item.acked then all_acked=false;break end end end
+    if diagnostics then execution.finish(diagnostics,"adapter_total",started,all_acked and "ok" or "error") end
+    self.exec_record=nil
     if not ok then
         self.refresh_needed = true
         local kind = type(problem) == "table" and problem.kind or "transport"
@@ -418,8 +455,7 @@ function _M.send_batch(self, topic, items)
         -- input is not allowed to escape with a body/URL/credential in an error.
         return false,kind
     end
-    for _,item in ipairs(items) do if not item.acked then return false end end
-    return true
+    return all_acked
 end
 
 return _M

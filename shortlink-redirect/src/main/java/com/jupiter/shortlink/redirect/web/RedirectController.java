@@ -10,7 +10,7 @@ import com.jupiter.shortlink.redirect.route.RouteInfo;
 import com.jupiter.shortlink.risk.*;
 
 import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
 import reactor.core.publisher.Mono;
@@ -19,10 +19,12 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
+import java.util.regex.Pattern;
 
-@RestController
+@Component
 public final class RedirectController {
+    private static final Pattern SHORT_URI = Pattern.compile("[A-Za-z0-9]{1,32}");
+    private static final Pattern VISITOR_ID = Pattern.compile("[a-f0-9]{32}");
     private final RouteResolver routes;
     private final PolicyResolver policies;
     private final RedisRiskRateLimiter rates;
@@ -31,6 +33,7 @@ public final class RedirectController {
     private final TrustedProxyResolver proxies;
     private final RiskEvaluator evaluator = new RiskEvaluator();
     private final RiskHash riskHash;
+    private final HostNormalizer hostNormalizer = new HostNormalizer();
     private final Clock clock;
 
     public RedirectController(
@@ -40,6 +43,7 @@ public final class RedirectController {
             RequestEventPublisher events,
             RedirectProperties config,
             Clock clock) {
+        SecureRequestIds.verifyAvailable();
         this.routes = routes;
         this.policies = policies;
         this.rates = rates;
@@ -50,24 +54,31 @@ public final class RedirectController {
         riskHash = new RiskHash(config.riskHashSalt());
     }
 
-    @RequestMapping("/{shortUri}")
-    public Mono<Void> redirect(@PathVariable String shortUri, ServerWebExchange exchange) {
+    public Mono<Void> redirect(String shortUri, ServerWebExchange exchange) {
         return Mono.defer(
                 () -> {
-                    Context context = new Context(UUID.randomUUID().toString(), shortUri);
+                    var request = exchange.getRequest();
+                    String peer =
+                            request.getRemoteAddress() == null
+                                            || request.getRemoteAddress().getAddress() == null
+                                    ? null
+                                    : request.getRemoteAddress().getAddress().getHostAddress();
+                    boolean trustedPeer = trustedPeer(peer);
+                    Context context =
+                            new Context(
+                                    GatewayRequestIds.select(
+                                            trustedPeer,
+                                            request.getHeaders().get(GatewayRequestIds.HEADER)),
+                                    shortUri);
+                    exchange.getResponse().getHeaders().set(GatewayRequestIds.HEADER, context.requestId);
                     try {
-                        var request = exchange.getRequest();
                         if (request.getMethod() != HttpMethod.GET
                                 && request.getMethod() != HttpMethod.HEAD)
                             return finish(exchange, context, 405, "METHOD_NOT_ALLOWED");
-                        if (!shortUri.matches("[A-Za-z0-9]{1,32}")
+                        if (!SHORT_URI.matcher(shortUri).matches()
                                 || !request.getURI().getRawPath().equals("/" + shortUri))
                             return finish(exchange, context, 404, "NOT_FOUND");
-                        String peer =
-                                request.getRemoteAddress() == null
-                                        ? null
-                                        : request.getRemoteAddress().getAddress().getHostAddress();
-                        if (peer == null || !proxies.isTrusted(peer))
+                        if (!trustedPeer)
                             return finish(exchange, context, 403, "UNTRUSTED_PROXY");
                         List<String> hosts = request.getHeaders().get(HttpHeaders.HOST);
                         if (hosts == null || hosts.size() != 1)
@@ -80,7 +91,7 @@ public final class RedirectController {
                             return finish(exchange, context, 400, "INVALID_FORWARDED_SCHEME");
                         context.scheme = schemes.get(0);
                         context.domain =
-                                new HostNormalizer().normalize(hosts.get(0), context.scheme);
+                                hostNormalizer.normalize(hosts.get(0), context.scheme);
                         if (!config.allowedHosts().contains(context.domain))
                             return finish(exchange, context, 404, "UNKNOWN_HOST");
                         context.ip =
@@ -98,14 +109,15 @@ public final class RedirectController {
                                                     .flatMap(
                                                             policy -> {
                                                                 context.policy = policy;
+                                                                context.ipHash =
+                                                                        riskHash.hash(
+                                                                                route.tenantId(),
+                                                                                context.ip);
                                                                 RiskDecision decision =
                                                                         evaluator.evaluate(
                                                                                 policy,
                                                                                 route.resourceKey(),
-                                                                                riskHash.hash(
-                                                                                        route
-                                                                                                .tenantId(),
-                                                                                        context.ip),
+                                                                                context.ipHash,
                                                                                 clock.millis());
                                                                 return rates.evaluate(
                                                                         route.resourceKey(),
@@ -141,10 +153,7 @@ public final class RedirectController {
                                                                         evaluator.evaluate(
                                                                                 context.policy,
                                                                                 route.resourceKey(),
-                                                                                riskHash.hash(
-                                                                                        route
-                                                                                                .tenantId(),
-                                                                                        context.ip),
+                                                                                context.ipHash,
                                                                                 decisionAt);
                                                                 if (!finalDecision.allowed())
                                                                     return finish(
@@ -192,7 +201,7 @@ public final class RedirectController {
                                                                                     EventIdentity
                                                                                             .bind(
                                                                                                     occurredAt,
-                                                                                                    UUID.randomUUID()
+                                                                                                    SecureRequestIds.randomUuid()
                                                                                                             .toString()),
                                                                                     1,
                                                                                     occurredAt,
@@ -249,11 +258,20 @@ public final class RedirectController {
                 });
     }
 
+    private boolean trustedPeer(String peer) {
+        if (peer == null) return false;
+        try {
+            return proxies.isTrusted(peer);
+        } catch (IllegalArgumentException invalidPeer) {
+            return false;
+        }
+    }
+
     private String visitor(ServerWebExchange exchange, String scheme) {
         HttpCookie cookie = exchange.getRequest().getCookies().getFirst("sl_uv");
         String value = cookie == null ? null : cookie.getValue();
-        if (value != null && value.matches("[a-f0-9]{32}")) return value;
-        value = UUID.randomUUID().toString().replace("-", "");
+        if (value != null && VISITOR_ID.matcher(value).matches()) return value;
+        value = SecureRequestIds.randomUuid().toString().replace("-", "");
         exchange.getResponse()
                 .addCookie(
                         ResponseCookie.from("sl_uv", value)
@@ -275,7 +293,7 @@ public final class RedirectController {
         long occurredAt = clock.millis();
         events.result(
                 new GatewayRequestEventV1(
-                        EventIdentity.bind(occurredAt, UUID.randomUUID().toString()),
+                        EventIdentity.bind(occurredAt, SecureRequestIds.randomUuid().toString()),
                         1,
                         occurredAt,
                         config.instanceId(),
@@ -330,7 +348,7 @@ public final class RedirectController {
 
     private static final class Context {
         final String requestId, uri;
-        String domain, scheme, ip;
+        String domain, scheme, ip, ipHash;
         RouteInfo route;
         Long revision;
         PolicySnapshot policy;

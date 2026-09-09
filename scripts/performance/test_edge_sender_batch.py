@@ -211,20 +211,20 @@ case("BC10","worker exit stops batch retries and preserves unclaimed queue resid
 end)
 case("BC11","timer failure cannot reject events owned by an in-flight batch slot",function()
   local plugin,c=batch_begin(2,2);add_events(plugin,c,2)
-  local task=start_timer();batch_point(task,2);dead(start_timer())
-  state.fail_timer_at=3;add_events(plugin,c,1,3)
+  local task=start_timer();batch_point(task,2);eq(#state.timers,0)
+  -- Only the real batch timer exists; fail the next actual reservation.
+  state.fail_timer_at=state.timer_calls+1;add_events(plugin,c,1,3)
   local m=healthy(plugin);eq(m.shortlink_edge_timer_failures,1);eq(m.shortlink_edge_events_rejected,0)
   eq(m.shortlink_edge_pending_count,3);eq(m.shortlink_edge_inflight_count,2);eq(m.shortlink_edge_queued_count,1)
   resume_task(task,true);batch_point(task,1);resume_task(task,true);dead(task);empty_batch_queue(plugin,3)
 end)
 case("BC12","one batch of thirty-two in flight cannot generate an empty timer loop",function()
   local plugin,c=batch_begin(4,32);add_events(plugin,c,32)
-  eq(#state.timers,4);local task=start_timer();batch_point(task,32)
-  for i=1,3 do dead(start_timer()) end
+  eq(#state.timers,1);local task=start_timer();batch_point(task,32)
   local m=healthy(plugin);eq(m.shortlink_edge_events_delivered,0);eq(m.shortlink_edge_queued_count,0)
   eq(m.shortlink_edge_inflight_count,32);eq(m.shortlink_edge_pending_count,32)
-  eq(m.shortlink_edge_active_senders,1);eq(#state.timers,0);eq(state.timer_calls,4)
-  resume_task(task,true);dead(task);eq(state.timer_calls,4);empty_batch_queue(plugin,32)
+  eq(m.shortlink_edge_active_senders,1);eq(#state.timers,0);eq(state.timer_calls,1)
+  resume_task(task,true);dead(task);eq(state.timer_calls,1);empty_batch_queue(plugin,32)
 end)
 case("BC13","the next batch send publishes the complete previous batch terminal totals",function()
   local plugin,c=batch_begin(1,2);add_events(plugin,c,4)
@@ -243,13 +243,14 @@ case("BC14","constructor nil and exception fail each owned item once without ada
     local m=empty_batch_queue(plugin,0,3);eq(m.shortlink_edge_producer_failures,1)
   end
 end)
-case("BC15","retained old worker without batch fields keeps original ledger but marks extension incomplete",function()
+case("BC15","retained registered v3 worker without batch fields marks only extension incomplete",function()
   local plugin,c=batch_begin(1,32);add_events(plugin,c,2);dead(start_timer(1,true))
   local dictionary=ngx.shared.shortlink_edge_metrics
   for _,key in ipairs(dictionary:get_keys(0)) do
     if key:sub(1,7)=="worker:" then
       local record=require("apisix.core").json.decode(dictionary:get(key))
-      record.batch_diagnostics=nil;record.record_version=nil
+      eq(record.record_version,3,"extension coverage does not waive the ledger identity contract")
+      record.batch_diagnostics=nil
       dictionary:safe_set(key,require("apisix.core").json.encode(record))
     end
   end
@@ -298,7 +299,8 @@ case("BC17","post-return stats exception preserves partial ACK and resumes the q
 end)
 case("BC18","eight multi-item slots shrink to one and the last high slot drains all remaining batches",function()
   local plugin,c=batch_begin(8,2);add_events(plugin,c,18)
-  eq(#state.timers,8);local tasks={}
+  -- Each entered callback claims two items then reserves its successor before send.
+  eq(#state.timers,1);local tasks={}
   for i=1,8 do tasks[i]=start_timer();batch_point(tasks[i],2) end
   local m=healthy(plugin);eq(m.shortlink_edge_inflight_count,16)
   eq(m.shortlink_edge_queued_count,2);eq(m.shortlink_edge_active_senders,8)

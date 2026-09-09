@@ -62,6 +62,12 @@ def parser():
     p.add_argument('--duration', default='90s')
     p.add_argument('--metric-seed-mode', choices=('per-request', 'per-vu-phase'), default='per-request',
                    help='Redirect only: optionally seed zero counters once per VU and entered phase')
+    p.add_argument('--http-phase-timings', action='store_true',
+                   help='Retain native k6 HTTP phase timing submetrics; no additional per-request custom metrics')
+    p.add_argument('--redirect-input-mode', choices=('shared-array', 'vu-precomputed'), default='shared-array')
+    p.add_argument('--skip-redirect-zero-rows', action='store_true')
+    p.add_argument('--client-timeline', action='store_true',
+                   help='Sample only the owned k6 PID independently of slower service collectors, to bounded JSONL')
     p.add_argument('--accounts', type=int, choices=(1, 20), default=1)
     p.add_argument('--workset', type=int, default=10)
     p.add_argument('--distribution', choices=('uniform', 'hot80', 'single80'), default='uniform')
@@ -94,6 +100,12 @@ def validate_args(args):
     seed_mode = getattr(args, 'metric_seed_mode', 'per-request')
     require(seed_mode in ('per-request', 'per-vu-phase'), 'INVALID_METRIC_SEED_MODE')
     require(seed_mode == 'per-request' or args.mode == 'redirect', 'PHASE_METRIC_SEED_REQUIRES_REDIRECT')
+    input_mode = getattr(args, 'redirect_input_mode', 'shared-array')
+    require(input_mode in ('shared-array', 'vu-precomputed'), 'INVALID_REDIRECT_INPUT_MODE')
+    require(input_mode == 'shared-array' or (args.mode == 'redirect' and args.workset <= 10),
+            'PRECOMPUTED_INPUT_REQUIRES_SMALL_REDIRECT_WORKSET')
+    require(not getattr(args, 'skip_redirect_zero_rows', False) or args.mode == 'redirect',
+            'SKIP_ZERO_ROWS_REQUIRES_REDIRECT')
     require(math.isfinite(args.p99_budget_ms) and args.p99_budget_ms > 0, 'INVALID_P99_BUDGET')
     warmup, measure, unit = map(duration_ms, (args.warmup, args.duration, args.time_unit))
     require(warmup >= 0 and measure >= 1000 and unit >= 1 and warmup + measure <= 28800000,
@@ -377,23 +389,79 @@ class ClientProcessStats:
         self.first = self.last = None
         self.peak_cpu = 0.0
         self.peak_rss = self.rss_sum = self.samples = 0
+        self.identity = None
+        self.fault = None
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread = None
+        self.timeline_bytes = 0
+
+    def start(self, pid, destination):
+        require(self._thread is None, 'CLIENT_SAMPLER_ALREADY_STARTED')
+        # Start only AFTER Popen/preexec_fn, never fork while this sampler runs.
+        self._thread = threading.Thread(target=self._sample_loop, args=(pid, destination),
+                                        name='shortlink-owned-k6-sampler', daemon=True)
+        self._thread.start()
+
+    def _sample_loop(self, pid, destination):
+        try:
+            with destination.open('x', encoding='utf-8', buffering=1) as stream:
+                while not self._stop.is_set():
+                    began = time.monotonic()
+                    point = self.capture(pid)
+                    if point is not None:
+                        line = json.dumps(point, allow_nan=False, separators=(',', ':')) + '\n'
+                        size = len(line.encode('utf-8'))
+                        if self.timeline_bytes + size > 16 * 1024 * 1024:
+                            self.fault = 'CLIENT_TIMELINE_BUDGET_EXCEEDED'
+                            return
+                        stream.write(line)
+                        self.timeline_bytes += size
+                    if self.fault:
+                        return
+                    self._stop.wait(max(0.01, 1.0 - (time.monotonic() - began)))
+        except Exception:
+            self.fault = 'CLIENT_TIMELINE_UNAVAILABLE'
+
+    def stop(self):
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=2)
+            if self._thread.is_alive():
+                self.fault = 'CLIENT_TIMELINE_DID_NOT_STOP'
 
     def capture(self, pid):
         current = process_stat(pid)
         if current is None:
             return
         now = time.monotonic()
-        point = (now, current['ticks'])
-        if self.last and now > self.last[0]:
-            cpu = (point[1] - self.last[1]) / os.sysconf('SC_CLK_TCK') / (now - self.last[0]) * 100
-            self.peak_cpu = max(self.peak_cpu, cpu)
-        self.first = self.first or point
-        self.last = point
-        self.samples += 1
-        self.rss_sum += current['rssBytes']
-        self.peak_rss = max(self.peak_rss, current['rssBytes'])
+        with self._lock:
+            identity = (current['pid'], current['startTicks'])
+            if (self.identity is not None and identity != self.identity) or (
+                    self.last is not None and current['ticks'] < self.last[1]):
+                self.fault = 'CLIENT_PROCESS_IDENTITY_OR_COUNTER_CHANGED'
+                return
+            self.identity = identity
+            point = (now, current['ticks'])
+            cpu, interval = None, None
+            if self.last and now > self.last[0]:
+                interval = now - self.last[0]
+                cpu = (point[1] - self.last[1]) / os.sysconf('SC_CLK_TCK') / interval * 100
+                self.peak_cpu = max(self.peak_cpu, cpu)
+            self.first = self.first or point
+            self.last = point
+            self.samples += 1
+            self.rss_sum += current['rssBytes']
+            self.peak_rss = max(self.peak_rss, current['rssBytes'])
+            return {'schemaVersion': 1, 'observedAt': dt.datetime.now(dt.timezone.utc).isoformat(),
+                    'monotonicSeconds': now, **current, 'clockTicksPerSecond': os.sysconf('SC_CLK_TCK'),
+                    'cpuPercent': cpu, 'actualIntervalSeconds': interval}
 
     def summary(self):
+        with self._lock:
+            return self._summary()
+
+    def _summary(self):
         average = None
         if self.first and self.last[0] > self.first[0]:
             average = ((self.last[1] - self.first[1]) / os.sysconf('SC_CLK_TCK') /
@@ -403,7 +471,10 @@ class ClientProcessStats:
                 'cpuPercentMeaning': '100 percent is one logical CPU; allowed CPUs are 12-15',
                 'rssBytesPeak': self.peak_rss if self.samples else None,
                 'rssBytesSampleMean': self.rss_sum / self.samples if self.samples else None,
-                'samplingIntervalSeconds': 1}
+                'samplingIntervalSeconds': 1,
+                'samplingMode': 'INDEPENDENT_OWNED_PID_THREAD' if self._thread else 'STAGE_LOOP',
+                'actualSampleSpanSeconds': self.last[0] - self.first[0] if self.first else None,
+                'timelineBytes': self.timeline_bytes, 'fault': self.fault}
 
 
 def child_parent_death_signal(expected_parent):
@@ -441,6 +512,9 @@ def build_env(args, state, stage):
               'PERF_ABORT_ON_FAILURE': 'true', 'PERF_ALLOW_REJECTIONS': str(args.allow_rejections).lower(),
               'PERF_FAIL_FAST_UNEXPECTED': str(getattr(args, 'fail_fast_unexpected', False)).lower(),
               'PERF_METRIC_SEED_MODE': getattr(args, 'metric_seed_mode', 'per-request'),
+              'PERF_HTTP_PHASE_TIMINGS': str(getattr(args, 'http_phase_timings', False)).lower(),
+              'PERF_REDIRECT_INPUT_MODE': getattr(args, 'redirect_input_mode', 'shared-array'),
+              'PERF_SKIP_REDIRECT_ZERO_ROWS': str(getattr(args, 'skip_redirect_zero_rows', False)).lower(),
               'K6_NO_USAGE_REPORT': 'true', 'K6_LOG_OUTPUT': 'stderr'}
     if args.expected_status is not None:
         values['PERF_EXPECTED_STATUS'] = args.expected_status
@@ -448,6 +522,50 @@ def build_env(args, state, stage):
         values['PERF_WARMUP_START_RATE'] = args.warmup_start_rate
     env.update({k: str(v) for k, v in values.items()})
     return env
+
+
+def gomaxprocs_configuration(env):
+    """Record the launch input only; never inspect or print the complete environment."""
+    raw = env.get('GOMAXPROCS')
+    valid = isinstance(raw, str) and re.fullmatch(r'[1-9][0-9]{0,8}', raw) is not None
+    return {'status': 'CONFIGURED' if valid else 'NOT_CONFIGURED' if raw is None else 'PRESENT_UNPARSED',
+            'configuredValue': int(raw) if valid else None,
+            'runtimeActual': None, 'runtimeActualStatus': 'NOT_AVAILABLE',
+            'source': 'child process launch environment; unchanged',
+            'meaning': 'Configuration is not the measured Go runtime GOMAXPROCS or a CPU quota'}
+
+
+def recorded_generator_diagnostics(summary):
+    result = {}
+    for key in ('iteration_duration_ms', 'scenario_time_anchor'):
+        value = summary.get(key) if isinstance(summary, dict) else None
+        result[key] = value if isinstance(value, dict) and value.get('status') in ('AVAILABLE', 'NOT_AVAILABLE') else {
+            'status': 'NOT_AVAILABLE', 'reason': 'SUMMARY_FIELD_MISSING_OR_INVALID'}
+    timing = summary.get('http_timing_breakdown') if isinstance(summary, dict) else None
+    result['http_timing_breakdown'] = timing if (
+        isinstance(timing, dict) and type(timing.get('enabled')) is bool
+        and timing.get('source') == 'K6_NATIVE_HTTP_TIMINGS' and timing.get('unit') == 'ms'
+        and all(isinstance(timing.get(phase), dict)
+                and (timing[phase].get('status') in ('AVAILABLE', 'NOT_AVAILABLE')
+                     if timing['enabled'] else timing[phase] == {
+                         'status': 'NOT_ENABLED', 'requests': None, 'components_ms': None})
+                for phase in ('all', 'warmup', 'measure'))) else {
+                    'status': 'NOT_AVAILABLE', 'reason': 'SUMMARY_FIELD_MISSING_OR_INVALID'}
+    return result
+
+
+def start_k6(command, env, log, result):
+    """Capture parent-side spawn bounds separately from the native scenario anchor."""
+    result['generatorConfiguration'] = {'gomaxprocs': gomaxprocs_configuration(env)}
+    result['k6Launch'] = {'beforePopenUtc': dt.datetime.now(dt.timezone.utc).isoformat(),
+                          'beforePopenMonotonicSeconds': time.monotonic(),
+                          'scope': 'PARENT_PROCESS_SPAWN_BOUNDS_NOT_SCENARIO_START'}
+    process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT,
+                               start_new_session=True,
+                               preexec_fn=lambda parent_pid=os.getpid(): child_parent_death_signal(parent_pid))
+    result['k6Launch'].update(afterPopenUtc=dt.datetime.now(dt.timezone.utc).isoformat(),
+                             afterPopenMonotonicSeconds=time.monotonic())
+    return process
 
 
 def source_ip_selection(args):
@@ -478,6 +596,10 @@ def stage_config(args, timing):
             'executor': 'constant-arrival-rate' if getattr(args, 'warmup_start_rate', None) is None else 'ramping-arrival-rate',
             'warmupStartRate': getattr(args, 'warmup_start_rate', None),
             'metricSeedMode': getattr(args, 'metric_seed_mode', 'per-request'),
+            'httpPhaseTimings': getattr(args, 'http_phase_timings', False),
+            'redirectInputMode': getattr(args, 'redirect_input_mode', 'shared-array'),
+            'skipRedirectZeroRows': getattr(args, 'skip_redirect_zero_rows', False),
+            'clientTimeline': getattr(args, 'client_timeline', False),
             'timeUnit': args.time_unit, 'warmupMs': timing['warmupMs'],
             'measureMs': timing['measureMs'], 'vus': args.vus,
             'accounts': args.accounts, 'workset': args.workset,
@@ -597,17 +719,20 @@ def run(args):
         require(before['apisix'].get('containerPid') == state['apisixPid'], 'APISIX_PID_NOT_PROVEN')
         command = build_k6_command(args, state)
         with log_path.open('wb') as log:
-            process = subprocess.Popen(command, env=build_env(args, state, stage), stdout=log, stderr=subprocess.STDOUT,
-                                       start_new_session=True,
-                                       preexec_fn=lambda parent_pid=os.getpid(): child_parent_death_signal(parent_pid))
+            process = start_k6(command, build_env(args, state, stage), log, result)
+            if getattr(args, 'client_timeline', False):
+                client.start(process.pid, stage / 'k6-process.jsonl')
             begin = time.monotonic()
             deadline = begin + (timing['warmupMs'] + timing['measureMs']) / 1000 + 45
             next_sample = begin
             while process.poll() is None:
-                client.capture(process.pid)
+                if not getattr(args, 'client_timeline', False):
+                    client.capture(process.pid)
                 now = time.monotonic()
                 if interrupted:
                     stopped = 'INTERRUPTED'
+                elif client.fault:
+                    stopped = client.fault
                 elif os.fstat(log.fileno()).st_size > LOG_BYTES:
                     stopped = 'K6_LOG_BUDGET_EXCEEDED'
                 elif now >= deadline:
@@ -623,6 +748,9 @@ def run(args):
                     break
                 time.sleep(min(1, max(.01, next_sample - time.monotonic())))
             process.wait(timeout=5)
+            client.stop()
+            if client.fault and stopped is None:
+                stopped = client.fault
         after, after_drained, drain_reason = wait_drain('after', before)
         write_json(stage / 'after.json', after)
         after_drained = bool(after is not None and observe.drained(after)['drained'])
@@ -640,6 +768,7 @@ def run(args):
         result.update(status='STAGE_EXECUTION_ERROR', errorType=type(error).__name__, stopReason=stopped)
     finally:
         stop_owned(process)
+        client.stop()
         if log_path.is_file():
             result['k6LogObservedBytes'] = log_path.stat().st_size
             result['k6LogTruncated'] = result['k6LogObservedBytes'] > LOG_BYTES
@@ -658,6 +787,7 @@ def run(args):
             reasons.extend('CHECK_' + key for key in result['failedChecks'])
         result['stopReasons'] = list(dict.fromkeys(reason for reason in reasons if reason))
         result['k6Process'] = client.summary()
+        result['generatorDiagnostics'] = recorded_generator_diagnostics(summary)
         result['stageDirectory'] = str(stage)
         write_json(stage / 'result.json', result)
     return result

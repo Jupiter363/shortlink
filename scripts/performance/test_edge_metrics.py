@@ -16,10 +16,25 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 LOGGER = ROOT / "deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua"
+HTTP_TIMING = ROOT / "deploy/apisix/plugins/apisix/plugins/shortlink-http-timing.lua"
 
 HARNESS = r'''
 local source = __LOGGER_SOURCE__
 local load_lua = loadstring or load
+local timing_source = __HTTP_TIMING_SOURCE__
+package.preload["apisix.plugins.shortlink-http-timing"]=function() return assert(load_lua(timing_source))() end
+package.preload["apisix.plugins.shortlink-worker-identity"]=function()
+  return {pids=function()
+    local values=ngx.worker.pids();if type(values)~="table" then return nil end
+    local result={}
+    for _,pid in ipairs(values) do
+      if type(pid)~="number" or pid<=0 or pid>=math.huge or pid%1~=0 then return nil end
+      result[pid]=true
+    end
+    if next(result)==nil then return nil end
+    return result
+  end}
+end
 local function copy(value)
   if type(value)~="table" then return value end
   local result={};for key,item in pairs(value) do result[key]=copy(item) end;return result
@@ -28,7 +43,12 @@ local state, encoded, encoding_id, uuid_id
 local function dictionary()
   local values={}
   return {
-    get=function(_,key) return values[key] end,
+    get=function(_,key)
+      local value=values[key]
+      if state.get_hook then state.get_hook(key,value) end
+      return value
+    end,
+    delete=function(_,key) values[key]=nil end,
     safe_add=function(_,key,value)
       if state and state.fail_boot and key=="boot_id" then return nil,"no memory" end
       if values[key]~=nil then return nil,"exists" end
@@ -49,7 +69,11 @@ local function dictionary()
       end
       values[key]=values[key]+amount;return values[key]
     end,
-    get_keys=function() local keys={};for key in pairs(values) do keys[#keys+1]=key end;return keys end,
+    get_keys=function()
+      local keys={};for key in pairs(values) do keys[#keys+1]=key end;table.sort(keys)
+      if state.keys_hook then state.keys_hook() end
+      return keys
+    end,
   }
 end
 package.preload["apisix.core"]=function()
@@ -89,12 +113,19 @@ package.preload["resty.kafka.producer"]=function()
 end
 local function reset()
   state={now=1700000000,worker_id=0,pid=100,timers={},sends={},send_failures=0,output={},
-    producer_calls=0,producer_arguments={},busy_producers={},timer_calls=0,exiting=false,ledger_writes=0}
+    producer_calls=0,producer_arguments={},busy_producers={},timer_calls=0,exiting=false,ledger_writes=0,
+    worker_count=1,live_pids={[0]=100}}
   encoded={};encoding_id=0;uuid_id=0
   ngx={shared={shortlink_edge_metrics=dictionary()},
     var={hostname="node-a",uri="/000000001",host="s.example",http_host="s.example",scheme="http",upstream_status="302"},
     status=302,header={},now=function() return state.now end,
-    worker={id=function() return state.worker_id end,pid=function() return state.pid end,exiting=function() return state.exiting end},
+    worker={id=function() return state.worker_id end,pid=function() return state.pid end,
+      count=function() return state.worker_count end,
+      pids=function()
+        if state.fail_pids then return nil end
+        local result={};for _,pid in pairs(state.live_pids) do result[#result+1]=pid end
+        return result
+      end,exiting=function() return state.exiting end},
     req={get_method=function() return "GET" end},
     timer={at=function(_,callback,...)
       state.timer_calls=state.timer_calls+1
@@ -109,7 +140,13 @@ local function reset()
 end
 local function worker(id,pid)
   state.worker_id=id;state.pid=pid
-  return assert(load_lua(source))()
+  if id>=0 then
+    state.worker_count=math.max(state.worker_count,id+1);state.live_pids[id]=pid
+  end
+  package.loaded["apisix.plugins.shortlink-http-timing"]=nil
+  local plugin=assert(load_lua(source))()
+  plugin.init()
+  return plugin
 end
 local function conf()
   return {brokers={{host="test.invalid",port=9092}},instance_id="deployment",queue_count=8,queue_bytes=4096,max_event_bytes=4096}
@@ -206,13 +243,14 @@ case("EM10","ledger exhaustion marks evidence incomplete without evicting residu
   state.fail_ledger=true;local second=worker(0,101);second.log(conf(),{});run_timer()
   local m=scrape(second);eq(m.shortlink_edge_observation_complete,0)
   assert(m.shortlink_edge_observation_faults>0);eq(m.shortlink_edge_pending_bytes,previous)
-  eq(m.shortlink_edge_events_delivered,1)
+  eq(m.shortlink_edge_raw_events_delivered,1)
+  eq(m.shortlink_edge_events_delivered,0,"missing generation cannot manufacture coherent terminal evidence")
   state.fail_ledger=false;eq(scrape(second).shortlink_edge_observation_complete,0)
 end)
 case("EM11","missing boot fails observation explicitly",function()
   reset();state.fail_boot=true;local plugin=worker(0,100);plugin.log(conf(),{})
   local m=scrape(plugin);eq(m.shortlink_edge_observation_complete,0)
-  eq(m.shortlink_edge_events_rejected,1);eq(#state.timers,0)
+  eq(m.shortlink_edge_raw_events_rejected,1);eq(#state.timers,0)
 end)
 case("EM12","JSON rejection and producer creation failure are terminal once",function()
   reset();local plugin=worker(0,100);state.fail_event_json=true;plugin.log(conf(),{})
@@ -242,6 +280,12 @@ end
 print("CASES "..#cases.." FAILURES "..failures)
 if failures>0 then os.exit(1) end
 '''
+
+# Use the real optional module in every suite importing this shared harness.
+# Each simulated worker receives its own module state, as in OpenResty.
+_timing_source = HTTP_TIMING.read_text(encoding="utf-8")
+assert "]=====]" not in _timing_source
+HARNESS = HARNESS.replace("__HTTP_TIMING_SOURCE__", "[=====[" + _timing_source + "]=====]")
 
 
 def static_checks(source):

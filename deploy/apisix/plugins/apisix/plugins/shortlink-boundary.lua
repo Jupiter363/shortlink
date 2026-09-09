@@ -32,4 +32,11 @@ function _M.rewrite(conf, ctx)
   ngx.req.set_header("X-Forwarded-Proto", ngx.var.scheme)
   ngx.req.set_header("X-Request-ID", ctx.shortlink_request_id)
 end
+function _M.header_filter(conf, ctx)
+  -- The value was frozen before rewrite could reject the request. Never echo
+  -- the caller's or upstream's supplied correlation header. Upstream variables
+  -- remain available to the internal access log after hiding this response field.
+  ngx.header["X-Request-ID"] = ctx.shortlink_request_id
+  ngx.header["X-Shortlink-Handler-Nanos"] = nil
+end
 return _M
