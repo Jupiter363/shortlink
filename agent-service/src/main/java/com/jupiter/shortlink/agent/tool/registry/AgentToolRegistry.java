@@ -6,6 +6,7 @@ import com.jupiter.shortlink.agent.harness.tool.AgentTool;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolDescriptor;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
+
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,10 +22,10 @@ import java.util.Optional;
 /**
  * Indexes the generated Spring AI callbacks by stable tool name.
  *
- * <p>The list-based constructor and {@link #findByName(String)} are retained as
- * a small source-compatible bridge for existing graph code while nodes migrate
- * to callbacks. In the application context Spring uses the provider constructor
- * and therefore the five {@code @Tool} methods are the canonical implementations.</p>
+ * <p>The list-based constructor and {@link #findByName(String)} are retained as a small
+ * source-compatible bridge for existing graph code while nodes migrate to callbacks. In the
+ * application context Spring uses the provider constructor and therefore the five {@code @Tool}
+ * methods are the canonical implementations.
  */
 @Component
 public class AgentToolRegistry {
@@ -41,9 +42,11 @@ public class AgentToolRegistry {
 
     @Autowired
     public AgentToolRegistry(MethodToolCallbackProvider callbackProvider) {
-        RegistrySnapshot snapshot = fromCallbacks(callbackProvider == null
-                ? new ToolCallback[0]
-                : callbackProvider.getToolCallbacks());
+        RegistrySnapshot snapshot =
+                fromCallbacks(
+                        callbackProvider == null
+                                ? new ToolCallback[0]
+                                : callbackProvider.getToolCallbacks());
         this.toolsByName = snapshot.toolsByName();
         this.callbacksByName = snapshot.callbacksByName();
         this.descriptors = snapshot.descriptors();
@@ -51,9 +54,8 @@ public class AgentToolRegistry {
     }
 
     /**
-     * Compatibility constructor used by focused unit tests and older graph
-     * implementations. Production wiring uses the MethodToolCallbackProvider
-     * constructor above.
+     * Compatibility constructor used by focused unit tests and older graph implementations.
+     * Production wiring uses the MethodToolCallbackProvider constructor above.
      */
     public AgentToolRegistry(List<AgentTool> tools) {
         RegistrySnapshot snapshot = fromLegacyTools(safeTools(tools));
@@ -77,8 +79,8 @@ public class AgentToolRegistry {
     }
 
     /**
-     * Legacy adapter lookup. Callback-backed adapters preserve the HTTP gateway
-     * and trusted context behavior while callers transition to ToolCallback.
+     * Legacy adapter lookup. Callback-backed adapters preserve the HTTP gateway and trusted context
+     * behavior while callers transition to ToolCallback.
      */
     public Optional<AgentTool> findByName(String name) {
         return Optional.ofNullable(toolsByName.get(name));
@@ -89,7 +91,8 @@ public class AgentToolRegistry {
         Map<String, ToolCallback> indexedCallbacks = new LinkedHashMap<>();
         List<ToolDescriptor> indexedDescriptors = new ArrayList<>();
         List<ToolCallback> callbackList = new ArrayList<>();
-        for (ToolCallback callback : generatedCallbacks == null ? new ToolCallback[0] : generatedCallbacks) {
+        for (ToolCallback callback :
+                generatedCallbacks == null ? new ToolCallback[0] : generatedCallbacks) {
             if (callback == null || callback.getToolDefinition() == null) {
                 continue;
             }
@@ -107,8 +110,7 @@ public class AgentToolRegistry {
                 Collections.unmodifiableMap(indexedTools),
                 Collections.unmodifiableMap(indexedCallbacks),
                 List.copyOf(indexedDescriptors),
-                List.copyOf(callbackList)
-        );
+                List.copyOf(callbackList));
     }
 
     private RegistrySnapshot fromLegacyTools(List<AgentTool> tools) {
@@ -127,17 +129,13 @@ public class AgentToolRegistry {
                 Collections.unmodifiableMap(indexedTools),
                 Map.of(),
                 List.copyOf(indexedDescriptors),
-                List.of()
-        );
+                List.of());
     }
 
     private ToolDescriptor descriptor(ToolCallback callback) {
         var definition = callback.getToolDefinition();
         return new ToolDescriptor(
-                definition.name(),
-                definition.description(),
-                parseSchema(definition.inputSchema())
-        );
+                definition.name(), definition.description(), parseSchema(definition.inputSchema()));
     }
 
     private Map<String, Object> parseSchema(String schema) {
@@ -145,8 +143,8 @@ public class AgentToolRegistry {
             return Map.of();
         }
         try {
-            return OBJECT_MAPPER.readValue(schema, new TypeReference<LinkedHashMap<String, Object>>() {
-            });
+            return OBJECT_MAPPER.readValue(
+                    schema, new TypeReference<LinkedHashMap<String, Object>>() {});
         } catch (Exception ignored) {
             return Map.of("rawSchema", schema);
         }
@@ -160,9 +158,7 @@ public class AgentToolRegistry {
             Map<String, AgentTool> toolsByName,
             Map<String, ToolCallback> callbacksByName,
             List<ToolDescriptor> descriptors,
-            List<ToolCallback> callbacks
-    ) {
-    }
+            List<ToolCallback> callbacks) {}
 
     private static final class CallbackBackedAgentTool implements AgentTool {
 
@@ -183,22 +179,27 @@ public class AgentToolRegistry {
         @Override
         public ToolResult execute(ToolContext context) {
             try {
-                String input = OBJECT_MAPPER.writeValueAsString(context == null ? Map.of() : context.arguments());
+                String input =
+                        OBJECT_MAPPER.writeValueAsString(
+                                context == null ? Map.of() : context.arguments());
                 Map<String, Object> trustedContext = new LinkedHashMap<>();
                 if (context != null) {
                     trustedContext.put(ToolContext.SESSION_ID_KEY, context.sessionId());
                     trustedContext.put(ToolContext.USERNAME_KEY, context.username());
+                    if (context.principal() != null)
+                        trustedContext.put("principal", context.principal().toState());
                 }
-                String raw = callback.call(
-                        input,
-                        new org.springframework.ai.chat.model.ToolContext(trustedContext)
-                );
+                String raw =
+                        callback.call(
+                                input,
+                                new org.springframework.ai.chat.model.ToolContext(trustedContext));
                 if (raw == null || raw.isBlank()) {
                     return ToolResult.failure("Agent tool returned an empty response");
                 }
                 return OBJECT_MAPPER.readValue(raw, ToolResult.class);
             } catch (Exception ex) {
-                return ToolResult.failure(ex.getMessage() == null ? "Agent tool callback failed" : ex.getMessage());
+                return ToolResult.failure(
+                        ex.getMessage() == null ? "Agent tool callback failed" : ex.getMessage());
             }
         }
     }

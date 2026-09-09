@@ -1,304 +1,278 @@
 package com.jupiter.shortlink.admin.controller;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jupiter.shortlink.admin.common.biz.agent.AgentInternalToolApiFilter;
 import com.jupiter.shortlink.admin.common.biz.user.UserContext;
-import com.jupiter.shortlink.admin.common.convention.result.Result;
-import com.jupiter.shortlink.admin.common.convention.result.Results;
 import com.jupiter.shortlink.admin.common.convention.web.GlobalExceptionHandler;
 import com.jupiter.shortlink.admin.config.AgentAdminConfiguration;
-import com.jupiter.shortlink.admin.dto.resp.ShortLinkGroupRespDTO;
+import com.jupiter.shortlink.admin.dao.entity.UserDO;
+import com.jupiter.shortlink.admin.dao.mapper.UserMapper;
+import com.jupiter.shortlink.admin.dto.req.analytics.AnalyticsQueryRequest;
 import com.jupiter.shortlink.admin.remote.ShortLinkActualRemoteService;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsBrowserRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsDeviceRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsLocaleCNRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsTopIpRespDTO;
+import com.jupiter.shortlink.admin.remote.analytics.*;
 import com.jupiter.shortlink.admin.service.GroupService;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+
+import org.junit.jupiter.api.*;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.List;
+import java.time.Instant;
+import java.util.*;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
+/**
+ * Real AgentAnalyticsFacade participates: authority scope, quality, time bounds and pagination must
+ * survive MVC.
+ */
 class AgentRiskInternalToolControllerTest {
+    private static final String TOKEN = "test-internal-token-at-least-24-characters";
+    private static final long LINK = 3_000_000_001L;
+    private GroupService groups;
+    private ShortLinkActualRemoteService legacy;
+    private AnalyticsJsonClient client;
+    private MockMvc mvc;
+
+    @BeforeEach
+    void setUp() {
+        groups = mock(GroupService.class);
+        legacy = mock(ShortLinkActualRemoteService.class);
+        client = mock(AnalyticsJsonClient.class);
+        when(groups.count(any(Wrapper.class))).thenReturn(1L);
+        var accounts = mock(UserMapper.class);
+        var user = new UserDO();
+        user.setId(1001L);
+        user.setUsername("zhangsan");
+        user.setAuthVersion(7L);
+        user.setDisabled(false);
+        user.setDelFlag(0);
+        when(accounts.selectOne(any(Wrapper.class))).thenReturn(user);
+        when(client.resolve(any())).thenReturn(authority());
+        when(client.query(any()))
+                .thenReturn(
+                        envelope(
+                                List.of(Map.of("linkId", LINK, "pv", 4_000_000_000L)),
+                                Map.of("pv", 4_000_000_000L),
+                                Map.of(
+                                        "snapshotId",
+                                        "snapshot-1",
+                                        "completeness",
+                                        "COMPLETE",
+                                        "provisional",
+                                        true)));
+        var config = new AgentAdminConfiguration();
+        config.setInternalToken(TOKEN);
+        mvc =
+                MockMvcBuilders.standaloneSetup(
+                                new AgentToolInternalController(
+                                        groups, legacy, new AgentAnalyticsFacade(client)))
+                        .addFilters(
+                                new AgentInternalToolApiFilter(config, accounts, "system_agent"))
+                        .setControllerAdvice(new GlobalExceptionHandler())
+                        .build();
+    }
 
     @AfterEach
     void tearDown() {
         UserContext.removeUser();
     }
 
+    private JSONObject authority() {
+        return new JSONObject(
+                Map.of(
+                        "tenantId",
+                        "1001",
+                        "links",
+                        List.of(
+                                Map.of(
+                                        "linkId",
+                                        LINK,
+                                        "gid",
+                                        "g1",
+                                        "domain",
+                                        "nurl.ink",
+                                        "shortUri",
+                                        "abc123",
+                                        "fullShortUrl",
+                                        "nurl.ink/abc123"))));
+    }
+
+    private JSONObject envelope(
+            List<Map<String, Object>> items,
+            Map<String, Object> metrics,
+            Map<String, Object> meta) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("items", items);
+        data.put("metrics", metrics);
+        data.put("meta", meta);
+        return new JSONObject(Map.of("code", "0", "data", data));
+    }
+
+    private MockHttpServletRequestBuilder request(String suffix) {
+        return get("/internal/short-link-admin/v1/agent-tools/" + suffix)
+                .header("X-Agent-Internal-Token", TOKEN)
+                .header("X-Agent-Username", "zhangsan")
+                .header("X-Agent-UserId", "1001")
+                .header("X-Agent-Auth-Version", "7");
+    }
+
+    private MockHttpServletRequestBuilder window() {
+        return request("risk/short-link-window-stats")
+                .param("gid", "g1")
+                .param("fullShortUrl", "nurl.ink/abc123")
+                .param("startTime", "2026-07-09T16:00:00Z")
+                .param("endTime", "2026-07-09T18:00:00Z");
+    }
+
     @Test
-    void activeShortLinksUseInternalFilterTrustedContextAndReturnOwnedActiveLinksOnly() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.listGroup()).thenAnswer(invocation -> {
-            assertThat(UserContext.getUsername()).isEqualTo("zhangsan");
-            return List.of(group("g1"), group("g2"));
-        });
-        when(remoteService.pageShortLink("g1", "totalPv", 1L, 500L))
-                .thenReturn(Results.success(page(link("g1", "nurl.ink", "abc123", 42, 120))));
-        when(remoteService.pageShortLink("g2", "totalPv", 1L, 500L))
-                .thenReturn(Results.success(page(link("g2", "nurl.ink", "idle", 0, 0))));
-        when(remoteService.oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-03 00:00:00", "2026-07-10 00:00:00"))
-                .thenReturn(Results.success(ShortLinkStatsRespDTO.builder().pv(120).uv(80).uip(60).build()));
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        MvcResult result = mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/active-short-links")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("since", "2026-07-03T00:00:00"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("0"))
-                .andExpect(jsonPath("$.data[0].gid").value("g1"))
-                .andExpect(jsonPath("$.data[0].domain").value("nurl.ink"))
-                .andExpect(jsonPath("$.data[0].shortUri").value("abc123"))
-                .andExpect(jsonPath("$.data[0].pv").value(120))
-                .andExpect(jsonPath("$.data.length()").value(1))
-                .andReturn();
-
-        String response = result.getResponse().getContentAsString();
-        assertThat(response)
-                .doesNotContain("\"ip\":")
-                .doesNotContain("\"user\":")
-                .doesNotContain("visitor");
+    void activeLinksUseAuthorizedAnalyticsEnvelopeAndLongCounts() throws Exception {
+        String body =
+                mvc.perform(
+                                request("risk/active-short-links")
+                                        .param("since", "2026-07-03T00:00:00Z")
+                                        .param("endTime", "2026-07-10T00:00:00Z"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.code").value("0"))
+                        .andExpect(jsonPath("$.data.items[0].gid").value("g1"))
+                        .andExpect(jsonPath("$.data.items[0].linkId").value(LINK))
+                        .andExpect(jsonPath("$.data.metrics.pv").value(4_000_000_000L))
+                        .andExpect(jsonPath("$.data.metrics.uv").doesNotExist())
+                        .andExpect(jsonPath("$.data.meta.tenantId").value("1001"))
+                        .andExpect(jsonPath("$.data.meta.provisional").value(true))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        assertThat(body).doesNotContain("\"ip\":", "\"user\":", "visitor");
+        verifyNoInteractions(legacy);
         assertThat(UserContext.getUsername()).isNull();
     }
 
     @Test
-    void activeShortLinksScanAllPagesForEachOwnedGroup() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.listGroup()).thenReturn(List.of(group("g1")));
-        when(remoteService.pageShortLink("g1", "totalPv", 1L, 500L))
-                .thenReturn(Results.success(page(1L, 500L, 501L, inactiveLinks(500))));
-        when(remoteService.pageShortLink("g1", "totalPv", 2L, 500L))
-                .thenReturn(Results.success(page(2L, 500L, 501L, List.of(link("g1", "nurl.ink", "late", 6, 6)))));
-        when(remoteService.oneShortLinkStats("nurl.ink/late", "g1", "2026-07-03 00:00:00", "2026-07-10 00:00:00"))
-                .thenReturn(Results.success(ShortLinkStatsRespDTO.builder().pv(6).uv(5).uip(4).build()));
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/active-short-links")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("since", "2026-07-03T00:00:00"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("0"))
-                .andExpect(jsonPath("$.data[0].shortUri").value("late"))
-                .andExpect(jsonPath("$.data.length()").value(1));
-
-        verify(remoteService).pageShortLink("g1", "totalPv", 1L, 500L);
-        verify(remoteService).pageShortLink("g1", "totalPv", 2L, 500L);
+    void continuationUsesSnapshotCursorAndNeverScansLegacyLinkPages() throws Exception {
+        mvc.perform(
+                        request("risk/active-short-links")
+                                .param("since", "2026-07-03T00:00:00Z")
+                                .param("endTime", "2026-07-10T00:00:00Z")
+                                .param("snapshotId", "snapshot-1")
+                                .param("cursor", "next-2")
+                                .param("pageSize", "50"))
+                .andExpect(jsonPath("$.code").value("0"));
+        var captured = ArgumentCaptor.forClass(AnalyticsQueryRequest.class);
+        verify(client).query(captured.capture());
+        assertThat(captured.getValue().snapshotId()).isEqualTo("snapshot-1");
+        assertThat(captured.getValue().cursor()).isEqualTo("next-2");
+        assertThat(captured.getValue().pageSize()).isEqualTo(50);
+        assertThat(captured.getValue().linkIds()).containsExactly(LINK);
+        verifyNoInteractions(legacy);
     }
 
     @Test
-    void activeShortLinksReturnsFailureWhenProjectPageQueryFails() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.listGroup()).thenReturn(List.of(group("g1")));
-        when(remoteService.pageShortLink("g1", "totalPv", 1L, 500L))
-                .thenReturn(failure("B000001", "project page query failed"));
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/active-short-links")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("since", "2026-07-03T00:00:00"))
+    void analyticsPageFailureStaysFailureWithNoZeroOrPartialSuccess() throws Exception {
+        when(client.query(any())).thenReturn(new JSONObject(Map.of("code", "SNAPSHOT_EXPIRED")));
+        mvc.perform(window())
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("C000001"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+        verifyNoInteractions(legacy);
+    }
+
+    @Test
+    void foreignGroupIsRejectedBeforeAuthorityOrAnalyticsCall() throws Exception {
+        when(groups.count(any(Wrapper.class))).thenReturn(0L);
+        mvc.perform(window())
+                .andExpect(jsonPath("$.code").value("A000001"))
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("Agent request requires an owned active group"));
+        verifyNoInteractions(client, legacy);
+    }
+
+    @Test
+    void returnedForeignLinkCannotBeEnrichedIntoTrustedScope() throws Exception {
+        when(client.query(any()))
+                .thenReturn(
+                        envelope(
+                                List.of(Map.of("linkId", LINK + 1, "pv", 2L)),
+                                Map.of("pv", 2L),
+                                Map.of("snapshotId", "s")));
+        mvc.perform(window())
                 .andExpect(jsonPath("$.code").value("C000001"))
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test
-    void shortLinkWindowStatsRejectsGidOutsideTrustedUserGroups() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.count(any(Wrapper.class))).thenReturn(0L);
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("gid", "other-gid")
-                        .param("fullShortUrl", "nurl.ink/abc123")
-                        .param("startTime", "2026-07-10T00:00:00")
-                        .param("endTime", "2026-07-10T02:00:00"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").isNotEmpty());
+    void windowTimesArePassedAsExactUtcHalfOpenBoundaries() throws Exception {
+        mvc.perform(window()).andExpect(jsonPath("$.code").value("0"));
+        var captured = ArgumentCaptor.forClass(AnalyticsQueryRequest.class);
+        verify(client).query(captured.capture());
+        assertThat(captured.getValue().startInclusive())
+                .isEqualTo(Instant.parse("2026-07-09T16:00:00Z").toEpochMilli());
+        assertThat(captured.getValue().endExclusive())
+                .isEqualTo(Instant.parse("2026-07-09T18:00:00Z").toEpochMilli());
+        assertThat(captured.getValue().authVersion()).isEqualTo(7L);
+        assertThat(captured.getValue().tenantId()).isEqualTo("1001");
     }
 
     @Test
-    void shortLinkWindowStatsReturnsSanitizedAggregatesWithoutRawIpOrUserRows() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00"))
-                .thenReturn(Results.success(ShortLinkStatsRespDTO.builder()
-                        .pv(30)
-                        .uv(24)
-                        .uip(20)
-                        .topIpStats(List.of(new ShortLinkStatsTopIpRespDTO(15, "source-token-1")))
-                        .localeCnStats(List.of(new ShortLinkStatsLocaleCNRespDTO(18, "Shanghai", 0.60)))
-                        .deviceStats(List.of(new ShortLinkStatsDeviceRespDTO(24, "Mobile", 0.80)))
-                        .browserStats(List.of(new ShortLinkStatsBrowserRespDTO(23, "Chrome", 0.75)))
-                        .hourStats(List.of(10, 20, 30, 20, 10))
-                        .build()));
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        MvcResult result = mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("gid", "g1")
-                        .param("fullShortUrl", "nurl.ink/abc123")
-                        .param("startTime", "2026-07-10T00:00:00")
-                        .param("endTime", "2026-07-10T02:00:00"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("0"))
-                .andExpect(jsonPath("$.data.pv").value(30))
-                .andExpect(jsonPath("$.data.uv").value(24))
-                .andExpect(jsonPath("$.data.topIpShare").value(0.5))
-                .andExpect(jsonPath("$.data.topRegionShare").value(0.6))
-                .andExpect(jsonPath("$.data.topDeviceShare").value(0.8))
-                .andExpect(jsonPath("$.data.topBrowserShare").value(0.75))
-                .andExpect(jsonPath("$.data.peakHourShare").value(0.6666666666666666))
-                .andReturn();
-
-        String response = result.getResponse().getContentAsString();
-        assertThat(response)
-                .doesNotContain("source-token-1")
-                .doesNotContain("\"ip\":")
-                .doesNotContain("\"user\":")
-                .doesNotContain("accessRecords")
-                .doesNotContain("visitor");
-        verify(remoteService).oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00");
+    void allThreeWindowsUseOneQueryAndOneCommonEnd() throws Exception {
+        mvc.perform(
+                        request("risk/short-link-windows")
+                                .param("gid", "g1")
+                                .param("fullShortUrl", "nurl.ink/abc123")
+                                .param("endTime", "2026-07-10T00:00:00Z"))
+                .andExpect(jsonPath("$.code").value("0"));
+        var captured = ArgumentCaptor.forClass(AnalyticsQueryRequest.class);
+        verify(client, times(1)).query(captured.capture());
+        assertThat(captured.getValue().windows()).containsExactly("2h", "24h", "7d");
+        assertThat(captured.getValue().endPolicy()).isEqualTo("COMMON_AVAILABLE_END");
+        assertThat(captured.getValue().endExclusive() - captured.getValue().startInclusive())
+                .isEqualTo(7L * 24 * 60 * 60 * 1000);
     }
 
     @Test
-    void shortLinkWindowStatsConvertsUtcInstantsToBusinessTimezoneBeforeCallingProjectStats() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00"))
-                .thenReturn(Results.success(ShortLinkStatsRespDTO.builder().pv(30).uv(24).uip(20).build()));
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("gid", "g1")
-                        .param("fullShortUrl", "nurl.ink/abc123")
-                        .param("startTime", "2026-07-09T16:00:00Z")
-                        .param("endTime", "2026-07-09T18:00:00Z"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("0"))
-                .andExpect(jsonPath("$.data.pv").value(30));
-
-        verify(remoteService).oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00");
-    }
-
-    @Test
-    void shortLinkWindowStatsReturnsFailureWhenProjectBusinessResultFails() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00"))
-                .thenReturn(failure("B000001", "project stats query failed"));
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("gid", "g1")
-                        .param("fullShortUrl", "nurl.ink/abc123")
-                        .param("startTime", "2026-07-10T00:00:00")
-                        .param("endTime", "2026-07-10T02:00:00"))
-                .andExpect(status().isOk())
+    void missingEnvelopeIsAnErrorRatherThanAnEmptyDataset() throws Exception {
+        when(client.query(any())).thenReturn(new JSONObject(Map.of("code", "0")));
+        mvc.perform(window())
                 .andExpect(jsonPath("$.code").value("C000001"))
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test
-    void shortLinkWindowStatsReturnsFailureWhenProjectDataIsMissing() throws Exception {
-        GroupService groupService = mock(GroupService.class);
-        ShortLinkActualRemoteService remoteService = mock(ShortLinkActualRemoteService.class);
-        when(groupService.count(any(Wrapper.class))).thenReturn(1L);
-        when(remoteService.oneShortLinkStats("nurl.ink/abc123", "g1", "2026-07-10 00:00:00", "2026-07-10 02:00:00"))
-                .thenReturn(Results.success(null));
-        MockMvc mockMvc = mockMvc(groupService, remoteService);
-
-        mockMvc.perform(get("/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats")
-                        .header("X-Agent-Internal-Token", "internal-token")
-                        .header("X-Agent-Username", "zhangsan")
-                        .param("gid", "g1")
-                        .param("fullShortUrl", "nurl.ink/abc123")
-                        .param("startTime", "2026-07-10T00:00:00")
-                        .param("endTime", "2026-07-10T02:00:00"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("C000001"))
-                .andExpect(jsonPath("$.data").doesNotExist());
+    void unavailableMetricsRemainAbsentWhileQualityAndSnapshotRemainVisible() throws Exception {
+        when(client.query(any()))
+                .thenReturn(
+                        envelope(
+                                List.of(),
+                                null,
+                                Map.of(
+                                        "snapshotId",
+                                        "partial-snapshot",
+                                        "completeness",
+                                        "PARTIAL",
+                                        "missingMetrics",
+                                        List.of("denied"))));
+        mvc.perform(window())
+                .andExpect(jsonPath("$.code").value("0"))
+                .andExpect(jsonPath("$.data.metrics").doesNotExist())
+                .andExpect(jsonPath("$.data.meta.completeness").value("PARTIAL"))
+                .andExpect(jsonPath("$.data.meta.missingMetrics[0]").value("denied"));
     }
 
-    private MockMvc mockMvc(GroupService groupService, ShortLinkActualRemoteService remoteService) {
-        AgentAdminConfiguration configuration = new AgentAdminConfiguration();
-        configuration.setInternalToken("internal-token");
-        return MockMvcBuilders
-                .standaloneSetup(new AgentToolInternalController(groupService, remoteService))
-                .addFilters(new AgentInternalToolApiFilter(configuration))
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
-
-    private ShortLinkGroupRespDTO group(String gid) {
-        ShortLinkGroupRespDTO group = new ShortLinkGroupRespDTO();
-        group.setGid(gid);
-        group.setName(gid + "-name");
-        return group;
-    }
-
-    private Page<ShortLinkPageRespDTO> page(ShortLinkPageRespDTO link) {
-        return page(1L, 500L, 1L, List.of(link));
-    }
-
-    private Page<ShortLinkPageRespDTO> page(long current, long size, long total, List<ShortLinkPageRespDTO> links) {
-        Page<ShortLinkPageRespDTO> page = new Page<>(current, size);
-        page.setRecords(links);
-        page.setTotal(total);
-        return page;
-    }
-
-    private List<ShortLinkPageRespDTO> inactiveLinks(int count) {
-        return java.util.stream.IntStream.range(0, count)
-                .mapToObj(index -> link("g1", "nurl.ink", "idle-" + index, 0, 0))
-                .toList();
-    }
-
-    private ShortLinkPageRespDTO link(String gid, String domain, String shortUri, int todayPv, int totalPv) {
-        ShortLinkPageRespDTO link = new ShortLinkPageRespDTO();
-        link.setGid(gid);
-        link.setDomain(domain);
-        link.setShortUri(shortUri);
-        link.setFullShortUrl(domain + "/" + shortUri);
-        link.setTodayPv(todayPv);
-        link.setTotalPv(totalPv);
-        return link;
-    }
-
-    private <T> Result<T> failure(String code, String message) {
-        return new Result<T>()
-                .setCode(code)
-                .setMessage(message);
+    @Test
+    void pageSizeExceedingBudgetFailsBeforeAnalyticsAuthority() throws Exception {
+        mvc.perform(
+                        request("risk/active-short-links")
+                                .param("since", "2026-07-03T00:00:00Z")
+                                .param("endTime", "2026-07-10T00:00:00Z")
+                                .param("pageSize", "501"))
+                .andExpect(jsonPath("$.code").value("A000001"));
+        verifyNoInteractions(client, legacy);
     }
 }

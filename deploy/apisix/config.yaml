@@ -1,0 +1,33 @@
+# Apache APISIX 3.11.0, standalone data plane. Admin API is disabled.
+apisix:
+  node_listen: 9080
+  enable_admin: false
+  extra_lua_path: "/opt/shortlink/?.lua"
+deployment:
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
+plugins:
+  - shortlink-boundary
+  - shortlink-request-logger
+  - limit-req
+  - limit-conn
+  - response-rewrite
+nginx_config:
+  worker_processes: 2
+  http_configuration_snippet: |
+    lua_shared_dict shortlink_edge_metrics 1m;
+    server {
+      listen 127.0.0.1:9099;
+      location = /shortlink/metrics {
+        content_by_lua_block {
+          require("apisix.plugins.shortlink-request-logger").metrics()
+        }
+      }
+    }
+  http:
+    client_max_body_size: 8m
+    keepalive_timeout: 60s
+    client_header_timeout: 10s
+    client_body_timeout: 10s
+#END

@@ -1,0 +1,137 @@
+# 持续吞吐瓶颈深析与突破方向
+
+2026-09-08，基于报告14的封存制品、已结束的短／长档和当前实现做离线分析。未启动服务或追加压测，未修改生产代码。原 90 秒 PASS、300 秒未完成的 FAIL、220 个客户端未确认及事件拒绝记录全部保留。
+
+## 1. 当前瓶颈的准确定位
+
+当前已验证的失败点是 **Redirect 到 Kafka 之间的有界事件接纳／交付通道**。优化后的 HTTP 跳转在 90 秒短档达到约 5001 正确请求/s、P99=31ms；持续测试因 click rejected +105、result rejected +235 提前停止。它限制的是“HTTP 正确且事件不丢的持续容量”。绝对 HTTP 峰值和长期稳定 QPS 上限均未确定。
+
+根因应优先排查：接纳至最终 ACK 的预约名额在短时间内不能及时周转，以及发送、回调、批量度和共享资源的相互影响。现有数据尚不能证明其中哪一个是唯一根因。Kafka 消费者不参与 Producer ACK；本轮没有运行 Flink/ClickHouse 统计消费压测，不能把这次问题归因为消费速度不够。
+
+| 判断 | 证据与强度 |
+|---|---|
+| Redirect 发布接纳发生拒绝 | 已证实；两类拒绝增长，其余12项事件失败计数增量0 |
+| 整个5秒窗口没有停止交付 | 已证实；首次拒绝区间 click/result仍分别交付24706/24599条 |
+| 一次性关闭发布器导致拒绝 | 与证据不符；同一实例随后每lane又有8283次尝试、无新增拒绝并成功排空 |
+| 正常队列不变量下 queue.offer 满 | 代码推理不支持；待入队项已占一个预约，其余项最多C−1，不能填满C容量队列 |
+| 预约槽短暂耗尽 | 优先候选；固定小事件、可恢复拒绝符合这一表现，但缺精确reason与实际生效容量快照 |
+| Kafka broker 持续满载 | 未证实；缺同窗broker CPU、请求队列、磁盘延迟和客户端ACK指标 |
+| GC或整机CPU是单一根因 | 未证实；粗采样未显示多秒GC停顿或持续耗尽共享8核，短时调度/单线程等待仍未排除 |
+
+上表的 queue.offer 推理以“一项一次预约、至多一个排队引用、回调一次结算”等正常不变量为前提，不是完整并发形式化证明。固定负载的单事件超限不符合常见表现，但无拒绝原因快照时仍不能冒充实测排除。
+
+## 2. 首次失败窗口透露了什么
+
+首次非零拒绝位于 quality 自身时间的 **(16:25:15.212, 16:25:20.212] UTC**，相当于正式期约44.3～49.3秒。监控随后中断发生器，最终正式记录50.924秒。[离线时序](../../../../../.work/redirect-bottleneck-deep-20260908/timeline.md)、[可复算数据](../../../../../.work/redirect-bottleneck-deep-20260908/timeline.json)
+
+| 观察值 | 前一区间 | 首次拒绝区间 |
+|---|---:|---:|
+| 区间长度 | 5.015s | 5.000s |
+| click 尝试／交付／拒绝 | 25039／25037／0 | 24842／24706／105 |
+| result 尝试／交付／拒绝 | 25039／25073／0 | 24842／24599／235 |
+| 区间末 pending，click/result | 23／11 | 54／19 |
+| G1 evacuation 次数／累计暂停 | 20／51ms | 21／78ms |
+| Redirect名义CPU | 231.23% | 240.64% |
+| APISIX九个子进程合计CPU | 344.75% | 315.06% |
+
+这是相邻5秒观察的差量，不是请求或ACK的毫秒级时序。CPU读数来自并行采样包络后读取的/proc，以上分母为快照起点间隔，存在时间偏差；100%表示一个逻辑核。不能直接用两列CPU相加宣布整个8核饱和。
+
+长档离散pending采样峰为54/106，不能代表真实瞬时峰。Redis观察器耗时包含docker exec，不能当Redis业务响应延迟；首次拒绝区间Redis错误/淘汰增量0，EVALSHA执行均值约67.14微秒，也不支持仅凭观察器1.16秒耗时认定Redis卡顿。没有抓取Kafka数据卷的IO await/队列、Windows宿主CPU、线程调度延迟或锁等待。
+
+## 3. 实现层：异步并未消除所有同步依赖
+
+两个lane各自有Producer、工作线程、队列和预算，但仍共享JVM堆、CPU及同一个broker。单条事件的预约覆盖：
+
+```mermaid
+flowchart LR
+    A[请求线程序列化] --> B[offer：预约名额和字节]
+    B --> C[应用队列]
+    C --> D[后台调用 Producer.send]
+    D --> E[Kafka客户端批次与发送]
+    E --> F[Broker ACK]
+    F --> G[回调 terminal：归还名额]
+    G -. 与offer共用同一monitor .-> B
+```
+
+`send()`已异步使用，不存在逐条`.get()`等待ACK。它仍可能因metadata或buffer等待而阻塞后台工作线程；ACK回调通常在Kafka I/O线程执行。应用回调变慢也会延迟该Producer继续发送。[Kafka 3.9 Producer说明](https://kafka.apache.org/39/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html)
+
+### 3.1 共享锁和重复编码是具体可优化项
+
+[AsyncKafkaPublisher](../../../../../shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/AsyncKafkaPublisher.java:150) 的 `offer` 整段同步，里面为长度统计进行两次UTF-8编码并分配数组；之后StringSerializer还会编码。JSON字符串的创建在调用offer之前，也仍由请求链执行。`terminal` 与 `quality` 同样竞争这把锁。
+
+若入队线程频繁抢锁，ACK已到达后的回调可能不能及时释放预约；若后台send被阻塞，应用排队项也继续占预约。两者都会表现为本地拒绝，无法仅从rejected区分。当前没有JFR/线程锁等待证据，因此锁竞争是代码支持的优先验证项，尚不是已证实根因。
+
+最小改动顺序：先把字节计算移出共享锁；再评估每条事件序列化一次得到不可变byte[]、使用ByteArraySerializer，保留相同wire bytes和重试身份。两类事件仍各有自己的payload，不能共用一份JSON。锁外预编码的并发暂存也需有界，不能为此新增无限队列。回调只做有界终态结算，避免日志、额外编码或外部调用。不能简单删掉同步：现有quality要求attempted=delivered+failed+rejected+pending，并发快照、预算释放和重复回调一次结算必须一起验证。
+
+### 3.2 队列预算应转换成可承受停顿时间
+
+封存属性／源码默认值为每lane1000条、8MiB，单事件上限16KiB。按每lane5000事件/s计算，若原来为空且归还完全停顿，**1000÷5000≈0.2秒**即可用完条数预算。这是预算模型，不是实测ACK延迟；实际生效值的观测缺口见本节末。
+
+更一般地，预算至少覆盖观察窗口中“累计接纳−累计终态”的最大差额，并给突发留余量。排队、客户端等待、网络、broker和回调调度均计入持有时间。把1000改为10000只能扩大可承受停顿；如果长期输入大于交付能力，仍会耗尽，而且会扩大内存和丢失窗口。直接提前释放到Kafka内部内存也只是转移未确认数据，需要重新核验总内存和交付质量。
+
+生效配置有一个观测缺口：supervisor继承环境，quality未暴露最终capacity/byteLimit/eventLimit；本轮只能核对封存属性与源代码，不能重建当时所有环境覆盖。下一轮应冻结这些非敏感有效值。[封存检查](../../../../../.work/redirect-bottleneck-deep-20260908/runtime-evidence.json)
+
+### 3.3 Kafka批量与压缩存在计划／实现差异
+
+| 参数 | 主计划的开发起点 | 当前Redirect实现 |
+|---|---:|---:|
+| batch.size | 65536 | 未设置，Kafka3.9默认16384 |
+| compression.type | zstd | 未设置，默认none |
+| linger.ms | 5 | 5 |
+| max.block.ms | 100 | 500 |
+| delivery.timeout.ms | 120000 | 10000 |
+
+当前安全配置入口只能覆盖SSL/SASL等传输设置，未提供批大小或压缩的配置入口。计划数值本身不是必须原样上线的最佳值；差异意味着应把这部分重新纳入实现评估，而非认为已经完成调优。[固定版本配置源码](https://raw.githubusercontent.com/apache/kafka/3.9.0/clients/src/main/java/org/apache/kafka/clients/producer/ProducerConfig.java)、[Kafka3.9配置说明](https://kafka.apache.org/39/configuration/producer-configs/)
+
+优先把批大小/压缩变成有界显式配置，分别对比16KiB/none与64KiB/zstd，记录批量度、压缩率、CPU和ACK持有时间。更大的batch只是上限：若linger先到且批次本来没有填满，单独放大batch可能没有收益。加长超时也不会提高发送速率，反而可能让预约占用更久；不应直接照抄120秒。
+
+## 4. 架构层：发布请求放大和资源竞争
+
+### 4.1 每次成功GET产生三条入口记录
+
+当前正常GET分别产生click、Redirect result和APISIX EDGE，5000跳转/s对应约15000原始事件/s。它们用途不同：PV以CLICK为权威，业务结果承担拒绝口径，EDGE保留网关未转发、上游异常和客户端中断等事实；不能直接删除一条流而声称语义不变。
+
+尤其是网关合批仍较小：短档526427条事件产生442069次Produce，平均**1.190825条/请求**；长档331044/235138，平均**1.407871条/请求**。这些是包含预热和排空的完整端点差量。8个worker×4发送槽虽减少单槽等待，也可能把现成批次分散成许多小请求。edge自身没有拒绝，仍可能给共享broker增加请求处理压力；实际贡献缺broker指标，不能据此归因。
+
+短期值得单独比较8worker下1/2/4发送槽，保持节点2000条/16MiB、ACK及其他资源不变；之后才考虑每worker有界的小延迟聚合。验证目标包括Produce请求数、批量度、事件年龄、队列峰值和Redirect ACK，而不只看HTTP QPS。额外等待必须计入原事件截止时间与总预算。
+
+### 4.2 中期可研究一个业务权威事件
+
+候选 `redirect.access.v2` 可同时承载业务结果与成功GET点击字段，进入Kafka后派生CLICK和REQUEST视图；HEAD和拒绝明确不派生PV。EDGE仍独立保留。这可将正常GET的原始入口记录从3条降到2条、Redirect本地提交从2次降到1次，并避免本地两条业务流分别接纳造成半成功。
+
+收益是候选设计，尚未实现：派生输出、重算、归档与保留期可能保留原成本，不能承诺总存储减少1/3。统一schema、eventId、事实发生点、分区key、去重、sourceCut、归档和旧数据重建都需版本化。成功洪峰与拒绝洪峰的配额隔离仍要保留。Agent Tool继续通过既有统计查询链路读取StatsEnvelope，不另建消费者；消费者和质量覆盖契约须同步适配。
+
+### 4.3 可用性和采集完整性要分别验收
+
+主计划明确普通运营统计、内存有界、队列满继续跳转及损失可观测；Controller没有等待offer成功或Kafka ACK后才返回302。因此此次HTTP成功而事件拒绝符合过载降级行为，但不满足正常负载零拒绝的容量验收。保留这个门槛，不把FAIL改成PASS。
+
+如果未来要求“每次成功跳转在崩溃后都可追溯”，必须改变耐久性边界：在承诺302前获得耐久确认，或先写有恢复协议的持久化日志。异步响应式等待不等于阻塞Netty线程，但仍增加端到端等待与在途数量；本地WAL必须定义fsync/批提交、磁盘耗尽、重放去重及整机丢失等失败域。sidecar只有内存ACK也不构成耐久确认。新增等待还可能跨越路由／策略证明期限，必须限制等待并在返回前重新验证，处理“事件已确认但原决策已失效”的语义，且不能重复扣额；不能只在当前最后一次验证后插入等待。当前普通统计范围下，优先优化现有发布器，不立即引入这类更重机制。
+
+## 5. 扩容顺序及下一处潜在限制
+
+- 首先拆开发生器、网关/Redirect与broker的物理资源。现有APISIX和四Java共享CPU0–7，MySQL/Redis/Kafka/MinIO共享8–11，全部仍在同一台WSL宿主上；CPU亲和不隔离磁盘、宿主调度或内存带宽。
+- 在单实例拒绝原因可观测后，测试多个Redirect实例，同时区分固定总资源与增加资源。实例增加会增加Producer、连接、缓存和回源，并不能假设吞吐线性增长。
+- Kafka扩partition/broker应根据各分区流量、请求延迟、磁盘、ISR与CPU决定。增加分区不一定增加物理磁盘能力，新增broker也需要实际重新分布分区。当前RF=1、2分区的诊断结果不能当生产多副本可靠性成本。
+- 10条热链未覆盖长尾工作集。当前路由/策略观察TTL最多1000ms，路由及普通策略证明要求剩余预算超过500ms；自然策略转换裁短的证明按观察TTL剩余预算判断，同时仍强制尚未到达nextTransitionAt并最终复核，不是一律要求离自然转换超过500ms。路由与策略共享200/s回源预算，更多活跃资源或副本可先触发回源门槛，不能只扩大缓存条数或放宽策略有效期解决。[PolicyResolver](../../../../../shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/risk/PolicyResolver.java:109)
+- 实际封存服务是Reactor Netty/WebFlux，未包含Tomcat。`server.tomcat.threads.max=64`不控制Redirect工作线程；应记录实际event-loop、JVM ActiveProcessorCount和连接配置，避免调错参数。
+
+## 6. 建议执行顺序与判定标准
+
+| 优先级 | 工作 | 必须得到的证据 |
+|---|---|---|
+| P0 | 拒绝原因与有效配置快照；排队/在途分开、最高占用、最老年龄、接纳至ACK、send调用/回调耗时 | 下次拒绝能定位到closed/size/slots/bytes/queue，而不是合并计数 |
+| P1 | UTF-8/序列化去重、缩短共同锁临界区、回调快速归还 | 相同预算下锁等待/分配/预约持有下降，重复回调/重试/并发快照/关闭不变量通过 |
+| P2 | Redirect批大小和压缩；网关发送槽及有界合批独立对照 | 批量度提升且ACK/事件年龄、CPU、队列峰值不恶化；不改变ACK和可靠容量门槛 |
+| P3 | 独立资源、多Redirect、生产副本拓扑与全消费链压测 | HTTP和完整采集稳定，consumer lag有界可恢复，实际查询覆盖跟上；更高QPS有对应完整测量窗口 |
+| 中期 | 业务权威事件v2及派生模型 | PV/HEAD/拒绝/EDGE语义、重传去重、历史重建、Agent质量门槛一致 |
+
+Kafka客户端优先接入 `buffer-available-bytes`、`bufferpool-wait-time-ns-total`、`record-queue-time-*`、`request-latency-*`、`records-per-request-avg`、批大小和重试；这些客户端批次指标不能替代应用接纳至ACK的逐事件持有时间。broker侧关联Produce请求排队/处理/响应、磁盘与ISR。[Kafka官方监控定义](https://kafka.apache.org/39/operations/monitoring/)
+
+下一轮应先通过同资源5000/s完整持续窗口，再提高档位；保留事件拒绝/失败0、客户端未确认0、drops0、P99及有界排空门槛。故障注入可验证有界降级和恢复，但其允许的损失不能混入正常容量PASS。当前更值得先突破的是发布器名额周转与全链批量效率；架构扩容建立在这些边界可测之后。
+
+## 7. 同步发现的独立正确性缺口
+
+以下两项应进入对应重构的验收，不作为本次首次拒绝的根因解释。
+
+1. **关闭与入队存在竞态。** `close()`在共同monitor之外修改running；原始offer或重试可能检查到running=true后被暂停，关闭线程已让worker排空并退出，原线程随后仍将Pending放入队列，导致没有worker继续结算。需统一接纳、重试与OPEN/DRAINING/CLOSED生命周期边界，并以受控线程交错验证无关闭后入队、无残留预约、每项仅释放一次。不能通过在持锁期间join依赖同锁的worker修复，以免引入关闭死锁。本次拒绝后同实例继续交付且最终pending=0，与该关闭竞态的表现不同。[关闭代码](../../../../../shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/AsyncKafkaPublisher.java:267)
+2. **现有EDGE与业务事件不能假定按requestId关联。** APISIX覆盖并注入X-Request-ID，但Redirect自行生成上下文UUID；当前EnrichedRecord也未保留method/requestId/traceId。V2设计若需要跨边界逐请求审计，应显式保留来自可信网关的尝试关联标识、独立业务决策／事件身份以及方法字段，并同步投影和历史版本。关联ID不能替代事件去重身份，也不能合并掉重试、未转发或客户端中断事实。[网关边界](../../../../../deploy/apisix/plugins/apisix/plugins/shortlink-boundary.lua:33)、[Redirect上下文](../../../../../shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/web/RedirectController.java:61)、[增强记录](../../../../../event-contract/src/main/java/com/jupiter/shortlink/contract/EnrichedRecord.java:6)

@@ -1,0 +1,30 @@
+name: shortlink-refactor-it
+services:
+  connect:
+    image: apache/kafka:3.9.0
+    entrypoint: ["/opt/kafka/bin/connect-distributed.sh", "/etc/shortlink/worker.properties"]
+    ports: ["127.0.0.1:18083:8083"]
+    environment:
+      KAFKA_HEAP_OPTS: -Xms128m -Xmx384m
+    volumes:
+      - ../../.work/connect/plugin:/opt/shortlink-connect:ro
+      - ../../.work/connect/worker.properties:/etc/shortlink/worker.properties:ro
+      - ../../.work/connect/clickhouse.properties:/run/secrets/clickhouse.properties:ro
+  apisix-stubs:
+    image: nginx:1.27.4-alpine
+    volumes:
+      - ./nginx-stubs.conf:/etc/nginx/nginx.conf:ro
+  apisix:
+    image: apache/apisix:3.11.0-debian
+    ports: ["127.0.0.1:19080:9080"]
+    environment:
+      KAFKA_HOST: kafka
+      APISIX_INSTANCE_ID: shortlink-adapter-it
+      MANAGEMENT_HOST: admin.it.test
+      SHORTLINK_HOST: s.it.test
+      GATEWAY_UPSTREAM_HOST: apisix-stubs
+      REDIRECT_UPSTREAM_HOST: apisix-stubs
+    volumes:
+      - ../apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ../apisix/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+      - ../apisix/plugins:/opt/shortlink:ro

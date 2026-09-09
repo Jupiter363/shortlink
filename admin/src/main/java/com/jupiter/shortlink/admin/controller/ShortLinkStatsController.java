@@ -1,65 +1,94 @@
 package com.jupiter.shortlink.admin.controller;
 
-
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
 import com.jupiter.shortlink.admin.common.convention.result.Result;
-import com.jupiter.shortlink.admin.remote.ShortLinkActualRemoteService;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkGroupStatsReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkStatsAccessRecordReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.req.ShortLinkStatsReqDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsAccessRecordRespDTO;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkStatsRespDTO;
+import com.jupiter.shortlink.admin.common.convention.result.Results;
+import com.jupiter.shortlink.admin.dto.resp.analytics.StatsEnvelope;
+import com.jupiter.shortlink.admin.remote.analytics.AgentAnalyticsFacade;
+import com.jupiter.shortlink.admin.remote.dto.req.*;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.web.bind.annotation.*;
 
 /**
- * 短链接监控控制层
+ * Interactive dashboards and Agent tools share the same currently authorized analytics snapshots.
  */
 @RestController(value = "shortLinkStatsControllerByAdmin")
 @RequiredArgsConstructor
 public class ShortLinkStatsController {
+    private final AgentAnalyticsFacade analytics;
 
-
-    private final ShortLinkActualRemoteService shortLinkActualRemoteService;
-
-    /**
-     * 访问单个短链接指定时间内监控数据
-     */
     @GetMapping("/api/short-link/admin/v1/stats")
-    public Result<ShortLinkStatsRespDTO> shortLinkStats(ShortLinkStatsReqDTO requestParam) {
-        return shortLinkActualRemoteService.oneShortLinkStats(requestParam.getFullShortUrl(), requestParam.getGid(), requestParam.getStartDate(), requestParam.getEndDate());
+    public Result<StatsEnvelope> shortLinkStats(ShortLinkStatsReqDTO q) {
+        return Results.success(
+                analytics.query(
+                        q.getGid(),
+                        q.getFullShortUrl(),
+                        q.getStartDate(),
+                        q.getEndDate(),
+                        null,
+                        null,
+                        null,
+                        500,
+                        "METRICS"));
     }
 
-    /**
-     * 访问分组短链接指定时间内监控数据
-     */
     @GetMapping("/api/short-link/admin/v1/stats/group")
-    public Result<ShortLinkStatsRespDTO> groupShortLinkStats(ShortLinkGroupStatsReqDTO requestParam) {
-
-        return shortLinkActualRemoteService.groupShortLinkStats(requestParam.getGid(), requestParam.getStartDate(), requestParam.getEndDate());
+    public Result<StatsEnvelope> groupShortLinkStats(ShortLinkGroupStatsReqDTO q) {
+        return Results.success(
+                analytics.query(
+                        q.getGid(),
+                        null,
+                        q.getStartDate(),
+                        q.getEndDate(),
+                        null,
+                        null,
+                        null,
+                        500,
+                        "METRICS"));
     }
 
-    /**
-     * 访问单个短链接指定时间内访问记录监控数据
-     */
     @GetMapping("/api/short-link/admin/v1/stats/access-record")
-    public Result<Page<ShortLinkStatsAccessRecordRespDTO>> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
-        return shortLinkActualRemoteService.shortLinkStatsAccessRecord(requestParam.getFullShortUrl(), requestParam.getGid(), requestParam.getStartDate(), requestParam.getEndDate());
+    public Result<StatsEnvelope> shortLinkStatsAccessRecord(
+            ShortLinkStatsAccessRecordReqDTO q,
+            @RequestParam(required = false) String snapshotId,
+            @RequestParam(required = false) String cursor) {
+        requireCursor(q.getCurrent(), snapshotId, cursor);
+        return Results.success(
+                analytics.query(
+                        q.getGid(),
+                        q.getFullShortUrl(),
+                        q.getStartDate(),
+                        q.getEndDate(),
+                        null,
+                        snapshotId,
+                        cursor,
+                        Math.toIntExact(q.getSize()),
+                        "ACCESS_RECORDS"));
     }
 
-    /**
-     * 访问分组短链接指定时间内访问记录监控数据
-     */
     @GetMapping("/api/short-link/admin/v1/stats/access-record/group")
-    public Result<Page<ShortLinkStatsAccessRecordRespDTO>> groupShortLinkStatsAccessRecord(ShortLinkGroupStatsAccessRecordReqDTO requestParam) {
-        return shortLinkActualRemoteService.groupShortLinkStatsAccessRecord(
-                requestParam.getGid(),
-                requestParam.getStartDate(),
-                requestParam.getEndDate(),
-                requestParam.getCurrent(),
-                requestParam.getSize()
-        );
+    public Result<StatsEnvelope> groupShortLinkStatsAccessRecord(
+            ShortLinkGroupStatsAccessRecordReqDTO q,
+            @RequestParam(required = false) String snapshotId,
+            @RequestParam(required = false) String cursor) {
+        requireCursor(q.getCurrent(), snapshotId, cursor);
+        return Results.success(
+                analytics.query(
+                        q.getGid(),
+                        null,
+                        q.getStartDate(),
+                        q.getEndDate(),
+                        null,
+                        snapshotId,
+                        cursor,
+                        Math.toIntExact(q.getSize()),
+                        "ACCESS_RECORDS"));
+    }
+
+    private static void requireCursor(long current, String snapshot, String cursor) {
+        if (current < 1 || current > 1 && (snapshot == null || cursor == null))
+            throw new ClientException("Continuation requires a fixed snapshotId and cursor");
     }
 }

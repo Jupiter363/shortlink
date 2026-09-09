@@ -1,0 +1,2 @@
+# Preserve exact bytes for documentation and evidence recorded in SHA256 manifests.
+** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

@@ -1,0 +1,91 @@
+{
+  "status": "TESTS_PASSED",
+  "sourceSha256": {
+    "shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/ChangeFanout.java": "9197fa4d63b989ef43f567c9a84d22d5eae2ca66fba30e92bd1ad465eead805c",
+    "shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/InvalidationBootstrap.java": "1907a2806a3f0044f460a11eee84ba7e63ee0b28bbc99625c6bdb8129bb1cf63",
+    "shortlink-redirect/src/test/java/com/jupiter/shortlink/redirect/event/ChangeFanoutIT.java": "017df7c14ee39e23051e312a4d0ed58a39c4b0f4b5cae20da0a9b6b4e599ae1c",
+    "shortlink-redirect/src/test/java/com/jupiter/shortlink/redirect/event/InvalidationBootstrapTest.java": "c43c4195c70ebce65382e9b4a9450d5163fc72b0c7be8b3237d537fa18bee34b"
+  },
+  "reports": [
+    {
+      "path": "shortlink-redirect/target/surefire-reports/TEST-com.jupiter.shortlink.redirect.event.InvalidationBootstrapTest.xml",
+      "sha256": "7b734d20ab6d372d867b366cc78a6fe8be63efe010e4493a141f81975a5e3f6a",
+      "tests": 18
+    },
+    {
+      "path": "shortlink-redirect/target/surefire-reports/TEST-com.jupiter.shortlink.redirect.event.ChangeFanoutIT.xml",
+      "sha256": "920c35b12b73dda09f729a145c96adadef89a3cddfed3b08ac67da69eafd4dc5",
+      "tests": 2
+    }
+  ],
+  "brokerBefore": {
+    "id": "950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+    "image": "sha256:fbc7d7c428e3755cf36518d4976596002477e4c052d1f80b5b9eafd06d0fff2f",
+    "pid": 1978,
+    "running": true,
+    "ports": {
+      "19092/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "19092"
+        }
+      ],
+      "9092/tcp": null
+    },
+    "startTicks": 40912
+  },
+  "command": [
+    "/usr/bin/mvn",
+    "-o",
+    "-Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository",
+    "-pl",
+    "shortlink-redirect",
+    "-am",
+    "-Dtest=InvalidationBootstrapTest,ChangeFanoutIT",
+    "-Dsurefire.failIfNoSpecifiedTests=false",
+    "test"
+  ],
+  "allowedMaximumNewHints": 20,
+  "plannedNewHints": 16,
+  "exitCode": 0,
+  "brokerAfter": {
+    "id": "950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+    "image": "sha256:fbc7d7c428e3755cf36518d4976596002477e4c052d1f80b5b9eafd06d0fff2f",
+    "pid": 1978,
+    "running": true,
+    "ports": {
+      "19092/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "19092"
+        }
+      ],
+      "9092/tcp": null
+    },
+    "startTicks": 40912
+  },
+  "consumerCloseProof": [
+    {
+      "workerTerminated": true,
+      "consumerClosed": true,
+      "group": "redirect-invalidation-b-bootstrap-it-362e170370c640b784955d6c375a7244"
+    },
+    {
+      "workerTerminated": true,
+      "consumerClosed": true,
+      "group": "redirect-invalidation-a-bootstrap-it-362e170370c640b784955d6c375a7244"
+    },
+    {
+      "workerTerminated": true,
+      "consumerClosed": true,
+      "group": "redirect-invalidation-bootstrap-it-f3afc1e61f334000802ecf3dc951ac75"
+    },
+    {
+      "workerTerminated": true,
+      "consumerClosed": true,
+      "group": "redirect-invalidation-bootstrap-it-f3afc1e61f334000802ecf3dc951ac75"
+    }
+  ],
+  "elapsedSeconds": 87.44308315499984,
+  "logSha256": "e020f0afca53e5f5e4d64bfe6f162387122d7c16a092f530b065605f6663ddd7"
+}

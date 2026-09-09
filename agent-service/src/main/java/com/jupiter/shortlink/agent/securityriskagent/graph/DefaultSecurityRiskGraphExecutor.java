@@ -11,9 +11,10 @@ import com.alibaba.cloud.ai.graph.checkpoint.savers.mysql.MysqlSaver;
 import com.alibaba.cloud.ai.graph.exception.GraphStateException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient;
+import com.jupiter.shortlink.agent.harness.checkpoint.AgentGraphThreadKeyFactory;
 import com.jupiter.shortlink.agent.harness.checkpoint.GraphCheckpoint;
 import com.jupiter.shortlink.agent.harness.checkpoint.GraphCheckpointStore;
-import com.jupiter.shortlink.agent.harness.checkpoint.AgentGraphThreadKeyFactory;
 import com.jupiter.shortlink.agent.harness.checkpoint.GraphSessionExecutionCoordinator;
 import com.jupiter.shortlink.agent.harness.checkpoint.MysqlGraphCompileConfigFactory;
 import com.jupiter.shortlink.agent.harness.runtime.AgentRunResult;
@@ -35,6 +36,7 @@ import com.jupiter.shortlink.agent.securityriskagent.prompt.SecurityRiskPromptBu
 import com.jupiter.shortlink.agent.securityriskagent.rule.SecurityRiskCardFactory;
 import com.jupiter.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import com.jupiter.shortlink.agent.tool.registry.AgentToolRegistry;
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -74,12 +76,12 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
     private final BaseCheckpointSaver checkpointSaver;
     private final CompiledGraph graph;
 
-    private final GraphSessionExecutionCoordinator executionCoordinator = GraphSessionExecutionCoordinator.global();
+    private final GraphSessionExecutionCoordinator executionCoordinator =
+            GraphSessionExecutionCoordinator.global();
 
     @Autowired
     public DefaultSecurityRiskGraphExecutor(
-            @Qualifier("agentExplanationChatClient")
-            ChatClient chatClient,
+            @Qualifier("agentExplanationChatClient") ChatClient chatClient,
             GraphCheckpointStore checkpointStore,
             AgentProperties agentProperties,
             AgentToolRegistry toolRegistry,
@@ -87,30 +89,34 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
             JdbcGroupRiskProfileRepository groupRiskProfileRepository,
             RiskCenterService riskCenterService,
             RiskPolicyService riskPolicyService,
-            MysqlSaver mysqlSaver
-    ) {
+            MysqlSaver mysqlSaver,
+            AgentAuthorityClient authority) {
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
-        this.intakeNode = new RiskIntakeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION
-        );
-        this.profileCandidateLoadNode = new ProfileCandidateLoadNode(
-                shortLinkRiskProfileRepository,
-                groupRiskProfileRepository,
-                agentProperties.getRisk().getProfile().getTopCandidateSize()
-        );
+        this.intakeNode =
+                new RiskIntakeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION);
+        this.profileCandidateLoadNode =
+                new ProfileCandidateLoadNode(
+                        shortLinkRiskProfileRepository,
+                        groupRiskProfileRepository,
+                        agentProperties.getRisk().getProfile().getTopCandidateSize(),
+                        authority);
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
-        this.llmExplanationNode = new RiskLlmExplanationNode(chatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
-        this.eventPersistNode = new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
+        this.llmExplanationNode =
+                new RiskLlmExplanationNode(
+                        chatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
+        this.eventPersistNode =
+                new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
         this.autoActionNode = new RiskAutoActionNode(riskPolicyService, agentProperties);
-        this.responseComposeNode = new RiskResponseComposeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION,
-                this.sanitizer
-        );
+        this.responseComposeNode =
+                new RiskResponseComposeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION,
+                        this.sanitizer);
         this.checkpointSaver = mysqlSaver;
         this.graph = compileGraph();
     }
@@ -119,26 +125,29 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
             LlmChatClient llmChatClient,
             GraphCheckpointStore checkpointStore,
             AgentProperties agentProperties,
-            AgentToolRegistry toolRegistry
-    ) {
+            AgentToolRegistry toolRegistry) {
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
-        this.intakeNode = new RiskIntakeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION
-        );
+        this.intakeNode =
+                new RiskIntakeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION);
         this.profileCandidateLoadNode = ProfileCandidateLoadNode.noop();
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
-        this.llmExplanationNode = new RiskLlmExplanationNode(llmChatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
+        this.llmExplanationNode =
+                new RiskLlmExplanationNode(
+                        llmChatClient,
+                        new SecurityRiskPromptBuilder(this.sanitizer),
+                        this.sanitizer);
         this.eventPersistNode = RiskEventPersistNode.noop();
         this.autoActionNode = RiskAutoActionNode.noop();
-        this.responseComposeNode = new RiskResponseComposeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION,
-                this.sanitizer
-        );
+        this.responseComposeNode =
+                new RiskResponseComposeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION,
+                        this.sanitizer);
         this.checkpointSaver = MemorySaver.builder().build();
         this.graph = compileGraph();
     }
@@ -148,38 +157,35 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
             ChatClient chatClient,
             GraphCheckpointStore checkpointStore,
             AgentProperties agentProperties,
-            AgentToolRegistry toolRegistry
-    ) {
+            AgentToolRegistry toolRegistry) {
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
-        this.intakeNode = new RiskIntakeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION
-        );
+        this.intakeNode =
+                new RiskIntakeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION);
         this.profileCandidateLoadNode = ProfileCandidateLoadNode.noop();
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
-        this.llmExplanationNode = new RiskLlmExplanationNode(
-                chatClient,
-                new SecurityRiskPromptBuilder(this.sanitizer),
-                this.sanitizer
-        );
+        this.llmExplanationNode =
+                new RiskLlmExplanationNode(
+                        chatClient, new SecurityRiskPromptBuilder(this.sanitizer), this.sanitizer);
         this.eventPersistNode = RiskEventPersistNode.noop();
         this.autoActionNode = RiskAutoActionNode.noop();
-        this.responseComposeNode = new RiskResponseComposeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION,
-                this.sanitizer
-        );
+        this.responseComposeNode =
+                new RiskResponseComposeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION,
+                        this.sanitizer);
         this.checkpointSaver = MemorySaver.builder().build();
         this.graph = compileGraph();
     }
 
     /**
-     * Compatibility constructor used by non-Spring risk graph callers. It
-     * keeps the full repository/service wiring but uses an in-memory saver;
-     * Spring production wiring uses the ChatClient + MysqlSaver constructor.
+     * Compatibility constructor used by non-Spring risk graph callers. It keeps the full
+     * repository/service wiring but uses an in-memory saver; Spring production wiring uses the
+     * ChatClient + MysqlSaver constructor.
      */
     public DefaultSecurityRiskGraphExecutor(
             LlmChatClient llmChatClient,
@@ -189,47 +195,71 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
             JdbcShortLinkRiskProfileRepository shortLinkRiskProfileRepository,
             JdbcGroupRiskProfileRepository groupRiskProfileRepository,
             RiskCenterService riskCenterService,
-            RiskPolicyService riskPolicyService
-    ) {
+            RiskPolicyService riskPolicyService) {
+        this(
+                llmChatClient,
+                checkpointStore,
+                agentProperties,
+                toolRegistry,
+                shortLinkRiskProfileRepository,
+                groupRiskProfileRepository,
+                riskCenterService,
+                riskPolicyService,
+                null);
+    }
+
+    public DefaultSecurityRiskGraphExecutor(
+            LlmChatClient llmChatClient,
+            GraphCheckpointStore checkpointStore,
+            AgentProperties agentProperties,
+            AgentToolRegistry toolRegistry,
+            JdbcShortLinkRiskProfileRepository shortLinkRiskProfileRepository,
+            JdbcGroupRiskProfileRepository groupRiskProfileRepository,
+            RiskCenterService riskCenterService,
+            RiskPolicyService riskPolicyService,
+            AgentAuthorityClient authority) {
         this.checkpointStore = checkpointStore;
         this.agentProperties = agentProperties;
         this.sanitizer = new SecurityRiskSanitizer();
-        this.intakeNode = new RiskIntakeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION
-        );
-        this.profileCandidateLoadNode = new ProfileCandidateLoadNode(
-                shortLinkRiskProfileRepository,
-                groupRiskProfileRepository,
-                agentProperties.getRisk().getProfile().getTopCandidateSize()
-        );
+        this.intakeNode =
+                new RiskIntakeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION);
+        this.profileCandidateLoadNode =
+                new ProfileCandidateLoadNode(
+                        shortLinkRiskProfileRepository,
+                        groupRiskProfileRepository,
+                        agentProperties.getRisk().getProfile().getTopCandidateSize(),
+                        authority);
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
-        this.llmExplanationNode = new RiskLlmExplanationNode(
-                llmChatClient,
-                new SecurityRiskPromptBuilder(this.sanitizer),
-                this.sanitizer
-        );
-        this.eventPersistNode = new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
+        this.llmExplanationNode =
+                new RiskLlmExplanationNode(
+                        llmChatClient,
+                        new SecurityRiskPromptBuilder(this.sanitizer),
+                        this.sanitizer);
+        this.eventPersistNode =
+                new RiskEventPersistNode(riskCenterService, groupRiskProfileRepository);
         this.autoActionNode = new RiskAutoActionNode(riskPolicyService, agentProperties);
-        this.responseComposeNode = new RiskResponseComposeNode(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION,
-                this.sanitizer
-        );
+        this.responseComposeNode =
+                new RiskResponseComposeNode(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION,
+                        this.sanitizer);
         this.checkpointSaver = MemorySaver.builder().build();
         this.graph = compileGraph();
     }
 
     @Override
     public AgentRunResult execute(SecurityRiskGraphRequest request) {
-        String graphThreadId = AgentGraphThreadKeyFactory.create(
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION,
-                request.sessionId()
-        );
+        String graphThreadId =
+                AgentGraphThreadKeyFactory.create(
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION,
+                        scopedSession(request));
         try {
-            return executionCoordinator.execute(graphThreadId, () -> executeSerialized(request, graphThreadId));
+            return executionCoordinator.execute(
+                    graphThreadId, () -> executeSerialized(request, graphThreadId));
         } catch (Exception ex) {
             if (request.isBatchExecution()) {
                 throw new IllegalStateException("Security risk graph execution failed", ex);
@@ -238,24 +268,42 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         }
     }
 
-    private AgentRunResult executeSerialized(SecurityRiskGraphRequest request, String graphThreadId) {
+    private AgentRunResult executeSerialized(
+            SecurityRiskGraphRequest request, String graphThreadId) {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("sessionId", request.sessionId());
         input.put("username", request.username());
+        input.put(
+                "principal",
+                request.principal() == null ? Map.of() : request.principal().toState());
+        input.put(
+                "profileRiskContext",
+                com.jupiter.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext
+                        .empty());
+        input.put("profileRiskDataSource", Map.of());
+        input.put("toolExecutions", List.of());
+        input.put("cards", List.of());
+        input.put(
+                "analysisInput",
+                request.analysisInput() == null
+                        ? Map.of()
+                        : request.analysisInput().toStateValue());
         input.put("message", request.message());
         input.put("traceId", request.traceId());
         if (request.analysisInput() != null) {
             input.put("analysisInput", request.analysisInput().toStateValue());
         }
         try {
-            Optional<OverAllState> state = graph.invoke(input, RunnableConfig.builder()
-                    .threadId(graphThreadId)
-                    .build());
+            Optional<OverAllState> state =
+                    graph.invoke(input, RunnableConfig.builder().threadId(graphThreadId).build());
             if (state.isEmpty()) {
                 if (request.isBatchExecution()) {
                     throw new IllegalStateException("Security risk graph produced no result");
                 }
-                return fallbackResult(request, "Security risk graph produced no result.", "Graph execution returned empty state");
+                return fallbackResult(
+                        request,
+                        "Security risk graph produced no result.",
+                        "Graph execution returned empty state");
             }
             AgentRunResult result = toRunResult(request, state.get());
             return saveCheckpointOrWarn(request, state.get(), result);
@@ -270,14 +318,62 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
     private CompiledGraph compileGraph() {
         try {
             return new StateGraph(SecurityRiskGraphDefinition.GRAPH_NAME, Map::of)
-                    .addNode(INTAKE_NODE, AsyncNodeAction.node_async(state -> tracedNode(INTAKE_NODE, state, this::intake)))
-                    .addNode(PROFILE_CANDIDATE_LOAD_NODE, AsyncNodeAction.node_async(state -> tracedNode(PROFILE_CANDIDATE_LOAD_NODE, state, this::loadProfileCandidates)))
-                    .addNode(RISK_TOOL_PLANNING_NODE, AsyncNodeAction.node_async(state -> tracedNode(RISK_TOOL_PLANNING_NODE, state, this::planAndExecuteTools)))
-                    .addNode(RISK_SCORING_NODE, AsyncNodeAction.node_async(state -> tracedNode(RISK_SCORING_NODE, state, this::scoreRisk)))
-                    .addNode(LLM_EXPLANATION_NODE, AsyncNodeAction.node_async(state -> tracedNode(LLM_EXPLANATION_NODE, state, this::explainWithLlm)))
-                    .addNode(RISK_EVENT_PERSIST_NODE, AsyncNodeAction.node_async(state -> tracedNode(RISK_EVENT_PERSIST_NODE, state, this::persistRiskEvents)))
-                    .addNode(RISK_AUTO_ACTION_NODE, AsyncNodeAction.node_async(state -> tracedNode(RISK_AUTO_ACTION_NODE, state, this::autoAction)))
-                    .addNode(RESPONSE_COMPOSE_NODE, AsyncNodeAction.node_async(state -> tracedNode(RESPONSE_COMPOSE_NODE, state, this::composeResponse)))
+                    .addNode(
+                            INTAKE_NODE,
+                            AsyncNodeAction.node_async(
+                                    state -> tracedNode(INTAKE_NODE, state, this::intake)))
+                    .addNode(
+                            PROFILE_CANDIDATE_LOAD_NODE,
+                            AsyncNodeAction.node_async(
+                                    state ->
+                                            tracedNode(
+                                                    PROFILE_CANDIDATE_LOAD_NODE,
+                                                    state,
+                                                    this::loadProfileCandidates)))
+                    .addNode(
+                            RISK_TOOL_PLANNING_NODE,
+                            AsyncNodeAction.node_async(
+                                    state ->
+                                            tracedNode(
+                                                    RISK_TOOL_PLANNING_NODE,
+                                                    state,
+                                                    this::planAndExecuteTools)))
+                    .addNode(
+                            RISK_SCORING_NODE,
+                            AsyncNodeAction.node_async(
+                                    state -> tracedNode(RISK_SCORING_NODE, state, this::scoreRisk)))
+                    .addNode(
+                            LLM_EXPLANATION_NODE,
+                            AsyncNodeAction.node_async(
+                                    state ->
+                                            tracedNode(
+                                                    LLM_EXPLANATION_NODE,
+                                                    state,
+                                                    this::explainWithLlm)))
+                    .addNode(
+                            RISK_EVENT_PERSIST_NODE,
+                            AsyncNodeAction.node_async(
+                                    state ->
+                                            tracedNode(
+                                                    RISK_EVENT_PERSIST_NODE,
+                                                    state,
+                                                    this::persistRiskEvents)))
+                    .addNode(
+                            RISK_AUTO_ACTION_NODE,
+                            AsyncNodeAction.node_async(
+                                    state ->
+                                            tracedNode(
+                                                    RISK_AUTO_ACTION_NODE,
+                                                    state,
+                                                    this::autoAction)))
+                    .addNode(
+                            RESPONSE_COMPOSE_NODE,
+                            AsyncNodeAction.node_async(
+                                    state ->
+                                            tracedNode(
+                                                    RESPONSE_COMPOSE_NODE,
+                                                    state,
+                                                    this::composeResponse)))
                     .addEdge(StateGraph.START, INTAKE_NODE)
                     .addEdge(INTAKE_NODE, PROFILE_CANDIDATE_LOAD_NODE)
                     .addEdge(PROFILE_CANDIDATE_LOAD_NODE, RISK_TOOL_PLANNING_NODE)
@@ -293,13 +389,20 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         }
     }
 
-    private Map<String, Object> tracedNode(String nodeName, OverAllState state, GraphNode node) throws Exception {
+    private Map<String, Object> tracedNode(String nodeName, OverAllState state, GraphNode node)
+            throws Exception {
         long startEpochMs = System.currentTimeMillis();
         Map<String, Object> output = new LinkedHashMap<>(node.apply(state));
-        output.put("traceEvents", appendTraceEvent(
-                state.value("traceEvents", List.of()),
-                traceEvent(state.value("traceId", ""), nodeName, "success", startEpochMs, null)
-        ));
+        output.put(
+                "traceEvents",
+                appendTraceEvent(
+                        state.value("traceEvents", List.of()),
+                        traceEvent(
+                                state.value("traceId", ""),
+                                nodeName,
+                                "success",
+                                startEpochMs,
+                                null)));
         return output;
     }
 
@@ -345,17 +448,25 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                 state.value("toolCalls", List.of()),
                 state.value("dataSources", List.of()),
                 state.value("traceEvents", List.of()),
-                state.value("warnings", List.of())
-        );
+                state.value("warnings", List.of()));
     }
 
-    private AgentRunResult saveCheckpointOrWarn(SecurityRiskGraphRequest request, OverAllState state, AgentRunResult result) {
+    private AgentRunResult saveCheckpointOrWarn(
+            SecurityRiskGraphRequest request, OverAllState state, AgentRunResult result) {
         long startEpochMs = System.currentTimeMillis();
         try {
             Optional<Long> checkpointVersion = saveCheckpoint(request, state, result);
             Map<String, Object> metadata = new LinkedHashMap<>();
             checkpointVersion.ifPresent(version -> metadata.put("checkpointVersion", version));
-            return withTraceEvent(result, traceEvent(request.traceId(), CHECKPOINT_SAVE_NODE, "success", startEpochMs, null, metadata));
+            return withTraceEvent(
+                    result,
+                    traceEvent(
+                            request.traceId(),
+                            CHECKPOINT_SAVE_NODE,
+                            "success",
+                            startEpochMs,
+                            null,
+                            metadata));
         } catch (Exception ex) {
             List<String> warnings = new ArrayList<>(result.warnings());
             warnings.add("Graph checkpoint save failed");
@@ -367,30 +478,38 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                     result.pendingActions(),
                     result.toolCalls(),
                     result.dataSources(),
-                    appendTraceEvent(result.traceEvents(), traceEvent(request.traceId(), CHECKPOINT_SAVE_NODE, "failed", startEpochMs, "Graph checkpoint save failed")),
-                    warnings
-            );
+                    appendTraceEvent(
+                            result.traceEvents(),
+                            traceEvent(
+                                    request.traceId(),
+                                    CHECKPOINT_SAVE_NODE,
+                                    "failed",
+                                    startEpochMs,
+                                    "Graph checkpoint save failed")),
+                    warnings);
         }
     }
 
-    private Optional<Long> saveCheckpoint(SecurityRiskGraphRequest request, OverAllState state, AgentRunResult result) {
+    private Optional<Long> saveCheckpoint(
+            SecurityRiskGraphRequest request, OverAllState state, AgentRunResult result) {
         if (!agentProperties.getGraph().isCheckpointEnabled()) {
             return Optional.empty();
         }
         long checkpointVersion = System.currentTimeMillis();
-        checkpointStore.save(new GraphCheckpoint(
-                request.sessionId(),
-                request.traceId(),
-                SecurityRiskGraphDefinition.GRAPH_NAME,
-                SecurityRiskGraphDefinition.GRAPH_VERSION,
-                checkpointJson(request, state, result),
-                checkpointVersion,
-                "FINISHED"
-        ));
+        checkpointStore.save(
+                new GraphCheckpoint(
+                        scopedSession(request),
+                        request.traceId(),
+                        SecurityRiskGraphDefinition.GRAPH_NAME,
+                        SecurityRiskGraphDefinition.GRAPH_VERSION,
+                        checkpointJson(request, state, result),
+                        checkpointVersion,
+                        "FINISHED"));
         return Optional.of(checkpointVersion);
     }
 
-    private String checkpointJson(SecurityRiskGraphRequest request, OverAllState state, AgentRunResult result) {
+    private String checkpointJson(
+            SecurityRiskGraphRequest request, OverAllState state, AgentRunResult result) {
         Map<String, Object> checkpoint = new LinkedHashMap<>();
         checkpoint.put("sessionId", request.sessionId());
         checkpoint.put("traceId", request.traceId());
@@ -403,10 +522,17 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         checkpoint.put("answer", sanitizer.sanitizeText(result.answer()));
         checkpoint.put("warnings", sanitizeForResponse(result.warnings()));
         checkpoint.put("cards", sanitizeForResponse(result.cards()));
-        checkpoint.put("toolExecutions", sanitizeForResponse(state.value("toolExecutions", List.of())));
-        checkpoint.put("profileRiskDataSource", sanitizeForResponse(state.value("profileRiskDataSource", Map.of())));
-        checkpoint.put("persistedRiskEvents", sanitizeForResponse(state.value("persistedRiskEvents", List.of())));
-        checkpoint.put("activatedPolicies", sanitizeForResponse(state.value("activatedPolicies", List.of())));
+        checkpoint.put(
+                "toolExecutions", sanitizeForResponse(state.value("toolExecutions", List.of())));
+        checkpoint.put(
+                "profileRiskDataSource",
+                sanitizeForResponse(state.value("profileRiskDataSource", Map.of())));
+        checkpoint.put(
+                "persistedRiskEvents",
+                sanitizeForResponse(state.value("persistedRiskEvents", List.of())));
+        checkpoint.put(
+                "activatedPolicies",
+                sanitizeForResponse(state.value("activatedPolicies", List.of())));
         checkpoint.put("traceEvents", sanitizeForResponse(result.traceEvents()));
         try {
             return OBJECT_MAPPER.writeValueAsString(checkpoint);
@@ -429,17 +555,18 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                 result.toolCalls(),
                 result.dataSources(),
                 appendTraceEvent(result.traceEvents(), traceEvent),
-                result.warnings()
-        );
+                result.warnings());
     }
 
-    private List<Object> appendTraceEvent(List<Object> traceEvents, Map<String, Object> traceEvent) {
+    private List<Object> appendTraceEvent(
+            List<Object> traceEvents, Map<String, Object> traceEvent) {
         List<Object> appended = new ArrayList<>(traceEvents);
         appended.add(traceEvent);
         return appended;
     }
 
-    private Map<String, Object> traceEvent(String traceId, String nodeName, String status, long startEpochMs, String error) {
+    private Map<String, Object> traceEvent(
+            String traceId, String nodeName, String status, long startEpochMs, String error) {
         return traceEvent(traceId, nodeName, status, startEpochMs, error, Map.of());
     }
 
@@ -449,18 +576,18 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
             String status,
             long startEpochMs,
             String error,
-            Map<String, Object> metadata
-    ) {
+            Map<String, Object> metadata) {
         long endEpochMs = System.currentTimeMillis();
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("traceId", traceId);
         event.put("nodeName", nodeName);
         event.put("status", status);
-        event.put("timing", Map.of(
-                "startEpochMs", startEpochMs,
-                "endEpochMs", endEpochMs,
-                "durationMs", Math.max(0L, endEpochMs - startEpochMs)
-        ));
+        event.put(
+                "timing",
+                Map.of(
+                        "startEpochMs", startEpochMs,
+                        "endEpochMs", endEpochMs,
+                        "durationMs", Math.max(0L, endEpochMs - startEpochMs)));
         if (error != null && !error.isBlank()) {
             event.put("error", error);
         }
@@ -468,7 +595,8 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         return event;
     }
 
-    private AgentRunResult fallbackResult(SecurityRiskGraphRequest request, String answer, String warning) {
+    private AgentRunResult fallbackResult(
+            SecurityRiskGraphRequest request, String answer, String warning) {
         return new AgentRunResult(
                 request.sessionId(),
                 request.traceId(),
@@ -477,9 +605,14 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                 List.of(),
                 List.of(),
                 List.of(),
-                List.of(traceEvent(request.traceId(), "graph_execution", "failed", System.currentTimeMillis(), sanitizer.sanitizeText(warning))),
-                List.of(sanitizer.sanitizeText(warning))
-        );
+                List.of(
+                        traceEvent(
+                                request.traceId(),
+                                "graph_execution",
+                                "failed",
+                                System.currentTimeMillis(),
+                                sanitizer.sanitizeText(warning))),
+                List.of(sanitizer.sanitizeText(warning)));
     }
 
     @FunctionalInterface
@@ -488,4 +621,15 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
         Map<String, Object> apply(OverAllState state) throws Exception;
     }
 
+    private static String scopedSession(SecurityRiskGraphRequest request) {
+        return request.principal() == null
+                ? "untrusted:" + request.sessionId()
+                : request.principal().username()
+                        + ":"
+                        + request.principal().tenantId()
+                        + ":"
+                        + request.principal().authVersion()
+                        + ":"
+                        + request.sessionId();
+    }
 }

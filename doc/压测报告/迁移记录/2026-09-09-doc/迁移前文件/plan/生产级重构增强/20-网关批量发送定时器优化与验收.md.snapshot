@@ -1,0 +1,75 @@
+# 20－网关批量发送定时器优化与验收
+
+本轮落实一项网关实现优化：**批量模式先由一个定时器领取真实批次，再为下一批递补发送器**，减少多个定时器争抢同一批事件后空转的开销。默认配置、Kafka ACK/重试、队列条数和字节预算保持原语义；没有增加worker、linger或发送并发参数。本轮不把局部操作减少换算成尚未测出的整套短链接QPS收益。
+
+## 1. 问题与改动
+
+旧版 `schedule()` 用排队事件数决定预约几个sender timer。在同一worker的callback尚未执行时，若已有4～32条事件、batch=32、concurrency=4，会先预约4个timer。第一个callback领取整批后，其余3个只能释放空槽并各自JSON编码、写回一次worker状态。
+
+新实现只在实际队首为批量模式时限制未启动sender timer至一个。`drain_items()`按条数、完整key+body字节和相同配置身份取批，建立slot及inflight所有权后，在发送yield之前调用`schedule()`递补下一批，并在原有预发送快照中发布这次预约。多批事件依然可以同时等待ACK，单条兼容路径保留原预约行为。该改动不扫描整个队列，不混批，不提前释放预算或记成功。
+
+源码：[shortlink-request-logger.lua](D:/学习/Project/马哥Project/shortlink/deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua:467)。本轮开始前封存SHA为`c808adbe7ba5d78713b4d04527306d0b071569f74bcb38020fa92d924ee1aa10`，候选为`a7c806167d469fa79fae9907070c6b6a46798224ead71fc40c1bce7db14908bd`；[只读审查及变更说明](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/gateway-review.md)保留边界与旧源链接。
+
+存在一个正常保守边界：如果当前sender同步失败、不yield而先处理完队列，已预约的一个后继callback仍需执行释放及状态发布。因此不是“绝对没有空timer”，而是消除按事件数提前扇出多个批量timer的行为。
+
+## 2. 可复现的操作减少
+
+同一真实logger、同一确定性ACK/时钟模拟，依次比较旧源和候选；只统计实际函数调用，不采纳模拟器CPU时间作为服务性能。
+
+| 同一批事件数 | 旧timer数 | 新timer数 | 旧入队后状态发布 | 新入队后状态发布 |
+|---|---:|---:|---:|---:|
+| 1 | 1 | 1 | 2 | 2 |
+| 2 | 2 | 1 | 3 | 2 |
+| 4、8、16、32 | 4 | 1 | 5 | 2 |
+
+每组都只发送一个批次，预算、ACK和最终空队列核验通过。4～32条组的timer减少75%，入队后的状态发布减少60%；**不包含逐请求入队发布，也不等于整机CPU降低60%或QPS提升75%。** [操作计数证据](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/scheduling-operation-counts.json)明确标记无真实HTTP/Kafka。
+
+## 3. 单元与真实组件验收
+
+[新增调度测试](D:/学习/Project/马哥Project/shortlink/scripts/performance/test_edge_sender_scheduling.py)与已有EM/SC/BC/LG共90项，在固定APISIX镜像的LuaJIT中执行，**90项全部通过**。覆盖四批ACK前并行、最多八槽、按字节/配置分批、部分ACK后异常重建、递补timer失败、降并发、退出保留残余、固定linger deadline及指标在yield前一致。[实际执行记录](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/candidate-scheduling-tool.json)绑定候选SHA。新增10项在旧源上8项失败，作为调度开销的反例保留，不把它描述为旧版有8类消息安全错误。
+
+已有batch测试仅调整BC11/12/18的多余预约预期：失败下一次真实timer、取消等待3个空callback、初始1预约递补后仍要求8个真实并行批次。原ACK、预算、终态及降并发断言保留；linger测试未修改。
+
+真实组件运行`d7ed57f5f12a`，APISIX单worker/4sender、batch32/64KiB、linger0；独立Kafka两分区/单副本、固定302上游。**3项真实组件用例通过，72个业务GET全部正确，Kafka完整消费72条且72个decisionId唯一。** 两分区偏移为42和30，消费前后偏移复核不变；所有重试、拒绝、发送/定时器失败和drain错误均0。
+
+暂停本组件broker约80.4ms时，4个sender同时持有事件，64条未确认、60条仍排队，delivered保持此前已确认的8条；恢复后全部排空。暂停期间累积的64条以6个真实Produce请求交付，说明实际批发送与ACK结算正常，不能把这种人为积压的10.67条/Produce当成自然负载批效。[真实组件报告](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/component/d7ed57f5f12a/result-batch.json)保留全量内容核验的摘要和输入SHA。
+
+专用Docker包装器17项静态合同检查通过，真实组件使用`shortlink-refactor-it`的专用socket，不启动历史MySQL/Redis/Kafka/Java实例。组件自身新建的三个临时容器及私网已经按完整ID和所有权标签清理，历史数据保留。
+
+## 4. 短对照与资源收尾
+
+范围限定为网关加固定302上游的组件回归，不包含Java跳转服务、统计消费者或Agent，不与报告19的完整链路QPS混算。APISIX为单worker、4sender、batch32/64KiB、linger0；网关cpuset 0–3/内存1GiB，上游4–5/256MiB，Kafka8–11/1GiB，压测端12–15/512并发槽/64源地址。0–3只是可运行CPU范围，单worker的Lua执行仍受单线程调度限制。
+
+首次设定5000/s×5s、无预热。旧组`6ff859811177`在2.3737s收到502而提前停止，候选组按判定规则未运行；原始结果保持FAIL。实际发送11,259个GET，其中11,255个302、4个502；另有610个到达未发出，13,131个计划到达被取消。请求往返P99为2289.59ms，计划到达至完成P99为2326.91ms，测量窗口不完整，**不能报告为完成5000 QPS或用11,255/5充当有效QPS对照**。
+
+发送的11,259条EDGE事件全部ACK并排空，两个分区实际偏移5,628和5,631；failed/rejected/retry/producer/timer/drain/observation错误均0。该短测只核对发送计数和偏移守恒，没有对11,259条消息逐条消费做内容去重。[首次短测原始结果](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/short-comparison/comparison.json)保留完整失败标记。
+
+日志记录了上游提前关闭和reset，以及对应的4个502。临时Nginx上游仅配置`worker_connections 128`，不适合直接用于512并发槽的对照；日志不足以证明这就是所有延迟及错误的唯一根因。追加回归把两组上游统一改为4096连接槽、显式错误日志，保留同样的生产源码、镜像、worker及发送预算，并降为每组3000/s×5s验证。新结果单独保存，不覆盖首次FAIL。[日志检查](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/short-failure-inspection.json)绑定本次容器ID，完整日志亦保留。追加回归同时改变了上游配置与输入速率，不能单独归因于扩大连接槽消除了502。
+
+旧性能阶段的8次名额不复用；累计历史33,300,061条继续保留，128GiB/每记录4096B模型余254,371条。本轮独立组件回归总额度160,000条、业务GET上限50,000，包括先前72条组件消息。首次失败实际11,259条加72条，追加两个3000/s×5s窗口按三次发送最坏预留90,000条，总计101,331条，仍在原额度内；不能用新broker重置累计历史或删除旧证据。
+
+追加两组均完成整个5s窗口，无预热，结果如下。成功QPS为窗口内计划到达请求的最终正确数除以5s，不是持续容量结论。
+
+| 指标 | 旧源 `26334639f2c2` | 候选 `22906a6d2008` |
+|---|---:|---:|
+| 计划请求 | 15,000 | 15,000 |
+| 正确302 / 实际发送 | 14,995 / 14,995 | 15,000 / 15,000 |
+| 成功QPS，5s窗口 | 2,999 | 3,000 |
+| 压测端未发出 / 取消 | 5 / 0 | 0 / 0 |
+| HTTP错误 / 未完成 | 0 / 0 | 0 / 0 |
+| HTTP往返P50 | 1.432ms | 0.875ms |
+| HTTP往返P99 | 362.147ms | 335.249ms |
+| 计划到达至完成P99 | 382.433ms | 344.009ms |
+| Kafka实际记录，两个分区 | 7,478 + 7,517 | 7,508 + 7,492 |
+| Produce请求 | 11,027 | 11,741 |
+| 每次Produce平均记录 | 1.360 | 1.278 |
+| 最终pending / failed / rejected | 0 / 0 / 0 | 0 / 0 / 0 |
+| 性能判定 | FAIL：5个未发出、P99超80ms | FAIL：P99超80ms |
+
+两组HTTP完成、观察完整性、Kafka ACK计数、偏移及最终排空检查均通过，重试和发送/定时器/观察故障均0；旧组5个未发出均由压测端记录为busyDropped。候选这次短窗口未出现漏发，P50/P99数值较低，但两组尾延迟仍未达到验收线。自然流量下候选的Produce请求反而更多，平均批次仅约1.28条：**这次优化消除了已证明的多余调度操作，尚未证明整体CPU下降、稳定QPS增长或资源上限突破。** 每组只运行一次且无预热，不能把相近短测数值当成稳定性能改善。
+
+[追加短测完整结果](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/short-comparison-corrected/comparison.json)记录原FAIL的SHA、两个独立broker/topicId/分区、实际渲染配置及源文件SHA。累计实际为历史33,300,061 + 先前组件72 + 首次失败11,259 + 追加29,995 = **33,341,387条**；本轮实际41,326条，仍在160,000条额度内，128GiB模型余213,045条。`maximumCumulativeHttpRequests=41,259`是native短轮的最大发送预算，含72条组件时最多41,331；实际含组件为41,326。每个独立broker分别记账，不伪造跨broker连续偏移。
+
+最终核实本轮保留的9个容器和历史4个依赖共13个均已停止，专用引擎PID43也已按进程启动身份停止。保留本轮短测容器、网络和数据用于复查；历史依赖始终未启动。[资源核对](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/resources-final.json)和[引擎停止记录](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/engine-stop.json)已保存。
+
+本轮实现与消息语义验收已完成，性能验收保持FAIL。后续性能工作需要区分启动期尾延迟与稳态尾延迟，并围绕自然流量批效约1.28条/Produce验证微批等待、发送并发及逐请求状态发布的成本；本轮没有据此改动linger、ACK承诺或生产默认容量。[源码与测试证据汇总](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/build-verification.json)记录90项Lua、17项组件包装器静态检查和3项真实组件用例的通过结果；追加工具20项离线检查另见[实际静态执行记录](D:/学习/Project/马哥Project/shortlink/.work/gateway-optimization-20260909/corrected-static-tool.json)。

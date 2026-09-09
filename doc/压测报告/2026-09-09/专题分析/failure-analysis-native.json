@@ -1,0 +1,5117 @@
+{
+  "kind": "FANOUT_R8000_OFFLINE_FAILURE_ANALYSIS",
+  "runId": "20260909T132900Z-09adb5ee",
+  "label": "fanout-r8000",
+  "originalStatus": "CAPACITY_STAGE_FAILED",
+  "originalFailedChecks": [
+    "clientExitedSuccessfully",
+    "allHttpCompleteAndCorrect",
+    "noDroppedArrivals",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified"
+  ],
+  "originalMonitorStop": "STAGE_WALLCLOCK_BUDGET_EXCEEDED",
+  "originalAccountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "nativeBytes": 785077114,
+  "nativeSha256": "b0289c1f25250d25c8f3f1e4d67898db9c9d282c6f55b3d3997399f75c7cbba7",
+  "nativeConservationVerifiedByStream": true,
+  "nativeCounts": {
+    "requests": 600699,
+    "correct": 600580,
+    "received": 600699,
+    "fresh": 2048,
+    "reused": 598651,
+    "unsent": 801,
+    "unsent_SOURCE_BUSY": 716,
+    "disposition_DROPPED": 801,
+    "unsent_DISPATCH_WINDOW_CLOSED": 85,
+    "ownerReturns": 600699
+  },
+  "httpStatuses": {
+    "302": 600580,
+    "504": 119
+  },
+  "clientFailureReasons": {
+    "HTTP_STATUS_OTHER": 119
+  },
+  "businessFailureReasons": "NOT_AVAILABLE_WITHOUT_MATCHED_EVENT_OR_RESPONSE_REASON",
+  "nativeFlags": {
+    "measurementComplete": false,
+    "scheduling_complete": false,
+    "conservationPassed": true
+  },
+  "nativeStop": {
+    "reason": "HTTP_STATUS_OTHER",
+    "phase": "measure",
+    "status": 504,
+    "elapsedMillis": 89989.697869
+  },
+  "nativeRuntime": {
+    "gomaxprocs": 4,
+    "numCPU": 4,
+    "totalElapsedMillis": 90246.984346
+  },
+  "nativeScheduler": {
+    "busyDropped": 716,
+    "catchupArrivals": 11728,
+    "crossPhaseStarts": 1,
+    "handoffSlots": 2048,
+    "lateDropped": 85,
+    "latePolicy": "ORIGINAL_DUE_ORDER_CATCHUP_UP_TO_80MS_NO_START_OUTSIDE_WINDOW",
+    "maxActive": 2048,
+    "maxActiveLimit": 2048,
+    "maxLagMs": 19.2512,
+    "maxRequestStartLagMs": 27.224129,
+    "maxSchedulerLagMs": 19.2512,
+    "maxStartLatenessMillis": 80,
+    "measureBusyDropped": 716,
+    "measureLateDropped": 85,
+    "mode": "MONOTONIC_FIXED_ARRIVAL_LINEAR_WARMUP_BOUNDED_CATCHUP",
+    "queueCapacity": 0,
+    "schedulingElapsedMillis": 90001.310729,
+    "spinMicros": 1000,
+    "startsAfterScheduledWindow": 0,
+    "warmupBusyDropped": 0,
+    "warmupLateDropped": 0,
+    "workerLateDropped": 0,
+    "workerStartDropped": 0,
+    "workerStoppedDropped": 0,
+    "workerWindowDropped": 0
+  },
+  "actualWindow": {
+    "warmupMillis": 30000,
+    "actualStopElapsedMillis": 89989.697869,
+    "actualFormalMillis": 59989.697868999996,
+    "schedulerElapsedMillis": 90001.310729,
+    "nativeStop": {
+      "reason": "HTTP_STATUS_OTHER",
+      "phase": "measure",
+      "status": 504,
+      "elapsedMillis": 89989.697869
+    },
+    "origin": "2026-09-09T13:39:33.449395253Z",
+    "formalStartUtc": "2026-09-09T13:40:03.449395+00:00",
+    "actualStopUtc": "2026-09-09T13:41:03.439093+00:00",
+    "plannedStopUtc": "2026-09-09T13:41:03.449395+00:00",
+    "completions": {
+      "warmup_http": 121487,
+      "warmup_correct": 121487,
+      "actualFormal_http": 477176,
+      "actualFormal_correct": 477176,
+      "afterPlanned_http": 1999,
+      "afterPlanned_correct": 1908,
+      "afterStopBeforePlanned_http": 37,
+      "afterStopBeforePlanned_correct": 9
+    },
+    "actualFormalCorrectQps": 7954.299103856352
+  },
+  "firstAndLastHttpCompletionElapsedMillis": [
+    12.741937,
+    90246.908111
+  ],
+  "firstAndLastHttpCompletionUtcApprox": [
+    "2026-09-09T13:39:33.462137+00:00",
+    "2026-09-09T13:41:03.696303+00:00"
+  ],
+  "httpFailures": [
+    {
+      "arrivalIndex": 598277,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "d76510e856a00dc465b4eff10ae01664",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 5,
+      "ownerIndex": 1797,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89597.125,
+      "exchangeStartedElapsedMillis": 89598.385466,
+      "roundtripMillis": 438.545075,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017293,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 438.233334,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.291563,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.047780+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486326+00:00",
+      "completedRelativeToStopMillis": 47.232672000012826
+    },
+    {
+      "arrivalIndex": 598319,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2b6dcf7365e0e06544b78d16a48895ea",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 47,
+      "ownerIndex": 111,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89602.375,
+      "exchangeStartedElapsedMillis": 89608.069217,
+      "roundtripMillis": 428.525637,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012314,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 428.510638,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000641,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.057464+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485990+00:00",
+      "completedRelativeToStopMillis": 46.896984999999404
+    },
+    {
+      "arrivalIndex": 598436,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "955f767539706dffac805b04b9c056aa",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 36,
+      "ownerIndex": 1892,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89616.999999,
+      "exchangeStartedElapsedMillis": 89617.131879,
+      "roundtripMillis": 419.37171,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.043753,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 419.323799,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000311,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.066527+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485899+00:00",
+      "completedRelativeToStopMillis": 46.80572000000393
+    },
+    {
+      "arrivalIndex": 598438,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "bbec7c43bc66fe1a34d743a3c5177389",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 38,
+      "ownerIndex": 1766,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89617.25,
+      "exchangeStartedElapsedMillis": 89617.415898,
+      "roundtripMillis": 419.292873,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.024907,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 419.259839,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.003997,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.066811+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486104+00:00",
+      "completedRelativeToStopMillis": 47.01090200000908
+    },
+    {
+      "arrivalIndex": 598448,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "f7a97e0057a065d23f329aceca221bca",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 48,
+      "ownerIndex": 1840,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89618.5,
+      "exchangeStartedElapsedMillis": 89618.619057,
+      "roundtripMillis": 418.01928,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.024506,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 417.987109,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004608,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.068014+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486033+00:00",
+      "completedRelativeToStopMillis": 46.94046800000069
+    },
+    {
+      "arrivalIndex": 598472,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "decc5f21bd1ac02c7c02256e12f87026",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 8,
+      "ownerIndex": 1736,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89621.5,
+      "exchangeStartedElapsedMillis": 89631.405851,
+      "roundtripMillis": 405.10864,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.018335,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 405.077502,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.01067,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.080801+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485909+00:00",
+      "completedRelativeToStopMillis": 46.81662200001301
+    },
+    {
+      "arrivalIndex": 598496,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "e505b5b34d66a123bfe9ae3953152316",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 32,
+      "ownerIndex": 288,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89624.5,
+      "exchangeStartedElapsedMillis": 89630.992635,
+      "roundtripMillis": 405.603592,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013776,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 405.582812,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004458,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.080388+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485991+00:00",
+      "completedRelativeToStopMillis": 46.89835800000583
+    },
+    {
+      "arrivalIndex": 598565,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "7c94702e2aef6b4e450032e712fc5086",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 37,
+      "ownerIndex": 165,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89633.125,
+      "exchangeStartedElapsedMillis": 89633.402683,
+      "roundtripMillis": 403.068685,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.022994,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 403.036845,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00522,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.082798+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485866+00:00",
+      "completedRelativeToStopMillis": 46.77349900000263
+    },
+    {
+      "arrivalIndex": 598572,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "09794f9aaee5dd691c7de658c6ee8131",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 44,
+      "ownerIndex": 2028,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89634,
+      "exchangeStartedElapsedMillis": 89634.117502,
+      "roundtripMillis": 402.288734,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.019717,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 402.251042,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.014658,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.083513+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485801+00:00",
+      "completedRelativeToStopMillis": 46.70836699999927
+    },
+    {
+      "arrivalIndex": 598601,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "ec60cd42db448d2adf62d8d50f441f4a",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 9,
+      "ownerIndex": 457,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89637.625,
+      "exchangeStartedElapsedMillis": 89637.722107,
+      "roundtripMillis": 398.6594,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.018806,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 398.62779,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.009328,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.087117+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485777+00:00",
+      "completedRelativeToStopMillis": 46.68363800000225
+    },
+    {
+      "arrivalIndex": 598607,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "42e6da0a7b33e4e5004d14dd1555a4d4",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 15,
+      "ownerIndex": 399,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89638.375,
+      "exchangeStartedElapsedMillis": 89638.935652,
+      "roundtripMillis": 397.544704,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014167,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 397.520167,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007975,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.088331+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485875+00:00",
+      "completedRelativeToStopMillis": 46.78248700000404
+    },
+    {
+      "arrivalIndex": 598610,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "b63913e39c46221082a56b5fd85973f5",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 18,
+      "ownerIndex": 1490,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89638.75,
+      "exchangeStartedElapsedMillis": 89639.033219,
+      "roundtripMillis": 397.646886,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.019928,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 397.620095,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.003988,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.088428+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486075+00:00",
+      "completedRelativeToStopMillis": 46.982236000010744
+    },
+    {
+      "arrivalIndex": 598612,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "30058ee2bc665a04f5ad45610faef96b",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 20,
+      "ownerIndex": 1876,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89639,
+      "exchangeStartedElapsedMillis": 89639.149869,
+      "roundtripMillis": 397.703626,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.021491,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 397.672135,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006592,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.088545+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486248+00:00",
+      "completedRelativeToStopMillis": 47.15562600000703
+    },
+    {
+      "arrivalIndex": 598636,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "d2aaaa6db4f30ba71cfaf017a81d3c10",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 44,
+      "ownerIndex": 364,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89642,
+      "exchangeStartedElapsedMillis": 89648.606732,
+      "roundtripMillis": 388.80825,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011491,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 388.786368,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007595,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.098002+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486810+00:00",
+      "completedRelativeToStopMillis": 47.717113000006066
+    },
+    {
+      "arrivalIndex": 598669,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "a9da0bfca6cea081bf328b7e9e13953d",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 13,
+      "ownerIndex": 1549,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89646.125,
+      "exchangeStartedElapsedMillis": 89649.14721,
+      "roundtripMillis": 387.899072,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011372,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 387.878493,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006863,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.098542+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486441+00:00",
+      "completedRelativeToStopMillis": 47.34841299999971
+    },
+    {
+      "arrivalIndex": 598688,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "a7467d78c5eb40a83b4b386a149ed4cf",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 32,
+      "ownerIndex": 544,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89648.5,
+      "exchangeStartedElapsedMillis": 89649.358311,
+      "roundtripMillis": 387.877,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011532,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 387.862432,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000611,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.098753+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486630+00:00",
+      "completedRelativeToStopMillis": 47.53744200000074
+    },
+    {
+      "arrivalIndex": 598826,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "532ce5ad815d7c4f0b276fd5abc40698",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 42,
+      "ownerIndex": 554,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89665.75,
+      "exchangeStartedElapsedMillis": 89681.857192,
+      "roundtripMillis": 307.849754,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012794,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 307.825338,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.008055,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131252+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.439102+00:00",
+      "completedRelativeToStopMillis": 0.009076999995158985
+    },
+    {
+      "arrivalIndex": 598827,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "790070f42983d18a814fc28a68bacc93",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 43,
+      "ownerIndex": 1771,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89665.875,
+      "exchangeStartedElapsedMillis": 89681.875207,
+      "roundtripMillis": 308.004969,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012634,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 307.982717,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007104,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131270+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.439275+00:00",
+      "completedRelativeToStopMillis": 0.18230700001004152
+    },
+    {
+      "arrivalIndex": 598828,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "f22af6f96078e014d7023630b3c402f4",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 44,
+      "ownerIndex": 236,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89666,
+      "exchangeStartedElapsedMillis": 89681.896677,
+      "roundtripMillis": 316.431734,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013415,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 316.405645,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.009759,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131292+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.447723+00:00",
+      "completedRelativeToStopMillis": 8.630541999998968
+    },
+    {
+      "arrivalIndex": 598837,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "daa23034a8e24dd8cbc6126c4dd69504",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 53,
+      "ownerIndex": 309,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89667.125,
+      "exchangeStartedElapsedMillis": 89682.098752,
+      "roundtripMillis": 315.586452,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013566,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 315.565402,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.005129,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131494+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.447080+00:00",
+      "completedRelativeToStopMillis": 7.987335000012536
+    },
+    {
+      "arrivalIndex": 598840,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "390a68ad7a6319d54a02d86277224e3e",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 56,
+      "ownerIndex": 504,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89667.499999,
+      "exchangeStartedElapsedMillis": 89682.16115,
+      "roundtripMillis": 315.480882,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014768,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 315.457436,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006191,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131556+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.447037+00:00",
+      "completedRelativeToStopMillis": 7.944163000007393
+    },
+    {
+      "arrivalIndex": 598842,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "ef4f0fcc0463936cd6658e7eb538ba39",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 58,
+      "ownerIndex": 1658,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89667.75,
+      "exchangeStartedElapsedMillis": 89682.200716,
+      "roundtripMillis": 315.410217,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013656,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 315.381663,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.011061,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131596+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.447006+00:00",
+      "completedRelativeToStopMillis": 7.91306400000758
+    },
+    {
+      "arrivalIndex": 598846,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2101624c153415c6961ca53c764ee990",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 62,
+      "ownerIndex": 638,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89668.25,
+      "exchangeStartedElapsedMillis": 89682.213799,
+      "roundtripMillis": 314.103729,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.015109,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.98314,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.100682,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131609+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445713+00:00",
+      "completedRelativeToStopMillis": 6.619659000003594
+    },
+    {
+      "arrivalIndex": 598848,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "60a74a9e6cd371dc29ca1dbe92302fdf",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 0,
+      "ownerIndex": 1536,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89668.5,
+      "exchangeStartedElapsedMillis": 89682.258574,
+      "roundtripMillis": 313.698907,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012944,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.678177,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004999,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131654+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445352+00:00",
+      "completedRelativeToStopMillis": 6.259612000008929
+    },
+    {
+      "arrivalIndex": 598855,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "b9782318d208a960004ff6b411edb343",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 7,
+      "ownerIndex": 1671,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89669.375,
+      "exchangeStartedElapsedMillis": 89682.392208,
+      "roundtripMillis": 313.507843,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013626,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.487534,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004519,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131787+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445295+00:00",
+      "completedRelativeToStopMillis": 6.202182000008179
+    },
+    {
+      "arrivalIndex": 598860,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "46bbcc576e1a0a1190f60441155d3e7d",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 12,
+      "ownerIndex": 1932,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89670,
+      "exchangeStartedElapsedMillis": 89682.49801,
+      "roundtripMillis": 313.367596,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.016451,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.344112,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004819,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131893+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445261+00:00",
+      "completedRelativeToStopMillis": 6.167736999996123
+    },
+    {
+      "arrivalIndex": 598862,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "49fe79a694230cd2ab5d216dee4787f6",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 14,
+      "ownerIndex": 78,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89670.25,
+      "exchangeStartedElapsedMillis": 89682.550309,
+      "roundtripMillis": 313.292534,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.01606,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.267166,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006572,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131945+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445238+00:00",
+      "completedRelativeToStopMillis": 6.144973999995273
+    },
+    {
+      "arrivalIndex": 598869,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "dd3a1ec66c6ded2c13672039e088508f",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 21,
+      "ownerIndex": 1685,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89671.125,
+      "exchangeStartedElapsedMillis": 89682.328829,
+      "roundtripMillis": 313.590499,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013095,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.570261,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00508,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131724+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445314+00:00",
+      "completedRelativeToStopMillis": 6.221459000007599
+    },
+    {
+      "arrivalIndex": 598874,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "0b8b3f6eb9032343abd2f9dc0795d16b",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 26,
+      "ownerIndex": 90,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89671.75,
+      "exchangeStartedElapsedMillis": 89682.435482,
+      "roundtripMillis": 313.444922,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.01544,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.426577,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00038,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131830+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445275+00:00",
+      "completedRelativeToStopMillis": 6.182534999999916
+    },
+    {
+      "arrivalIndex": 598879,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "0e443ba7d6c44a3c2a095e41348d5dbc",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 31,
+      "ownerIndex": 543,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89672.375,
+      "exchangeStartedElapsedMillis": 89682.553556,
+      "roundtripMillis": 313.19115,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013666,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.163026,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.011713,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131949+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445140+00:00",
+      "completedRelativeToStopMillis": 6.046837000001688
+    },
+    {
+      "arrivalIndex": 598880,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "ced64d2c501b198587cae5c9f65f9eb5",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 32,
+      "ownerIndex": 224,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89672.5,
+      "exchangeStartedElapsedMillis": 89682.572833,
+      "roundtripMillis": 313.146465,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013305,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.127148,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004208,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.131968+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445114+00:00",
+      "completedRelativeToStopMillis": 6.021429000000353
+    },
+    {
+      "arrivalIndex": 598883,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "9e4cc180bd5399991feedeaf33218344",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 35,
+      "ownerIndex": 547,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89672.875,
+      "exchangeStartedElapsedMillis": 89682.633619,
+      "roundtripMillis": 313.066041,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014337,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.045432,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004549,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.132029+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445095+00:00",
+      "completedRelativeToStopMillis": 6.001791000002413
+    },
+    {
+      "arrivalIndex": 598885,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "d4d5b856b7e3dbb928f5294ecfcf8696",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 37,
+      "ownerIndex": 229,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89673.125,
+      "exchangeStartedElapsedMillis": 89682.650339,
+      "roundtripMillis": 313.030987,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014117,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 313.009065,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004268,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.132045+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445076+00:00",
+      "completedRelativeToStopMillis": 5.983457000009366
+    },
+    {
+      "arrivalIndex": 598886,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "17326a11ab8550e3cb2d05801472febd",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 38,
+      "ownerIndex": 1894,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89673.25,
+      "exchangeStartedElapsedMillis": 89682.653877,
+      "roundtripMillis": 313.00744,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013716,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 312.98596,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00505,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.132049+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445056+00:00",
+      "completedRelativeToStopMillis": 5.963448000009521
+    },
+    {
+      "arrivalIndex": 598887,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "93f51ccea5da4f154e25f39d1bfb2dd7",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 39,
+      "ownerIndex": 1703,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89673.375,
+      "exchangeStartedElapsedMillis": 89682.787611,
+      "roundtripMillis": 312.851775,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.028094,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 312.816537,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004548,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.132183+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445034+00:00",
+      "completedRelativeToStopMillis": 5.941517000013846
+    },
+    {
+      "arrivalIndex": 598942,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "fe3731998cb3cb244a1fb876af7b5331",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 30,
+      "ownerIndex": 2014,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89680.25,
+      "exchangeStartedElapsedMillis": 89695.728705,
+      "roundtripMillis": 299.837522,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014016,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 299.816721,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004468,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.145124+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.444961+00:00",
+      "completedRelativeToStopMillis": 5.868358000006992
+    },
+    {
+      "arrivalIndex": 598943,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "5960120591aada20711be5b9b4300bd1",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 31,
+      "ownerIndex": 95,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89680.375,
+      "exchangeStartedElapsedMillis": 89695.751537,
+      "roundtripMillis": 299.784913,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011251,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 299.770395,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000491,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.145147+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.444931+00:00",
+      "completedRelativeToStopMillis": 5.8385810000036145
+    },
+    {
+      "arrivalIndex": 598947,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "98b43f60d2a03813f535eaa31c135a1c",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 35,
+      "ownerIndex": 483,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89680.875,
+      "exchangeStartedElapsedMillis": 89695.769032,
+      "roundtripMillis": 299.750506,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013015,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 299.730929,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004428,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.145164+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.444915+00:00",
+      "completedRelativeToStopMillis": 5.8216689999972004
+    },
+    {
+      "arrivalIndex": 598948,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "6fb503703fc608cba3e98a5ae8901b10",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 36,
+      "ownerIndex": 292,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89681,
+      "exchangeStartedElapsedMillis": 89695.787577,
+      "roundtripMillis": 299.69988,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013376,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 299.677958,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.005491,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.145183+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.444882+00:00",
+      "completedRelativeToStopMillis": 5.78958799999964
+    },
+    {
+      "arrivalIndex": 598995,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "0aeb633cfe0ed2693647154e4bdc9188",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 19,
+      "ownerIndex": 467,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89686.875,
+      "exchangeStartedElapsedMillis": 89695.57949,
+      "roundtripMillis": 300.037533,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012113,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 300.017595,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00528,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.144974+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.445012+00:00",
+      "completedRelativeToStopMillis": 5.919154000002891
+    },
+    {
+      "arrivalIndex": 599002,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "26f2319e04dd37111356f571f8786c7d",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 26,
+      "ownerIndex": 538,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89687.75,
+      "exchangeStartedElapsedMillis": 89695.696172,
+      "roundtripMillis": 299.890443,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011121,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 299.87284,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004819,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.145091+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.444982+00:00",
+      "completedRelativeToStopMillis": 5.8887459999969
+    },
+    {
+      "arrivalIndex": 599010,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "11d3a397606ccd3c8e51dfee6249f1e1",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 34,
+      "ownerIndex": 1762,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89688.75,
+      "exchangeStartedElapsedMillis": 89695.806774,
+      "roundtripMillis": 299.640436,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012243,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 299.61043,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.015049,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.145202+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.444842+00:00",
+      "completedRelativeToStopMillis": 5.74934100000246
+    },
+    {
+      "arrivalIndex": 599021,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "804d21a3c62b0ec1dcc3951dcbde1b4a",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 45,
+      "ownerIndex": 173,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89690.125,
+      "exchangeStartedElapsedMillis": 89699.671171,
+      "roundtripMillis": 298.687127,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012815,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 298.66744,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004549,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149066+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.447753+00:00",
+      "completedRelativeToStopMillis": 8.66042899999593
+    },
+    {
+      "arrivalIndex": 599022,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "e2cd30ffc3286dd16a96c3bdc392e8c1",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 46,
+      "ownerIndex": 174,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89690.249999,
+      "exchangeStartedElapsedMillis": 89699.738299,
+      "roundtripMillis": 302.238035,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012714,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 302.222596,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000742,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149133+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451371+00:00",
+      "completedRelativeToStopMillis": 12.278465000010328
+    },
+    {
+      "arrivalIndex": 599033,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "8060e92798a48cbc4ed5fb0aa595a18c",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 57,
+      "ownerIndex": 825,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89691.625,
+      "exchangeStartedElapsedMillis": 89699.697942,
+      "roundtripMillis": 302.289914,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014067,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 302.269255,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004419,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149093+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451383+00:00",
+      "completedRelativeToStopMillis": 12.289986999996472
+    },
+    {
+      "arrivalIndex": 599037,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "f51c356d01afbfba91832524d96db363",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 61,
+      "ownerIndex": 317,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89692.125,
+      "exchangeStartedElapsedMillis": 89699.689314,
+      "roundtripMillis": 302.335252,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011943,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 302.320533,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000381,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149084+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451420+00:00",
+      "completedRelativeToStopMillis": 12.326697000011336
+    },
+    {
+      "arrivalIndex": 599039,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "e2d325f8d8bfb8f0c39a743638a1352e",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 63,
+      "ownerIndex": 319,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89692.375,
+      "exchangeStartedElapsedMillis": 89699.707088,
+      "roundtripMillis": 302.206206,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011912,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 302.187821,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004699,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149102+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451308+00:00",
+      "completedRelativeToStopMillis": 12.215425000002142
+    },
+    {
+      "arrivalIndex": 599040,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "0f079043e3b7fec4f7f62f76b83a7c91",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 0,
+      "ownerIndex": 384,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89692.5,
+      "exchangeStartedElapsedMillis": 89699.565379,
+      "roundtripMillis": 295.798924,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.035818,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 295.693393,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.064082,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.148960+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.444759+00:00",
+      "completedRelativeToStopMillis": 5.666434000013396
+    },
+    {
+      "arrivalIndex": 599041,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "9eb9ba7c20a1bd680fa043fc7838b5f9",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 1,
+      "ownerIndex": 1217,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89692.625,
+      "exchangeStartedElapsedMillis": 89699.723479,
+      "roundtripMillis": 302.308601,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013396,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 302.282321,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.010039,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149118+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451427+00:00",
+      "completedRelativeToStopMillis": 12.334210999993957
+    },
+    {
+      "arrivalIndex": 599044,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "14461e9bcdd33316eb5e47c7ee9bf905",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 4,
+      "ownerIndex": 580,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89693,
+      "exchangeStartedElapsedMillis": 89700.035263,
+      "roundtripMillis": 301.722756,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.010961,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 301.658574,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.051068,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149430+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451153+00:00",
+      "completedRelativeToStopMillis": 12.060150000004796
+    },
+    {
+      "arrivalIndex": 599045,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "a99fd0b9e1d64ecf9801473d75eb0d62",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 5,
+      "ownerIndex": 709,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89693.125,
+      "exchangeStartedElapsedMillis": 89699.769608,
+      "roundtripMillis": 302.102308,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013887,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 302.080235,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.0054,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149165+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451267+00:00",
+      "completedRelativeToStopMillis": 12.174047000007704
+    },
+    {
+      "arrivalIndex": 599046,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "6485cddb70eae5a21c9283cc899e7403",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 6,
+      "ownerIndex": 134,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89693.25,
+      "exchangeStartedElapsedMillis": 89699.772975,
+      "roundtripMillis": 302.054406,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012774,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 302.037314,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.001433,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149168+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.451222+00:00",
+      "completedRelativeToStopMillis": 12.129511999999522
+    },
+    {
+      "arrivalIndex": 599091,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "93c9de5a86d02b5b10972b251236b556",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 51,
+      "ownerIndex": 1779,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89698.875,
+      "exchangeStartedElapsedMillis": 89700.234392,
+      "roundtripMillis": 309.726964,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011632,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 309.706014,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007154,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149629+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459356+00:00",
+      "completedRelativeToStopMillis": 20.263487000003806
+    },
+    {
+      "arrivalIndex": 599095,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "99c299dcd58d4e3f45bd8831f64fa394",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 55,
+      "ownerIndex": 119,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89699.375,
+      "exchangeStartedElapsedMillis": 89700.177334,
+      "roundtripMillis": 309.834317,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011732,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 309.81978,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000491,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149572+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459407+00:00",
+      "completedRelativeToStopMillis": 20.313782000011997
+    },
+    {
+      "arrivalIndex": 599102,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "82bd41d169bd7b0b9c46539670ad81ac",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 62,
+      "ownerIndex": 382,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89700.25,
+      "exchangeStartedElapsedMillis": 89700.431627,
+      "roundtripMillis": 310.127185,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.021952,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 310.0926,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.01012,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.149827+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459954+00:00",
+      "completedRelativeToStopMillis": 20.860943000006955
+    },
+    {
+      "arrivalIndex": 599119,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "3149dc2d80e68a57a78aebbf2fa628f5",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 15,
+      "ownerIndex": 783,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89702.375,
+      "exchangeStartedElapsedMillis": 89702.500484,
+      "roundtripMillis": 307.992814,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.023485,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 307.959421,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.005541,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.151895+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459888+00:00",
+      "completedRelativeToStopMillis": 20.795429000005242
+    },
+    {
+      "arrivalIndex": 599124,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "75bba1a71034830830aa380b8ee6d053",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 20,
+      "ownerIndex": 2004,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89703,
+      "exchangeStartedElapsedMillis": 89703.097045,
+      "roundtripMillis": 307.348913,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.015399,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 307.326571,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004338,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.152492+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459841+00:00",
+      "completedRelativeToStopMillis": 20.74808900000062
+    },
+    {
+      "arrivalIndex": 599125,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "32522c53f81e7498a2d1b4bffc3b8205",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 21,
+      "ownerIndex": 405,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89703.125,
+      "exchangeStartedElapsedMillis": 89703.277491,
+      "roundtripMillis": 307.126587,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.022182,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 307.09625,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004669,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.152672+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459799+00:00",
+      "completedRelativeToStopMillis": 20.70620900001086
+    },
+    {
+      "arrivalIndex": 599127,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "bd7e0e57a924959613468925668f6984",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 23,
+      "ownerIndex": 343,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89703.375,
+      "exchangeStartedElapsedMillis": 89703.464333,
+      "roundtripMillis": 306.891704,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.022292,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 306.859863,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006863,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.152859+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459751+00:00",
+      "completedRelativeToStopMillis": 20.658167999994475
+    },
+    {
+      "arrivalIndex": 599128,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "3af62a03823b3d19750e6f5ee72946d6",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 24,
+      "ownerIndex": 472,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89703.499999,
+      "exchangeStartedElapsedMillis": 89703.622944,
+      "roundtripMillis": 306.677356,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.020129,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 306.647368,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007033,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.153018+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459695+00:00",
+      "completedRelativeToStopMillis": 20.602431000006618
+    },
+    {
+      "arrivalIndex": 599132,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "d7a7e0ff86ba93a9c4de9bc2d68e347d",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 28,
+      "ownerIndex": 156,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89704,
+      "exchangeStartedElapsedMillis": 89704.113797,
+      "roundtripMillis": 306.494379,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.022944,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 306.467518,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000491,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.153509+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460003+00:00",
+      "completedRelativeToStopMillis": 20.910306999998284
+    },
+    {
+      "arrivalIndex": 599135,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "eefe8f837024774246932a08214ae781",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 31,
+      "ownerIndex": 415,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89704.375,
+      "exchangeStartedElapsedMillis": 89704.470917,
+      "roundtripMillis": 306.136207,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.019557,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 306.108064,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00523,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.153866+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460002+00:00",
+      "completedRelativeToStopMillis": 20.909255000005942
+    },
+    {
+      "arrivalIndex": 599222,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "7912f75a642b4dadd6738031880e6234",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 54,
+      "ownerIndex": 1910,
+      "freshConnection": false,
+      "connectionRequestSequence": 292,
+      "scheduledElapsedMillis": 89715.25,
+      "exchangeStartedElapsedMillis": 89718.729008,
+      "roundtripMillis": 291.767987,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.015369,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 291.666833,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.083349,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.168124+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459892+00:00",
+      "completedRelativeToStopMillis": 20.79912599999807
+    },
+    {
+      "arrivalIndex": 599224,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "06de50e79f8b2a41cd6f5fe30f0e0c4e",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 56,
+      "ownerIndex": 56,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89715.499999,
+      "exchangeStartedElapsedMillis": 89718.772491,
+      "roundtripMillis": 291.524273,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014297,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 291.50124,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.005942,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.168167+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459692+00:00",
+      "completedRelativeToStopMillis": 20.598895000002813
+    },
+    {
+      "arrivalIndex": 599225,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "b7bd01c5b56089710d695ed4f2accac8",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 57,
+      "ownerIndex": 1209,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89715.625,
+      "exchangeStartedElapsedMillis": 89718.793451,
+      "roundtripMillis": 291.42837,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.021921,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 291.265973,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.137191,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.168188+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459617+00:00",
+      "completedRelativeToStopMillis": 20.52395200000319
+    },
+    {
+      "arrivalIndex": 599233,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "a1ec6d8ec7b89bb19c2a18e5ff3252bf",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 1,
+      "ownerIndex": 897,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89716.625,
+      "exchangeStartedElapsedMillis": 89718.762737,
+      "roundtripMillis": 291.602135,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.018034,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 291.576196,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00548,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.168158+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459760+00:00",
+      "completedRelativeToStopMillis": 20.66700299999502
+    },
+    {
+      "arrivalIndex": 599236,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "3b425dab54c4dd58dd5723c3e03e7e3d",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 4,
+      "ownerIndex": 260,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89717,
+      "exchangeStartedElapsedMillis": 89718.842273,
+      "roundtripMillis": 291.195268,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013295,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 291.171293,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007273,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.168237+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459433+00:00",
+      "completedRelativeToStopMillis": 20.339672000001883
+    },
+    {
+      "arrivalIndex": 599240,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "625a6a24f0e70c5a0503371151703121",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 8,
+      "ownerIndex": 776,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89717.5,
+      "exchangeStartedElapsedMillis": 89718.850504,
+      "roundtripMillis": 290.896224,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012224,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 290.869824,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.011302,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.168246+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459142+00:00",
+      "completedRelativeToStopMillis": 20.048859000002267
+    },
+    {
+      "arrivalIndex": 599250,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "ea768c551bfcdcc69126e2c079eb2dc6",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 18,
+      "ownerIndex": 914,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89718.75,
+      "exchangeStartedElapsedMillis": 89718.972741,
+      "roundtripMillis": 290.671912,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017593,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 290.639029,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.01079,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.168368+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459040+00:00",
+      "completedRelativeToStopMillis": 19.946784000014304
+    },
+    {
+      "arrivalIndex": 599316,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "b686583bdde17e3309d339c3026f94b6",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 20,
+      "ownerIndex": 212,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89727,
+      "exchangeStartedElapsedMillis": 89727.591456,
+      "roundtripMillis": 282.053268,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013586,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 282.024524,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.011733,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.176986+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459040+00:00",
+      "completedRelativeToStopMillis": 19.94685500000196
+    },
+    {
+      "arrivalIndex": 599317,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "1f7a3dbfb454d848acc565cbf1dff1a1",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 21,
+      "ownerIndex": 1045,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89727.125,
+      "exchangeStartedElapsedMillis": 89727.610261,
+      "roundtripMillis": 283.223584,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014348,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 283.20054,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006523,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.177005+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460229+00:00",
+      "completedRelativeToStopMillis": 21.13597600000503
+    },
+    {
+      "arrivalIndex": 599331,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "6cb090df7725e076cdc735592141b4d7",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 35,
+      "ownerIndex": 867,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89728.875,
+      "exchangeStartedElapsedMillis": 89729.587019,
+      "roundtripMillis": 280.16086,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.016822,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 280.12924,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.011692,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.178982+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459143+00:00",
+      "completedRelativeToStopMillis": 20.050010000006296
+    },
+    {
+      "arrivalIndex": 599393,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "61e94d4d4379cc739bb6ce2d55554b3c",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 33,
+      "ownerIndex": 993,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89736.625,
+      "exchangeStartedElapsedMillis": 89745.734713,
+      "roundtripMillis": 264.098319,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.015339,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.072831,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006793,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195130+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.459228+00:00",
+      "completedRelativeToStopMillis": 20.13516299999901
+    },
+    {
+      "arrivalIndex": 599395,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "1ad98cb47a5c4cbc426b3a1263552de2",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 35,
+      "ownerIndex": 1059,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89736.875,
+      "exchangeStartedElapsedMillis": 89746.421457,
+      "roundtripMillis": 279.902018,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014337,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 279.879034,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006192,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195816+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475718+00:00",
+      "completedRelativeToStopMillis": 36.625606000001426
+    },
+    {
+      "arrivalIndex": 599399,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2d41220a09de9227a02aee8fd99c2f5d",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 39,
+      "ownerIndex": 39,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89737.375,
+      "exchangeStartedElapsedMillis": 89745.958147,
+      "roundtripMillis": 265.000987,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.018084,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.979886,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000481,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195353+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460354+00:00",
+      "completedRelativeToStopMillis": 21.26126500000828
+    },
+    {
+      "arrivalIndex": 599400,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "539d75c4b43ea077704d2bb147cb0087",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 40,
+      "ownerIndex": 424,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89737.5,
+      "exchangeStartedElapsedMillis": 89746.007331,
+      "roundtripMillis": 265.088592,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.01588,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.916546,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.153462,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195402+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460491+00:00",
+      "completedRelativeToStopMillis": 21.398054000004777
+    },
+    {
+      "arrivalIndex": 599416,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "ec91ea13a0154f1738e4f411f75101da",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 56,
+      "ownerIndex": 1016,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89739.5,
+      "exchangeStartedElapsedMillis": 89745.809844,
+      "roundtripMillis": 265.159519,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013767,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.136494,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006522,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195205+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460364+00:00",
+      "completedRelativeToStopMillis": 21.27149400000053
+    },
+    {
+      "arrivalIndex": 599422,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "ec546c214cb51aca13f9e0c0618bdeda",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 62,
+      "ownerIndex": 318,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89740.25,
+      "exchangeStartedElapsedMillis": 89745.917258,
+      "roundtripMillis": 264.972463,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012023,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.957945,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000471,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195312+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460285+00:00",
+      "completedRelativeToStopMillis": 21.191852000003564
+    },
+    {
+      "arrivalIndex": 599423,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "c798038857584915d0d6049f37b955a6",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 63,
+      "ownerIndex": 1087,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89740.375,
+      "exchangeStartedElapsedMillis": 89745.933499,
+      "roundtripMillis": 264.940082,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.011221,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.919773,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007274,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195328+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460269+00:00",
+      "completedRelativeToStopMillis": 21.175712000011117
+    },
+    {
+      "arrivalIndex": 599432,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "cd8d2b9f619b325bef45dcc3269c94cb",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 8,
+      "ownerIndex": 1032,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89741.5,
+      "exchangeStartedElapsedMillis": 89745.856033,
+      "roundtripMillis": 265.186158,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.01607,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.138558,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.029406,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195251+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460437+00:00",
+      "completedRelativeToStopMillis": 21.344322000004468
+    },
+    {
+      "arrivalIndex": 599446,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "fcae01819d4c2126227506e7108b6ae1",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 22,
+      "ownerIndex": 790,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89743.25,
+      "exchangeStartedElapsedMillis": 89746.28096,
+      "roundtripMillis": 269.175227,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013225,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 269.148787,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.009728,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195676+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.464851+00:00",
+      "completedRelativeToStopMillis": 25.75831800000742
+    },
+    {
+      "arrivalIndex": 599449,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "9c7b668e99f133cfe24022873220154a",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 25,
+      "ownerIndex": 281,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89743.625,
+      "exchangeStartedElapsedMillis": 89745.752216,
+      "roundtripMillis": 265.25545,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013696,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.233308,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006483,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195147+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460403+00:00",
+      "completedRelativeToStopMillis": 21.309796999994433
+    },
+    {
+      "arrivalIndex": 599452,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2c7d3d654937b9b52cf0d195665a7b3f",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 28,
+      "ownerIndex": 1180,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89744,
+      "exchangeStartedElapsedMillis": 89746.313402,
+      "roundtripMillis": 280.114522,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012163,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 280.094564,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006191,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195708+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475823+00:00",
+      "completedRelativeToStopMillis": 36.73005500000727
+    },
+    {
+      "arrivalIndex": 599454,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "693214114dee3cfc8748448e0796e699",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 30,
+      "ownerIndex": 222,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89744.25,
+      "exchangeStartedElapsedMillis": 89746.209093,
+      "roundtripMillis": 265.572352,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012343,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.556061,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.001072,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195604+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.461176+00:00",
+      "completedRelativeToStopMillis": 22.08357600000454
+    },
+    {
+      "arrivalIndex": 599455,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "6364f0be84824527e3966d52df62e8b0",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 31,
+      "ownerIndex": 671,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89744.374999,
+      "exchangeStartedElapsedMillis": 89746.22268,
+      "roundtripMillis": 270.085133,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.016882,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 270.058913,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006813,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195618+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.465703+00:00",
+      "completedRelativeToStopMillis": 26.609944000010728
+    },
+    {
+      "arrivalIndex": 599456,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "4d59dacfab8784a221ac9f5dfddb64d5",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 32,
+      "ownerIndex": 1120,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89744.5,
+      "exchangeStartedElapsedMillis": 89746.245404,
+      "roundtripMillis": 270.006352,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.013696,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 269.980334,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.008887,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195640+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.465647+00:00",
+      "completedRelativeToStopMillis": 26.55388700000185
+    },
+    {
+      "arrivalIndex": 599462,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "bfebea0f12c9e203df1d4720005b4825",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 38,
+      "ownerIndex": 614,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89745.25,
+      "exchangeStartedElapsedMillis": 89746.157535,
+      "roundtripMillis": 264.925244,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.012283,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.903853,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00568,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195553+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.460478+00:00",
+      "completedRelativeToStopMillis": 21.38491000000795
+    },
+    {
+      "arrivalIndex": 599468,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "8102b7608876a36a5e0064ab536a6567",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 44,
+      "ownerIndex": 812,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89746,
+      "exchangeStartedElapsedMillis": 89746.40149,
+      "roundtripMillis": 279.977761,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017514,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 279.952382,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00523,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195796+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475774+00:00",
+      "completedRelativeToStopMillis": 36.68138200000976
+    },
+    {
+      "arrivalIndex": 599470,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "b1d3c23fdd6363a5349cb1d871244e3c",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 46,
+      "ownerIndex": 366,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89746.25,
+      "exchangeStartedElapsedMillis": 89746.473998,
+      "roundtripMillis": 279.793841,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017944,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 279.76701,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006342,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.195869+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475663+00:00",
+      "completedRelativeToStopMillis": 36.56997000001138
+    },
+    {
+      "arrivalIndex": 599474,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "3cb7ee7db0512e6e97137d4dc7e4f0d2",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 50,
+      "ownerIndex": 434,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89746.749999,
+      "exchangeStartedElapsedMillis": 89746.906529,
+      "roundtripMillis": 279.296357,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.025368,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 279.26135,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006392,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.196302+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475598+00:00",
+      "completedRelativeToStopMillis": 36.505017000003136
+    },
+    {
+      "arrivalIndex": 599522,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "4bdb6829c810f1644ceba920c6ec2789",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 34,
+      "ownerIndex": 1378,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89752.749999,
+      "exchangeStartedElapsedMillis": 89761.665239,
+      "roundtripMillis": 264.440913,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017984,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.413721,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.005941,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211060+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475501+00:00",
+      "completedRelativeToStopMillis": 36.40828299999703
+    },
+    {
+      "arrivalIndex": 599525,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "03c72fec91e3d3f0e66ba4886f18437c",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 37,
+      "ownerIndex": 421,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89753.125,
+      "exchangeStartedElapsedMillis": 89761.73421,
+      "roundtripMillis": 264.320544,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017353,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.294986,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.005431,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211129+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475450+00:00",
+      "completedRelativeToStopMillis": 36.35688500000106
+    },
+    {
+      "arrivalIndex": 599530,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "70f48869a41ec882213072de5d979990",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 42,
+      "ownerIndex": 874,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89753.75,
+      "exchangeStartedElapsedMillis": 89761.824101,
+      "roundtripMillis": 264.170158,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017603,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.139901,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.010139,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211219+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475389+00:00",
+      "completedRelativeToStopMillis": 36.29639000000316
+    },
+    {
+      "arrivalIndex": 599536,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "443e254c76647a9bf33b3353b8bfedd3",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 48,
+      "ownerIndex": 880,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89754.5,
+      "exchangeStartedElapsedMillis": 89761.942656,
+      "roundtripMillis": 263.996067,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.015399,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.972963,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00564,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211338+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475334+00:00",
+      "completedRelativeToStopMillis": 36.24085400000331
+    },
+    {
+      "arrivalIndex": 599537,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "5cd72bc32124047690dedf8320610c50",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 49,
+      "ownerIndex": 1009,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89754.625,
+      "exchangeStartedElapsedMillis": 89761.963666,
+      "roundtripMillis": 263.920424,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.020229,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.878714,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006452,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211359+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475279+00:00",
+      "completedRelativeToStopMillis": 36.186220999996294
+    },
+    {
+      "arrivalIndex": 599546,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "41fa4f055056567e28a74545862f07f6",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 58,
+      "ownerIndex": 954,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89755.75,
+      "exchangeStartedElapsedMillis": 89762.158948,
+      "roundtripMillis": 263.625061,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.022633,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.594644,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00516,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211554+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475179+00:00",
+      "completedRelativeToStopMillis": 36.08613999999943
+    },
+    {
+      "arrivalIndex": 599547,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2768c4738066020fd58430cfbc33ec4f",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 59,
+      "ownerIndex": 827,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89755.875,
+      "exchangeStartedElapsedMillis": 89762.189736,
+      "roundtripMillis": 263.524901,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.025498,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.496147,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000702,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211585+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475110+00:00",
+      "completedRelativeToStopMillis": 36.01676800000132
+    },
+    {
+      "arrivalIndex": 599552,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "b43d064519278e260066658d490de646",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 0,
+      "ownerIndex": 512,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89756.5,
+      "exchangeStartedElapsedMillis": 89762.387312,
+      "roundtripMillis": 263.272802,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.019608,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.243025,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007324,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211782+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475055+00:00",
+      "completedRelativeToStopMillis": 35.96224500001699
+    },
+    {
+      "arrivalIndex": 599555,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "4f2c24838040b53b172c25536921d8f2",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 3,
+      "ownerIndex": 1539,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89756.875,
+      "exchangeStartedElapsedMillis": 89762.457014,
+      "roundtripMillis": 263.117126,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014477,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.095225,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.005681,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211852+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.474969+00:00",
+      "completedRelativeToStopMillis": 35.876271000001
+    },
+    {
+      "arrivalIndex": 599556,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "b56dc9c0bb4b5f9a3a7e45dabea552ff",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 4,
+      "ownerIndex": 964,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89757,
+      "exchangeStartedElapsedMillis": 89762.476411,
+      "roundtripMillis": 263.040741,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014157,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.016084,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007474,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.211871+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.474912+00:00",
+      "completedRelativeToStopMillis": 35.81928300000436
+    },
+    {
+      "arrivalIndex": 599561,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2e57e0d1c0484e77a2dc673ed5aef78b",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 9,
+      "ownerIndex": 1033,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89757.624999,
+      "exchangeStartedElapsedMillis": 89762.60708,
+      "roundtripMillis": 262.82487,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.022022,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 262.796747,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.002465,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212002+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.474827+00:00",
+      "completedRelativeToStopMillis": 35.734081000002334
+    },
+    {
+      "arrivalIndex": 599564,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "6e46985f42bc07efd0d976422d75b1ee",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 12,
+      "ownerIndex": 396,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89758,
+      "exchangeStartedElapsedMillis": 89762.674778,
+      "roundtripMillis": 265.582252,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.014308,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.56055,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004509,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212070+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.477652+00:00",
+      "completedRelativeToStopMillis": 38.5591609999974
+    },
+    {
+      "arrivalIndex": 599569,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "e093b9a6ee53a41cb145f672509690fb",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 17,
+      "ownerIndex": 1169,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89758.625,
+      "exchangeStartedElapsedMillis": 89762.826216,
+      "roundtripMillis": 265.372763,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.025659,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.337506,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.00521,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212221+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.477594+00:00",
+      "completedRelativeToStopMillis": 38.50111000001198
+    },
+    {
+      "arrivalIndex": 599570,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "dda51f8ec7d37d7b3ed8e7e069bb8708",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 18,
+      "ownerIndex": 1042,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89758.749999,
+      "exchangeStartedElapsedMillis": 89762.860051,
+      "roundtripMillis": 265.22391,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.018344,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.191448,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.0106,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212255+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.477479+00:00",
+      "completedRelativeToStopMillis": 38.386092000000644
+    },
+    {
+      "arrivalIndex": 599579,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "3af87fc783cb9e6837a115919d7cb082",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 27,
+      "ownerIndex": 667,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89759.875,
+      "exchangeStartedElapsedMillis": 89763.109896,
+      "roundtripMillis": 263.430712,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.025559,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 263.396036,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006242,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212505+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.475936+00:00",
+      "completedRelativeToStopMillis": 36.84273899999971
+    },
+    {
+      "arrivalIndex": 599581,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "906e744fc0cbb5f24f83101cfef372a1",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 29,
+      "ownerIndex": 989,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89760.125,
+      "exchangeStartedElapsedMillis": 89763.169809,
+      "roundtripMillis": 264.823589,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.020609,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.79261,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.007454,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212565+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.477388+00:00",
+      "completedRelativeToStopMillis": 38.29552900000999
+    },
+    {
+      "arrivalIndex": 599582,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "284961656e63df7f957736b5612a7214",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 30,
+      "ownerIndex": 1054,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89760.25,
+      "exchangeStartedElapsedMillis": 89763.198744,
+      "roundtripMillis": 264.705966,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.02107,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.674305,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006953,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212594+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.477300+00:00",
+      "completedRelativeToStopMillis": 38.20684099999198
+    },
+    {
+      "arrivalIndex": 599583,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "7b0eb6a1e29df43b4699e3136f45d5a1",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 31,
+      "ownerIndex": 927,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89760.375,
+      "exchangeStartedElapsedMillis": 89763.227419,
+      "roundtripMillis": 264.557112,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.02088,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 264.48722,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.044825,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212622+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.477180+00:00",
+      "completedRelativeToStopMillis": 38.086662000001525
+    },
+    {
+      "arrivalIndex": 599584,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "e350d3e5628454a6e5fe1f2035ba9921",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 32,
+      "ownerIndex": 992,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89760.5,
+      "exchangeStartedElapsedMillis": 89763.25441,
+      "roundtripMillis": 265.573866,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.02122,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.548757,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.000871,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212649+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.478223+00:00",
+      "completedRelativeToStopMillis": 39.1304070000042
+    },
+    {
+      "arrivalIndex": 599590,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "aaed104a52b9d681e62065faa22a3249",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 38,
+      "ownerIndex": 678,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89761.249999,
+      "exchangeStartedElapsedMillis": 89763.432901,
+      "roundtripMillis": 265.622338,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.021651,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 265.588332,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.008806,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212828+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.478450+00:00",
+      "completedRelativeToStopMillis": 39.3573699999979
+    },
+    {
+      "arrivalIndex": 599593,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2f00f460db750e83e2b42ecadeacf612",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 41,
+      "ownerIndex": 873,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89761.625,
+      "exchangeStartedElapsedMillis": 89763.506712,
+      "roundtripMillis": 267.412791,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.017814,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 267.388966,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.001272,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212902+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.480315+00:00",
+      "completedRelativeToStopMillis": 41.22163400000136
+    },
+    {
+      "arrivalIndex": 599594,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "440fbe3397619b0cad81ff1db92abae6",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 42,
+      "ownerIndex": 1002,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89761.75,
+      "exchangeStartedElapsedMillis": 89763.526878,
+      "roundtripMillis": 267.583597,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.01596,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 267.553279,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.011332,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212922+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.480505+00:00",
+      "completedRelativeToStopMillis": 41.4126060000126
+    },
+    {
+      "arrivalIndex": 599599,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "3322f5428dcd00f59674b53700d4438a",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 47,
+      "ownerIndex": 943,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89762.374999,
+      "exchangeStartedElapsedMillis": 89763.445544,
+      "roundtripMillis": 267.243324,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.018626,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 267.208398,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.012113,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.212841+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.480084+00:00",
+      "completedRelativeToStopMillis": 40.990999000001466
+    },
+    {
+      "arrivalIndex": 599612,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "a42f22c4e378c982464042e0fbe61d6c",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 60,
+      "ownerIndex": 764,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89764,
+      "exchangeStartedElapsedMillis": 89764.100699,
+      "roundtripMillis": 267.133882,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.0319,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 267.090028,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.008135,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.213496+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.480630+00:00",
+      "completedRelativeToStopMillis": 41.53671200000099
+    },
+    {
+      "arrivalIndex": 599620,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "a420efc18ecb5fb037f6e82d206d6a6e",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 4,
+      "ownerIndex": 452,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89765,
+      "exchangeStartedElapsedMillis": 89765.138362,
+      "roundtripMillis": 271.038286,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.043433,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 266.228662,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 4.761372,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.214533+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485572+00:00",
+      "completedRelativeToStopMillis": 46.4787789999973
+    },
+    {
+      "arrivalIndex": 599624,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "2fc529ba30c693821a13ad62f38b1221",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 8,
+      "ownerIndex": 1160,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89765.5,
+      "exchangeStartedElapsedMillis": 89765.603456,
+      "roundtripMillis": 271.039038,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.030428,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 270.996176,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.008747,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.214998+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.486037+00:00",
+      "completedRelativeToStopMillis": 46.944625000003725
+    },
+    {
+      "arrivalIndex": 599625,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "f89487951d35dd148ec152c68240a770",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 9,
+      "ownerIndex": 521,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89765.625,
+      "exchangeStartedElapsedMillis": 89765.712916,
+      "roundtripMillis": 270.883029,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.022693,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 270.853062,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.003627,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.215108+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485991+00:00",
+      "completedRelativeToStopMillis": 46.898076000012225
+    },
+    {
+      "arrivalIndex": 599639,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "30d9914698b7eff9a52c103df4b12c63",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 23,
+      "ownerIndex": 663,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89767.375,
+      "exchangeStartedElapsedMillis": 89767.485705,
+      "roundtripMillis": 269.057179,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.03179,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 269.017694,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.004138,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.216881+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485938+00:00",
+      "completedRelativeToStopMillis": 46.845014999998966
+    },
+    {
+      "arrivalIndex": 599651,
+      "phase": "measure",
+      "status": 504,
+      "failureReason": "HTTP_STATUS_OTHER",
+      "gatewayRequestId": "fa1118771833331720446636f1e3166d",
+      "gatewayRequestIdState": "VALID_HEX32",
+      "sourceIndex": 35,
+      "ownerIndex": 675,
+      "freshConnection": false,
+      "connectionRequestSequence": 293,
+      "scheduledElapsedMillis": 89768.875,
+      "exchangeStartedElapsedMillis": 89768.998,
+      "roundtripMillis": 267.538734,
+      "connect": {
+        "millis": null,
+        "state": "NOT_ATTEMPTED"
+      },
+      "write": {
+        "millis": 0.032822,
+        "state": "COMPLETED"
+      },
+      "header": {
+        "millis": 267.496513,
+        "state": "COMPLETED"
+      },
+      "body": {
+        "millis": 0.006202,
+        "state": "COMPLETED"
+      },
+      "exchangeStartUtcApprox": "2026-09-09T13:41:03.218393+00:00",
+      "completedUtcApprox": "2026-09-09T13:41:03.485932+00:00",
+      "completedRelativeToStopMillis": 46.83886500001245
+    }
+  ],
+  "httpFailureAggregate": {
+    "count": 119,
+    "statuses": {
+      "504": 119
+    },
+    "roundtripMillis": {
+      "count": 119,
+      "minimum": 262.82487,
+      "maximum": 438.545075,
+      "mean": 303.2262057226891,
+      "p99": 428.525637
+    },
+    "fresh": 0,
+    "reused": 119,
+    "connectionRequestSequence": {
+      "count": 119,
+      "minimum": 292,
+      "maximum": 293,
+      "mean": 292.8151260504202,
+      "p99": 293
+    }
+  },
+  "drops": [
+    {
+      "reason": "DISPATCH_WINDOW_CLOSED",
+      "count": 85,
+      "scheduledMillis": {
+        "count": 85,
+        "minimum": 89989.375,
+        "maximum": 89999.875,
+        "mean": 89994.62499989412,
+        "p99": 89999.875
+      },
+      "attemptMillis": {
+        "count": 0,
+        "minimum": null,
+        "maximum": null,
+        "mean": null,
+        "p99": null
+      },
+      "attemptUtcRange": null,
+      "beforeStop": 0,
+      "atOrAfterStop": 0,
+      "unknownAttempt": 85,
+      "globalActive": {
+        "count": 85,
+        "minimum": 1999,
+        "maximum": 1999,
+        "mean": 1999.0,
+        "p99": 1999
+      },
+      "sourceIdle": {
+        "count": 85,
+        "minimum": 0,
+        "maximum": 3,
+        "mean": 0.7294117647058823,
+        "p99": 3
+      }
+    },
+    {
+      "reason": "SOURCE_BUSY",
+      "count": 716,
+      "scheduledMillis": {
+        "count": 716,
+        "minimum": 89848.75,
+        "maximum": 89989.25,
+        "mean": 89934.87866609637,
+        "p99": 89988
+      },
+      "attemptMillis": {
+        "count": 716,
+        "minimum": 89851.247883,
+        "maximum": 89989.250417,
+        "mean": 89938.74368644971,
+        "p99": 89988.00065
+      },
+      "attemptUtcRange": [
+        "2026-09-09T13:41:03.300643+00:00",
+        "2026-09-09T13:41:03.438645+00:00"
+      ],
+      "beforeStop": 716,
+      "atOrAfterStop": 0,
+      "unknownAttempt": 0,
+      "globalActive": {
+        "count": 716,
+        "minimum": 1846,
+        "maximum": 2048,
+        "mean": 2037.3100558659219,
+        "p99": 2048
+      },
+      "sourceIdle": {
+        "count": 716,
+        "minimum": 0,
+        "maximum": 0,
+        "mean": 0.0,
+        "p99": 0
+      }
+    }
+  ],
+  "dropBuckets": [
+    {
+      "scheduledStartMillis": 89800,
+      "reason": "SOURCE_BUSY",
+      "count": 133
+    },
+    {
+      "scheduledStartMillis": 89900,
+      "reason": "DISPATCH_WINDOW_CLOSED",
+      "count": 85
+    },
+    {
+      "scheduledStartMillis": 89900,
+      "reason": "SOURCE_BUSY",
+      "count": 583
+    }
+  ],
+  "diagnosticCoverage": {
+    "schemaVersion": 2,
+    "arrivalLimit": 1000000,
+    "coveredArrivalPrefix": 601500,
+    "omittedArrivals": 0,
+    "coverageComplete": true,
+    "accountingPassed": true,
+    "unclassifiedArrivals": 0,
+    "snapshotConsistency": "SEPARATE_ATOMIC_AND_CHANNEL_OBSERVATIONS_NOT_GLOBAL_TRANSACTION",
+    "returnTimestampSemantics": "IDLE_CHANNEL_SEND_LINEARIZES_WITHIN_RETURN_STARTED_AND_RETURNED_BRACKET",
+    "capturedRequests": 600699,
+    "omittedRequests": 0,
+    "capturedUnsentArrivals": 801,
+    "omittedUnsentArrivals": 0,
+    "capturedOwnerReturns": 600699,
+    "omittedOwnerReturns": 0,
+    "missingOwnerReturnsInCoveredPrefix": 0,
+    "ownerReturnBoundsValid": true,
+    "droppedArrivalsHaveNoRequestSample": true
+  },
+  "producerIdentity": {
+    "producerInstanceId": "perf-20260909T132900Z-09adb5ee",
+    "producerStartedAt": 1788960626757,
+    "edge": {
+      "instance": "d12e311ccb61",
+      "boot_id": "13340674-504f-44aa-8ce0-c721654fdb52"
+    },
+    "commandStartedAt": 1788960550.191
+  },
+  "producerLanes": {
+    "click": {
+      "attempted": {
+        "before": 679502,
+        "after": 1280082,
+        "delta": 600580
+      },
+      "delivered": {
+        "before": 679502,
+        "after": 1280082,
+        "delta": 600580
+      },
+      "failed": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      "rejected": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      "pending": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      }
+    },
+    "result": {
+      "attempted": {
+        "before": 679570,
+        "after": 1280150,
+        "delta": 600580
+      },
+      "delivered": {
+        "before": 679570,
+        "after": 1280150,
+        "delta": 600580
+      },
+      "failed": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      "rejected": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      "pending": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      }
+    },
+    "edge": {
+      "attempted": {
+        "before": 679571,
+        "after": 1280270,
+        "delta": 600699
+      },
+      "delivered": {
+        "before": 679571,
+        "after": 1280270,
+        "delta": 600699
+      },
+      "failed": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      "rejected": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      "pending": {
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      }
+    }
+  },
+  "kafkaBrokerId": 1,
+  "kafkaTopicIds": {
+    "shortlink.it.adapter.d7f7254a1971.invalid": {
+      "topicId": "2d6D6LL8Q8OaVfjL-tQa8A",
+      "partitionCount": 1
+    },
+    "shortlink.it.adapter.4f89a76cdcf8.invalid": {
+      "topicId": "HC798-2-RzqZ32b1kI04tA",
+      "partitionCount": 1
+    },
+    "shortlink.stats.5m.v1": {
+      "topicId": "i01cE1nVQ-urXFCjwb6y9g",
+      "partitionCount": 2
+    },
+    "shortlink.metadata.dlq.v1": {
+      "topicId": "mjekczeKSOu_vsjud86Dlw",
+      "partitionCount": 2
+    },
+    "shortlink.it.adapter.f3fe5d51487b.invalid": {
+      "topicId": "KiQ_GbuVRkm_9TDZhlMuPA",
+      "partitionCount": 1
+    },
+    "shortlink.it.adapter.4f89a76cdcf8.valid": {
+      "topicId": "Eee7V_RARJ6aDrdzXpp2Mw",
+      "partitionCount": 1
+    },
+    "shortlink.batch.ready.v1": {
+      "topicId": "ymwiMdSwQbGMu-gHbSqA0A",
+      "partitionCount": 2
+    },
+    "shortlink.it.adapter.b32c4c9263d6.invalid": {
+      "topicId": "pZYlWUuvQgWDtCfodBC2eA",
+      "partitionCount": 1
+    },
+    "shortlink.it.connect.status": {
+      "topicId": "3Rqam99mRr-GbjkuPxC5Zg",
+      "partitionCount": 5
+    },
+    "shortlink.click.dlq.v1": {
+      "topicId": "OZIVKY8DQbaqNfSPWbs6PA",
+      "partitionCount": 2
+    },
+    "shortlink.gateway.request.v1": {
+      "topicId": "nRf5jG5CQ_y1nYXiZkYe7g",
+      "partitionCount": 2
+    },
+    "shortlink.risk.policy.change.v1": {
+      "topicId": "uHVJ7en1S6-6dRPODKOt5w",
+      "partitionCount": 2
+    },
+    "shortlink.it.adapter.b32c4c9263d6.valid": {
+      "topicId": "x1oa4Tu8R2qz0dnQq6i_8A",
+      "partitionCount": 1
+    },
+    "shortlink.it.adapter.d7f7254a1971.valid": {
+      "topicId": "z9CgrWQSRHC5fAiyiqOh1w",
+      "partitionCount": 1
+    },
+    "shortlink.it.connect.configs": {
+      "topicId": "rvJ6BSkiRH60y9rY-1CMpA",
+      "partitionCount": 1
+    },
+    "shortlink.click.enriched.v1": {
+      "topicId": "ynQPKV3QQN2Ki9T6aZ1iHg",
+      "partitionCount": 2
+    },
+    "shortlink.it.adapter.f3fe5d51487b.valid": {
+      "topicId": "NVoHNemBQJeBnNWa411JPw",
+      "partitionCount": 1
+    },
+    "shortlink.click.late.v1": {
+      "topicId": "d4vhYOpiTua9USlQHyKeKg",
+      "partitionCount": 2
+    },
+    "shortlink.click.raw.v1": {
+      "topicId": "SlFwAzynTgaUbrh0nZ77gg",
+      "partitionCount": 2
+    },
+    "shortlink.request.enriched.v1": {
+      "topicId": "drdEjibRRDulAQUPnx8qRg",
+      "partitionCount": 2
+    },
+    "shortlink.risk.signal.v1": {
+      "topicId": "WJGvnloWT9GvMxCWePAnNQ",
+      "partitionCount": 2
+    },
+    "shortlink.it.adapter.83cfe442806e.valid": {
+      "topicId": "sP_TEZhNTDGu1-EFyJKKwg",
+      "partitionCount": 1
+    },
+    "shortlink.metadata.fetch.v1": {
+      "topicId": "sf9mWBp0SLOK9vdshFGK5A",
+      "partitionCount": 2
+    },
+    "shortlink.it.connect.offsets": {
+      "topicId": "7Sl_-fOeQxyOQcIjtsbF2A",
+      "partitionCount": 25
+    },
+    "shortlink.route.change.v1": {
+      "topicId": "vWBvgjk7TnuG1WAbTONzsw",
+      "partitionCount": 2
+    },
+    "shortlink.it.adapter.83cfe442806e.invalid": {
+      "topicId": "UCMmPxKeQPymhQdZEOAeDQ",
+      "partitionCount": 1
+    }
+  },
+  "kafkaOffsets": [
+    {
+      "topic": "shortlink.batch.ready.v1",
+      "partition": 0,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.batch.ready.v1",
+      "partition": 1,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.click.dlq.v1",
+      "partition": 0,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.click.dlq.v1",
+      "partition": 1,
+      "before": 96,
+      "after": 96,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.click.enriched.v1",
+      "partition": 0,
+      "before": 28,
+      "after": 28,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.click.enriched.v1",
+      "partition": 1,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.click.late.v1",
+      "partition": 0,
+      "before": 4,
+      "after": 4,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.click.late.v1",
+      "partition": 1,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.click.raw.v1",
+      "partition": 0,
+      "before": 21122718,
+      "after": 21464462,
+      "delta": 341744
+    },
+    {
+      "topic": "shortlink.click.raw.v1",
+      "partition": 1,
+      "before": 16003718,
+      "after": 16262554,
+      "delta": 258836
+    },
+    {
+      "topic": "shortlink.gateway.request.v1",
+      "partition": 0,
+      "before": 33093365,
+      "after": 33693606,
+      "delta": 600241
+    },
+    {
+      "topic": "shortlink.gateway.request.v1",
+      "partition": 1,
+      "before": 33086640,
+      "after": 33687678,
+      "delta": 601038
+    },
+    {
+      "topic": "shortlink.it.adapter.4f89a76cdcf8.invalid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.4f89a76cdcf8.valid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.83cfe442806e.invalid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.83cfe442806e.valid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.b32c4c9263d6.invalid",
+      "partition": 0,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.b32c4c9263d6.valid",
+      "partition": 0,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.d7f7254a1971.invalid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.d7f7254a1971.valid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.f3fe5d51487b.invalid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.adapter.f3fe5d51487b.valid",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.configs",
+      "partition": 0,
+      "before": 52,
+      "after": 52,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 0,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 1,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 2,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 3,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 4,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 5,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 6,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 7,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 8,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 9,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 10,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 11,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 12,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 13,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 14,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 15,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 16,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 17,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 18,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 19,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 20,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 21,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 22,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 23,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.offsets",
+      "partition": 24,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.status",
+      "partition": 0,
+      "before": 12,
+      "after": 12,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.status",
+      "partition": 1,
+      "before": 27,
+      "after": 27,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.status",
+      "partition": 2,
+      "before": 21,
+      "after": 21,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.status",
+      "partition": 3,
+      "before": 25,
+      "after": 25,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.it.connect.status",
+      "partition": 4,
+      "before": 9,
+      "after": 9,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.metadata.dlq.v1",
+      "partition": 0,
+      "before": 1,
+      "after": 1,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.metadata.dlq.v1",
+      "partition": 1,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.metadata.fetch.v1",
+      "partition": 0,
+      "before": 233452,
+      "after": 233452,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.metadata.fetch.v1",
+      "partition": 1,
+      "before": 235745,
+      "after": 235745,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.request.enriched.v1",
+      "partition": 0,
+      "before": 142,
+      "after": 142,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.request.enriched.v1",
+      "partition": 1,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.risk.policy.change.v1",
+      "partition": 0,
+      "before": 6,
+      "after": 6,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.risk.policy.change.v1",
+      "partition": 1,
+      "before": 6,
+      "after": 6,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.risk.signal.v1",
+      "partition": 0,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.risk.signal.v1",
+      "partition": 1,
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.route.change.v1",
+      "partition": 0,
+      "before": 233462,
+      "after": 233462,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.route.change.v1",
+      "partition": 1,
+      "before": 235749,
+      "after": 235749,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.stats.5m.v1",
+      "partition": 0,
+      "before": 4,
+      "after": 4,
+      "delta": 0
+    },
+    {
+      "topic": "shortlink.stats.5m.v1",
+      "partition": 1,
+      "before": 4,
+      "after": 4,
+      "delta": 0
+    }
+  ],
+  "kafkaTopicIncrements": {
+    "shortlink.it.adapter.d7f7254a1971.invalid": 0,
+    "shortlink.it.adapter.4f89a76cdcf8.invalid": 0,
+    "shortlink.stats.5m.v1": 0,
+    "shortlink.metadata.dlq.v1": 0,
+    "shortlink.it.adapter.f3fe5d51487b.invalid": 0,
+    "shortlink.it.adapter.4f89a76cdcf8.valid": 0,
+    "shortlink.batch.ready.v1": 0,
+    "shortlink.it.adapter.b32c4c9263d6.invalid": 0,
+    "shortlink.it.connect.status": 0,
+    "shortlink.click.dlq.v1": 0,
+    "shortlink.gateway.request.v1": 1201279,
+    "shortlink.risk.policy.change.v1": 0,
+    "shortlink.it.adapter.b32c4c9263d6.valid": 0,
+    "shortlink.it.adapter.d7f7254a1971.valid": 0,
+    "shortlink.it.connect.configs": 0,
+    "shortlink.click.enriched.v1": 0,
+    "shortlink.it.adapter.f3fe5d51487b.valid": 0,
+    "shortlink.click.late.v1": 0,
+    "shortlink.click.raw.v1": 600580,
+    "shortlink.request.enriched.v1": 0,
+    "shortlink.risk.signal.v1": 0,
+    "shortlink.it.adapter.83cfe442806e.valid": 0,
+    "shortlink.metadata.fetch.v1": 0,
+    "shortlink.it.connect.offsets": 0,
+    "shortlink.route.change.v1": 0,
+    "shortlink.it.adapter.83cfe442806e.invalid": 0
+  },
+  "eventShape": {
+    "actualProducerDelivered": 1801859,
+    "actualKafkaEventOffsets": 1801859,
+    "threePerCorrect302": 1801740,
+    "extraAboveSuccessOnly": 119,
+    "correctClickPlusTwoPerHttp": 1801978,
+    "aggregateProducerAndKafkaMatch": true,
+    "aggregateNon302ShapeMatches": false
+  },
+  "javaHttpMetricDeltas": [
+    {
+      "name": "http_server_requests_seconds_count",
+      "status": "302",
+      "before": 679502.0,
+      "after": 1280082.0,
+      "delta": 600580.0,
+      "complete": true
+    },
+    {
+      "name": "http_server_requests_seconds_count",
+      "status": "400",
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0,
+      "complete": true
+    },
+    {
+      "name": "http_server_requests_seconds_count",
+      "status": "403",
+      "before": 1.0,
+      "after": 1.0,
+      "delta": 0.0,
+      "complete": true
+    },
+    {
+      "name": "http_server_requests_seconds_sum",
+      "status": "302",
+      "before": 207.209693801,
+      "after": 393.89690611,
+      "delta": 186.687212309,
+      "complete": true
+    },
+    {
+      "name": "http_server_requests_seconds_sum",
+      "status": "400",
+      "before": 0.002313037,
+      "after": 0.002313037,
+      "delta": 0.0,
+      "complete": true
+    },
+    {
+      "name": "http_server_requests_seconds_sum",
+      "status": "403",
+      "before": 0.041722464,
+      "after": 0.041722464,
+      "delta": 0.0,
+      "complete": true
+    }
+  ],
+  "recordedTimes": {
+    "startedAt": "2026-09-09T13:39:23.033180+00:00",
+    "clientLaunch": {
+      "pid": 6184,
+      "startedAt": "2026-09-09T13:39:33.320226+00:00",
+      "cpuSet": "12-15",
+      "gomaxprocs": 4
+    },
+    "clientInterval": {
+      "start": "2026-09-09T13:39:33.320226+00:00",
+      "end": "2026-09-09T13:41:29.807217+00:00"
+    },
+    "finishedAt": "2026-09-09T13:42:15.484934+00:00"
+  },
+  "nativeLoadWaitFinishedUtcApprox": "2026-09-09T13:41:03.696379+00:00",
+  "nativePostWaitToProcessExitMillis": 26110.837654000003,
+  "originalSystemDiagnostics": {
+    "passed": true,
+    "checks": {
+      "observerExited": true,
+      "observerCpuIsolation": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": true,
+      "noSampleBudgetLoss": true
+    }
+  },
+  "inputSha256": {
+    "result.json": "02a407f851cc92707b3dc0bd85a58b77ed122838e6af12164f6fd01db7adf571",
+    "before.json": "f3a2ee0c757be40ea3403c066e9ebc464ef5861745f530fc2ebfe1b8195bc0ca",
+    "after.json": "dc920e172a274504b61897ed4977b0edf617f8034551f816babe237a68bf6b6a",
+    "kafka-before.json": "c4911437da444d68dc6526f848408aa7ac478f37a0c61321fb6eed0f44a7b3fc",
+    "kafka-after.json": "85cc2f3de5bfb2e6c9481efa53725855c3c80e2b1ce38dacbcca3e46b771bda9",
+    "source-distribution.json": "187a1a999ad5abef2997d5185d94f1645bd5586be7f8ec4181ae2017d18314ab",
+    "native-process.jsonl": "be26a0943c9e2c65c1c05c6e7b11b039eff5b2a36160afcfef6ebb335fe8f7b8",
+    "native-client.log": "876ce19ef83c3b867c64ba55df220dd9209efb9bb2f10ce1242b016f21cbf4dd"
+  },
+  "parserSha256": "981858cf341b0c124967d7c17d2e5bff693a666faf1a500dde984702ed52ea8b",
+  "oldMetricHelperSha256": "1df08c8c992d5f3fde18ab96dfef84c951640d21f30c01d722968bb39787b38f",
+  "scriptSha256": "17b5a418264ea2196453d45ac2d15a3c3d182da2b7f8f7ae55c6ac7b1d90823e",
+  "limits": {
+    "nativeBytes": 2147483648,
+    "objectBytes": 32768,
+    "arrayRecords": 1000000,
+    "storedFailures": 200,
+    "storedDrops": 10000
+  },
+  "limitations": [
+    "No live Kafka query or per-ID BUSINESS reason join; HTTP504 alone does not identify the Java failure reason.",
+    "Kafka/producer matching is aggregate, not proof of per-ID uniqueness or absence of compensating loss/duplicates.",
+    "Times converted from native monotonic elapsed and native UTC origin; conversion is approximate at Python microsecond precision.",
+    "Original failure and campaign budget remain unchanged."
+  ],
+  "analysisElapsedSeconds": 21.513814593999996,
+  "finishedAt": "2026-09-09T13:51:59.884564+00:00"
+}

@@ -3,6 +3,7 @@ package com.jupiter.shortlink.agent.tool.shortlink;
 import com.jupiter.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
+
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -18,30 +19,29 @@ public class GetShortLinkStatsTool extends AbstractShortLinkBusinessTool {
                 gateway,
                 "get_short_link_stats",
                 "Get aggregated stats for one short link in a date range.",
-                schema()
-        );
+                schema());
     }
 
     @Tool(
             name = "get_short_link_stats",
-            description = "Get aggregated stats for one owned short link in a date range."
-    )
+            description = "Get aggregated stats for one owned short link in a date range.")
     public ToolResult getShortLinkStats(
             @ToolParam(description = "Full short link URL.") String fullShortUrl,
-            @ToolParam(description = "Short link group id; ownership is checked by the admin gateway.") String gid,
+            @ToolParam(
+                            description =
+                                    "Short link group id; ownership is checked by the admin"
+                                        + " gateway.")
+                    String gid,
             @ToolParam(description = "Start date, yyyy-MM-dd.") String startDate,
             @ToolParam(description = "End date, yyyy-MM-dd.") String endDate,
-            org.springframework.ai.chat.model.ToolContext toolContext
-    ) {
+            org.springframework.ai.chat.model.ToolContext toolContext) {
         return executeFromSpringContext(
                 toolContext,
                 arguments(
                         "fullShortUrl", fullShortUrl,
                         "gid", gid,
                         "startDate", startDate,
-                        "endDate", endDate
-                )
-        );
+                        "endDate", endDate));
     }
 
     @Override
@@ -69,15 +69,27 @@ public class GetShortLinkStatsTool extends AbstractShortLinkBusinessTool {
         queryParams.put("gid", gid);
         queryParams.put("startDate", startDate);
         queryParams.put("endDate", endDate);
-        return get("/internal/short-link-admin/v1/agent-tools/short-link/stats", context, queryParams);
+        return statistics(
+                "/internal/short-link-admin/v1/agent-tools/short-link/stats",
+                context,
+                queryParams,
+                "METRICS");
     }
 
     private static Map<String, Object> schema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("fullShortUrl", Map.of("type", "string", "description", "Full short link URL."));
+        properties.put(
+                "fullShortUrl", Map.of("type", "string", "description", "Full short link URL."));
         properties.put("gid", Map.of("type", "string", "description", "Short link group id."));
-        properties.put("startDate", Map.of("type", "string", "description", "Start date, yyyy-MM-dd."));
+        properties.put(
+                "startDate", Map.of("type", "string", "description", "Start date, yyyy-MM-dd."));
         properties.put("endDate", Map.of("type", "string", "description", "End date, yyyy-MM-dd."));
-        return Map.of("type", "object", "properties", properties, "required", new String[]{"fullShortUrl", "gid", "startDate", "endDate"});
+        return Map.of(
+                "type",
+                "object",
+                "properties",
+                properties,
+                "required",
+                new String[] {"fullShortUrl", "gid", "startDate", "endDate"});
     }
 }

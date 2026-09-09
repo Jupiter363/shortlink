@@ -9,7 +9,9 @@ import com.jupiter.shortlink.admin.remote.dto.resp.RiskReviewRespDTO;
 import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkCardRespDTO;
 import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkDetailRespDTO;
 import com.jupiter.shortlink.admin.service.RiskCenterFacadeService;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +27,17 @@ import java.util.Map;
 public class RiskCenterController {
 
     private final RiskCenterFacadeService riskCenterFacadeService;
+
+    @GetMapping("/api/short-link/admin/v1/risk/commands/{commandId}")
+    public Result<Map<String, Object>> commandResult(@PathVariable String commandId) {
+        return riskCenterFacadeService.commandResult(commandId);
+    }
+
+    @GetMapping("/api/short-link/admin/v1/risk/current-policies")
+    public Result<Map<String, Object>> currentPolicies(
+            @RequestParam long linkId, @RequestParam(required = false) String cursor) {
+        return riskCenterFacadeService.currentPolicies(linkId, cursor);
+    }
 
     @GetMapping("/api/short-link/admin/v1/risk/groups/{gid}/overview")
     public Result<RiskGroupOverviewRespDTO> groupOverview(@PathVariable("gid") String gid) {

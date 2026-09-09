@@ -1,0 +1,60 @@
+{
+  "status": "SIX_SOURCE_FILES_CAPTURED_INITIAL_WRAPPER_POSTREAD_EXIT_CHECK_FAILED",
+  "captureWrapper": "upstream-review-fetch.py",
+  "captureWrapperExitCode": 1,
+  "captureWrapperSha256": "a7f887e41dd905e2f1e3c91cbf1daef9dd5c8f859d0fe355b1931dc25c869a54",
+  "identity": {
+    "containerId": "d12e311ccb6159b2df9f110601a2062e623f221951457e1257d6e7ade4d4de0e",
+    "image": "sha256:178d1f79c2c39834f50213bf6ace90284f6b985dc8189cc50f3666d9fb1037ad",
+    "pid": 29899,
+    "running": true
+  },
+  "beforeAfterIdentityChecks": {
+    "bothAssertionsCompleted": true,
+    "bothDockerInspectExitCodes": 0,
+    "basis": "The original wrapper reached its final tar-exit check only after both inspect assertions and all archive parsing/copies completed.",
+    "rawInspectCaptureSha256": null
+  },
+  "archive": {
+    "calls": 1,
+    "exitCode": null,
+    "knownExitCondition": "Not0or1; exact scalar was lost when wrapper raised before writing receipt.",
+    "missingRequestedMember": "/usr/local/apisix/conf/config-default.yaml",
+    "tarStderr": null,
+    "limitation": "Missing member is recorded; do not invent exact tar exit code or reconstruct stderr."
+  },
+  "files": {
+    "upstream-review-source-usr_local_apisix_apisix_balancer.lua": {
+      "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-fanout-20260909/upstream-review-source-usr_local_apisix_apisix_balancer.lua",
+      "bytes": 13610,
+      "sha256": "1c944f61fdee1a57d2d6360281b0693d92074616bd62b7ea41e24eb2c5a2fd48"
+    },
+    "upstream-review-source-usr_local_apisix_apisix_cli_config.lua": {
+      "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-fanout-20260909/upstream-review-source-usr_local_apisix_apisix_cli_config.lua",
+      "bytes": 10001,
+      "sha256": "7c48fc42c772a29a3aa9d26445f84243ca00e702f5527a45a75baf1b8c1d1e32"
+    },
+    "upstream-review-source-usr_local_apisix_apisix_cli_ngx_tpl.lua": {
+      "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-fanout-20260909/upstream-review-source-usr_local_apisix_apisix_cli_ngx_tpl.lua",
+      "bytes": 32305,
+      "sha256": "b291ace0ddd416be8010ee56ed17f0f1e4ff2ddc90346cb06773a80624db2527"
+    },
+    "upstream-review-source-usr_local_apisix_apisix_schema_def.lua": {
+      "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-fanout-20260909/upstream-review-source-usr_local_apisix_apisix_schema_def.lua",
+      "bytes": 29148,
+      "sha256": "0e7413b53c588cf3d40f047db6f52f6e0063e89f5475b761069da402d34ec18a"
+    },
+    "upstream-review-source-usr_local_apisix_conf_nginx.conf": {
+      "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-fanout-20260909/upstream-review-source-usr_local_apisix_conf_nginx.conf",
+      "bytes": 9640,
+      "sha256": "d8d2e4217b94f5f5c23ea38f5671ba209e36b4a496b3a38ea60be9f7f7843c79"
+    },
+    "upstream-review-source-usr_local_openresty_lualib_ngx_balancer.lua": {
+      "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-fanout-20260909/upstream-review-source-usr_local_openresty_lualib_ngx_balancer.lua",
+      "bytes": 10390,
+      "sha256": "fa89ed4a154fba2cda8ac4acea6b87e1a800d18808821445f13ff1f3cc45bead"
+    }
+  },
+  "sourceCaptureRepeated": false,
+  "receiptScriptSha256": "5de2aa41c63b3faadf0cbdb9e9349f7292a00a516306bb05fb5cc6d41ee65bd4"
+}

@@ -1,0 +1,67 @@
+name: shortlink-refactor-it
+services:
+  mysql:
+    image: mysql:8.0.36
+    environment:
+      MYSQL_ROOT_PASSWORD: shortlink-it-only
+      MYSQL_DATABASE: shortlink_business_it
+    ports: ["127.0.0.1:13306:3306"]
+    command: ["--max-connections=100", "--innodb-buffer-pool-size=268435456"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pshortlink-it-only"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - ./001-test-databases.sql:/docker-entrypoint-initdb.d/001-test-databases.sql:ro
+  redis:
+    image: redis:7.2.5-alpine
+    ports: ["127.0.0.1:16379:6379"]
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  kafka:
+    image: apache/kafka:3.9.0
+    ports: ["127.0.0.1:19092:19092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:19092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    healthcheck:
+      test: ["CMD-SHELL", "KAFKA_HEAP_OPTS='-Xms16m -Xmx64m' KAFKA_JVM_PERFORMANCE_OPTS='-XX:ActiveProcessorCount=1 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.awt.headless=true' /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3.6.56
+    ports: ["127.0.0.1:18123:8123"]
+    environment:
+      CLICKHOUSE_USER: shortlink_it
+      CLICKHOUSE_PASSWORD: shortlink-it-only
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_DB: shortlink_analytics_it
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user shortlink_it --password shortlink-it-only --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    ports: ["127.0.0.1:19000:9000", "127.0.0.1:19001:9001"]
+    environment:
+      MINIO_ROOT_USER: shortlink-it
+      MINIO_ROOT_PASSWORD: shortlink-it-only
+    command: ["server", "/data", "--console-address", ":9001"]

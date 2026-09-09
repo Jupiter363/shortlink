@@ -9,10 +9,16 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
+        <module>event-contract</module>
+        <module>id-generator</module>
+        <module>risk-core</module>
+        <module>shortlink-command</module>
+        <module>shortlink-redirect</module>
+        <module>analytics-flink</module>
+        <module>analytics-worker</module>
+        <module>shortlink-analytics-api</module>
         <module>admin</module>
-        <module>project</module>
         <module>gateway</module>
-        <module>aggregation</module>
         <module>agent-service</module>
     </modules>
 
@@ -36,6 +42,10 @@
         <!-- Spring AI contracts used by the Alibaba 1.1.2.x line. -->
         <spring-ai.version>1.1.2</spring-ai.version>
         <lombok.version>1.18.34</lombok.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+        <maven.compiler.parameters>true</maven.compiler.parameters>
+        <testcontainers.version>1.20.6</testcontainers.version>
     </properties>
 
     <dependencyManagement>
@@ -134,5 +144,47 @@
             <url>https://maven.aliyun.com/repository/public</url>
         </repository>
     </repositories>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <!-- Ignored workstation credentials are never application artifacts. -->
+                    <exclude>**/application*.yml</exclude>
+                    <exclude>**/application*.yaml</exclude>
+                    <exclude>**/bootstrap*.yml</exclude>
+                    <exclude>**/bootstrap*.yaml</exclude>
+                    <exclude>**/shardingsphere-config*.yml</exclude>
+                    <exclude>**/shardingsphere-config*.yaml</exclude>
+                    <exclude>**/*.local.yml</exclude>
+                    <exclude>**/*.local.yaml</exclude>
+                </excludes>
+            </resource>
+        </resources>
+        <pluginManagement>
+            <plugins>
+                <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><version>${spring-boot.version}</version></plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.11.0</version></plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><release>17</release><parameters>true</parameters></configuration></plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.2.5</version>
+                <configuration><excludedGroups>e2e,performance</excludedGroups><excludes><exclude>**/*IT.java</exclude><exclude>**/*IntegrationTest.java</exclude><exclude>**/*E2e*.java</exclude><exclude>**/*E2E*.java</exclude><exclude>**/e2e/**</exclude></excludes></configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <profiles>
+        <profile>
+            <id>integration</id>
+            <build><plugins><plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId><version>3.2.5</version>
+                <configuration><excludedGroups>e2e,performance</excludedGroups><classesDirectory>${project.build.outputDirectory}</classesDirectory><includes><include>**/*IT.java</include><include>**/*IntegrationTest.java</include></includes><excludes><exclude>**/*E2e*.java</exclude><exclude>**/*E2E*.java</exclude><exclude>**/e2e/**</exclude></excludes></configuration>
+                <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+            </plugin></plugins></build>
+        </profile>
+    </profiles>
 
 </project>

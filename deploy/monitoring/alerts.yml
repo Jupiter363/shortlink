@@ -1,0 +1,30 @@
+groups:
+  - name: shortlink-runtime
+    rules:
+      - alert: ShortlinkMetricsUnavailable
+        expr: up{job=~"shortlink-gateway|shortlink-redirect"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Metrics target {{ $labels.instance }} is unreachable'
+      - alert: ShortlinkHeapPressure
+        expr: sum by (job, instance) (jvm_memory_used_bytes{job=~"shortlink-gateway|shortlink-redirect",area="heap"}) / sum by (job, instance) (jvm_memory_max_bytes{job=~"shortlink-gateway|shortlink-redirect",area="heap"} > 0) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Heap usage is sustained above the initial operational threshold'
+      - alert: ShortlinkAuthorityPoolWaiting
+        expr: hikaricp_connections_pending{job="shortlink-redirect"} > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Redirect authority callers are waiting for a database connection'
+      - alert: ShortlinkEventCollectionLoss
+        expr: sum by (instance, lane) (increase(shortlink_events_failed_total{job="shortlink-redirect"}[5m]) + increase(shortlink_events_rejected_total{job="shortlink-redirect"}[5m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Event lane {{ $labels.lane }} has terminal failure or rejected events'

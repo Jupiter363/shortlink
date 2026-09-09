@@ -1,0 +1,120 @@
+# 网关事件并发优化与复测（分轮记录）
+
+APISIX事件发送优化与复测已完成。最终部署为每worker 4个独立发送槽，并合并重复指标发布；原ACK、队列、HTTP限流及CPU集合保持不变。本机**3500/s通过完整300秒，1050001次正式请求全部正确，P99为26ms，零新增事件失败/拒绝**，相对旧3000/s长窗档位提高约16.7%。4000/s仅90秒通过，其长确认失败；5000/s也失败。两轮全部失败/未知结果保留，服务及专用WSL资源已释放。
+
+## 1. 优化前的问题
+
+旧插件每个 worker 只有一个发送通道，后台逐条同步等待 Kafka 确认。HTTP 可以正常返回 302，但事件队列仍可能因发送跟不上而拒绝新事件。
+
+| 旧版本已完成证据 | 结果与边界 |
+|---|---|
+| 网关 3000/s，300 秒正式窗口 | 900002/900002 个正确 HTTP，P99=8ms，零丢迭代，HTTP与事件检查通过；仅代表该环境五分钟档位 |
+| 网关 3250/s，渐进预热后细分档 | 发生73个边缘事件拒绝，正式阶段提前停止；虽然全轮66281个HTTP均正确，阶段仍失败 |
+
+两档使用64个本机TCP来源、30秒渐进预热；不能视为64台机器或公网/TLS成绩。既有拒绝事件不会因后来排空或新版本优化而补成成功。瓶颈线索在本地串行发送与排队，现有证据不足以归因 Kafka broker 容量。[旧报告](11-当前版本QPS峰值与元数据优化评估.md)、[3000长窗](../../../../../.work/performance/20260907T080749Z-38ed8199/stages/confirm-ramp-edge-r3000/wave-verdict.json)、[3250失败](../../../../../.work/performance/20260907T080749Z-38ed8199/stages/refine-ramp-edge-r3250/wave-verdict.json)
+
+## 2. 两版实现与共同约束
+
+- 插件默认 **2个独立发送槽/worker**，`send_concurrency` 可配1–8；第一轮部署2，第二轮部署4，插件默认仍为2。每槽只发送一项，同步等待最终ACK，多个槽可以重叠等待。
+- 所有槽共用原有每worker **1000条、8MiB** 待处理预算，正在发送和重试的项也占额；没有为每个槽复制队列，也没有降低 `acks=-1` 的确认要求。
+- 每槽缓存自己的producer。配置对象变化或send抛异常后重建，避免异常留下的缓冲状态污染下一事件。真实库中的sync实例有独立client、缓冲和关联状态；空闲连接可复用，正在使用的连接不在槽间共享。
+- 接纳、领取、完成和timer预约分开计数，失败路径释放一次。HTTP路径仍只做有界接纳，不等待Kafka确认；正常302与事件拒绝分别记账。
+- 重试保留原事件ID、发生时间及序列化内容；保留30秒年龄检查和插件最多3次send调用。客户端内部另有重试和metadata刷新，**不能把3次send称为3次网络请求**；ACK不确定可能导致重复，不承诺exactly-once。
+- 退出时停止新领取，已确认项正常结束，未确认旧worker世代不虚假清零。内存队列不提供崩溃后的自动重放保证。
+- 增加发送尝试/耗时、重试、producer创建、timer与drain错误、拒绝原因、排队/在途数和最老任务年龄，使用固定低基数指标；这些是诊断依据，send整体耗时不是纯ACK等待时间。
+- 同步producer仍会构造一个不用的异步环缓冲，本次将其配置缩至1，并缩小单记录缓冲预分配，减少多槽和异常重建带来的无用分配；外层队列及确认语义不变。
+
+第二版仅额外删除`finish`中的重复指标发布，保留下次发送前及drain结束时的发布；这段同worker路径不发生yield。**无yield不等于跨worker共享字典采样原子**，守恒不闭合的采样仍标为incomplete，不能用它证明排空。[发布合并评审](../../../../../.work/gateway-send-v1/publish-review.md)
+
+核心不变量为 `attempted = delivered + failed + rejected + pending`，其中 `pending = queued + in-flight`。只有最终成功确认才能计delivered；队列排空不能抵消拒绝或最终失败。[当前实现](../../../../../deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua)、[独立设计评审](../../../../../.work/gateway-send-v1/design-review.md)
+
+## 3. 独立组件验证，按版本分别计数
+
+| 验证 | 当前状态 | 证据与范围 |
+|---|---|---|
+| 固定镜像客户端源码核对 | 完成 | [来源摘要](../../../../../.work/gateway-send-v1/client-inspection.json)：sync实例隔离、真实构造/发送路径已核对 |
+| 第一版Lua＋静态接线 | **31项＋3项通过** | [回归证据](../../../../../.work/gateway-send-v1/lua-validation-v1.json)，Lua为`4802b9a1f8958c211f6fad022ce101d8e56dc17fe07840ecc53681d3dbb7d597` |
+| 第一版真实Kafka组件 | **5/5通过，已清理** | [12c106d73d44](../../../../../.work/gateway-send-v1/component/12c106d73d44/result.json) |
+| 第二版Lua＋静态接线 | **34项＋3项通过** | [回归证据](../../../../../.work/gateway-send-v1/lua-validation-v2.json)，增加前项ACK后发布异常及四槽预算等回归；不是另加34个独立功能 |
+| 第二版默认2槽真实Kafka组件 | **5/5通过，已清理** | [8eed2d58fabd](../../../../../.work/gateway-send-v1/component/8eed2d58fabd/result.json)，复验新Lua下默认行为 |
+| 第二版显式4槽真实Kafka组件 | **2/2通过，已清理** | [1c6d2e84b631](../../../../../.work/gateway-send-v1/component/1c6d2e84b631/result-four.json)，34次HTTP/34条Kafka、34个唯一事件ID |
+
+两版固定APISIX镜像`sha256:178d1f79c2c39834f50213bf6ace90284f6b985dc8189cc50f3666d9fb1037ad`。第二版Lua为`05f81b1b66e2408cbbf50ed9f65f283c26c4317304ce467717a0610a41d3d12f`；模拟、静态、真实组件、性能阶段分别计数，不相加为容量样本。
+
+两次5项组件各自100次HTTP均302、实际Kafka各92条；各有**2次发送失败、6次预算拒绝**，均为隔离故障用例预期，不能补为交付或混入性能run。四槽组件观察到4项同时领取并在途、ACK前delivered保持30；当时`send_attempts=33<34`，第四槽可能仍在producer构造/metadata阶段，**未证明4个Kafka Produce请求都已等待ACK**。三个组件均`cleanupComplete=true`，为单worker、单broker、单partition、RF=1；未证明8槽真实运行、append后ACK丢失、跨副本耐久或崩溃/reload无损。
+
+## 4. 第一轮：2槽，已停止并保留失败
+
+批次`20260907T101800Z-fa101a32`已STOPPED，Java制品未变。准备包含20账号/11300链接、142/142成功HTTP；[12项入口预检](../../../../../.work/performance/20260907T101800Z-fa101a32/edge-path-preflight-summary.json)为人工转录汇总，原stdout未保存；[64来源预检](../../../../../.work/performance/20260907T101800Z-fa101a32/source-ip-preflight.json)逐源吻合，未重发。[基线](../../../../../.work/performance/20260907T101800Z-fa101a32/baseline-boundary.json)完整排空后执行3项smoke和3档阶梯。
+
+| 正式窗口 | 发送/正确/未知 | 时长、客户端往返P99 | 判定 |
+|---|---|---|---|
+| 3000/s | 270001/270001/0 | 90001ms，11ms | PASS，完整90秒 |
+| 3250/s | 292502/292502/0 | 90025ms，13ms | PASS，完整90秒 |
+| 4000/s | 140697/140691/6 | 35151ms，22ms | **FAIL，事件拒绝触发提前停止** |
+
+[六阶段分析](../../../../../.work/performance/20260907T101800Z-fa101a32/gateway-send-analysis-v1.json)按正式/预热/整轮分开：4000档整轮202054发送、202048正确、6未知；六阶段合计861265发送、861259正确、6未知，全部阶段丢迭代0、HTTP429/503均0。该总量含预热与smoke，不是一个容量窗口。[收尾汇总](../../../../../.work/performance/20260907T101800Z-fa101a32/resume-final-summary.json)
+
+4000档完整采样的pending峰值1869、在途峰值4、最老项约0.475秒；这些是采样峰值，不能断言瞬时未触及单worker1000条上限。原采样白名单遗漏带reason标签的指标，[停止后诊断](../../../../../.work/performance/20260907T101800Z-fa101a32/gateway-terminal-diagnostics.json)补证`queue_count`拒绝1，其他原因0、重试/producer构造失败/timer/drain错误0；缺失的历史reason样本不补零。最终排空未抵消这次拒绝。
+
+三档均观察到64来源：[3000核验PASS](../../../../../.work/performance/20260907T101800Z-fa101a32/stages/gws-edge64-r3000/source-distribution.json)、[3250核验PASS](../../../../../.work/performance/20260907T101800Z-fa101a32/stages/gws-edge64-r3250/source-distribution.json)、[4000核验UNVERIFIED](../../../../../.work/performance/20260907T101800Z-fa101a32/stages/gws-edge64-r4000/source-distribution.json)。最后一档服务端记录202053条（202052个302、1个499），与客户端确认数不等，不能据此补成功。
+
+[原账本](../../../../../.work/performance/20260907T101800Z-fa101a32/optimization-ledger-verification.json)保留**77项PASS、6项FAIL**；[reconciliation](../../../../../.work/performance/20260907T101800Z-fa101a32/peak-ledger-reconciliation.json)仍UNVERIFIED。其writes-only未知计数0不涵盖这6个未完成READ，不能用它隐藏未知。第一轮不再补3250/s长确认，因为下一版实现和配置已变化，不能称其持续容量为3250/s。
+
+## 5. 第二轮：4槽＋发布合并
+
+批次`20260907T104001Z-141eee8d`使用新隔离数据和Redis DB11，继承第一轮资源预算。18:42:31（北京时间）[freeze](../../../../../.work/performance/20260907T104001Z-141eee8d/run-manifest.json)绑定制品/计划；[源摘要](../../../../../.work/performance/20260907T104001Z-141eee8d/source-checksums.json)及[运行挂载核验](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-runtime-identity.json)均为上述`05f81…`，源码与运行挂载一致。
+
+| 已完成准备 | 证据与限制 |
+|---|---|
+| fixture | [141/141 HTTP成功](../../../../../.work/performance/20260907T104001Z-141eee8d/fixture-summary.json)，20账号、11300链接；不直接写链接SQL、不清Redis、不重置发号器 |
+| 入口与来源 | [12项原始结构化入口结果](../../../../../.work/performance/20260907T104001Z-141eee8d/edge-path-preflight.json)PASS；[64次顺序HEAD](../../../../../.work/performance/20260907T104001Z-141eee8d/source-ip-preflight.json)客户端真实socket来源与服务端逐源吻合，等待5秒flush、不重发 |
+| 基线与后台观测 | [18:47:36基线](../../../../../.work/performance/20260907T104001Z-141eee8d/baseline-boundary.json)：11300路由/详情一致、metadata未入表/表内pending均0；[执行指标基线](../../../../../.work/performance/20260907T104001Z-141eee8d/metadata-execution-baseline.json)60系列可用、4种operation的failed均0 |
+| smoke | [3项全部PASS](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-send-smoke-v1-wave.json)：直连GET 11/11、直连HEAD 11/11、网关GET 10/10，未知0且排空；它们是功能门禁，不是容量成绩 |
+
+共同资源为本机HTTP/1.1、无TLS、standalone APISIX＋4个真实JAR；APISIX 2worker、CPU4–7与Java0–7重叠，各JVM 384MiB/ActiveProcessorCount=2，依赖CPU8–11、发生器12–15。池预算Command16/ID2/Redirect8/Admin12，Kafka2partition、RF=1；metadata为8worker/50ms轮询的`.local`策略拒绝夹具，不代表网络抓取能力。Agent、Flink/ClickHouse和统计查询未测，**未采集Kafka CPU，不能据此判定broker容量或CPU瓶颈**。
+
+## 6. 已执行范围与比较方法
+
+以第二轮冻结的[peak-plan](../../../../../.work/performance/20260907T104001Z-141eee8d/peak-plan.json)、[smoke spec](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-send-smoke-spec.json)、[阶梯spec](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-send-ladder-spec.json)和[第二轮补件](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-round2-addendum.json)为准。manifest遗留的通用create/30秒smoke文案不代表本轮执行；基线后计划新增链接0，smoke各为0秒预热＋10秒、1/s。
+
+网关阶梯计划3000/3250/4000/5000/6000/s，64个本机TCP来源、512VU、10条链接均匀访问、`per-request`指标初始化、100/s起步30秒渐进预热＋90秒正式窗口。5000失败后停止，6000未运行；随后4000的300秒确认也失败。依据[一次3500长窗补件](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-send-final3500-addendum.json)追加最后一档3500/s、30秒预热＋300秒正式测量，仍执行原失败门禁。原两轮家族保守预算66,344,730,624字节；追加前按已完成实际记录与新档保守预留重新核验，[家族预算40,386,908,160字节](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-final3500-family-budget.json)仍小于64GiB。两者是不同阶段的预算，不是实际磁盘增长；原4000万事件、2000未完成、300秒排空上限不变。
+
+新旧比较保留到达模型、发生器、工作集、CPU/堆/池及确认预算差异。第二轮同时改了槽数和发布频次，只能评价组合版本，不能单独归因其一；同run单变量A/B未执行。短窗与300秒确认分列，HTTP未知、事件拒绝、排空及资源成本分开记录；producer ACK/offset账本不证明统计消费完成。
+
+## 7. 第二轮实际结果
+
+下表请求数和P99仅取正式窗口；拒绝增量及未知响应覆盖包含预热的整轮。所有完成阶段的丢迭代均为0。结果来自[独立分析](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-send-final-analysis.json)和[逐阶段原始汇总](../../../../../.work/performance/20260907T104001Z-141eee8d/resume-final-summary.json)，没有把提前停止当作完整窗口。
+
+| 目标/s | 实际正式窗口 | 正确/已发请求 | P99 | 新增边缘拒绝 | 未知响应 | 结论 |
+|---|---:|---:|---:|---:|---:|---|
+| 3000 | 90.029s | 269885/269885 | 18ms | 0 | 0 | PASS |
+| 3250 | 90.006s | 292503/292503 | 20ms | 0 | 0 | PASS |
+| 4000 | 90.007s | 360002/360002 | 35ms | 0 | 0 | 短窗PASS |
+| 5000 | 5.166s，提前停止 | 25686/25711 | 97ms | 3255 | 25 | FAIL；6000不再运行 |
+| 4000，计划300s确认 | 4.966s，提前停止 | 19814/19854 | 31ms | 9 | 40 | FAIL，不能认定稳定4000/s |
+| **3500，300s长窗** | **300.002s** | **1050001/1050001** | **26ms** | **0** | **0** | **PASS，实测3499.98正确请求/s** |
+
+3500长窗含预热共1103949次请求，全部正确302，无429/503、未知或丢迭代；[64来源日志](../../../../../.work/performance/20260907T104001Z-141eee8d/stages/gws-edge64-final-r3500/source-distribution.json)逐条计数吻合。边缘事件attempted/delivered各增加1103949，原累计rejected保持3264不变，14项失败计数增量均0；GET点击和Redirect请求事件也通过逐阶段交付检查。完整样本pending峰501，单worker峰260，最老pending峰0.122s；18个不完整样本单独保留，其近似pending峰536，不能混作完整账本。停止后pending条数/字节及在途全部归零。[长窗判定](../../../../../.work/performance/20260907T104001Z-141eee8d/stages/gws-edge64-final-r3500/wave-verdict.json)
+
+相邻的测前预算检查与最终Kafka边界之间，offset总增量为3311847，恰等于1103949×3条生产者记录。[边界核对](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-final3500-kafka-boundary-check.json)覆盖预热，不是每阶段/每partition的连续采样，也不证明统计消费完成。
+
+可支持的结论是：相同CPU集合、堆、连接池、ACK和队列配置下，本机一次300秒通过档由旧串行3000/s提高到组合版本3500/s，目标档位提升约**16.7%**。旧3000档P99为8ms，本轮3500档为26ms；更高吞吐有延迟与CPU成本，不能表述为全面降延迟。新长窗APISIX子进程合计CPU均155.72%、Redirect139.52%、k6整个进程均257.83%；这些观测含预热，100%代表一个逻辑核，不是正式期精确CPU。一次五分钟通过不代表长期生产容量，也不证明3500就是绝对上限。
+
+## 8. 当前瓶颈与下一步边界
+
+5000档最确定的失败点仍是**APISIX单worker事件队列满**：[终态原因](../../../../../.work/performance/20260907T104001Z-141eee8d/gateway-ladder-terminal-diagnostics.json)明确3255次queue_count拒绝，随后4000长确认又新增9次，最终共3264次。它们与25＋40个未确认HTTP响应是不同计数，不能相加当作同一种丢失。
+
+4k短窗正式期内部80秒观测，两忙worker CPU约89.85%/87.88%，send调用均1.449ms；5k末段约5秒，两worker约95.43%/95.03%，send调用均1.852ms，估算平均忙槽7.91/8，完整快照pending=1000+571。其中5k区间起点快照不完整，只用于诊断趋势，不代替精确事件对账。[4k观测](../../../../../.work/performance/20260907T104001Z-141eee8d/stages/gws-edge64-r4000/metrics.jsonl)、[5k观测](../../../../../.work/performance/20260907T104001Z-141eee8d/stages/gws-edge64-r5000/metrics.jsonl)
+
+证据指向网关事件循环CPU与逐条同步发送/等待/调度共同接近极限；Kafka CPU未采集，send耗时也包含客户端及协程恢复，不能据此断言broker容量已满。后续应先定位每条事件的CPU成本，或在明确CPU预算下验证更多网关worker。若做有界批发送，当前客户端同步send没有公开sendMany；直接切async只能确认入队，不能沿用delivered作为最终ACK。批发送需要独立适配与ACK、部分失败测试，本轮未实现该变更。
+
+## 9. 账本、测试交付与资源收尾
+
+第二轮共9阶段，7项PASS、2项FAIL；总计2367623次已发、2367558次确认且正确、65个未知READ、0丢迭代、3264次边缘事件拒绝。所有阶段最终排空，新增链接0，四个Java JAR与冻结摘要一致。[最终汇总](../../../../../.work/performance/20260907T104001Z-141eee8d/resume-final-summary.json)
+
+因探索时的拒绝和未知响应，[最终账本仍为77项PASS/6项FAIL](../../../../../.work/performance/20260907T104001Z-141eee8d/optimization-ledger-verification.json)，[reconciliation仍为UNVERIFIED](../../../../../.work/performance/20260907T104001Z-141eee8d/peak-ledger-reconciliation.json)；其writes-only未知0不能覆盖65个未知READ。3500单档通过不改变全批次失败。第一轮另保留1次拒绝和6个未知READ；两轮合计3265次拒绝、71个未知READ。[metadata执行审计](../../../../../.work/performance/20260907T104001Z-141eee8d/metadata-execution-audit.json)通过，不等于统计消费者验收。
+
+最终Lua通过34项回归＋3项接线检查；最终代码真实Kafka默认槽组件5项、四槽组件2项均通过。四槽组件已整理为[scripts/integration/apisix_sender_four_component.py](../../../../../scripts/integration/apisix_sender_four_component.py)，与实际执行的临时入口相比仅模块说明中的命令路径变化；[AST及摘要证明](../../../../../.work/gateway-send-v1/four-slot-test-promotion.json)保留，可执行逻辑一致，新入口另通过3项离线检查。Agent链路、统计消费、TLS和生产发布未纳入本次复测。
+
+[环境清理已完成](../../../../../.work/performance/20260907T104001Z-141eee8d/environment-cleanup.json)：两轮四服务均停止，最后一轮停止4个共用依赖容器并恢复CPU集合，保留容器ID及数据；专用WSL及虚拟机关闭，未观察到k6/vmmemWSL进程，无自动恢复任务。临时APISIX由supervisor发起删除，删除结果未另作独立检查；资源释放依据服务停止和WSL关闭验证，不将未核实删除补成成功。

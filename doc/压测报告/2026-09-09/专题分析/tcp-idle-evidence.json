@@ -1,0 +1,40 @@
+{
+  "runId": "20260909T132900Z-09adb5ee",
+  "observedAt": "2026-09-09T13:57:07.894427+00:00",
+  "listener": "State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess\nLISTEN 0      4096               *:8003            *:*    users:((\"java\",pid=981,fd=27))\n",
+  "namespaces": {
+    "redirect": {
+      "pid": 981,
+      "counters": {
+        "SyncookiesSent": 0,
+        "ListenOverflows": 0,
+        "ListenDrops": 0,
+        "TCPReqQFullDoCookies": 0,
+        "TCPReqQFullDrop": 0,
+        "TCPSynRetrans": 4
+      },
+      "port8003States": {
+        "0A": 1
+      }
+    },
+    "apisix": {
+      "pid": 29899,
+      "counters": {
+        "SyncookiesSent": 0,
+        "ListenOverflows": 0,
+        "ListenDrops": 0,
+        "TCPReqQFullDoCookies": 0,
+        "TCPReqQFullDrop": 0,
+        "TCPSynRetrans": 0
+      },
+      "port8003States": {}
+    }
+  },
+  "hostSysctls": {
+    "net/core/somaxconn": "4096",
+    "net/ipv4/tcp_max_syn_backlog": "1024",
+    "net/ipv4/ip_local_port_range": "32768\t60999"
+  },
+  "limitation": "Idle post-pressure cumulative snapshots only, no before/after pressure deltas; they cannot establish causality or absence of a previous overflow.",
+  "scriptSha256": "1426f37b80bb780949a578ebbd77054f6b8f4dd87bf08293154a430b9fccbabe"
+}

@@ -1,226 +1,359 @@
 package com.jupiter.shortlink.agent.riskprofile.source;
 
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
+import com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport;
+import com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+/**
+ * Scheduled profiles use the same Admin authorization and Analytics snapshots as ordinary tools.
+ */
 @Component
 public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway {
+    private final AgentProperties properties;
+    private final BoundedHttpTransport transport;
+    private final RestTemplate testTransport;
+    private com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient authority;
 
-    private static final String INTERNAL_TOKEN_HEADER = "X-Agent-Internal-Token";
-
-    private static final String USERNAME_HEADER = "X-Agent-Username";
-
-    private final AgentProperties agentProperties;
-
-    private final RestTemplate restTemplate;
-
-    @Autowired
-    public ShortLinkBusinessRiskStatsGateway(AgentProperties agentProperties, RestTemplateBuilder restTemplateBuilder) {
-        this(agentProperties, restTemplateBuilder.build());
+    public ShortLinkBusinessRiskStatsGateway(
+            AgentProperties properties, BoundedHttpTransport transport) {
+        this.properties = properties;
+        this.transport = transport;
+        this.testTransport = null;
     }
 
-    public ShortLinkBusinessRiskStatsGateway(AgentProperties agentProperties, RestTemplate restTemplate) {
-        this.agentProperties = agentProperties;
-        this.restTemplate = restTemplate;
+    @Autowired
+    public ShortLinkBusinessRiskStatsGateway(
+            AgentProperties properties,
+            BoundedHttpTransport transport,
+            com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient authority) {
+        this(properties, transport);
+        this.authority = authority;
+    }
+
+    public ShortLinkBusinessRiskStatsGateway(
+            AgentProperties properties, RestTemplate testTransport) {
+        this.properties = properties;
+        this.transport = null;
+        this.testTransport = testTransport;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<ShortLinkActiveCandidate> listActiveShortLinks(Instant since) {
-        Object data = get(
-                "/internal/short-link-admin/v1/agent-tools/risk/active-short-links",
-                orderedParams("since", since.toString())
-        );
-        if (!(data instanceof List<?> rows)) {
-            throw new IllegalStateException("Risk stats active short links data must be a list");
+        if (authority != null) return listAuthorizedCandidates(since);
+        Instant requestedEnd = since.plus(Duration.ofDays(7));
+        List<ShortLinkActiveCandidate> candidates = new ArrayList<>();
+        String snapshot = null, cursor = null;
+        Map<String, Object> originalMeta = null;
+        for (int page = 0; page < 20; page++) {
+            Map<String, Object> params = new LinkedHashMap<>();
+            params.put("since", since.toString());
+            params.put("endTime", requestedEnd.toString());
+            params.put("pageSize", 500);
+            if (snapshot != null) params.put("snapshotId", snapshot);
+            if (cursor != null) params.put("cursor", cursor);
+            Map<String, Object> envelope = get("/risk/active-short-links", params);
+            Map<String, Object> meta = meta(envelope);
+            if (originalMeta != null) StatsEvidence.requireSameSnapshot(originalMeta, meta);
+            else originalMeta = meta;
+            for (Map<String, Object> row : items(envelope)) {
+                candidates.add(
+                        new ShortLinkActiveCandidate(
+                                text(row.get("gid")),
+                                text(row.get("domain")),
+                                text(row.get("shortUri")),
+                                text(row.get("fullShortUrl")),
+                                StatsEvidence.number(row.get("pv")),
+                                null,
+                                null,
+                                text(meta.get("tenantId")),
+                                StatsEvidence.number(row.get("linkId")),
+                                meta));
+            }
+            Object next = meta.get("nextCursor");
+            if (next == null || next.toString().isBlank()) return List.copyOf(candidates);
+            cursor = next.toString();
+            snapshot = text(meta.get("snapshotId"));
         }
-        return rows.stream()
-                .filter(Map.class::isInstance)
-                .map(row -> activeCandidate((Map<String, Object>) row))
+        throw new IllegalStateException(
+                "TOO_LARGE: active candidate snapshot exceeds batch budget");
+    }
+
+    private List<ShortLinkActiveCandidate> listAuthorizedCandidates(Instant since) {
+        var principal =
+                com.jupiter.shortlink.agent.harness.security.AgentPrincipal.system(
+                        properties.getBusiness().getUsername());
+        List<ShortLinkActiveCandidate> candidates = new ArrayList<>();
+        Long after = null;
+        String ownershipVersion = null;
+        String tenantId = null;
+        Map<String, Object> discoveryCut = null;
+        // A failed or over-budget discovery never returns a silently truncated successful batch.
+        for (int scopePage = 0; scopePage < 20; scopePage++) {
+            var scope = authority.resolvePage(principal, null, null, null, after, ownershipVersion);
+            if (tenantId != null
+                    && (!tenantId.equals(scope.tenantId())
+                            || !ownershipVersion.equals(scope.ownershipVersion())))
+                throw new SecurityException("Candidate ownership changed during discovery");
+            tenantId = scope.tenantId();
+            ownershipVersion = scope.ownershipVersion();
+            List<Long> ids =
+                    scope.links().stream()
+                            .map(link -> StatsEvidence.number(link.get("linkId")))
+                            .toList();
+            if (!ids.isEmpty()) {
+                String snapshot = null, cursor = null;
+                Map<String, Object> originalMeta = null;
+                for (int page = 0; page < 20; page++) {
+                    Map<String, Object> request = new LinkedHashMap<>();
+                    request.put("linkIds", ids);
+                    request.put("since", since.toString());
+                    request.put("endTime", since.plus(Duration.ofDays(7)).toString());
+                    request.put("snapshotId", snapshot);
+                    request.put("cursor", cursor);
+                    Map<String, Object> response =
+                            transport.exchange(
+                                    "POST",
+                                    URI.create(
+                                            properties
+                                                            .getBusiness()
+                                                            .getBaseUrl()
+                                                            .replaceAll("/+$", "")
+                                                    + "/internal/short-link-admin/v1/agent-tools/risk/active-link-query"),
+                                    authority.headers(principal),
+                                    request);
+                    Map<String, Object> envelope = checkedResponse(response);
+                    Map<String, Object> metadata = meta(envelope);
+                    if (discoveryCut == null) discoveryCut = metadata;
+                    else
+                        for (String field :
+                                List.of(
+                                        "recoveryEpoch",
+                                        "effectiveEnd",
+                                        "manifestVersion",
+                                        "sourceCut",
+                                        "metricVersion",
+                                        "detailDatasetVersion")) {
+                            if (discoveryCut.get(field) == null
+                                    || !Objects.equals(
+                                            discoveryCut.get(field), metadata.get(field)))
+                                throw new IllegalStateException(
+                                        "Candidate discovery cut changed; restart the batch");
+                        }
+                    if (!tenantId.equals(metadata.get("tenantId")))
+                        throw new SecurityException("Candidate statistics tenant changed");
+                    if (originalMeta == null) originalMeta = metadata;
+                    else StatsEvidence.requireSameSnapshot(originalMeta, metadata);
+                    for (Map<String, Object> row : items(envelope)) {
+                        long id = StatsEvidence.number(row.get("linkId"));
+                        if (!scope.contains(id, text(row.get("gid"))))
+                            throw new SecurityException("Candidate left the authorized scope");
+                        candidates.add(
+                                new ShortLinkActiveCandidate(
+                                        text(row.get("gid")),
+                                        text(row.get("domain")),
+                                        text(row.get("shortUri")),
+                                        text(row.get("fullShortUrl")),
+                                        StatsEvidence.number(row.get("pv")),
+                                        null,
+                                        null,
+                                        tenantId,
+                                        id,
+                                        metadata));
+                    }
+                    if (metadata.get("nextCursor") == null) break;
+                    if (page == 19)
+                        throw new IllegalStateException(
+                                "TOO_LARGE: candidate snapshot exceeds page budget");
+                    snapshot = text(metadata.get("snapshotId"));
+                    cursor = text(metadata.get("nextCursor"));
+                }
+            }
+            if (scope.nextCursor() == null) return List.copyOf(candidates);
+            if (after != null && scope.nextCursor() <= after)
+                throw new IllegalStateException("Candidate cursor did not advance");
+            after = scope.nextCursor();
+        }
+        throw new IllegalStateException("TOO_LARGE: candidate discovery exceeds 10000 links");
+    }
+
+    @Override
+    public Map<String, ShortLinkStatsWindow> loadStatsWindows(
+            ShortLinkActiveCandidate candidate, Instant end) {
+        if (candidate.meta() != null && candidate.meta().get("effectiveEnd") != null)
+            end = Instant.ofEpochMilli(StatsEvidence.number(candidate.meta().get("effectiveEnd")));
+        Map<String, Object> envelope =
+                get(
+                        "/risk/short-link-windows",
+                        Map.of(
+                                "gid",
+                                candidate.gid(),
+                                "fullShortUrl",
+                                candidate.fullShortUrl(),
+                                "endTime",
+                                end.toString()));
+        Map<String, Object> meta = meta(envelope);
+        Map<String, ShortLinkStatsWindow> windows = new LinkedHashMap<>();
+        for (Map<String, Object> row : items(envelope)) {
+            String window = text(row.get("window"));
+            if (!List.of("2h", "24h", "7d").contains(window)
+                    || windows.put(window, window(row, meta, candidate)) != null) {
+                throw new IllegalStateException("Statistics window contract is ambiguous");
+            }
+        }
+        if (!windows.keySet().equals(Set.of("2h", "24h", "7d")))
+            throw new IllegalStateException("Statistics windows are incomplete");
+        return Map.copyOf(windows);
+    }
+
+    @Override
+    public ShortLinkStatsWindow loadStatsWindow(
+            ShortLinkActiveCandidate candidate, Instant start, Instant end) {
+        Map<String, Object> envelope =
+                get(
+                        "/risk/short-link-window-stats",
+                        Map.of(
+                                "gid",
+                                candidate.gid(),
+                                "fullShortUrl",
+                                candidate.fullShortUrl(),
+                                "startTime",
+                                start.toString(),
+                                "endTime",
+                                end.toString()));
+        List<Map<String, Object>> items = items(envelope);
+        if (items.size() != 1)
+            throw new IllegalStateException("Expected one statistics resource window");
+        return window(items.get(0), meta(envelope), candidate);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> get(String path, Map<String, Object> parameters) {
+        String username = properties.getBusiness().getUsername();
+        String token = properties.getBusiness().getInternalToken();
+        if (username == null || username.isBlank() || token == null || token.length() < 24)
+            throw new IllegalStateException("Scheduled analytics principal is not configured");
+        var uri =
+                UriComponentsBuilder.fromHttpUrl(
+                        properties.getBusiness().getBaseUrl().replaceAll("/+$", "")
+                                + "/internal/short-link-admin/v1/agent-tools"
+                                + path);
+        parameters.forEach(uri::queryParam);
+        URI target = uri.build().encode().toUri();
+        Map<String, String> headers =
+                Map.of(
+                        "X-Agent-Username",
+                        username,
+                        "X-Agent-Internal-Token",
+                        token,
+                        "X-Agent-Principal-Mode",
+                        "SYSTEM");
+        Map<String, Object> response;
+        if (transport != null) response = transport.exchange("GET", target, headers, null);
+        else {
+            HttpHeaders testHeaders = new HttpHeaders();
+            headers.forEach(testHeaders::set);
+            response =
+                    testTransport
+                            .exchange(
+                                    target,
+                                    HttpMethod.GET,
+                                    new HttpEntity<>(testHeaders),
+                                    Map.class)
+                            .getBody();
+        }
+        return checkedResponse(response);
+    }
+
+    private static Map<String, Object> checkedResponse(Map<String, Object> response) {
+        if (response == null
+                || !"0".equals(String.valueOf(response.get("code")))
+                || !(response.get("data") instanceof Map<?, ?> data)) {
+            throw new IllegalStateException("Scheduled analytics source is unavailable");
+        }
+        Map<String, Object> result = StatsEvidence.copyMap(data);
+        Map<String, Object> metadata = meta(result);
+        if (!"AVAILABLE".equals(metadata.get("availability"))
+                || !"COMPLETE".equals(metadata.get("completeness"))
+                || !(metadata.get("snapshotId") instanceof String)
+                || !(metadata.get("recoveryEpoch") instanceof String)) {
+            throw new IllegalStateException(
+                    "Scheduled analytics evidence is not complete and available");
+        }
+        return result;
+    }
+
+    private static ShortLinkStatsWindow window(
+            Map<String, Object> row, Map<String, Object> meta, ShortLinkActiveCandidate candidate) {
+        String tenant = text(meta.get("tenantId"));
+        long linkId = StatsEvidence.number(row.get("linkId"));
+        if ((candidate.tenantId() != null && !candidate.tenantId().equals(tenant))
+                || (candidate.linkId() != null && candidate.linkId() != linkId)
+                || !candidate.gid().equals(row.get("gid")))
+            throw new SecurityException("Statistics resource identity changed");
+        return new ShortLinkStatsWindow(
+                text(row.get("gid")),
+                text(row.get("domain")),
+                text(row.get("shortUri")),
+                text(row.get("fullShortUrl")),
+                Instant.ofEpochMilli(StatsEvidence.number(row.get("startInclusive"))),
+                Instant.ofEpochMilli(StatsEvidence.number(row.get("endExclusive"))),
+                StatsEvidence.number(row.get("pv")),
+                StatsEvidence.number(row.get("uv")),
+                StatsEvidence.number(row.get("uip")),
+                ratio(row.get("topIpShare")),
+                ratio(row.get("topVisitorShare")),
+                ratio(row.get("topRegionShare")),
+                ratio(row.get("topDeviceShare")),
+                ratio(row.get("topBrowserShare")),
+                ratio(row.get("peakHourShare")),
+                ratio(row.get("repeatVisitRatio")),
+                tenant,
+                linkId,
+                meta);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> items(Map<String, Object> envelope) {
+        if (!(envelope.get("items") instanceof List<?> values))
+            throw new IllegalStateException("Statistics items are missing");
+        return values.stream()
+                .map(
+                        value -> {
+                            if (!(value instanceof Map<?, ?> row))
+                                throw new IllegalStateException("Statistics item is invalid");
+                            return StatsEvidence.copyMap(row);
+                        })
                 .toList();
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public ShortLinkStatsWindow loadStatsWindow(ShortLinkActiveCandidate candidate, Instant start, Instant end) {
-        Object data = get(
-                "/internal/short-link-admin/v1/agent-tools/risk/short-link-window-stats",
-                orderedParams(
-                        "gid", candidate.gid(),
-                        "fullShortUrl", candidate.fullShortUrl(),
-                        "startTime", start.toString(),
-                        "endTime", end.toString()
-                )
-        );
-        if (!(data instanceof Map<?, ?> row)) {
-            throw new IllegalStateException("Risk stats window data must be an object");
-        }
-        return statsWindow((Map<String, Object>) row, candidate, start, end);
+    private static Map<String, Object> meta(Map<String, Object> envelope) {
+        if (!(envelope.get("meta") instanceof Map<?, ?> metadata))
+            throw new IllegalStateException("Statistics provenance is missing");
+        return StatsEvidence.copyMap(metadata);
     }
 
-    private Object get(String path, Map<String, Object> queryParams) {
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    uri(path, queryParams),
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers()),
-                    Map.class
-            );
-            Map<?, ?> body = response.getBody();
-            if (body == null) {
-                throw new IllegalStateException("Risk stats API returned empty response");
-            }
-            if (!isSuccess(body)) {
-                throw new IllegalStateException(message(body));
-            }
-            return body.get("data");
-        } catch (RestClientException ex) {
-            throw new IllegalStateException("Risk stats API request failed: " + ex.getMessage(), ex);
-        }
+    private static String text(Object value) {
+        if (!(value instanceof String text) || text.isBlank())
+            throw new IllegalStateException("Statistics identity metadata is missing");
+        return text;
     }
 
-    private URI uri(String path, Map<String, Object> queryParams) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl() + normalizePath(path));
-        queryParams.forEach((key, value) -> {
-            if (value != null) {
-                builder.queryParam(key, value);
-            }
-        });
-        return builder.build(true).toUri();
-    }
-
-    private HttpHeaders headers() {
-        HttpHeaders headers = new HttpHeaders();
-        String username = agentProperties.getBusiness().getUsername();
-        if (!StringUtils.hasText(username)) {
-            throw new IllegalStateException("Risk stats business username is required");
-        }
-        headers.add(USERNAME_HEADER, username);
-        String internalToken = agentProperties.getBusiness().getInternalToken();
-        if (StringUtils.hasText(internalToken)) {
-            headers.add(INTERNAL_TOKEN_HEADER, internalToken);
-        }
-        return headers;
-    }
-
-    private String baseUrl() {
-        String baseUrl = agentProperties.getBusiness().getBaseUrl();
-        while (baseUrl.endsWith("/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-        }
-        return baseUrl;
-    }
-
-    private String normalizePath(String path) {
-        if (!StringUtils.hasText(path)) {
-            return "";
-        }
-        return path.startsWith("/") ? path : "/" + path;
-    }
-
-    private boolean isSuccess(Map<?, ?> body) {
-        Object success = body.get("success");
-        Object code = body.get("code");
-        return Boolean.TRUE.equals(success) || "0".equals(String.valueOf(code));
-    }
-
-    private String message(Map<?, ?> body) {
-        Object message = body.get("message");
-        Object code = body.get("code");
-        if (message != null) {
-            return String.valueOf(message);
-        }
-        return "Risk stats API failed with code " + code;
-    }
-
-    private Map<String, Object> orderedParams(Object... keyValues) {
-        Map<String, Object> params = new LinkedHashMap<>();
-        for (int index = 0; index + 1 < keyValues.length; index += 2) {
-            params.put(String.valueOf(keyValues[index]), keyValues[index + 1]);
-        }
-        return params;
-    }
-
-    private ShortLinkActiveCandidate activeCandidate(Map<String, Object> row) {
-        return new ShortLinkActiveCandidate(
-                stringValue(row.get("gid")),
-                stringValue(row.get("domain")),
-                stringValue(row.get("shortUri")),
-                stringValue(row.get("fullShortUrl")),
-                intValue(row.get("pv")),
-                intValue(row.get("uv")),
-                intValue(row.get("uip"))
-        );
-    }
-
-    private ShortLinkStatsWindow statsWindow(
-            Map<String, Object> row,
-            ShortLinkActiveCandidate candidate,
-            Instant start,
-            Instant end
-    ) {
-        return new ShortLinkStatsWindow(
-                stringOrDefault(row.get("gid"), candidate.gid()),
-                stringOrDefault(row.get("domain"), candidate.domain()),
-                stringOrDefault(row.get("shortUri"), candidate.shortUri()),
-                stringOrDefault(row.get("fullShortUrl"), candidate.fullShortUrl()),
-                start,
-                end,
-                intValue(row.get("pv")),
-                intValue(row.get("uv")),
-                intValue(row.get("uip")),
-                doubleValue(row.get("topIpShare")),
-                doubleValue(row.get("topVisitorShare")),
-                doubleValue(row.get("topRegionShare")),
-                doubleValue(row.get("topDeviceShare")),
-                doubleValue(row.get("topBrowserShare")),
-                doubleValue(row.get("peakHourShare")),
-                doubleValue(row.get("repeatVisitRatio"))
-        );
-    }
-
-    private String stringOrDefault(Object value, String fallback) {
-        String stringValue = stringValue(value);
-        return StringUtils.hasText(stringValue) ? stringValue : fallback;
-    }
-
-    private String stringValue(Object value) {
-        return value == null ? "" : String.valueOf(value);
-    }
-
-    private Integer intValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        return Integer.parseInt(String.valueOf(value));
-    }
-
-    private Double doubleValue(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.doubleValue();
-        }
-        return Double.parseDouble(String.valueOf(value));
+    private static Double ratio(Object value) {
+        if (value == null) return null;
+        double number = Double.parseDouble(value.toString());
+        if (!Double.isFinite(number) || number < 0 || number > 1)
+            throw new IllegalStateException("Invalid statistics ratio");
+        return number;
     }
 }

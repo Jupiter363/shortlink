@@ -1,5 +1,11 @@
 package com.jupiter.shortlink.admin.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.jupiter.shortlink.admin.common.biz.user.UserContext;
 import com.jupiter.shortlink.admin.common.biz.user.UserInfoDTO;
 import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
@@ -8,18 +14,13 @@ import com.jupiter.shortlink.admin.common.convention.result.Results;
 import com.jupiter.shortlink.admin.config.AgentAdminConfiguration;
 import com.jupiter.shortlink.admin.remote.AgentRemoteService;
 import com.jupiter.shortlink.admin.remote.dto.req.AgentChatReqDTO;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class AgentControllerTest {
 
@@ -37,27 +38,18 @@ class AgentControllerTest {
         AgentChatReqDTO request = new AgentChatReqDTO();
         request.setSessionId("session-1");
         request.setMessage("analyze campaign");
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
+        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name", 7L));
         Result<Object> expected = Results.success(Map.of("sessionId", "session-1"));
 
         when(remoteService.chat(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                request
-        )).thenReturn(expected);
+                        "internal-token", "trusted-user", "1001", "Trusted Name", 7L, request))
+                .thenReturn(expected);
 
         Result<Object> actual = controller.chat(request);
 
         assertThat(actual).isSameAs(expected);
-        verify(remoteService).chat(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                request
-        );
+        verify(remoteService)
+                .chat("internal-token", "trusted-user", "1001", "Trusted Name", 7L, request);
     }
 
     @Test
@@ -66,16 +58,16 @@ class AgentControllerTest {
         AgentAdminConfiguration configuration = new AgentAdminConfiguration();
         configuration.setInternalToken("internal-token");
         AgentController controller = new AgentController(remoteService, configuration);
-        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name"));
+        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name", 7L));
         Result<Object> expected = Results.success(Map.of("status", "OK"));
 
-        when(remoteService.health("internal-token", "trusted-user", "1001", "Trusted Name"))
+        when(remoteService.health("internal-token", "trusted-user", "1001", "Trusted Name", 7L))
                 .thenReturn(expected);
 
         Result<Object> actual = controller.health();
 
         assertThat(actual).isSameAs(expected);
-        verify(remoteService).health("internal-token", "trusted-user", "1001", "Trusted Name");
+        verify(remoteService).health("internal-token", "trusted-user", "1001", "Trusted Name", 7L);
     }
 
     @Test
@@ -98,8 +90,7 @@ class AgentControllerTest {
         request.setSessionId("session-1");
         request.setMessage("analyze campaign");
 
-        assertThat(Arrays.stream(AgentChatReqDTO.class.getDeclaredFields())
-                .map(Field::getName))
+        assertThat(Arrays.stream(AgentChatReqDTO.class.getDeclaredFields()).map(Field::getName))
                 .doesNotContain("username");
         assertThat(request.getSessionId()).isEqualTo("session-1");
         assertThat(request.getMessage()).isEqualTo("analyze campaign");

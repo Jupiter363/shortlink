@@ -8,6 +8,7 @@ import com.jupiter.shortlink.admin.remote.dto.resp.RiskPageRespDTO;
 import com.jupiter.shortlink.admin.remote.dto.resp.RiskReviewRespDTO;
 import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkCardRespDTO;
 import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkDetailRespDTO;
+
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +20,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(value = "short-link-agent", url = "${short-link.agent.admin.remote-url:}")
+@FeignClient(
+        value = "short-link-agent",
+        contextId = "agent-risk",
+        url = "${short-link.agent.admin.remote-url:}",
+        configuration = CommandRiskRemoteService.Transport.class)
 public interface AgentRiskRemoteService {
 
     @GetMapping("/internal/short-link-agent/v1/risk/groups/{gid}/overview")
@@ -27,7 +32,7 @@ public interface AgentRiskRemoteService {
             @RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
             @RequestHeader("X-Agent-Username") String username,
             @RequestHeader(value = "X-Agent-UserId", required = false) String userId,
-            @RequestHeader(value = "X-Agent-RealName", required = false) String realName,
+            @RequestHeader("X-Agent-Auth-Version") Long authVersion,
             @PathVariable("gid") String gid);
 
     @GetMapping("/internal/short-link-agent/v1/risk/groups/{gid}/short-links")
@@ -35,7 +40,7 @@ public interface AgentRiskRemoteService {
             @RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
             @RequestHeader("X-Agent-Username") String username,
             @RequestHeader(value = "X-Agent-UserId", required = false) String userId,
-            @RequestHeader(value = "X-Agent-RealName", required = false) String realName,
+            @RequestHeader("X-Agent-Auth-Version") Long authVersion,
             @PathVariable("gid") String gid);
 
     @GetMapping("/internal/short-link-agent/v1/risk/groups/{gid}/short-links/{domain}/{shortUri}")
@@ -43,7 +48,7 @@ public interface AgentRiskRemoteService {
             @RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
             @RequestHeader("X-Agent-Username") String username,
             @RequestHeader(value = "X-Agent-UserId", required = false) String userId,
-            @RequestHeader(value = "X-Agent-RealName", required = false) String realName,
+            @RequestHeader("X-Agent-Auth-Version") Long authVersion,
             @PathVariable("gid") String gid,
             @PathVariable("domain") String domain,
             @PathVariable("shortUri") String shortUri);
@@ -53,7 +58,7 @@ public interface AgentRiskRemoteService {
             @RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
             @RequestHeader("X-Agent-Username") String username,
             @RequestHeader(value = "X-Agent-UserId", required = false) String userId,
-            @RequestHeader(value = "X-Agent-RealName", required = false) String realName,
+            @RequestHeader("X-Agent-Auth-Version") Long authVersion,
             @RequestParam(value = "gid", required = false) String gid,
             @RequestParam(value = "targetType", required = false) String targetType,
             @RequestParam(value = "domain", required = false) String domain,
@@ -66,7 +71,7 @@ public interface AgentRiskRemoteService {
             @RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
             @RequestHeader("X-Agent-Username") String username,
             @RequestHeader(value = "X-Agent-UserId", required = false) String userId,
-            @RequestHeader(value = "X-Agent-RealName", required = false) String realName,
+            @RequestHeader("X-Agent-Auth-Version") Long authVersion,
             @RequestBody RiskReviewReqDTO requestParam);
 
     @PostMapping("/internal/short-link-agent/v1/risk/policies/{policyId}/disable")
@@ -74,7 +79,7 @@ public interface AgentRiskRemoteService {
             @RequestHeader(value = "X-Agent-Internal-Token", required = false) String internalToken,
             @RequestHeader("X-Agent-Username") String username,
             @RequestHeader(value = "X-Agent-UserId", required = false) String userId,
-            @RequestHeader(value = "X-Agent-RealName", required = false) String realName,
+            @RequestHeader("X-Agent-Auth-Version") Long authVersion,
             @PathVariable("policyId") String policyId,
             @RequestBody RiskPolicyDisableReqDTO requestParam);
 }

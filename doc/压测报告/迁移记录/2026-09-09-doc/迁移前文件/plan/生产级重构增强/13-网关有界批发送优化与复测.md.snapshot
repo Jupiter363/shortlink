@@ -1,0 +1,136 @@
+# 网关有界批发送优化与复测
+
+本轮已完成有界同步批发送，并完成2、4、8 worker配置复测。8 worker配合CPU范围0–7后，在5000/s目标、完整90.024秒正式窗口实测约4982.32正确请求/s，P99为67ms，HTTP及已观测事件失败为0；仍有1228次全场景丢迭代，因此5000档保持FAIL，未执行长确认。批发送的正确性和资源约束已验证，**尚未取得新版本的长期稳定容量结论**。旧3500/s长窗通过属于上一版逐条发送制品，不能移用到新版本。
+
+## 1. 对比基线与本轮变化
+
+上一轮每 worker 4 槽、逐条同步发送，在本机一次 300.002 秒正式窗口通过约3500/s：1050001/1050001 个正确请求，P99=26ms，零新增事件拒绝/失败。4000/s仅90秒通过，长确认失败；5000/s也失败。这是历史实测档位，不是已证明的绝对上限。[报告12](D:/学习/Project/马哥Project/shortlink/plan/生产级重构增强/12-网关事件并发优化与复测.md)
+
+报告12的4k/5k观测显示忙 worker CPU、发送等待与队列共同承压；Kafka CPU未采，不能据此断言 broker 容量耗尽。本轮减少每条事件的 Produce 请求与重复发布开销，保留原耐久性和资源边界；收益仍需同预算实测比较。
+
+| 项目 | 当前实现与部署约定 |
+|---|---|
+| 批次 | 部署 `send_batch_size=32`、`send_batch_bytes=65536`；有多少现成项就领取多少，不增加 linger 等待 |
+| 并发 | 插件默认2槽，可配1–8；性能配置固定4槽/worker，worker与节点槽数见第7节 |
+| 待处理预算 | 双 worker 时每 worker 全部槽共享1000条、8MiB；排队、发送中、重试共同占额；扩worker仍保持节点2000条/16MiB |
+| 确认 | 固定 `acks=-1`；同步处理最终响应，只有对应原项 `acked=true` 才记 delivered |
+| 兼容 | schema 的批大小默认1，继续旧同步单条路径；部署显式32才启用新 adapter |
+
+配置与实现：[部署路由](D:/学习/Project/马哥Project/shortlink/deploy/apisix/apisix.yaml)、[logger](D:/学习/Project/马哥Project/shortlink/deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua)、[私有 batch adapter](D:/学习/Project/马哥Project/shortlink/deploy/apisix/plugins/apisix/plugins/shortlink-kafka-batch.lua)。旧报告12保留原实现、失败与账本，不回写为本轮成绩。
+
+## 2. 正确性及观测口径
+
+- 每槽缓存独立 adapter；配置对象改变或调用抛异常后重建。批内只收相同配置对象的连续项；重建、metadata刷新或分区数变化不会重新分配已确定的 topic/partition，保留原 eventID、时间和 body。
+- 每个 broker 响应须完整校验 correlation、预期 topic/partition 集合、重复/缺失、长度、offset及协议尾字段，才原位确认成功项。先前 broker 的已知 ACK 不因后续错误撤销；只重试未确认、非确定终态且未过30秒的项。
+- 新批路径无 adapter 内部重试，logger最多3次调用；一次调用可涉及 metadata及多个 broker，**不能称为最多3次网络请求**。未知 ACK仍可能重复；稳定 eventID用于下游去重，不承诺 exactly-once。
+- adapter硬限128项、实际 key+body 合计1MiB、编码请求1MiB+16KiB、响应1MiB；metadata只查询当前 topic，至多64 brokers/4096 partitions。临时编解码、socket内存另有上界，8MiB并非整个进程RSS上限。
+- 领取/在途/终态仍按事件条数结算，活动发送槽另计。预约 timer防止批量领取后空转；降并发、异常清理和退出保留一次结算及旧 worker 世代账本。HTTP正常302与事件拒绝分别记录，排空不能补回已拒绝事件。
+
+新增 `shortlink_edge_batch_{calls,event_attempts,produce_requests,produce_records,metadata_requests}`：依次为 adapter调用、调用时合格事件尝试数、实际Produce发送尝试、其中记录尝试数、metadata发送尝试。发送失败及重试仍计尝试；这些不是 broker 已持久化计数。旧 `send_attempts`仍为send调用数，批量前后不能直接当网络请求对比。
+
+`shortlink_edge_batch_observation_complete`单独标记扩展指标是否完整；旧 worker 世代缺少批量字段时不得补零，原核心账本不因新增字段被伪装成失败。批量度应结合窗口内 `produce_records/produce_requests`、完整账本及真实 Kafka 内容判断。[实现契约及来源](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/adapter-notes.md)
+
+## 3. 已执行验证与保留失败
+
+代码验证共82个 Lua 用例（52 logger＋30 adapter）；896断言仅属于adapter测试，另有3个静态接线检查。以下真实组件独立计数，不与Lua或压测阶段相加。
+
+| 证据 | 实际结果 | 适用边界 |
+|---|---|---|
+| [sender_batch-v2](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/sender_batch-v2.json) | 52个logger Lua用例通过，另3个静态接线检查通过 | 34个既有＋18个批量用例；含部分ACK后异常、8→1并发下降、共享预算与世代口径 |
+| [kafka_batch-v2](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/kafka_batch-v2.json) | 30个adapter Lua用例、896断言通过 | 实际镜像安装的codec；socket模拟，覆盖坏帧、部分ACK、leader刷新及TLS/SASL逻辑 |
+| [默认单条 ea7e76f3a417](D:/学习/Project/马哥Project/shortlink/.work/gateway-send-v1/component/ea7e76f3a417/result.json) | 5/5真实组件通过，cleanup=true | 100 HTTP、92 Kafka；2 failed＋6 rejected为隔离故障用例预期，不计入性能run |
+| [作废版本 30d13b8e32b5](D:/学习/Project/马哥Project/shortlink/.work/gateway-send-v1/component/30d13b8e32b5/result.json) | FAIL，cleanup=true | 运行中插件version变更，源码不再一致；保留记录，不纳入通过数 |
+| [批量首轮 ccd516c9c4d8](D:/学习/Project/马哥Project/shortlink/.work/gateway-send-v1/component/ccd516c9c4d8/result-batch.json) | FAIL，cleanup=true | 整个pause控制1111.01ms超过800ms上限；只完成首个8请求用例，不能宣称全72条验证通过 |
+| [批量复跑 cca40d84ca98](D:/学习/Project/马哥Project/shortlink/.work/gateway-send-v1/component/cca40d84ca98/result-batch.json) | 3/3真实组件通过，cleanup=true | 72 GET均302，Kafka72条唯一记录、key/body精确匹配；partition0=33、partition1=39 |
+
+批量复跑只把故障控制改为本机 Docker Unix API v1.44，减少CLI耗时；整个pause含控制94.24ms，观察71.07ms，未放宽800ms门槛。积压的64条恢复后对应6次Produce、64条记录，平均10.667条/请求；retry/failed/rejected均0，最终pending条数与字节归零。这证明实际合批和ACK后记账，**不是容量成绩**；暂停时4槽各持有事件，不证明4个Produce请求都已进入等待ACK。
+
+## 4. 制品身份
+
+上述v2及有效组件绑定 logger SHA256 `b90e612fd85884a8e91a4d223dfca76ca45dc04e13808346c782fbf7f6293077`、adapter `19fa3e457317fb429e03fd9623bdb7fb439b12e3108562b74c8c8d9268ff8776`。批量复跑脚本 SHA256为 `d0ef75d78da81679f1f97b68d0c7142c4fa10858bcf4c363963dbd7325df7077`。
+
+[runtime codec身份](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/codec-runtime-identity.json)绑定 `apache/apisix:3.11.0-debian` 镜像 `sha256:178d1f79c2c39834f50213bf6ace90284f6b985dc8189cc50f3666d9fb1037ad`，实际安装的 request/errors 源码与固定0.20检查摘要一致；v2未用模拟codec或私有宿主源码替代运行库。
+
+## 5. 双 worker 已完成结果
+
+下表四档均为30秒渐进预热＋计划90秒正式期，64个真实TCP来源、512 VU、10链接均匀热集。正式时长是记录到最后完成的时间；drops只取得全场景数，不能全部分配给正式期，也不能补入已发送请求。[完成阶段分析](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/batch-analysis-seed.json)
+
+| 目标/s与测量模式 | 正式正确/已发 | 正式时长 | P99 | 全轮正确/已发 | 全轮drops | 容量结论 |
+|---|---:|---:|---:|---:|---:|---|
+| 3000，原计数模式 | 270002/270002 | 90.006s | 17ms | 316447/316447 | 0 | PASS |
+| 3250，原计数模式 | 292443/292443 | 90.045s | 20ms | 342651/342651 | 0 | PASS |
+| 4000，原计数模式 | 360688/360688 | 90.034s | 57ms | 421422/421422 | 78 | FAIL：存在丢迭代 |
+| 5000，per-vu-phase seed | 431391/431391 | 90.014s | 156ms | 507270/507270 | 18737 | FAIL：发送不足99%、丢迭代、P99超预算 |
+
+5000档只将12个计数器的零值初始化改为每VU/phase一次，真实请求及错误计数、正确性和延迟检查保留；发生器成本已变化，须作为独立测量模式。其正式正确数按计划90秒为4793.23/s，不能称通过5000；本轮未执行3250长确认或5000长确认，不能宣称刷新旧3500/s长窗成绩。[阶梯复核](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/ladder-review.md)、[5000复核](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/seed5000-review.md)
+
+含预热及3个smoke共7阶段，5 PASS、2 FAIL；1587822个已发请求全部完成且正确，未知、429/503、边缘拒绝均0，drops合计18815，全部阶段排空，四个应用JAR摘要未变。四档独立 `$remote_addr` 来源证明均通过，覆盖各档全轮请求，不以XFF冒充来源。[最终汇总](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/resume-final-summary.json)、[3000来源](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/stages/gws-edge64-r3000/source-distribution.json)、[3250来源](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/stages/gws-edge64-r3250/source-distribution.json)、[4000来源](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/stages/gws-edge64-r4000/source-distribution.json)、[5000来源](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/stages/gbs-seed-edge64-r5000/source-distribution.json)
+
+最终账本83项PASS、无需补账；它只覆盖SQL身份/配额与生产者ACK、Kafka offset守恒，**不覆盖或改判2项容量FAIL**。基线及最终均11300条路由/链接，配额reserved=0；metadata执行审计通过，各阶段14个失败计数差量均0（Outbox claim_failures已有累计1未增长）。终态pending条数/字节、inflight、active均0，失败/拒绝均0。[83项账本](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/optimization-ledger-verification.json)、[最终边界](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/optimization-final-boundary.json)、[执行审计](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/metadata-execution-audit.json)、[终态诊断](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T134522Z-04c95abe/gateway-terminal-diagnostics.json)
+
+4000档421422条对应274842次Produce，平均1.5333条/请求；5000档507270条对应170906次，平均2.9681条/请求，均含预热与排空。5000运行采样完整pending峰299，不完整峰352，须分列；正式内部约75秒两worker CPU均91.47%/91.05%，这是子窗口而非整段均值。该双 worker 原分析未采Kafka CPU；四 worker另有第6节晚段补充，不能混为完整窗口或据缺失值判断broker空闲。
+
+## 6. 四 worker 已完成结果
+
+run `20260907T142738Z-0f449f02` 仅完成下列4阶段，未触发long或fallback；不能生成未执行成绩。[独立复核](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/worker-run-review.md)、[阶段分析](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/batch-analysis-workers.json)
+
+| 阶段 | 正式正确/已发 | 正式记录时长 / P99 | 全轮正确/已发 | 全轮drops | 结果 |
+|---|---:|---:|---:|---:|---|
+| direct GET smoke | 11/11 | 10.015s / 25.3ms | 11/11 | 0 | PASS |
+| direct HEAD smoke | 11/11 | 10.014s / 21.6ms | 11/11 | 0 | PASS，点击0 |
+| edge GET smoke | 11/11 | 10.015s / 19.6ms | 11/11 | 0 | PASS |
+| edge64 5000，per-vu-phase seed | 388630/388734 | **82.473s提前停止 / 160ms** | 464864/464968 | 22890 | FAIL，104条READ未确认 |
+
+首个且唯一缺失快照是[metrics.jsonl第24行](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/stages/gbw-seed-edge64-r5000/metrics.jsonl:24)：UTC14:40:32.110444，APISIX采样 `NOT_AVAILABLE / COMMAND_TIMEOUT`，耗时3042.4ms；四个Java服务与Redirect quality均可用。综合14计数门禁因EDGE计数缺失触发 `PIPELINE_FAILURE_COUNTERS_UNAVAILABLE`，**不是已证明的Command故障**。端点14项失败差量0、执行审计通过，不能抹去中间观测缺口。正式90秒未完成，4712.21正确/s只是82.473秒的提前停止诊断值。
+
+全run为465001已发、464897完成且正确、104未确认、22890 drops；收到的429/503与client_errors均0。最终账本**79 PASS／4 FAIL**：104未完成、click相对正确GET多97、EDGE相对HTTP多104、Redirect result相对HTTP多97；补充对账仍UNVERIFIED，不回填HTTP。SQL保持11300，新行/route/metadata/DLQ差量0；Kafka click=464983，request=929973=Redirect result464994＋EDGE464979，与生产者确认数一致；最终队列空，冷启动claim_failures累计1未增长。[最终汇总](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/resume-final-summary.json)、[账本](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/optimization-ledger-verification.json)
+
+5000阶段服务端日志是**464904条302＋64条499＝464968**，并非全部302；客户端只确认464864条302。64个真实remote_addr均出现，最大单IP日志秒桶94；来源对账因HTTP差104、302差40仍UNVERIFIED。另一个口径是Redirect click/result各464961，比HTTP多97、比EDGE少7；这些聚合差不能与日志302/499混用或映射回具体未知请求。[来源证据](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/stages/gbw-seed-edge64-r5000/source-distribution.json)
+
+同per-vu-phase的双/四worker 5k均失败：P99=156→160ms，drops=18737→22890，四worker还提前停止，**没有可推荐为默认的通过改善**。含预热的k6 CPU均值303.93%→332.31%；平均批量度2.9681→1.9488，窗口长度及缓存预热不同，不能作单因果归因。原分析Kafka CPU仍NA，但[独立补充](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/kafka-cpu-summary.json)覆盖晚段50.035秒、10完整区间，CPU均值142.41%、区间峰186.05%（100%=一核），不是完整90秒；未显示占满4核，也不能排除IO、网络、线程或ACK等待瓶颈。
+
+## 7. 可复现worker配置
+
+| `--edge-workers` | APISIX CPU范围 | 每worker队列 | 节点队列 | 节点发送槽 | 当前状态 |
+|---|---|---|---|---:|---|
+| 2（默认） | 4–7 | 1000条 / 8MiB | 2000条 / 16MiB | 8 | 已完成，上述双worker结果 |
+| 4 | 4–7 | 500条 / 4MiB | 2000条 / 16MiB | 16 | 已完成，5k失败 |
+| 8 | 0–7，与Java共享 | 250条 / 2MiB | 2000条 / 16MiB | 32 | 已完成，5k延迟达标，因1228 drops仍FAIL |
+
+各配置每worker4槽、batch32/65536、ACK与HTTP限流不变；Java保持0–7、依赖8–11、负载机12–15。worker数、每worker额度、总发送并发一起变化，8worker还扩大CPU范围，**不是单变量CPU试验**。正式[supervisor](D:/学习/Project/马哥Project/shortlink/scripts/performance/supervisor.py)与[离线测试](D:/学习/Project/马哥Project/shortlink/scripts/performance/test_edge_worker_profile.py)已完成17项测试：含2/4字节级渲染兼容、8worker预算/占位符守恒、非法配置拒绝及实际Docker参数从profile取CPU的mock验证；没有启动运行时。四worker真实[运行身份](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/gateway-workers-runtime-identity.json)通过；八worker的实际进程、CPU范围和挂载源码也已[核验通过](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/gateway-eight-runtime-identity.json)。
+
+## 8. 八worker复测与当前限制
+
+run `20260907T145207Z-de408624` 使用相同四个应用JAR，8个APISIX worker、CPU 0–7、每worker四槽，节点队列仍2000条/16MiB。新夹具11300条创建成功，12项入口检查及64真实源IP前置检查通过。仅运行三个1/s冒烟和一个5000/s短档；[冻结计划](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/peak-plan.json)规定短档失败即取消300秒长档，无额外阶梯或fallback。含历史实际Kafka offset跨度、新夹具和全部允许阶段的保守总预算为49.418968GiB，64GiB上限未增加。
+
+| 同一5000/s目标 | 正式时长 | 正式正确/已发 | 正式P99 | 全场景drops | 未确认HTTP |
+|---|---:|---:|---:|---:|---:|
+| 2worker，CPU 4–7 | 90.014s | 431391/431391 | 156ms | 18737 | 0 |
+| 4worker，CPU 4–7 | 82.473s，提前停止 | 388630/388734 | 160ms | 22890 | 104 |
+| 8worker，CPU 0–7 | 90.024s，完整 | 448528/448528 | 67ms | 1228 | 0 |
+
+三档测量均采用per-vu-phase，原HTTP限流、64来源、512 VU、热集10、ACK与失败门槛保持。四worker时长不完整；八worker同时扩大CPU范围和总发送槽，不能将差异单独归因于worker数量。八worker按实录90.024秒计算为4982.32正确请求/s，按配置90秒则为4983.64/s；本报告主要使用前者。drops仅有全场景计数，不能声称全部发生在正式期。[阶段分析](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/batch-analysis-eight.json)
+
+八worker压力阶段含预热共524717次HTTP全部完成且正确，429/503、客户端错误和未知均0；14项失败计数差量均0，终态完全排空。唯一未通过检查是 `noDroppedIterations`，不能将本档标为稳定5000 QPS。64个来源的服务端日志与524717次正确302完全匹配。[原结果](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/stages/gb8-seed-edge64-r5000/result.json)、[来源证明](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/stages/gb8-seed-edge64-r5000/source-distribution.json)
+
+包含三个smoke的全run共524748次请求全部正确，3个smoke PASS、压力档FAIL；最终账本83 PASS/0 FAIL，metadata执行审计通过，SQL仍11300条且无新增行，四个JAR摘要保持不变。这些核对不改变丢迭代导致的容量FAIL。[最终汇总](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/resume-final-summary.json)、[最终账本](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/optimization-ledger-verification.json)、[终态诊断](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/gateway-terminal-diagnostics.json)
+
+含预热的k6全进程CPU均值330.76%、峰398.31%，已接近发生器CPU 12–15的四核预算；APISIX children运行采样均值258.82%、约5秒峰304.85%，Redirect均值243.05%、峰344.67%（100%=一个逻辑核，均非严格正式期独立均值）。新批量度524717/369016≈1.42194条/Produce请求，小于双worker约2.97和四worker约1.95；发送槽变多时不能假定批量效率同步提高。发生器CPU余量紧是下一步优先核验项，尚未证明它是唯一瓶颈。
+
+八worker运行中25次采样仅10次核心账本完整；完整样本pending峰26条/16094字节，不完整样本峰176条/108944字节，必须分列，不能只用较低的完整峰表示全程峰值。最终完整端点守恒与中间观察完整性分别核对。[三档独立复核](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/eight-run-review.md)
+
+本次Kafka采样从负载前开始，离线选择正式内部80.0005秒的17点/16完整区间，排除预热、边界及空闲段：CPU加权均值158.18%，约5秒峰207.23%，throttling计数增量0。未显示Kafka自身耗尽所分配四核；该观测不排除磁盘、网络、线程或ACK等待瓶颈。缺少精确formal-start锚点，80秒是内部子窗口，不声称完整90秒CPU均值。[Kafka补充汇总](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/kafka-cpu-eight-summary.json)、[口径说明](D:/学习/Project/马哥Project/shortlink/.work/gateway-batch-v1/kafka-cpu-eight-notes.md)
+
+本轮结论是：批发送已实现并核对，8worker加大CPU可用范围后本机响应延迟改善，当前5000/s容量门槛仍未通过。保留显式 `--edge-workers 8` 作为可复现配置，脚本默认2不变；正式部署应按CPU分配同时核对worker和节点总队列预算。后续优先分离发生器与被测服务、采样发生器及服务CPU热点，再核验持续吞吐；继续单独堆worker并不能解决现有丢迭代证据。
+
+## 9. 收尾与保留证据
+
+三次run均已停止，压力、Java进程和Kafka额外采样已退出。四个专用依赖容器停止并恢复CPU范围0–15，数据保留；临时APISIX已删除。专用WSL退出后确认无其他运行发行版，再关闭WSL虚拟机，Windows端已无vmmemWSL/k6进程。[依赖收尾](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/dependency-cleanup.json)、[环境收尾](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T145207Z-de408624/environment-cleanup.json)
+
+两worker的两个容量FAIL、四worker的104条READ未知与四项账本FAIL、八worker的1228 drops均原样保留；未执行的长档没有成绩。四worker首次freeze因计划文件尚未生成而失败，保留[尝试记录](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/freeze-attempt1.json)，负载前已按顺序完成有效freeze。其旧依赖收尾里的APISIX缺席判定因Docker小写错误文本未匹配而为false，后续[独立检查](D:/学习/Project/马哥Project/shortlink/.work/performance/20260907T142738Z-0f449f02/idle-verification.json)确认临时容器不存在；未改旧记录。Kafka首次补采脚本的13个负例误标为14及极窄负sleep边界均保留说明，新八worker采样用独立v2修复，原始采样证据未重写。
+
+## 10. 验证边界
+
+真实组件为单worker、4槽、单broker、2 partitions、RF1，72次有限GET；双worker性能结果另见上表。TLS/SASL仅故障模拟覆盖，未做真实TLS/SASL连通；多broker部分ACK未实注入跨broker故障。RF1下 `acks=-1` 不证明副本故障耐久性；未验证ACK后断连重复、进程崩溃丢失或全局 exactly-once。
+
+本轮不验证Agent或Analytics消费全链路；HTTP与生产者交付通过不代表统计查询完成。私有adapter承担固定协议与依赖codec的维护责任，升级Kafka/API或镜像须重验边界；源文件保留上游许可与作者归属。已有容量FAIL、组件FAIL和旧报告12均保留，不构成正式上线或长期生产容量承诺。

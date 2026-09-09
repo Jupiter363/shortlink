@@ -12,4 +12,6 @@ public class RiskPolicyDisableReqDTO {
     private String reason;
 
     private String traceId;
+    private String commandId;
+    private Long linkId;
 }

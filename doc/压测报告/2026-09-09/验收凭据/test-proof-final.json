@@ -1,0 +1,33 @@
+{
+  "at": "2026-09-09T13:22:57.659902+00:00",
+  "cases": 24,
+  "passed": true,
+  "cpuAffinity": [
+    6,
+    7
+  ],
+  "results": [
+    {
+      "test": "test_fanout_budget.py",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "test_actual_already_above_thirty_five_million_is_rejected (__main__.FanoutBudgetTest.test_actual_already_above_thirty_five_million_is_rejected) ... ok\ntest_admission_accepts_v4_but_rejects_old_unknown_and_mixed_revisions (__main__.FanoutBudgetTest.test_admission_accepts_v4_but_rejects_old_unknown_and_mixed_revisions) ... ok\ntest_mixed_manifest_origin_path_and_sha_rejected_before_any_baseline_read (__main__.FanoutBudgetTest.test_mixed_manifest_origin_path_and_sha_rejected_before_any_baseline_read) ... ok\ntest_mixed_policy_origin_rejected_even_when_its_bytes_match_revision_sha (__main__.FanoutBudgetTest.test_mixed_policy_origin_rejected_even_when_its_bytes_match_revision_sha) ... ok\ntest_nine_attempt_reservation_boundary_is_inclusive_and_one_record_over_rejected (__main__.FanoutBudgetTest.test_nine_attempt_reservation_boundary_is_inclusive_and_one_record_over_rejected) ... ok\ntest_origin_fixture_is_read_only_and_sha_tamper_rejected (__main__.FanoutBudgetTest.test_origin_fixture_is_read_only_and_sha_tamper_rejected) ... ok\ntest_policy_body_tamper_is_rejected_with_frozen_sha (__main__.FanoutBudgetTest.test_policy_body_tamper_is_rejected_with_frozen_sha) ... ok\ntest_previous_failed_stages_and_retention_never_reduce_offset_charge (__main__.FanoutBudgetTest.test_previous_failed_stages_and_retention_never_reduce_offset_charge) ... ok\ntest_record_limit_rejects_missing_old_unknown_and_noninteger_revision (__main__.FanoutBudgetTest.test_record_limit_rejects_missing_old_unknown_and_noninteger_revision) ... ok\ntest_single_stage_one_million_cap_and_nine_attempt_disk_budget_unchanged (__main__.FanoutBudgetTest.test_single_stage_one_million_cap_and_nine_attempt_disk_budget_unchanged) ... ok\ntest_v4_manifest_cannot_mix_old_cap_or_float_cap (__main__.FanoutBudgetTest.test_v4_manifest_cannot_mix_old_cap_or_float_cap) ... ok\ntest_v4_policy_and_prepare_ast_are_consistent_without_importing_prepare (__main__.FanoutBudgetTest.test_v4_policy_and_prepare_ast_are_consistent_without_importing_prepare) ... ok\n\n----------------------------------------------------------------------\nRan 12 tests in 0.279s\n\nOK\n"
+    },
+    {
+      "test": "test_setup.py",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "test_canonical_render_keeps_node_budgets (__main__.SetupTest.test_canonical_render_keeps_node_budgets) ... ok\ntest_group_mixed_run_rejected (__main__.SetupTest.test_group_mixed_run_rejected) ... ok\ntest_group_origin_bound_to_current_run (__main__.SetupTest.test_group_origin_bound_to_current_run) ... ok\ntest_group_unknown_origin_and_stopped_rejected (__main__.SetupTest.test_group_unknown_origin_and_stopped_rejected) ... ok\ntest_launch_has_exact_profile_and_no_optional_diagnostics (__main__.SetupTest.test_launch_has_exact_profile_and_no_optional_diagnostics) ... ok\ntest_observer_generation_and_budgets_not_relaxed (__main__.SetupTest.test_observer_generation_and_budgets_not_relaxed) ... ok\ntest_review_arithmetic_and_no_inherited_state (__main__.SetupTest.test_review_arithmetic_and_no_inherited_state) ... ok\ntest_stage_launch_has_explicit_affinity (__main__.SetupTest.test_stage_launch_has_explicit_affinity) ... ok\ntest_stage_refuses_wrong_cpu_before_state_io (__main__.SetupTest.test_stage_refuses_wrong_cpu_before_state_io) ... ok\ntest_system_acceptance_requires_both_cpu_endpoints (__main__.SetupTest.test_system_acceptance_requires_both_cpu_endpoints) ... ok\ntest_unchanged_runtime_components_and_binary (__main__.SetupTest.test_unchanged_runtime_components_and_binary) ... ok\ntest_verify_startup_only_receipt_path_changes (__main__.SetupTest.test_verify_startup_only_receipt_path_changes) ... ok\n\n----------------------------------------------------------------------\nRan 12 tests in 0.544s\n\nOK\n"
+    }
+  ],
+  "sourceSha256": {
+    "stage.py": "4a33d13233eecbac4f92295eb75e32d63dbe125681a831c1a7aae073c7378f43",
+    "prepare.py": "a374feb139da05ed2b919eff8df81d3d975f416f41f18d91f6bdcbfcad2939e2",
+    "system-observer.py": "03fe4da4bd58d1c76f983e04200a174ca0c3402b8f9c03f312c7f9bfc4bdbce6",
+    "invoke-stage.py": "4dcd3ac55a7b349ab006fd28edf95e5f916cb5e4a90a5f3b329fa79e448c0415",
+    "group-progress.py": "6b9ea078ab38f6545e2272bec0297b33a6003a0fee289e18bd933c9dbbf16ff8",
+    "group-progress.java": "c8d8913f9442cd85a2b53470e2c6da291c4f936c54b1719da40ddcb0227f121a",
+    "test_setup.py": "dfeba47bbff1fec56022b6f97ec9555aac3e01666ddad734293649673303aa05",
+    "test_fanout_budget.py": "65e9026394e3f407efc960e439b7dfb4e6bd09656e646b1774e73fbe289ed99e"
+  }
+}

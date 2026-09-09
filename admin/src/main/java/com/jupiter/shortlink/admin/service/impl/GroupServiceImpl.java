@@ -1,173 +1,86 @@
 package com.jupiter.shortlink.admin.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.collection.CollUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.jupiter.shortlink.admin.common.biz.user.UserContext;
 import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
-import com.jupiter.shortlink.admin.common.convention.exception.RemoteException;
-import com.jupiter.shortlink.admin.common.convention.result.Result;
-import com.jupiter.shortlink.admin.common.database.BaseDO;
 import com.jupiter.shortlink.admin.dao.entity.GroupDO;
 import com.jupiter.shortlink.admin.dao.mapper.GroupMapper;
-import com.jupiter.shortlink.admin.dto.req.ShortLinkGroupSortReqDTO;
-import com.jupiter.shortlink.admin.dto.req.ShortLinkGroupUpdateReqDTO;
+import com.jupiter.shortlink.admin.dto.req.*;
 import com.jupiter.shortlink.admin.dto.resp.ShortLinkGroupRespDTO;
-import com.jupiter.shortlink.admin.remote.ShortLinkActualRemoteService;
-import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;
+import com.jupiter.shortlink.admin.remote.GroupCommandRemoteService;
 import com.jupiter.shortlink.admin.service.GroupService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
 
-import static com.jupiter.shortlink.admin.common.constant.RedisCacheConstant.LOCK_GROUP_CREATE_KEY;
-
-/**
- * 短链接分组实现层
- */
-@Slf4j
+/** All group lifecycle decisions are committed by Command in the link business database. */
 @Service
-@RequiredArgsConstructor
 public class GroupServiceImpl extends ServiceImpl<GroupMapper, GroupDO> implements GroupService {
+    private final GroupCommandRemoteService command;
 
-    /**
-     * 后续重构伟SpringCloud feign调用
-     */
-    private final ShortLinkActualRemoteService shortLinkActualRemoteService;
+    public GroupServiceImpl(GroupCommandRemoteService command) {
+        this.command = command;
+    }
 
-    private final RedissonClient redissonClient;
-
-    @Value("${short-link.group.max-num}")
-    private Integer groupMaxNum;
-
-    @Override
-    public void saveGroup(String groupName) {
-        saveGroup(UserContext.getUsername(),groupName);
+    private void requirePrincipal() {
+        if (UserContext.getUserId() == null || UserContext.getAuthVersion() == null)
+            throw new ClientException("Authenticated account required");
     }
 
     @Override
-    public void saveGroup(String username, String groupName) {
-        RLock lock = redissonClient.getLock(String.format(LOCK_GROUP_CREATE_KEY, username));
-        lock.lock();
-        try {
-            LambdaQueryWrapper<GroupDO> queryWrapper = Wrappers.lambdaQuery(GroupDO.class)
-                    .eq(GroupDO::getUsername, username)
-                    .eq(GroupDO::getDelFlag, 0);
-            List<GroupDO> groupDOList = baseMapper.selectList(queryWrapper);
-            if (CollUtil.isNotEmpty(groupDOList) && groupDOList.size() == groupMaxNum) {
-                throw new ClientException(String.format("已超出最大分组数：%d", groupMaxNum));
-            }
-            String gid;
-            do {
-                gid = UUID.randomUUID().toString().substring(0, 6);
-            } while (!hasGid(username, gid));
-            GroupDO groupDO = GroupDO.builder()
-                    .gid(gid)
-                    .sortOrder(0)
-                    .username(username)
-                    .name(groupName)
-                    .build();
-            baseMapper.insert(groupDO);
-        } finally {
-            lock.unlock();
-        }
-
+    public void saveGroup(String name) {
+        requirePrincipal();
+        command.create(new GroupCommandRemoteService.Input(null, name));
     }
 
-    /*@Override
-    public List<ShortLinkGroupRespDTO> listGroup() {
-        LambdaQueryWrapper<GroupDO> queryWrapper = Wrappers.lambdaQuery(GroupDO.class)
-                .eq(GroupDO::getDelFlag,0)
-                .eq(GroupDO::getUsername, UserContext.getUsername())
-                .orderByDesc(GroupDO::getSortOrder, BaseDO::getUpdateTime);
-        List<GroupDO> groupDOList = baseMapper.selectList(queryWrapper);
-        List<ShortLinkGroupCountQueryRespDTO> listResult = shortLinkRemoteService
-                .listGroupShortLinkCount(groupDOList.stream().map(GroupDO::getGid).toList())
-                .getData();
-        List<ShortLinkGroupRespDTO> results = BeanUtil.copyToList(groupDOList,ShortLinkGroupRespDTO.class);
-        Map<String,Integer> counts = listResult.stream().collect(Collectors.toMap(ShortLinkGroupCountQueryRespDTO::getGid,ShortLinkGroupCountQueryRespDTO::getShortLinkCount));
-        return results.stream().peek(result -> result.setShortLinkCount(counts.get(result.getGid()))).toList();
-    }*/
+    @Override
+    public void saveGroup(String username, String name) {
+        requirePrincipal();
+        if (!Objects.equals(username, UserContext.getUsername()))
+            throw new ClientException("Cannot create another account's group");
+        saveGroup(name);
+    }
+
     @Override
     public List<ShortLinkGroupRespDTO> listGroup() {
-        LambdaQueryWrapper<GroupDO> queryWrapper = Wrappers.lambdaQuery(GroupDO.class)
-                .eq(GroupDO::getDelFlag, 0)
-                .eq(GroupDO::getUsername, UserContext.getUsername())
-                .orderByDesc(GroupDO::getSortOrder, BaseDO::getUpdateTime);
-        List<GroupDO> groupDOList = baseMapper.selectList(queryWrapper);
-
-        // 获取远程服务调用结果
-        Result<List<ShortLinkGroupCountQueryRespDTO>> countResult = shortLinkActualRemoteService
-                .listGroupShortLinkCount(groupDOList.stream().map(GroupDO::getGid).toList());
-        if (countResult == null || !countResult.isSuccess() || countResult.getData() == null) {
-            throw new RemoteException("Group short link count request failed");
-        }
-        List<ShortLinkGroupCountQueryRespDTO> listResult = countResult.getData();
-
-        List<ShortLinkGroupRespDTO> results = BeanUtil.copyToList(groupDOList, ShortLinkGroupRespDTO.class);
-
-        Map<String, Integer> counts = listResult.stream()
-                .collect(Collectors.toMap(
-                        ShortLinkGroupCountQueryRespDTO::getGid,
-                        ShortLinkGroupCountQueryRespDTO::getShortLinkCount
-                ));
-        return results.stream()
-                .peek(result -> result.setShortLinkCount(counts.getOrDefault(result.getGid(), 0)))
+        requirePrincipal();
+        var groups = command.list();
+        if (groups == null) throw new IllegalStateException("Command returned no group result");
+        return groups.stream()
+                .map(
+                        g -> {
+                            var dto = new ShortLinkGroupRespDTO();
+                            dto.setGid(g.gid());
+                            dto.setName(g.name());
+                            dto.setSortOrder(g.sortOrder());
+                            dto.setShortLinkCount(g.linkCount());
+                            return dto;
+                        })
                 .toList();
     }
 
     @Override
-    public void updateGroup(ShortLinkGroupUpdateReqDTO requestParam) {
-        LambdaUpdateWrapper<GroupDO> updateWrapper = Wrappers.lambdaUpdate(GroupDO.class)
-                .eq(GroupDO::getDelFlag, 0)
-                .eq(GroupDO::getUsername, UserContext.getUsername())
-                .eq(GroupDO::getGid, requestParam.getGid());
-        GroupDO groupDO = new GroupDO();
-        groupDO.setName(requestParam.getName());
-        baseMapper.update(groupDO,updateWrapper);
+    public void updateGroup(ShortLinkGroupUpdateReqDTO q) {
+        requirePrincipal();
+        command.rename(new GroupCommandRemoteService.Input(q.getGid(), q.getName()));
     }
 
     @Override
     public void deleteGroup(String gid) {
-        LambdaUpdateWrapper<GroupDO> updateWrapper = Wrappers.lambdaUpdate(GroupDO.class)
-                .eq(GroupDO::getDelFlag, 0)
-                .eq(GroupDO::getGid, gid);
-        GroupDO groupDO = new GroupDO();
-        groupDO.setDelFlag(1);
-        baseMapper.update(groupDO,updateWrapper);
+        requirePrincipal();
+        command.delete(gid);
     }
 
     @Override
-    public void sortGroup(List<ShortLinkGroupSortReqDTO> requestParam) {
-        requestParam.forEach(each ->{
-            GroupDO groupDO = GroupDO.builder()
-                    .sortOrder(each.getSortOrder())
-                    .build();
-            LambdaUpdateWrapper<GroupDO> updateWrapper = Wrappers.lambdaUpdate(GroupDO.class)
-                    .eq(GroupDO::getUsername,UserContext.getUsername())
-                    .eq(GroupDO::getId,each.getGid())
-                    .eq(GroupDO::getDelFlag,0);
-            baseMapper.update(groupDO,updateWrapper);
-
-        });
-    }
-
-    private boolean hasGid(String gid,String username){
-        LambdaQueryWrapper<GroupDO> queryWrapper = Wrappers.lambdaQuery(GroupDO.class)
-                .eq(GroupDO::getGid,gid)
-                .eq(GroupDO::getUsername,username);
-        GroupDO hasGroupFlag = baseMapper.selectOne(queryWrapper);
-        return hasGroupFlag == null;
+    public void sortGroup(List<ShortLinkGroupSortReqDTO> input) {
+        requirePrincipal();
+        if (input == null || input.size() > 20)
+            throw new ClientException("Group ordering exceeds budget");
+        Map<String, Integer> order = new LinkedHashMap<>();
+        for (var q : input)
+            if (order.put(q.getGid(), q.getSortOrder()) != null)
+                throw new ClientException("Duplicate group");
+        command.order(order);
     }
 }

@@ -1,0 +1,258 @@
+{
+  "candidateTree": "d4bb496b399d4264ec9b3dabade6bf1acf168bcd",
+  "candidateDirectory": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/.work/merge-main-20260909/candidate-python-final",
+  "command": [
+    "python3",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "scripts/performance",
+    "-v"
+  ],
+  "cwd": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/.work/merge-main-20260909/candidate-python-final",
+  "sourceBindings": {
+    "deploy/apisix/ETCD.md": {
+      "gitBlob": "a19358350d432ce9012a54742508ea2595119adb",
+      "sha256": "1b2d4fd4e6dfe51beb0ec451e2876976cc3dac1fa41049c4bbc0c67f22eb97e2"
+    },
+    "deploy/apisix/README.md": {
+      "gitBlob": "7db7e101834a9a146ea699d45523fa2c137099e7",
+      "sha256": "f8d96eca961575f697044939bfd39e52acc239959a3c37fbdac784c421ff42d4"
+    },
+    "deploy/apisix/TLS.md": {
+      "gitBlob": "e8091d12c8a741abbfa4cb371619f35861afa364",
+      "sha256": "494201a98d5a0e4c794b77a7a3b0531a2122adae3a8e3e99e9c74f3d7cea443a"
+    },
+    "deploy/apisix/apisix.yaml": {
+      "gitBlob": "e2ac23e388d1b0ba6e5eaf67aaba667291d8b4af",
+      "sha256": "00e4956c569dc690c71dd3d8228a402845f092d27b9dde52e07a9e9daa4cb97b"
+    },
+    "deploy/apisix/bootstrap-etcd.py": {
+      "gitBlob": "ba53a38adaf8a551c6c731c6df94cd45cd8ef853",
+      "sha256": "f91eea659e33b28bf006fddf58a56ee833785eedf7b3f3b583f971d1dec1906c"
+    },
+    "deploy/apisix/config-etcd.template.yaml": {
+      "gitBlob": "1ed76c4e545b9bb3a92b9fb0a57a71ad2e950909",
+      "sha256": "b96f11a7f278a315e4138cff98179013f8a21ee29fd90cf130d71dc5692aada2"
+    },
+    "deploy/apisix/config.yaml": {
+      "gitBlob": "b8516a74c2e3acf14c79a3c62b71c9e4effe59e9",
+      "sha256": "bc3cee7d636cab3d7258eb44c329a31e843c1c0b894c37e00cbe0bb84d9168cd"
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-boundary.lua": {
+      "gitBlob": "9558ac6970ea2f46ecdeb335c42e3a38464d3667",
+      "sha256": "bdc55febf3d40d3b698ca0a7e3089cdcfcd2c409c391d619fae160252c7bd438"
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-execution-diagnostics.lua": {
+      "gitBlob": "180128a72d076d79e6d1f9094f38b6bc7a8c2cef",
+      "sha256": "cba5d920b5c0005caa672386d048a4bb7fa25993489aabbd5159f47a76a071cb"
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-fd-preallocate.lua": {
+      "gitBlob": "1fc99eff5b242f47be0d1644cf26e76b44cabc03",
+      "sha256": "374b34bfab3d6fd23a84b9b4a1e206f73fb138a97a4576aeed0e4cf8caecf8c5"
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-http-timing.lua": {
+      "gitBlob": "93218a23518cacde76d54279d496d12ee0913502",
+      "sha256": "771ed5cdf20cd02d8e49f3d5df04464931028d4807a0830f0446c732a24b26c5"
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-kafka-batch.lua": {
+      "gitBlob": "9b0eea11e13fa57d1d71d118e1e8bb3ee6db73d4",
+      "sha256": "3650358f2917bac8f2dd38240274a239d084ed24f3a2e8db1aad147fee66c146"
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua": {
+      "gitBlob": "1f735f1ecb019bb75c6d3c440b2cfd9f76b0e9e3",
+      "sha256": "13c91e710692111af2f73bdee6eb4864bdf337baa2600f0defd3a42f855110e0"
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-worker-identity.lua": {
+      "gitBlob": "5b39a14056ab14f467b1821811f09fd01af6836e",
+      "sha256": "555104f477cf06343f77714f2d59d141795bc3ff8f73a55779c3d3e295696f40"
+    },
+    "deploy/apisix/render-etcd-config.py": {
+      "gitBlob": "cd4de5be0ec6d12bc2a3dca786d239ca0e89de7d",
+      "sha256": "580563d1060719213d8eafd2bd148094845aa59cde137a4cdebfa7581bc59ce6"
+    },
+    "deploy/apisix/render-tls-config.py": {
+      "gitBlob": "a20a76c57d9a61dcf8f9ba025df0e5e2a258d337",
+      "sha256": "a6ddb6c0cb853461c919778651b13cec951b51c0cd32ccb8181691ace9da2f2b"
+    },
+    "deploy/apisix/requirements.txt": {
+      "gitBlob": "8392d5414b46b3f92dc29db198ced67c84708438",
+      "sha256": "01e08410080741c1f164e3b7459ea15db5966cef6629bfeb2691175f269efd00"
+    },
+    "scripts/performance/evidence.py": {
+      "gitBlob": "ecc4a7885b8a177f754f64f12f48082eff2cb467",
+      "sha256": "fa26427f9be9808422081045f011ace4fb46234450015bdecd3987ce369e6a33"
+    },
+    "scripts/performance/install_k6.py": {
+      "gitBlob": "e51aff020dd90f603ac1456777e6825dd1805afa",
+      "sha256": "d89e57ec909a68178b18cbf56334ab09e9c1160683ea30c7625bf4b37f4341c7"
+    },
+    "scripts/performance/kafka_probe_profile.py": {
+      "gitBlob": "b371d6ad8f2158c350f91920e6bbbd070689ecad",
+      "sha256": "79d209ae2710a7f2b90fe38c6d4abbf87baa28d58ff748ed3079a52fbd91f4db"
+    },
+    "scripts/performance/observe.py": {
+      "gitBlob": "b306a6eff0e27c8e13b51ecb7f784a80243e2c7f",
+      "sha256": "a28a536ab716ec3365a2aaf6ba1106cf8330c1e28fb4eec2bac5f52c86a54204"
+    },
+    "scripts/performance/prepare_fixtures.py": {
+      "gitBlob": "3b8912d78ae6b915be2f6e1039e3921a9d64188b",
+      "sha256": "aa89edabfd067cf87b13fc2483ae794fcda95bd70343b0d7c5ca04600d15a424"
+    },
+    "scripts/performance/run_stage.py": {
+      "gitBlob": "2c06f10a85bd298edb419d6ad4cbd63ea5fc57eb",
+      "sha256": "2c2c6679b4dc8c249e9de1d1380efba94c351a4ad7704e0261b9d49f78bcdb52"
+    },
+    "scripts/performance/run_wave.py": {
+      "gitBlob": "bcbfc98bb1a16dd2d5cc0d1d2185369705d43abf",
+      "sha256": "7d1447e291acbeead018350db7a27e8701ba9c2c62742f5b0f4a5e28b19edea3"
+    },
+    "scripts/performance/summarize.py": {
+      "gitBlob": "1210fc3095cf34db8709501ac6e263112381b04d",
+      "sha256": "a48fc69941c20f2d4b0615593a01437b1a6d54b0c94cff48072812dd64fb161b"
+    },
+    "scripts/performance/supervisor.py": {
+      "gitBlob": "87f40668fde6803dd2d82170242aeea6c22cb2be",
+      "sha256": "3766c60977f07cfbed4113615fe7bdbefa100fd168cf35263088129827db9055"
+    },
+    "scripts/performance/test_application_cpu_profile.py": {
+      "gitBlob": "64d13529b51ba573b978158392c062ae2a2b4bf9",
+      "sha256": "fa89d9f9caad35fa6178827b77f7edf94fad4d54269d92e1c36c8af7dc71fc3a"
+    },
+    "scripts/performance/test_edge_execution_diagnostics.py": {
+      "gitBlob": "46d28dc81cd14c29d5b7430db76b93efb30253c8",
+      "sha256": "c79d0b40095ea15ad46370e94e28c5cf3837a22cd4344c6e91423cc3801c7916"
+    },
+    "scripts/performance/test_edge_fd_preallocation.py": {
+      "gitBlob": "52fb610bff9717dab98926f3cf126a6326791068",
+      "sha256": "a9283e71a400ea83bab20fbe01022bcb1723ee19d0af08fc79115372e921ee60"
+    },
+    "scripts/performance/test_edge_http_timing.py": {
+      "gitBlob": "f29ee55683201e4b2e182f322b2e5f1de32d4fdb",
+      "sha256": "9d2161d2b4ffe29d0078d8c2327a39fdb3f4955bb1a78e7ea5abbfd1a201b8e5"
+    },
+    "scripts/performance/test_edge_kafka_batch.py": {
+      "gitBlob": "267859aef30cd97b4471bdd6b04a33186a2b68f1",
+      "sha256": "7727de228bb88772409970027a30778b50d32824af6c663e82e08b4bd38c2537"
+    },
+    "scripts/performance/test_edge_metrics.py": {
+      "gitBlob": "6a62ee2daab182228e168cea47afd31f03950312",
+      "sha256": "e0efcd11c4460b19785d28807af49694b39589de62627c6a221bfee78a681035"
+    },
+    "scripts/performance/test_edge_path_observation.py": {
+      "gitBlob": "815d20631c08c40a6af7f266de5112ec34b4bb87",
+      "sha256": "62fa2f09afb7a39a81f973eb06029120093d06938e1fdacc9ddccb5b56caf562"
+    },
+    "scripts/performance/test_edge_sender_batch.py": {
+      "gitBlob": "656328d2928c73ef70a8d3a7e5c24b2d65685a59",
+      "sha256": "9b568dbbb8c8533e680390be67a4172e410e1460c042b2b5a98b8c33d0b2382e"
+    },
+    "scripts/performance/test_edge_sender_concurrency.py": {
+      "gitBlob": "e8ed3ce7be2d5c92aef545ac5217bf8849580aa8",
+      "sha256": "82cb4c477aee684be6d6ffe5df0b7a44e0c1bd0f0e9bbc031814eab9d46b8eac"
+    },
+    "scripts/performance/test_edge_sender_linger.py": {
+      "gitBlob": "0cd4658ea5937b2083fc5f4b925d5fa09840648e",
+      "sha256": "4099962c45ee1c55410af3a706a03a7056b187f366c4daf68782c845f66b9fb8"
+    },
+    "scripts/performance/test_edge_sender_scheduling.py": {
+      "gitBlob": "3533749505d36cac3534f86d241dc1c4566a62c0",
+      "sha256": "3cdc2a20a45ae439c1b93688431c3d848510a263cf704fd5c95bdc663e63dd08"
+    },
+    "scripts/performance/test_edge_snapshot_consistency.py": {
+      "gitBlob": "4bb49368e87d6ee0354bba80ce314adecc659ab7",
+      "sha256": "7819d3b853d59d5a1d69cb46640679f41f3a45105fb6928b92116742424a4dcb"
+    },
+    "scripts/performance/test_edge_snapshot_metrics.py": {
+      "gitBlob": "66528ee82f92253a7f7bdd67e48dd1b54bcca5fe",
+      "sha256": "e2b5bc1149b149b86aef5cd345d94c1d087f241a21a93489c471b44c315ff736"
+    },
+    "scripts/performance/test_edge_worker_identity.py": {
+      "gitBlob": "9e2dda880694ab35562ea58cac8270eedbc307b6",
+      "sha256": "e00dde5b50b2eee8832afa163da0782f388ab8ae1f71b3f1017072565f4239a3"
+    },
+    "scripts/performance/test_edge_worker_profile.py": {
+      "gitBlob": "023403a72987b8ada2e5b4be0019095345ad63a9",
+      "sha256": "0bcea76324e713a552398ddf10e04bafd84444bccd0183557f5e5ad6d8071e0d"
+    },
+    "scripts/performance/test_execution_configuration.py": {
+      "gitBlob": "d8274fa75718a7b99ead811eed26c08660d5653e",
+      "sha256": "8aa7584df8ae0c8af56639ba8a9eb454779e86afa219535a8290c83054cc86c1"
+    },
+    "scripts/performance/test_explicit_redis_database.py": {
+      "gitBlob": "b2d79942940ee3ef38b55235b641304035586501",
+      "sha256": "87663045723d569757d3af0d64c19f07d5b00efeb51b626f4b4d9484e34f34fd"
+    },
+    "scripts/performance/test_http_timing_metrics.py": {
+      "gitBlob": "5574dff9606028c0786b31be117a58cf604e8e71",
+      "sha256": "fcfdcf86766f51efb5d8279cde4d2a90c1bd3301a23443c938c05a2b468a2306"
+    },
+    "scripts/performance/test_kafka_probe_profile.py": {
+      "gitBlob": "08ab7bd1330ce96389f3002e50ecf79d50a12ba5",
+      "sha256": "815ec0ad969a8a9192e0abb2f619ffc5de28e574af22b9a2b12d9e838642908e"
+    },
+    "scripts/performance/test_publisher_diagnostic_metrics.py": {
+      "gitBlob": "aac6b7241ab07bec01d91b127e609cd0328100e1",
+      "sha256": "74b92f3ef47287902ff54fd64f1f360cab0b9fb8f297ac9e2fbb77ef8e989e8e"
+    },
+    "scripts/performance/test_run_stage_diagnostics.py": {
+      "gitBlob": "c43c655504a2356ed387efbdfd511ab960ffb6fc",
+      "sha256": "21ab6f01a533ebd50e489b4b96e4e750501186df73031fda5ecbb002c4085f62"
+    },
+    "scripts/performance/test_workload_diagnostics.js": {
+      "gitBlob": "99629a0689525bd26f2ff49731a243b3585b39a9",
+      "sha256": "d1381c38d88d4f4a9d5459decffaf111b61bcbc6406b8b94519a67b15f369770"
+    },
+    "scripts/performance/verify_edge_path.py": {
+      "gitBlob": "414e288c26463034f1202caec9df8c135bef43fa",
+      "sha256": "c766ed34208938c06b1a40221a2db5f51b9e1dcecb661ee9e26e07eba56915db"
+    },
+    "scripts/performance/verify_id_boundary.py": {
+      "gitBlob": "c42e9f85c13781b3eb5e2287137f332649d8d1f7",
+      "sha256": "5116ddd58affb553207cf6b4f7765fcdda2e0a0ed9369b4aa352b9ec31e893eb"
+    },
+    "scripts/performance/workload.js": {
+      "gitBlob": "1fdc86e130ab6ccbbe7a696829bec31ab4b665c9",
+      "sha256": "ca29f1f94771989001149f1a1c10902ec0cf00ae5901639c72b869a505fba900"
+    }
+  },
+  "exitCode": 0,
+  "cases": 154,
+  "unittestSeconds": 0.594,
+  "wallSeconds": 1.578561116000003,
+  "logSha256": "f5f809eb501a7e39ef07f67e84b0cec77958d9a533d69bafe5e75d0118235f31",
+  "runnerSha256": "2ca8a24d695fc5a8ed9e73961b11cc1abfb3d780b94e54665db80136ed50ce2c",
+  "capturedAt": "2026-09-09T15:32:29.123882+00:00",
+  "sourceFilesUnchanged": true,
+  "changedFromPreviousCandidate": [
+    "scripts/performance/test_explicit_redis_database.py"
+  ],
+  "priorNodeAndLuaInputSourcesUnchanged": true,
+  "priorNodeProof": "candidate-node-proof.json",
+  "priorLuaGenerationProof": "candidate-lua-generation-proof.json",
+  "luaExecuted": false,
+  "businessRuntimeStarted": false,
+  "environment": {
+    "TMPDIR": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/.work/merge-main-20260909/python/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "cpuAffinity": [
+      6,
+      7
+    ]
+  },
+  "testMethodCountsByModule": {
+    "test_application_cpu_profile": 14,
+    "test_edge_path_observation": 16,
+    "test_edge_sender_linger": 15,
+    "test_edge_snapshot_metrics": 10,
+    "test_edge_worker_profile": 29,
+    "test_execution_configuration": 3,
+    "test_explicit_redis_database": 10,
+    "test_http_timing_metrics": 9,
+    "test_kafka_probe_profile": 15,
+    "test_publisher_diagnostic_metrics": 15,
+    "test_run_stage_diagnostics": 18
+  }
+}

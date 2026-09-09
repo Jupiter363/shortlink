@@ -16,8 +16,36 @@ public record RiskReview(
         RiskReviewAction reviewAction,
         String reviewer,
         String reviewNote,
-        LocalDateTime reviewTime
-) {
+        LocalDateTime reviewTime,
+        String tenantId,
+        Long linkId) {
+    public RiskReview(
+            String reviewId,
+            String eventId,
+            RiskTargetType targetType,
+            String gid,
+            String domain,
+            String shortUri,
+            String fullShortUrl,
+            RiskReviewAction action,
+            String reviewer,
+            String note,
+            LocalDateTime time) {
+        this(
+                reviewId,
+                eventId,
+                targetType,
+                gid,
+                domain,
+                shortUri,
+                fullShortUrl,
+                action,
+                reviewer,
+                note,
+                time,
+                null,
+                null);
+    }
 
     public RiskReview {
         reviewId = valueOrEmpty(reviewId);

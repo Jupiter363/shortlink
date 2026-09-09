@@ -1,11 +1,14 @@
 package com.jupiter.shortlink.agent.securityriskagent.node;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.jupiter.shortlink.agent.harness.tool.AgentTool;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolDescriptor;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
 import com.jupiter.shortlink.agent.securityriskagent.safety.SecurityRiskSanitizer;
 import com.jupiter.shortlink.agent.tool.registry.AgentToolRegistry;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -15,30 +18,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 class RiskToolPlanningNodeTest {
 
     @Test
     void planAndExecuteRunsShortLinkStatsAndAccessRecordsWithTypedArguments() {
-        CapturingAgentTool statsTool = new CapturingAgentTool(
-                "get_short_link_stats",
-                ToolResult.success(Map.of("pv", 10))
-        );
-        CapturingAgentTool recordsTool = new CapturingAgentTool(
-                "get_group_access_records",
-                ToolResult.success(Map.of("total", 1))
-        );
-        RiskToolPlanningNode node = new RiskToolPlanningNode(
-                new AgentToolRegistry(List.of(statsTool, recordsTool)),
-                new SecurityRiskSanitizer()
-        );
+        CapturingAgentTool statsTool =
+                new CapturingAgentTool(
+                        "get_short_link_stats", ToolResult.success(Map.of("pv", 10)));
+        CapturingAgentTool recordsTool =
+                new CapturingAgentTool(
+                        "get_group_access_records", ToolResult.success(Map.of("total", 1)));
+        RiskToolPlanningNode node =
+                new RiskToolPlanningNode(
+                        new AgentToolRegistry(List.of(statsTool, recordsTool)),
+                        new SecurityRiskSanitizer());
 
-        Map<String, Object> output = node.planAndExecute(
-                "risk gid=g1 fullShortUrl=http://s.com/a startDate=2026-07-01 endDate=2026-07-07 access current=2 size=5",
-                "session-1",
-                "zhangsan"
-        );
+        Map<String, Object> output =
+                node.planAndExecute(
+                        "risk gid=g1 fullShortUrl=http://s.com/a startDate=2026-07-01"
+                            + " endDate=2026-07-07 access current=2 size=5",
+                        "session-1",
+                        "zhangsan");
 
         assertThat(output.get("visitedNodes")).isEqualTo(List.of("intake", "risk_tool_planning"));
         assertThat(output.get("toolWarnings")).isEqualTo(List.of());
@@ -59,14 +59,11 @@ class RiskToolPlanningNodeTest {
 
     @Test
     void planAndExecuteDoesNotCallToolsWithoutGidAndDateRange() {
-        CapturingAgentTool statsTool = new CapturingAgentTool(
-                "get_group_stats",
-                ToolResult.success(Map.of("pv", 10))
-        );
-        RiskToolPlanningNode node = new RiskToolPlanningNode(
-                new AgentToolRegistry(List.of(statsTool)),
-                new SecurityRiskSanitizer()
-        );
+        CapturingAgentTool statsTool =
+                new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of("pv", 10)));
+        RiskToolPlanningNode node =
+                new RiskToolPlanningNode(
+                        new AgentToolRegistry(List.of(statsTool)), new SecurityRiskSanitizer());
 
         Map<String, Object> output = node.planAndExecute("risk gid=g1", "session-1", "zhangsan");
 
@@ -78,25 +75,26 @@ class RiskToolPlanningNodeTest {
 
     @Test
     void planAndExecuteRecordsFailedExecutionWhenPlannedToolIsNotRegistered() {
-        RiskToolPlanningNode node = new RiskToolPlanningNode(
-                new AgentToolRegistry(List.of()),
-                new SecurityRiskSanitizer()
-        );
+        RiskToolPlanningNode node =
+                new RiskToolPlanningNode(
+                        new AgentToolRegistry(List.of()), new SecurityRiskSanitizer());
 
-        Map<String, Object> output = node.planAndExecute(
-                "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "session-1",
-                "zhangsan"
-        );
+        Map<String, Object> output =
+                node.planAndExecute(
+                        "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                        "session-1",
+                        "zhangsan");
 
         assertThat((List<?>) output.get("toolExecutions"))
                 .singleElement()
-                .satisfies(execution -> {
-                    Map<?, ?> executionMap = (Map<?, ?>) execution;
-                    assertThat(executionMap.get("name")).isEqualTo("get_group_stats");
-                    assertThat(executionMap.get("success")).isEqualTo(false);
-                    assertThat(executionMap.get("message")).isEqualTo("Agent tool is not registered");
-                });
+                .satisfies(
+                        execution -> {
+                            Map<?, ?> executionMap = (Map<?, ?>) execution;
+                            assertThat(executionMap.get("name")).isEqualTo("get_group_stats");
+                            assertThat(executionMap.get("success")).isEqualTo(false);
+                            assertThat(executionMap.get("message"))
+                                    .isEqualTo("Agent tool is not registered");
+                        });
         assertThat(output.get("toolWarnings").toString())
                 .contains("Agent tool get_group_stats failed")
                 .contains("Agent tool is not registered");
@@ -106,50 +104,47 @@ class RiskToolPlanningNodeTest {
     @ParameterizedTest
     @MethodSource("emptyToolData")
     void planAndExecutePreservesSuccessfulEmptyToolDataAsNoDataEvidence(Object emptyData) {
-        CapturingAgentTool statsTool = new CapturingAgentTool(
-                "get_group_stats",
-                ToolResult.success(emptyData)
-        );
-        RiskToolPlanningNode node = new RiskToolPlanningNode(
-                new AgentToolRegistry(List.of(statsTool)),
-                new SecurityRiskSanitizer()
-        );
+        CapturingAgentTool statsTool =
+                new CapturingAgentTool("get_group_stats", ToolResult.success(emptyData));
+        RiskToolPlanningNode node =
+                new RiskToolPlanningNode(
+                        new AgentToolRegistry(List.of(statsTool)), new SecurityRiskSanitizer());
 
-        Map<String, Object> output = node.planAndExecute(
-                "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "session-1",
-                "zhangsan"
-        );
+        Map<String, Object> output =
+                node.planAndExecute(
+                        "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                        "session-1",
+                        "zhangsan");
 
         assertThat((List<?>) output.get("toolExecutions"))
                 .singleElement()
-                .satisfies(execution -> {
-                    Map<?, ?> executionMap = (Map<?, ?>) execution;
-                    assertThat(executionMap.get("name")).isEqualTo("get_group_stats");
-                    assertThat(executionMap.get("success")).isEqualTo(true);
-                    assertThat(executionMap.get("data")).isEqualTo(emptyData);
-                    assertThat(executionMap.containsKey("message")).isFalse();
-                });
+                .satisfies(
+                        execution -> {
+                            Map<?, ?> executionMap = (Map<?, ?>) execution;
+                            assertThat(executionMap.get("name")).isEqualTo("get_group_stats");
+                            assertThat(executionMap.get("success")).isEqualTo(true);
+                            assertThat(executionMap.get("data")).isEqualTo(emptyData);
+                            assertThat(executionMap.containsKey("message")).isFalse();
+                        });
         assertThat(output.get("toolWarnings")).isEqualTo(List.of());
         assertThat(output.get("evidenceStatus")).isEqualTo("NO_DATA");
     }
 
     @Test
     void planAndExecuteSanitizesToolFailureMessages() {
-        ThrowingAgentTool statsTool = new ThrowingAgentTool(
-                "get_group_stats",
-                "backend failed ip=192.168.1.10 user=visitor-001 token=abc"
-        );
-        RiskToolPlanningNode node = new RiskToolPlanningNode(
-                new AgentToolRegistry(List.of(statsTool)),
-                new SecurityRiskSanitizer()
-        );
+        ThrowingAgentTool statsTool =
+                new ThrowingAgentTool(
+                        "get_group_stats",
+                        "backend failed ip=192.168.1.10 user=visitor-001 token=abc");
+        RiskToolPlanningNode node =
+                new RiskToolPlanningNode(
+                        new AgentToolRegistry(List.of(statsTool)), new SecurityRiskSanitizer());
 
-        Map<String, Object> output = node.planAndExecute(
-                "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
-                "session-1",
-                "zhangsan"
-        );
+        Map<String, Object> output =
+                node.planAndExecute(
+                        "risk gid=g1 startDate=2026-07-01 endDate=2026-07-07",
+                        "session-1",
+                        "zhangsan");
 
         assertThat(output.get("toolExecutions").toString())
                 .contains("192.168.*.*")
@@ -174,8 +169,7 @@ class RiskToolPlanningNodeTest {
                 Arguments.of(Map.of()),
                 Arguments.of(List.of()),
                 Arguments.of("   "),
-                Arguments.of((Object) new Object[0])
-        );
+                Arguments.of((Object) new Object[0]));
     }
 
     private static class CapturingAgentTool implements AgentTool {
@@ -188,7 +182,15 @@ class RiskToolPlanningNodeTest {
 
         private CapturingAgentTool(String name, ToolResult result) {
             this.name = name;
-            this.result = result;
+            this.result =
+                    name.endsWith("_stats")
+                                    && result.success()
+                                    && result.data() instanceof Map<?, ?> stats
+                                    && !stats.isEmpty()
+                            ? ToolResult.success(
+                                    com.jupiter.shortlink.agent.StatsTestFixtures.envelope(
+                                            (Map<String, Object>) stats))
+                            : result;
         }
 
         @Override

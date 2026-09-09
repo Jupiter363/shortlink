@@ -1,0 +1,14 @@
+{
+  "target": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/shortlink-redirect/target/shortlink-redirect-1.0-SNAPSHOT.jar",
+  "source": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/.work/fanout-build-20260909/source/shortlink-redirect/target/shortlink-redirect-1.0-SNAPSHOT.jar",
+  "backup": "/mnt/d/\u5b66\u4e60/Project/\u9a6c\u54e5Project/shortlink/.work/fanout-build-20260909/redirect-before-fanout.jar",
+  "beforeSha256": "1dfd3f0b076f8993cb87d710e803eaa520c5b7cad0c277521b0b659317ea1741",
+  "afterSha256": "e805c149d0d5a414068c5768c961b9f16daeb1ad1ddf687263a0f429fb7a0f4d",
+  "servicesStoppedBeforeReplacement": true,
+  "stoppedRunCount": 10,
+  "unchangedOtherArtifacts": {
+    "shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar": "d0d2f2fc30cfceaed25c122ec13ffc18f69e2af0a52f535ab3ddcac583893fa0",
+    "admin/target/shortlink-admin.jar": "a5cf08e51b43e18cb6634e4a05c74fc84295f5f601f6fd9c68b2bb51c88402a2",
+    "gateway/target/shortlink-gateway-1.0-SNAPSHOT.jar": "7df62d3269702f8a2c1dc03406248c933fd844a2fa94684d880d83c31b1f57f8"
+  }
+}

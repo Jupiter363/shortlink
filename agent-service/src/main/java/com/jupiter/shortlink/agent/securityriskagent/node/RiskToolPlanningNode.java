@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.securityriskagent.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 import com.jupiter.shortlink.agent.harness.tool.AgentTool;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
@@ -24,7 +25,9 @@ public class RiskToolPlanningNode {
 
     private static final String INTAKE_NODE = "intake";
     private static final String RISK_TOOL_PLANNING_NODE = "risk_tool_planning";
-    private static final Pattern KEY_VALUE_PATTERN = Pattern.compile("(gid|fullShortUrl|startDate|endDate|current|size)\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
+    private static final Pattern KEY_VALUE_PATTERN =
+            Pattern.compile(
+                    "(gid|fullShortUrl|startDate|endDate|current|size)\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
     private final AgentToolRegistry toolRegistry;
@@ -45,21 +48,23 @@ public class RiskToolPlanningNode {
                 state.value("sessionId", ""),
                 state.value("username", ""),
                 state.value("profileRiskContext", ProfileRiskAnalysisContext.empty()),
-                state.value("analysisInput").isPresent()
-        );
+                state.value("analysisInput")
+                        .filter(value -> !(value instanceof Map<?, ?> map) || !map.isEmpty())
+                        .isPresent(),
+                AgentPrincipal.fromState(state.value("principal").orElse(null)));
     }
 
     public Map<String, Object> planAndExecute(String message, String sessionId, String username) {
-        return planAndExecute(message, sessionId, username, ProfileRiskAnalysisContext.empty(), false);
+        return planAndExecute(
+                message, sessionId, username, ProfileRiskAnalysisContext.empty(), false, null);
     }
 
     public Map<String, Object> planAndExecute(
             String message,
             String sessionId,
             String username,
-            ProfileRiskAnalysisContext profileContext
-    ) {
-        return planAndExecute(message, sessionId, username, profileContext, false);
+            ProfileRiskAnalysisContext profileContext) {
+        return planAndExecute(message, sessionId, username, profileContext, false, null);
     }
 
     private Map<String, Object> planAndExecute(
@@ -67,54 +72,60 @@ public class RiskToolPlanningNode {
             String sessionId,
             String username,
             ProfileRiskAnalysisContext profileContext,
-            boolean structuredBatch
-    ) {
+            boolean structuredBatch,
+            AgentPrincipal principal) {
         List<Map<String, Object>> toolExecutions = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         boolean hasProfileContext = profileContext != null && !profileContext.isEmpty();
         if (hasProfileContext) {
             toolExecutions.add(profileContext.toToolExecution());
         }
-        List<RiskToolInvocation> plannedInvocations = structuredBatch
-                ? List.of()
-                : planToolInvocations(message);
+        List<RiskToolInvocation> plannedInvocations =
+                structuredBatch ? List.of() : planToolInvocations(message);
         if (!structuredBatch) {
             for (RiskToolInvocation invocation : plannedInvocations) {
                 Optional<AgentTool> toolOptional = toolRegistry.findByName(invocation.name());
                 if (toolOptional.isEmpty()) {
-                    Map<String, Object> execution = failedExecution(invocation, "Agent tool is not registered");
+                    Map<String, Object> execution =
+                            failedExecution(invocation, "Agent tool is not registered");
                     toolExecutions.add(execution);
                     warnings.add(toolFailureWarning(invocation.name(), execution.get("message")));
                     continue;
                 }
-                Map<String, Object> execution = executeTool(toolOptional.get(), invocation, sessionId, username);
+                Map<String, Object> execution =
+                        executeTool(toolOptional.get(), invocation, sessionId, username, principal);
                 toolExecutions.add(execution);
                 if (!Boolean.TRUE.equals(execution.get("success"))) {
                     warnings.add(toolFailureWarning(invocation.name(), execution.get("message")));
                 }
             }
         }
-        boolean evidenceRequested = structuredBatch || hasProfileContext || !plannedInvocations.isEmpty();
-        RiskEvidenceStatus evidenceStatus = evidenceClassifier.classify(
-                evidenceRequested,
-                toolExecutions,
-                List.of()
-        );
+        boolean evidenceRequested =
+                structuredBatch || hasProfileContext || !plannedInvocations.isEmpty();
+        RiskEvidenceStatus evidenceStatus =
+                evidenceClassifier.classify(evidenceRequested, toolExecutions, List.of());
         return Map.of(
                 "toolExecutions", toolExecutions,
                 "toolWarnings", warnings,
                 "evidenceRequested", evidenceRequested,
                 "evidenceStatus", evidenceStatus.name(),
-                "visitedNodes", List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE)
-        );
+                "visitedNodes", List.of(INTAKE_NODE, RISK_TOOL_PLANNING_NODE));
     }
 
-    private Map<String, Object> executeTool(AgentTool tool, RiskToolInvocation invocation, String sessionId, String username) {
+    private Map<String, Object> executeTool(
+            AgentTool tool,
+            RiskToolInvocation invocation,
+            String sessionId,
+            String username,
+            AgentPrincipal principal) {
         Map<String, Object> execution = new LinkedHashMap<>();
         execution.put("name", invocation.name());
         execution.put("arguments", invocation.arguments());
         try {
-            ToolResult result = tool.execute(new ToolContext(sessionId, username, invocation.arguments()));
+            ToolResult result =
+                    tool.execute(
+                            new ToolContext(
+                                    sessionId, username, invocation.arguments(), principal));
             if (result.success()) {
                 execution.put("success", true);
                 execution.put("data", result.data());
@@ -144,17 +155,46 @@ public class RiskToolPlanningNode {
     }
 
     private List<RiskToolInvocation> planToolInvocations(String message) {
+        var continuation =
+                com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.continuation(
+                        message);
+        if (continuation.isPresent())
+            return List.of(
+                    new RiskToolInvocation(
+                            continuation.get().toolName(), continuation.get().arguments()));
         Map<String, Object> arguments = extractArguments(message);
         boolean hasGid = arguments.containsKey("gid");
         boolean hasFullShortUrl = arguments.containsKey("fullShortUrl");
-        boolean hasDateRange = arguments.containsKey("startDate") && arguments.containsKey("endDate");
+        boolean hasDateRange =
+                arguments.containsKey("startDate") && arguments.containsKey("endDate");
         if (!hasGid || !hasDateRange) {
             return List.of();
         }
         List<RiskToolInvocation> invocations = new ArrayList<>();
-        invocations.add(new RiskToolInvocation(hasFullShortUrl ? "get_short_link_stats" : "get_group_stats", arguments));
+        var metricsJob =
+                com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.longRange(
+                        arguments, "METRICS");
+        invocations.add(
+                metricsJob
+                        .map(plan -> new RiskToolInvocation(plan.toolName(), plan.arguments()))
+                        .orElseGet(
+                                () ->
+                                        new RiskToolInvocation(
+                                                hasFullShortUrl
+                                                        ? "get_short_link_stats"
+                                                        : "get_group_stats",
+                                                arguments)));
         if (wantsAccessRecords(message)) {
-            invocations.add(new RiskToolInvocation("get_group_access_records", arguments));
+            var recordsJob =
+                    com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.longRange(
+                            arguments, "ACCESS_RECORDS");
+            invocations.add(
+                    recordsJob
+                            .map(plan -> new RiskToolInvocation(plan.toolName(), plan.arguments()))
+                            .orElseGet(
+                                    () ->
+                                            new RiskToolInvocation(
+                                                    "get_group_access_records", arguments)));
         }
         return invocations;
     }
@@ -205,16 +245,14 @@ public class RiskToolPlanningNode {
 
     private String sanitizeArgumentValue(String value) {
         String sanitized = value == null ? "" : value.trim();
-        while (!sanitized.isEmpty() && isTrailingArgumentPunctuation(sanitized.charAt(sanitized.length() - 1))) {
+        while (!sanitized.isEmpty()
+                && isTrailingArgumentPunctuation(sanitized.charAt(sanitized.length() - 1))) {
             sanitized = sanitized.substring(0, sanitized.length() - 1);
         }
         return sanitized;
     }
 
     private boolean isTrailingArgumentPunctuation(char value) {
-        return value == '.'
-                || value == ';'
-                || value == '\u3002'
-                || value == '\uFF1B';
+        return value == '.' || value == ';' || value == '\u3002' || value == '\uFF1B';
     }
 }

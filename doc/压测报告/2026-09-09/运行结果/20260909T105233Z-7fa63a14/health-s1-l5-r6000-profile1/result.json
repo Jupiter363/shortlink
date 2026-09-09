@@ -1,0 +1,316 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260909T105233Z-7fa63a14",
+  "label": "health-s1-l5-r6000-profile1",
+  "startedAt": "2026-09-09T10:57:19.527871+00:00",
+  "capacityPassed": false,
+  "status": "CAPACITY_STAGE_FAILED",
+  "stageConfig": {
+    "label": "health-s1-l5-r6000-profile1",
+    "rate": 6000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 91500,
+    "formalRequests": 360000,
+    "maximumRequests": 451500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 16644096000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+  "stageDirectory": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1",
+  "stopReasons": [
+    "EVENT_FAILURE_OR_COUNTER_RESET",
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "185fbc62e8db47f6c28f9caed9f7b8d497fcbfb58db442138d5990bcf7483c5a",
+    "edgePathProofSha256": "90219393f692750d15d668f95c58858333a0fd7317a7c1b21b60765f88d38c6a",
+    "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+    "containerId": "c2f4dd96ef7d1aa4359e044ac0552edb061d08bc58e1be5319d836a1b408ca1d",
+    "containerPid": 11345
+  },
+  "privateConfigSha256": "b8793975a45d6cb83e22c3161ecf17b97a4b3041c5273757c35c45b7372b5fe5",
+  "campaignAdmission": {
+    "maximumRecords": 25000000,
+    "actualRecordsSinceBaseline": 9202818,
+    "reservedRecords": 4063500,
+    "projectedRecords": 13266318,
+    "failedStagesIncluded": true,
+    "retentionCredit": false,
+    "originBaseline": {
+      "path": ".work/performance/20260909T091523Z-fa0a8707/baseline-boundary.json",
+      "sha256": "1adfdb6ec074cb7623fa35eadfc7439a6692d57a33b1f1b7b5ede5312b10ef3e"
+    },
+    "scope": "ORIGINAL_CAMPAIGN_KAFKA_OFFSETS_ONLY_BUSINESS_REMAINS_CURRENT_RUN"
+  },
+  "diskAdmission": {
+    "workspace": {
+      "freeBytes": 194024185856,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 177380089856
+    },
+    "kafka": {
+      "freeBytes": 952935870464,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 936291774464
+    }
+  },
+  "clientLaunch": {
+    "pid": 30480,
+    "startedAt": "2026-09-09T10:57:30.742064+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": false,
+    "checks": {
+      "observerExited": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": false,
+      "noSampleBudgetLoss": true,
+      "jfrCapturedAndStopped": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "7ceba34584c03d254add845b2df1232a5871dc4c0fcebd3f688c11fab81fb2bb",
+    "scripts/performance/observe.py": "a28a536ab716ec3365a2aaf6ba1106cf8330c1e28fb4eec2bac5f52c86a54204",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": false,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": false,
+    "noCancelledArrivals": false,
+    "sentAtLeast99PercentOfTarget": false,
+    "roundtripP99WithinBudget": false,
+    "scheduledCompletionP99WithinBudget": false,
+    "eventFailuresUnchanged": false,
+    "afterDrained": true,
+    "noMonitorStop": false,
+    "threeProducerLanesMatch": false,
+    "actualKafkaOffsetsMatch": false,
+    "sourceDistributionVerified": true,
+    "measurementComplete": false,
+    "nativeConservationVerified": false,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": false
+  },
+  "failedChecks": [
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 90.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": null,
+  "kafkaConservation": null,
+  "accountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "all": {
+    "planned_arrivals": 451500,
+    "scheduled": 97599,
+    "sent": 97598,
+    "completed": 97598,
+    "received_http": 97598,
+    "correct": 97598,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1,
+    "cancelled_arrivals": 353901,
+    "roundtrip_ms": {
+      "count": 97598,
+      "mean": 41.08628743080806,
+      "p50": 10.92886,
+      "p95": 178.664542,
+      "p99": 310.795435,
+      "p99_9": 491.503412,
+      "max": 747.196978
+    },
+    "scheduled_to_completion_ms": {
+      "count": 97598,
+      "mean": 41.311975638712006,
+      "p50": 11.132666,
+      "p95": 178.941337,
+      "p99": 311.191825,
+      "p99_9": 492.233036,
+      "max": 748.587416
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 91500,
+    "scheduled": 91500,
+    "sent": 91500,
+    "completed": 91500,
+    "received_http": 91500,
+    "correct": 91500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 91500,
+      "mean": 35.313285099967324,
+      "p50": 9.276125,
+      "p95": 160.756615,
+      "p99": 300.195762,
+      "p99_9": 494.346311,
+      "max": 747.196978
+    },
+    "scheduled_to_completion_ms": {
+      "count": 91500,
+      "mean": 35.53649954025139,
+      "p50": 9.479517,
+      "p95": 161.160628,
+      "p99": 301.314175,
+      "p99_9": 494.629142,
+      "max": 748.587416
+    }
+  },
+  "measure": {
+    "planned_arrivals": 360000,
+    "scheduled": 6099,
+    "sent": 6098,
+    "completed": 6098,
+    "received_http": 6098,
+    "correct": 6098,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1,
+    "cancelled_arrivals": 353901,
+    "roundtrip_ms": {
+      "count": 6098,
+      "mean": 127.70972352000639,
+      "p50": 111.04233,
+      "p95": 285.723648,
+      "p99": 341.253068,
+      "p99_9": 400.531419,
+      "max": 465.404027
+    },
+    "scheduled_to_completion_ms": {
+      "count": 6098,
+      "mean": 127.97253041226637,
+      "p50": 111.282513,
+      "p95": 285.899593,
+      "p99": 341.386702,
+      "p99_9": 400.836965,
+      "max": 465.861258
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 1016.3508069999989,
+      "start": "2026-09-09T10:58:00.879169729Z",
+      "end": "2026-09-09T10:59:00.879169729Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-09T10:57:30.879169729Z",
+      "end": "2026-09-09T10:58:00.879169729Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 91035,
+      "measure": 6563,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 109.38333333333334,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 109.38333333333334,
+  "measuredCorrectCohortQps": 101.63333333333334,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 2,
+  "nativeSummarySha256": "120dbbe34a1e229c8bfe1c73ea2846081ec59f1ac3189d9384021b30271b5f3f",
+  "finishedAt": "2026-09-09T10:58:32.384999+00:00",
+  "monitorStop": "EVENT_FAILURE_OR_COUNTER_RESET",
+  "nativeClientProcess": {
+    "samples": 39,
+    "cpuPercentMean": 135.10207354688995,
+    "cpuPercentPeak": 181.97733035596858,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 2154475520,
+    "rssBytesSampleMean": 334071335.38461536,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 38.008298949000164,
+    "timelineBytes": 10409,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-09T10:57:30.742064+00:00",
+    "end": "2026-09-09T10:58:09.282322+00:00"
+  }
+}

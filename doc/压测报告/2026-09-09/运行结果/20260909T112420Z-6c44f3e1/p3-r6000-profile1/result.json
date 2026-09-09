@@ -1,0 +1,316 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260909T112420Z-6c44f3e1",
+  "label": "p3-r6000-profile1",
+  "startedAt": "2026-09-09T11:28:00.131116+00:00",
+  "capacityPassed": false,
+  "status": "CAPACITY_STAGE_FAILED",
+  "stageConfig": {
+    "label": "p3-r6000-profile1",
+    "rate": 6000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 91500,
+    "formalRequests": 360000,
+    "maximumRequests": 451500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 16644096000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+  "stageDirectory": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1",
+  "stopReasons": [
+    "EVENT_FAILURE_OR_COUNTER_RESET",
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "a13f020d87d3ae4d2ec197e4f04e6a6621cdacb7c0120eef4dc791e6dd8a5ff0",
+    "edgePathProofSha256": "3403bb19f92f39ccaa04721bcf5514917fa93d2a3877176ca6a3533f4fd8c4ae",
+    "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+    "containerId": "2996c496cbaa77f40c3070ee1c07afc1d5297511c7e281c1f8147ae23a1df354",
+    "containerPid": 20473
+  },
+  "privateConfigSha256": "47ac09ce4a98f180c7e131b3ec51816ddc3227d95c37251bafa9b65b3d2a4814",
+  "campaignAdmission": {
+    "maximumRecords": 25000000,
+    "actualRecordsSinceBaseline": 12830518,
+    "reservedRecords": 4063500,
+    "projectedRecords": 16894018,
+    "failedStagesIncluded": true,
+    "retentionCredit": false,
+    "originBaseline": {
+      "path": ".work/performance/20260909T091523Z-fa0a8707/baseline-boundary.json",
+      "sha256": "1adfdb6ec074cb7623fa35eadfc7439a6692d57a33b1f1b7b5ede5312b10ef3e"
+    },
+    "scope": "ORIGINAL_CAMPAIGN_KAFKA_OFFSETS_ONLY_BUSINESS_REMAINS_CURRENT_RUN"
+  },
+  "diskAdmission": {
+    "workspace": {
+      "freeBytes": 188925546496,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 172281450496
+    },
+    "kafka": {
+      "freeBytes": 950744297472,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 934100201472
+    }
+  },
+  "clientLaunch": {
+    "pid": 5029,
+    "startedAt": "2026-09-09T11:28:11.352203+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": false,
+    "checks": {
+      "observerExited": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": false,
+      "noSampleBudgetLoss": true,
+      "jfrCapturedAndStopped": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "7ceba34584c03d254add845b2df1232a5871dc4c0fcebd3f688c11fab81fb2bb",
+    "scripts/performance/observe.py": "a28a536ab716ec3365a2aaf6ba1106cf8330c1e28fb4eec2bac5f52c86a54204",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": false,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": false,
+    "noCancelledArrivals": false,
+    "sentAtLeast99PercentOfTarget": false,
+    "roundtripP99WithinBudget": false,
+    "scheduledCompletionP99WithinBudget": false,
+    "eventFailuresUnchanged": false,
+    "afterDrained": true,
+    "noMonitorStop": false,
+    "threeProducerLanesMatch": false,
+    "actualKafkaOffsetsMatch": false,
+    "sourceDistributionVerified": true,
+    "measurementComplete": false,
+    "nativeConservationVerified": false,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": false
+  },
+  "failedChecks": [
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 1980.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": null,
+  "kafkaConservation": null,
+  "accountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "all": {
+    "planned_arrivals": 451500,
+    "scheduled": 134517,
+    "sent": 134149,
+    "completed": 134149,
+    "received_http": 134149,
+    "correct": 134149,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 368,
+    "cancelled_arrivals": 316983,
+    "roundtrip_ms": {
+      "count": 134149,
+      "mean": 52.68306524360229,
+      "p50": 19.938423,
+      "p95": 242.603104,
+      "p99": 438.795267,
+      "p99_9": 649.35091,
+      "max": 1062.30878
+    },
+    "scheduled_to_completion_ms": {
+      "count": 134149,
+      "mean": 52.93442729611813,
+      "p50": 20.156411,
+      "p95": 242.849101,
+      "p99": 439.298458,
+      "p99_9": 649.486841,
+      "max": 1062.419563
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 91500,
+    "scheduled": 91500,
+    "sent": 91500,
+    "completed": 91500,
+    "received_http": 91500,
+    "correct": 91500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 91500,
+      "mean": 21.16263674432782,
+      "p50": 10.56914,
+      "p95": 78.630789,
+      "p99": 139.679283,
+      "p99_9": 208.625709,
+      "max": 318.501154
+    },
+    "scheduled_to_completion_ms": {
+      "count": 91500,
+      "mean": 21.408337910863438,
+      "p50": 10.788039,
+      "p95": 79.106849,
+      "p99": 140.085957,
+      "p99_9": 209.355679,
+      "max": 318.739884
+    }
+  },
+  "measure": {
+    "planned_arrivals": 360000,
+    "scheduled": 43017,
+    "sent": 42649,
+    "completed": 42649,
+    "received_http": 42649,
+    "correct": 42649,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 368,
+    "cancelled_arrivals": 316983,
+    "roundtrip_ms": {
+      "count": 42649,
+      "mean": 120.30760996173463,
+      "p50": 67.651133,
+      "p95": 387.424847,
+      "p99": 565.718805,
+      "p99_9": 722.403514,
+      "max": 1062.30878
+    },
+    "scheduled_to_completion_ms": {
+      "count": 42649,
+      "mean": 120.57111698991781,
+      "p50": 67.956939,
+      "p95": 387.707992,
+      "p99": 565.969651,
+      "p99_9": 722.513256,
+      "max": 1062.419563
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 7169.429362000003,
+      "start": "2026-09-09T11:28:41.484581722Z",
+      "end": "2026-09-09T11:29:41.484581722Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-09T11:28:11.484581722Z",
+      "end": "2026-09-09T11:28:41.484581722Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 91408,
+      "measure": 42741,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 712.35,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 712.35,
+  "measuredCorrectCohortQps": 710.8166666666667,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 2,
+  "nativeSummarySha256": "e6370c10ab093050b903e5ed62ffc8112cdfdfb3b4ac58a0f8a966915f2bc6e4",
+  "finishedAt": "2026-09-09T11:29:21.597558+00:00",
+  "monitorStop": "EVENT_FAILURE_OR_COUNTER_RESET",
+  "nativeClientProcess": {
+    "samples": 45,
+    "cpuPercentMean": 140.23636262536982,
+    "cpuPercentPeak": 186.96537307825287,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 2481315840,
+    "rssBytesSampleMean": 323480416.7111111,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 44.04706371700013,
+    "timelineBytes": 11964,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-09T11:28:11.352203+00:00",
+    "end": "2026-09-09T11:28:56.692647+00:00"
+  }
+}

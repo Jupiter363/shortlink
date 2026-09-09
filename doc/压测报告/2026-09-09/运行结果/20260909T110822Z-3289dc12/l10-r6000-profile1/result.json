@@ -1,0 +1,313 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260909T110822Z-3289dc12",
+  "label": "l10-r6000-profile1",
+  "startedAt": "2026-09-09T11:11:21.801790+00:00",
+  "capacityPassed": false,
+  "status": "CAPACITY_STAGE_FAILED",
+  "stageConfig": {
+    "label": "l10-r6000-profile1",
+    "rate": 6000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 91500,
+    "formalRequests": 360000,
+    "maximumRequests": 451500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 16644096000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+  "stageDirectory": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1",
+  "stopReasons": [
+    "clientExitedSuccessfully",
+    "allHttpCompleteAndCorrect",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "dd7bbd6535bc9c0fa7bbbde7ef5dfc380c7a416ded9492ba36e65e7c606aff62",
+    "edgePathProofSha256": "3612d524d0bd9022c90dc222da4acfb7dfd4489775815aec9a64f668a9294f41",
+    "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+    "containerId": "5e6c6989426175df5176af126d54dd770e3a20655f948f52523c824c6e79688d",
+    "containerPid": 3378
+  },
+  "privateConfigSha256": "8819e866634837d1cafee484a7c25c978097246c81d04a27feffa3fb6502c44d",
+  "campaignAdmission": {
+    "maximumRecords": 25000000,
+    "actualRecordsSinceBaseline": 11236730,
+    "reservedRecords": 4063500,
+    "projectedRecords": 15300230,
+    "failedStagesIncluded": true,
+    "retentionCredit": false,
+    "originBaseline": {
+      "path": ".work/performance/20260909T091523Z-fa0a8707/baseline-boundary.json",
+      "sha256": "1adfdb6ec074cb7623fa35eadfc7439a6692d57a33b1f1b7b5ede5312b10ef3e"
+    },
+    "scope": "ORIGINAL_CAMPAIGN_KAFKA_OFFSETS_ONLY_BUSINESS_REMAINS_CURRENT_RUN"
+  },
+  "diskAdmission": {
+    "workspace": {
+      "freeBytes": 190993584128,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 174349488128
+    },
+    "kafka": {
+      "freeBytes": 951726432256,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 935082336256
+    }
+  },
+  "clientLaunch": {
+    "pid": 14989,
+    "startedAt": "2026-09-09T11:11:33.149032+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": false,
+    "checks": {
+      "observerExited": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": false,
+      "noSampleBudgetLoss": true,
+      "jfrCapturedAndStopped": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "7ceba34584c03d254add845b2df1232a5871dc4c0fcebd3f688c11fab81fb2bb",
+    "scripts/performance/observe.py": "a28a536ab716ec3365a2aaf6ba1106cf8330c1e28fb4eec2bac5f52c86a54204",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": false,
+    "allHttpCompleteAndCorrect": false,
+    "noDroppedArrivals": false,
+    "noCancelledArrivals": false,
+    "sentAtLeast99PercentOfTarget": false,
+    "roundtripP99WithinBudget": false,
+    "scheduledCompletionP99WithinBudget": false,
+    "eventFailuresUnchanged": true,
+    "afterDrained": true,
+    "noMonitorStop": true,
+    "threeProducerLanesMatch": false,
+    "actualKafkaOffsetsMatch": false,
+    "sourceDistributionVerified": true,
+    "measurementComplete": false,
+    "nativeConservationVerified": false,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": false
+  },
+  "failedChecks": [
+    "clientExitedSuccessfully",
+    "allHttpCompleteAndCorrect",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 0.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": null,
+  "kafkaConservation": null,
+  "accountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "all": {
+    "planned_arrivals": 451500,
+    "scheduled": 53043,
+    "sent": 53040,
+    "completed": 53040,
+    "received_http": 53040,
+    "correct": 53037,
+    "incorrect_http": 3,
+    "client_errors": 0,
+    "errors": 3,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 3,
+    "cancelled_arrivals": 398457,
+    "roundtrip_ms": {
+      "count": 53040,
+      "mean": 86.11954972577314,
+      "p50": 21.001044,
+      "p95": 376.459589,
+      "p99": 585.306409,
+      "p99_9": 839.439188,
+      "max": 1045.496502
+    },
+    "scheduled_to_completion_ms": {
+      "count": 53040,
+      "mean": 86.34953500921942,
+      "p50": 21.212811,
+      "p95": 376.681715,
+      "p99": 585.51945,
+      "p99_9": 839.554704,
+      "max": 1045.64094
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 91500,
+    "scheduled": 53043,
+    "sent": 53040,
+    "completed": 53040,
+    "received_http": 53040,
+    "correct": 53037,
+    "incorrect_http": 3,
+    "client_errors": 0,
+    "errors": 3,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 3,
+    "cancelled_arrivals": 38457,
+    "roundtrip_ms": {
+      "count": 53040,
+      "mean": 86.11954972577314,
+      "p50": 21.001044,
+      "p95": 376.459589,
+      "p99": 585.306409,
+      "p99_9": 839.439188,
+      "max": 1045.496502
+    },
+    "scheduled_to_completion_ms": {
+      "count": 53040,
+      "mean": 86.34953500921942,
+      "p50": 21.212811,
+      "p95": 376.681715,
+      "p99": 585.51945,
+      "p99_9": 839.554704,
+      "max": 1045.64094
+    }
+  },
+  "measure": {
+    "planned_arrivals": 360000,
+    "scheduled": 0,
+    "sent": 0,
+    "completed": 0,
+    "received_http": 0,
+    "correct": 0,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 360000,
+    "roundtrip_ms": {
+      "count": 0,
+      "mean": null,
+      "p50": null,
+      "p95": null,
+      "p99": null,
+      "p99_9": null,
+      "max": null
+    },
+    "scheduled_to_completion_ms": {
+      "count": 0,
+      "mean": null,
+      "p50": null,
+      "p95": null,
+      "p99": null,
+      "p99_9": null,
+      "max": null
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 0,
+      "start": "2026-09-09T11:12:03.282943087Z",
+      "end": "2026-09-09T11:13:03.282943087Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 22722.409071,
+      "start": "2026-09-09T11:11:33.282943087Z",
+      "end": "2026-09-09T11:12:03.282943087Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 53037,
+      "measure": 0,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 0.0,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 0.0,
+  "measuredCorrectCohortQps": 0.0,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 2,
+  "nativeSummarySha256": "014d2383a18da92966e692b68b3c4e5db963b58376023fcde800a269963fb5ce",
+  "finishedAt": "2026-09-09T11:12:21.878079+00:00",
+  "monitorStop": null,
+  "nativeClientProcess": {
+    "samples": 29,
+    "cpuPercentMean": 124.51303829136262,
+    "cpuPercentPeak": 165.97061822167737,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 1644847104,
+    "rssBytesSampleMean": 241886313.93103448,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 28.005099287998746,
+    "timelineBytes": 7717,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-09T11:11:33.149032+00:00",
+    "end": "2026-09-09T11:12:02.076458+00:00"
+  }
+}

@@ -1,9 +1,12 @@
 package com.jupiter.shortlink.admin.remote;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.jupiter.shortlink.admin.common.convention.result.Result;
 import com.jupiter.shortlink.admin.remote.dto.req.AgentChatReqDTO;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,26 +25,22 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 @SpringBootTest(
         classes = AgentRemoteServiceFeignTest.FeignTestConfiguration.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-                "spring.cloud.discovery.enabled=false",
-                "spring.cloud.nacos.discovery.enabled=false",
-                "spring.autoconfigure.exclude=org.redisson.spring.starter.RedissonAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"
-        }
-)
+            "spring.cloud.discovery.enabled=false",
+            "spring.cloud.nacos.discovery.enabled=false",
+            "spring.autoconfigure.exclude="
+                + "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
+                + "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,"
+                + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"
+        })
 class AgentRemoteServiceFeignTest {
 
     private static final RecordingHttpServer SERVER = RecordingHttpServer.start();
 
-    @Autowired
-    private AgentRemoteService agentRemoteService;
+    @Autowired private AgentRemoteService agentRemoteService;
 
     @DynamicPropertySource
     static void dynamicProperties(DynamicPropertyRegistry registry) {
@@ -65,13 +64,9 @@ class AgentRemoteServiceFeignTest {
         request.setAgentType("security-risk");
         request.setMessage("analyze campaign");
 
-        Result<Object> result = agentRemoteService.chat(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                request
-        );
+        Result<Object> result =
+                agentRemoteService.chat(
+                        "internal-token", "trusted-user", "1001", "Trusted Name", 7L, request);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("POST");
@@ -89,12 +84,9 @@ class AgentRemoteServiceFeignTest {
 
     @Test
     void healthSendsInternalPathAndTrustedHeadersToAgentService() {
-        Result<Object> result = agentRemoteService.health(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name"
-        );
+        Result<Object> result =
+                agentRemoteService.health(
+                        "internal-token", "trusted-user", "1001", "Trusted Name", 7L);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("GET");
@@ -109,8 +101,9 @@ class AgentRemoteServiceFeignTest {
     @Configuration
     @EnableAutoConfiguration
     @EnableFeignClients(clients = AgentRemoteService.class)
-    static class FeignTestConfiguration {
-    }
+    @org.springframework.context.annotation.Import(
+            com.jupiter.shortlink.admin.config.AdminFeignTransportConfiguration.class)
+    static class FeignTestConfiguration {}
 
     private static class RecordingHttpServer {
 
@@ -149,15 +142,18 @@ class AgentRemoteServiceFeignTest {
         private void handle(HttpExchange exchange) throws IOException {
             byte[] requestBody = exchange.getRequestBody().readAllBytes();
             Map<String, String> headers = new LinkedHashMap<>();
-            exchange.getRequestHeaders().forEach((key, values) ->
-                    headers.put(key, values.isEmpty() ? "" : values.get(0)));
-            lastRequest = new RecordedRequest(
-                    exchange.getRequestMethod(),
-                    exchange.getRequestURI().getPath(),
-                    headers,
-                    new String(requestBody, StandardCharsets.UTF_8)
-            );
-            byte[] responseBody = """
+            exchange.getRequestHeaders()
+                    .forEach(
+                            (key, values) ->
+                                    headers.put(key, values.isEmpty() ? "" : values.get(0)));
+            lastRequest =
+                    new RecordedRequest(
+                            exchange.getRequestMethod(),
+                            exchange.getRequestURI().getPath(),
+                            headers,
+                            new String(requestBody, StandardCharsets.UTF_8));
+            byte[] responseBody =
+                    """
                     {
                       "code": "0",
                       "message": "success",
@@ -166,7 +162,8 @@ class AgentRemoteServiceFeignTest {
                         "sessionId": "session-1"
                       }
                     }
-                    """.getBytes(StandardCharsets.UTF_8);
+                    """
+                            .getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, responseBody.length);
             exchange.getResponseBody().write(responseBody);
@@ -175,11 +172,7 @@ class AgentRemoteServiceFeignTest {
     }
 
     private record RecordedRequest(
-            String method,
-            String path,
-            Map<String, String> headers,
-            String body
-    ) {
+            String method, String path, Map<String, String> headers, String body) {
 
         private String header(String name) {
             return headers.entrySet().stream()

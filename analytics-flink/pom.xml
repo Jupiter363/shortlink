@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>com.jupiter.shortlink</groupId><artifactId>shortlink-all</artifactId><version>1.0-SNAPSHOT</version></parent>
+  <artifactId>analytics-flink</artifactId>
+  <dependencies>
+    <dependency><groupId>org.apache.flink</groupId><artifactId>flink-connector-base</artifactId><version>1.20.3</version></dependency>
+    <dependency><groupId>org.apache.flink</groupId><artifactId>flink-statebackend-rocksdb</artifactId><version>1.20.3</version></dependency>
+    <dependency><groupId>com.jupiter.shortlink</groupId><artifactId>event-contract</artifactId><version>1.0-SNAPSHOT</version></dependency>
+    <dependency><groupId>org.apache.flink</groupId><artifactId>flink-streaming-java</artifactId><version>1.20.3</version></dependency>
+    <dependency><groupId>org.apache.flink</groupId><artifactId>flink-clients</artifactId><version>1.20.3</version></dependency>
+    <dependency><groupId>org.apache.flink</groupId><artifactId>flink-connector-kafka</artifactId><version>3.4.0-1.20</version></dependency>
+    <dependency><groupId>org.apache.kafka</groupId><artifactId>kafka-clients</artifactId><version>3.9.0</version></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+  </dependencies>
+  <build><plugins><plugin>
+    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId><version>3.6.0</version>
+    <executions><execution><phase>package</phase><goals><goal>shade</goal></goals><configuration>
+      <createDependencyReducedPom>false</createDependencyReducedPom>
+      <artifactSet><includes>
+        <include>com.jupiter.shortlink:event-contract</include>
+        <include>org.apache.flink:flink-connector-kafka</include><include>org.apache.flink:flink-connector-base</include>
+        <include>org.apache.kafka:kafka-clients</include><include>com.fasterxml.jackson.core:*</include>
+        <include>org.lz4:lz4-java</include><include>org.xerial.snappy:snappy-java</include><include>com.github.luben:zstd-jni</include>
+      </includes></artifactSet>
+      <filters><filter><artifact>*:*</artifact><excludes><exclude>META-INF/*.SF</exclude><exclude>META-INF/*.DSA</exclude><exclude>META-INF/*.RSA</exclude></excludes></filter></filters>
+      <transformers>
+        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"><mainClass>com.jupiter.shortlink.analytics.flink.AnalyticsFlinkJob</mainClass></transformer>
+      </transformers>
+    </configuration></execution></executions>
+  </plugin></plugins></build>
+</project>

@@ -1,0 +1,43 @@
+# Overlay on config.yaml; render-etcd-config.py resolves required settings.
+# Traditional mode persists resources in etcd. Never mount standalone apisix.yaml here.
+# render-etcd-config.py retains config.yaml's loopback-only 9099 edge metrics
+# server and shared dictionary, including worker generations and pending ledgers.
+apisix:
+  enable_admin: true
+  enable_control: false
+  ssl:
+    enable: true
+    listen:
+      - port: 9443
+    ssl_protocols: TLSv1.2 TLSv1.3
+    ssl_session_tickets: false
+    ssl_trusted_certificate: "${{APISIX_ETCD_CA_FILE}}"
+  data_encryption:
+    enable_encrypt_fields: true
+    keyring: [] # Renderer loads a persistent secret; never use APISIX example defaults.
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  admin:
+    admin_key_required: true
+    admin_key: []
+    enable_admin_cors: false
+    allow_admin: []
+    admin_listen:
+      ip: "${{APISIX_ADMIN_BIND_IP}}"
+      port: 9180
+    https_admin: true
+    admin_api_mtls:
+      admin_ssl_cert: "${{APISIX_ADMIN_CERT_FILE}}"
+      admin_ssl_cert_key: "${{APISIX_ADMIN_TLS_KEY_FILE}}"
+  etcd:
+    host: []
+    prefix: /shortlink/apisix
+    timeout: 3
+    watch_timeout: 50
+    startup_retry: 5
+    user: "${{APISIX_ETCD_USERNAME}}"
+    password: ""
+    tls:
+      verify: true

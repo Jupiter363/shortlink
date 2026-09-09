@@ -1,0 +1,688 @@
+{
+  "runId": "20260909T132900Z-09adb5ee",
+  "runs": [
+    {
+      "label": "fanout-r6000",
+      "originalStatus": "CAPACITY_STAGE_PASSED",
+      "formalWindow": {
+        "start": "2026-09-09T13:34:21.947220716Z",
+        "end": "2026-09-09T13:35:21.947220716Z",
+        "seconds": 60.0,
+        "plannedEnd": "2026-09-09T13:35:21.947220716Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "resultSha256": "1885d02b96321647fae8d9024f88b41b0b4877d56c5831a289f071604881b3b2",
+      "hostSourceSha256": "c71d2507dc00ef0181782efbc873d571df94ac00ba1f3462e91ee7f24d74f01e",
+      "totalSnapshots": 30,
+      "interiorSnapshots": 12,
+      "observerPid": 8760,
+      "observerSourceSha256": "8d2b53fb06b6bd8e62b473b73d6023e0593d72058c36a2cddf489045a7886eb7",
+      "available": true,
+      "interiorStart": "2026-09-09T13:34:25.5585336Z",
+      "interiorEnd": "2026-09-09T13:35:20.9299463Z",
+      "counterSeconds": 55.3714127,
+      "stableIdentities": 340,
+      "unmatchedFirst": 1,
+      "unmatchedLast": 0,
+      "scanMillisRange": [
+        14.5277,
+        28.9289
+      ],
+      "stableProcessCpuPercentSum": 1133.1998217195567,
+      "vmProcessCpuPercent": 842.7746868737557,
+      "otherStableProcessCpuPercent": 290.42513484580104,
+      "topProcesses": [
+        {
+          "pid": 28004,
+          "startedAt": "2026-09-09T08:53:55.5947163Z",
+          "name": "vmmemWSL",
+          "cpuSeconds": 466.65625,
+          "cpuPercent": 842.7746868737557,
+          "rssBytesStart": 4743176192,
+          "rssBytesEnd": 5592879104
+        },
+        {
+          "pid": 3076,
+          "startedAt": "2026-09-08T23:20:39.1242441Z",
+          "name": "svchost",
+          "cpuSeconds": 44.3125,
+          "cpuPercent": 80.02775771693467,
+          "rssBytesStart": 78184448,
+          "rssBytesEnd": 77172736
+        },
+        {
+          "pid": 4344,
+          "startedAt": "2026-09-08T23:20:39.5192156Z",
+          "name": "WmiPrvSE",
+          "cpuSeconds": 33.640625,
+          "cpuPercent": 60.754500128547384,
+          "rssBytesStart": 63836160,
+          "rssBytesEnd": 64655360
+        },
+        {
+          "pid": 14652,
+          "startedAt": "2026-09-08T23:22:13.5263852Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 17.1875,
+          "cpuPercent": 31.040385574269447,
+          "rssBytesStart": 172847104,
+          "rssBytesEnd": 172843008
+        },
+        {
+          "pid": 1876,
+          "startedAt": "2026-09-08T23:20:38.6899787Z",
+          "name": "dwm",
+          "cpuSeconds": 10.890625,
+          "cpuPercent": 19.668317041150733,
+          "rssBytesStart": 124387328,
+          "rssBytesEnd": 124358656
+        },
+        {
+          "pid": 23556,
+          "startedAt": "2026-09-08T23:29:28.6222228Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 10.203125,
+          "cpuPercent": 18.42670161817995,
+          "rssBytesStart": 759320576,
+          "rssBytesEnd": 759857152
+        },
+        {
+          "pid": 18656,
+          "startedAt": "2026-09-08T23:21:10.6057733Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 8.046875,
+          "cpuPercent": 14.532544155226148,
+          "rssBytesStart": 143138816,
+          "rssBytesEnd": 157925376
+        },
+        {
+          "pid": 4,
+          "startedAt": "2026-09-08T23:20:30.0483217Z",
+          "name": "System",
+          "cpuSeconds": 6.359375,
+          "cpuPercent": 11.484942662479696,
+          "rssBytesStart": 118784,
+          "rssBytesEnd": 118784
+        },
+        {
+          "pid": 23280,
+          "startedAt": "2026-09-08T23:22:11.0858142Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 5.609375,
+          "cpuPercent": 10.130453110147936,
+          "rssBytesStart": 337666048,
+          "rssBytesEnd": 330956800
+        },
+        {
+          "pid": 7932,
+          "startedAt": "2026-09-08T23:21:09.8896394Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 4.4375,
+          "cpuPercent": 8.014063184629567,
+          "rssBytesStart": 47095808,
+          "rssBytesEnd": 47583232
+        },
+        {
+          "pid": 30524,
+          "startedAt": "2026-09-09T08:53:55.7370460Z",
+          "name": "dllhost",
+          "cpuSeconds": 2.6875,
+          "cpuPercent": 4.853587562522132,
+          "rssBytesStart": 15581184,
+          "rssBytesEnd": 15671296
+        },
+        {
+          "pid": 3236,
+          "startedAt": "2026-09-09T05:01:08.0172773Z",
+          "name": "QQMusic",
+          "cpuSeconds": 1.96875,
+          "cpuPercent": 3.5555350748708636,
+          "rssBytesStart": 144609280,
+          "rssBytesEnd": 144609280
+        },
+        {
+          "pid": 8760,
+          "startedAt": "2026-09-09T13:33:29.5041500Z",
+          "name": "pwsh",
+          "cpuSeconds": 1.28125,
+          "cpuPercent": 2.313919651900086,
+          "rssBytesStart": 121962496,
+          "rssBytesEnd": 122519552
+        },
+        {
+          "pid": 16196,
+          "startedAt": "2026-09-08T23:29:28.6222309Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 1.171875,
+          "cpuPercent": 2.1163899255183716,
+          "rssBytesStart": 297963520,
+          "rssBytesEnd": 293924864
+        },
+        {
+          "pid": 20628,
+          "startedAt": "2026-09-08T23:21:25.0668188Z",
+          "name": "AWCC.UCSubAgent",
+          "cpuSeconds": 0.90625,
+          "cpuPercent": 1.6366748757342071,
+          "rssBytesStart": 121782272,
+          "rssBytesEnd": 121749504
+        }
+      ]
+    },
+    {
+      "label": "fanout-r8000-peak",
+      "originalStatus": "CAPACITY_STAGE_FAILED",
+      "formalWindow": {
+        "start": "2026-09-09T13:37:50.135275454Z",
+        "end": "2026-09-09T13:38:00.135275454Z",
+        "seconds": 10.0,
+        "plannedEnd": "2026-09-09T13:38:00.135275454Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "resultSha256": "0f2bccec3b9ef480618bed6b5b0addad4f11413e255d11e871899dd97c81eb77",
+      "hostSourceSha256": "0ca3adcec0933216c19ac2fe2387ec92cfc80d467f98a7bdc1066b4768bd5437",
+      "totalSnapshots": 23,
+      "interiorSnapshots": 2,
+      "observerPid": 21332,
+      "observerSourceSha256": "8d2b53fb06b6bd8e62b473b73d6023e0593d72058c36a2cddf489045a7886eb7",
+      "available": true,
+      "interiorStart": "2026-09-09T13:37:54.1793357Z",
+      "interiorEnd": "2026-09-09T13:37:59.2295414Z",
+      "counterSeconds": 5.0502057,
+      "stableIdentities": 340,
+      "unmatchedFirst": 0,
+      "unmatchedLast": 0,
+      "scanMillisRange": [
+        18.4986,
+        31.8936
+      ],
+      "stableProcessCpuPercentSum": 1321.1095540128197,
+      "vmProcessCpuPercent": 971.1856885354194,
+      "otherStableProcessCpuPercent": 349.9238654774002,
+      "topProcesses": [
+        {
+          "pid": 28004,
+          "startedAt": "2026-09-09T08:53:55.5947163Z",
+          "name": "vmmemWSL",
+          "cpuSeconds": 49.046875,
+          "cpuPercent": 971.1856885354194,
+          "rssBytesStart": 6101094400,
+          "rssBytesEnd": 6174515200
+        },
+        {
+          "pid": 3076,
+          "startedAt": "2026-09-08T23:20:39.1242441Z",
+          "name": "svchost",
+          "cpuSeconds": 3.9375,
+          "cpuPercent": 77.96712122042871,
+          "rssBytesStart": 66666496,
+          "rssBytesEnd": 73105408
+        },
+        {
+          "pid": 19876,
+          "startedAt": "2026-09-08T23:22:13.5446291Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 3.421875,
+          "cpuPercent": 67.75714106061066,
+          "rssBytesStart": 53055488,
+          "rssBytesEnd": 52998144
+        },
+        {
+          "pid": 4344,
+          "startedAt": "2026-09-08T23:20:39.5192156Z",
+          "name": "WmiPrvSE",
+          "cpuSeconds": 3.03125,
+          "cpuPercent": 60.02230760620305,
+          "rssBytesStart": 66568192,
+          "rssBytesEnd": 66572288
+        },
+        {
+          "pid": 14652,
+          "startedAt": "2026-09-08T23:22:13.5263852Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 1.296875,
+          "cpuPercent": 25.67964706863326,
+          "rssBytesStart": 170442752,
+          "rssBytesEnd": 173072384
+        },
+        {
+          "pid": 1876,
+          "startedAt": "2026-09-08T23:20:38.6899787Z",
+          "name": "dwm",
+          "cpuSeconds": 0.9375,
+          "cpuPercent": 18.56360029057826,
+          "rssBytesStart": 124416000,
+          "rssBytesEnd": 124399616
+        },
+        {
+          "pid": 23280,
+          "startedAt": "2026-09-08T23:22:11.0858142Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 0.9375,
+          "cpuPercent": 18.56360029057826,
+          "rssBytesStart": 331276288,
+          "rssBytesEnd": 331169792
+        },
+        {
+          "pid": 23556,
+          "startedAt": "2026-09-08T23:29:28.6222228Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 0.71875,
+          "cpuPercent": 14.232093556110001,
+          "rssBytesStart": 754704384,
+          "rssBytesEnd": 755859456
+        },
+        {
+          "pid": 4,
+          "startedAt": "2026-09-08T23:20:30.0483217Z",
+          "name": "System",
+          "cpuSeconds": 0.671875,
+          "cpuPercent": 13.303913541581089,
+          "rssBytesStart": 118784,
+          "rssBytesEnd": 118784
+        },
+        {
+          "pid": 18656,
+          "startedAt": "2026-09-08T23:21:10.6057733Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 0.65625,
+          "cpuPercent": 12.994520203404782,
+          "rssBytesStart": 164130816,
+          "rssBytesEnd": 174379008
+        },
+        {
+          "pid": 7932,
+          "startedAt": "2026-09-08T23:21:09.8896394Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 0.46875,
+          "cpuPercent": 9.28180014528913,
+          "rssBytesStart": 47603712,
+          "rssBytesEnd": 48193536
+        },
+        {
+          "pid": 30524,
+          "startedAt": "2026-09-09T08:53:55.7370460Z",
+          "name": "dllhost",
+          "cpuSeconds": 0.1875,
+          "cpuPercent": 3.7127200581156523,
+          "rssBytesStart": 15945728,
+          "rssBytesEnd": 15945728
+        },
+        {
+          "pid": 1440,
+          "startedAt": "2026-09-08T23:20:38.1929444Z",
+          "name": "lsass",
+          "cpuSeconds": 0.140625,
+          "cpuPercent": 2.7845400435867393,
+          "rssBytesStart": 36454400,
+          "rssBytesEnd": 36376576
+        },
+        {
+          "pid": 3236,
+          "startedAt": "2026-09-09T05:01:08.0172773Z",
+          "name": "QQMusic",
+          "cpuSeconds": 0.125,
+          "cpuPercent": 2.475146705410435,
+          "rssBytesStart": 145317888,
+          "rssBytesEnd": 145317888
+        },
+        {
+          "pid": 4604,
+          "startedAt": "2026-09-09T02:18:33.4696269Z",
+          "name": "WmiPrvSE",
+          "cpuSeconds": 0.125,
+          "cpuPercent": 2.475146705410435,
+          "rssBytesStart": 23789568,
+          "rssBytesEnd": 23789568
+        }
+      ]
+    },
+    {
+      "label": "fanout-r8000",
+      "originalStatus": "CAPACITY_STAGE_FAILED",
+      "formalWindow": {
+        "start": "2026-09-09T13:40:03.449395253Z",
+        "end": "2026-09-09T13:41:03.439093122Z",
+        "seconds": 59.989697869,
+        "plannedEnd": "2026-09-09T13:41:03.449395253Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "resultSha256": "02a407f851cc92707b3dc0bd85a58b77ed122838e6af12164f6fd01db7adf571",
+      "hostSourceSha256": "9a705d8a0bce8c977168d8c370d75275e2566d113f4302813b1623d1f1821780",
+      "totalSnapshots": 30,
+      "interiorSnapshots": 12,
+      "observerPid": 20972,
+      "observerSourceSha256": "8d2b53fb06b6bd8e62b473b73d6023e0593d72058c36a2cddf489045a7886eb7",
+      "available": true,
+      "interiorStart": "2026-09-09T13:40:07.4574036Z",
+      "interiorEnd": "2026-09-09T13:41:02.8552585Z",
+      "counterSeconds": 55.3978549,
+      "stableIdentities": 340,
+      "unmatchedFirst": 2,
+      "unmatchedLast": 0,
+      "scanMillisRange": [
+        16.1198,
+        31.8566
+      ],
+      "stableProcessCpuPercentSum": 1219.276678166107,
+      "vmProcessCpuPercent": 923.7440256915073,
+      "otherStableProcessCpuPercent": 295.53265247459973,
+      "topProcesses": [
+        {
+          "pid": 28004,
+          "startedAt": "2026-09-09T08:53:55.5947163Z",
+          "name": "vmmemWSL",
+          "cpuSeconds": 511.734375,
+          "cpuPercent": 923.7440256915073,
+          "rssBytesStart": 6164025344,
+          "rssBytesEnd": 7258660864
+        },
+        {
+          "pid": 3076,
+          "startedAt": "2026-09-08T23:20:39.1242441Z",
+          "name": "svchost",
+          "cpuSeconds": 44.453125,
+          "cpuPercent": 80.24340487595306,
+          "rssBytesStart": 68055040,
+          "rssBytesEnd": 68169728
+        },
+        {
+          "pid": 4344,
+          "startedAt": "2026-09-08T23:20:39.5192156Z",
+          "name": "WmiPrvSE",
+          "cpuSeconds": 33.09375,
+          "cpuPercent": 59.73832391116646,
+          "rssBytesStart": 64614400,
+          "rssBytesEnd": 62279680
+        },
+        {
+          "pid": 14652,
+          "startedAt": "2026-09-08T23:22:13.5263852Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 16.734375,
+          "cpuPercent": 30.207622714286725,
+          "rssBytesStart": 153645056,
+          "rssBytesEnd": 156483584
+        },
+        {
+          "pid": 1876,
+          "startedAt": "2026-09-08T23:20:38.6899787Z",
+          "name": "dwm",
+          "cpuSeconds": 11.796875,
+          "cpuPercent": 21.294822735094748,
+          "rssBytesStart": 117886976,
+          "rssBytesEnd": 117850112
+        },
+        {
+          "pid": 23556,
+          "startedAt": "2026-09-08T23:29:28.6222228Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 9.484375,
+          "cpuPercent": 17.120473377751672,
+          "rssBytesStart": 809816064,
+          "rssBytesEnd": 763707392
+        },
+        {
+          "pid": 18656,
+          "startedAt": "2026-09-08T23:21:10.6057733Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 8.953125,
+          "cpuPercent": 16.161501228091776,
+          "rssBytesStart": 143171584,
+          "rssBytesEnd": 158609408
+        },
+        {
+          "pid": 4,
+          "startedAt": "2026-09-08T23:20:30.0483217Z",
+          "name": "System",
+          "cpuSeconds": 5.890625,
+          "cpuPercent": 10.633308835934729,
+          "rssBytesStart": 118784,
+          "rssBytesEnd": 118784
+        },
+        {
+          "pid": 23280,
+          "startedAt": "2026-09-08T23:22:11.0858142Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 5.5625,
+          "cpuPercent": 10.041002508203617,
+          "rssBytesStart": 326045696,
+          "rssBytesEnd": 326279168
+        },
+        {
+          "pid": 7932,
+          "startedAt": "2026-09-08T23:21:09.8896394Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 4.3125,
+          "cpuPercent": 7.784597450180332,
+          "rssBytesStart": 47906816,
+          "rssBytesEnd": 47448064
+        },
+        {
+          "pid": 30524,
+          "startedAt": "2026-09-09T08:53:55.7370460Z",
+          "name": "dllhost",
+          "cpuSeconds": 2.90625,
+          "cpuPercent": 5.246141759904137,
+          "rssBytesStart": 15888384,
+          "rssBytesEnd": 15925248
+        },
+        {
+          "pid": 31596,
+          "startedAt": "2026-09-09T13:01:54.1336438Z",
+          "name": "cockpit-tools",
+          "cpuSeconds": 1.90625,
+          "cpuPercent": 3.4410177134855093,
+          "rssBytesStart": 72245248,
+          "rssBytesEnd": 72433664
+        },
+        {
+          "pid": 14984,
+          "startedAt": "2026-09-09T03:41:35.2995467Z",
+          "name": "HipsDaemon",
+          "cpuSeconds": 1.84375,
+          "cpuPercent": 3.328197460584345,
+          "rssBytesStart": 124616704,
+          "rssBytesEnd": 124649472
+        },
+        {
+          "pid": 3236,
+          "startedAt": "2026-09-09T05:01:08.0172773Z",
+          "name": "QQMusic",
+          "cpuSeconds": 1.359375,
+          "cpuPercent": 2.453840500600322,
+          "rssBytesStart": 141369344,
+          "rssBytesEnd": 141369344
+        },
+        {
+          "pid": 20972,
+          "startedAt": "2026-09-09T13:39:11.4006837Z",
+          "name": "pwsh",
+          "cpuSeconds": 1.265625,
+          "cpuPercent": 2.2846101212485754,
+          "rssBytesStart": 121692160,
+          "rssBytesEnd": 122613760
+        }
+      ]
+    },
+    {
+      "label": "fanout-r7000",
+      "originalStatus": "CAPACITY_STAGE_PASSED",
+      "formalWindow": {
+        "start": "2026-09-09T13:43:53.376253481Z",
+        "end": "2026-09-09T13:44:53.376253481Z",
+        "seconds": 60.0,
+        "plannedEnd": "2026-09-09T13:44:53.376253481Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "resultSha256": "4da0f9a90c89ed31750b7a4dae5555b0f475311eaa19a6aa2a8385813f484003",
+      "hostSourceSha256": "bf5b77a6d7e280a5d61afa3eab601f509b71901e39e29e52e0ba4cbfed259bfa",
+      "totalSnapshots": 30,
+      "interiorSnapshots": 12,
+      "observerPid": 28584,
+      "observerSourceSha256": "8d2b53fb06b6bd8e62b473b73d6023e0593d72058c36a2cddf489045a7886eb7",
+      "available": true,
+      "interiorStart": "2026-09-09T13:43:57.7223144Z",
+      "interiorEnd": "2026-09-09T13:44:53.1123821Z",
+      "counterSeconds": 55.3900677,
+      "stableIdentities": 339,
+      "unmatchedFirst": 0,
+      "unmatchedLast": 6,
+      "scanMillisRange": [
+        16.6343,
+        28.055
+      ],
+      "stableProcessCpuPercentSum": 1210.646877400368,
+      "vmProcessCpuPercent": 888.7536528502924,
+      "otherStableProcessCpuPercent": 321.8932245500758,
+      "topProcesses": [
+        {
+          "pid": 28004,
+          "startedAt": "2026-09-09T08:53:55.5947163Z",
+          "name": "vmmemWSL",
+          "cpuSeconds": 492.28125,
+          "cpuPercent": 888.7536528502924,
+          "rssBytesStart": 7564558336,
+          "rssBytesEnd": 8621993984
+        },
+        {
+          "pid": 3076,
+          "startedAt": "2026-09-08T23:20:39.1242441Z",
+          "name": "svchost",
+          "cpuSeconds": 43.984375,
+          "cpuPercent": 79.40841531053047,
+          "rssBytesStart": 71860224,
+          "rssBytesEnd": 66830336
+        },
+        {
+          "pid": 4344,
+          "startedAt": "2026-09-08T23:20:39.5192156Z",
+          "name": "WmiPrvSE",
+          "cpuSeconds": 34.578125,
+          "cpuPercent": 62.426580135774046,
+          "rssBytesStart": 62312448,
+          "rssBytesEnd": 63909888
+        },
+        {
+          "pid": 14652,
+          "startedAt": "2026-09-08T23:22:13.5263852Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 16.359375,
+          "cpuPercent": 29.53485287038203,
+          "rssBytesStart": 169402368,
+          "rssBytesEnd": 168886272
+        },
+        {
+          "pid": 1876,
+          "startedAt": "2026-09-08T23:20:38.6899787Z",
+          "name": "dwm",
+          "cpuSeconds": 10.90625,
+          "cpuPercent": 19.68990191358802,
+          "rssBytesStart": 138813440,
+          "rssBytesEnd": 138809344
+        },
+        {
+          "pid": 23556,
+          "startedAt": "2026-09-08T23:29:28.6222228Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 9.484375,
+          "cpuPercent": 17.122880317403908,
+          "rssBytesStart": 824680448,
+          "rssBytesEnd": 826114048
+        },
+        {
+          "pid": 18656,
+          "startedAt": "2026-09-08T23:21:10.6057733Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 8.75,
+          "cpuPercent": 15.79705597651761,
+          "rssBytesStart": 176103424,
+          "rssBytesEnd": 193642496
+        },
+        {
+          "pid": 4,
+          "startedAt": "2026-09-08T23:20:30.0483217Z",
+          "name": "System",
+          "cpuSeconds": 8.03125,
+          "cpuPercent": 14.499440664160804,
+          "rssBytesStart": 118784,
+          "rssBytesEnd": 118784
+        },
+        {
+          "pid": 23280,
+          "startedAt": "2026-09-08T23:22:11.0858142Z",
+          "name": "ChatGPT",
+          "cpuSeconds": 6.015625,
+          "cpuPercent": 10.860475983855856,
+          "rssBytesStart": 333271040,
+          "rssBytesEnd": 332787712
+        },
+        {
+          "pid": 7932,
+          "startedAt": "2026-09-08T23:21:09.8896394Z",
+          "name": "msedgewebview2",
+          "cpuSeconds": 5.296875,
+          "cpuPercent": 9.562860671499053,
+          "rssBytesStart": 49172480,
+          "rssBytesEnd": 48713728
+        },
+        {
+          "pid": 3236,
+          "startedAt": "2026-09-09T05:01:08.0172773Z",
+          "name": "QQMusic",
+          "cpuSeconds": 3.46875,
+          "cpuPercent": 6.262404333548052,
+          "rssBytesStart": 143028224,
+          "rssBytesEnd": 143196160
+        },
+        {
+          "pid": 30524,
+          "startedAt": "2026-09-09T08:53:55.7370460Z",
+          "name": "dllhost",
+          "cpuSeconds": 2.96875,
+          "cpuPercent": 5.359715420604188,
+          "rssBytesStart": 15777792,
+          "rssBytesEnd": 15777792
+        },
+        {
+          "pid": 12612,
+          "startedAt": "2026-09-08T23:20:56.8075331Z",
+          "name": "explorer",
+          "cpuSeconds": 2.734375,
+          "cpuPercent": 4.936579992661753,
+          "rssBytesStart": 363655168,
+          "rssBytesEnd": 363511808
+        },
+        {
+          "pid": 11604,
+          "startedAt": "2026-09-08T23:20:55.9623999Z",
+          "name": "sihost",
+          "cpuSeconds": 2.203125,
+          "cpuPercent": 3.9774730226588977,
+          "rssBytesStart": 54833152,
+          "rssBytesEnd": 55132160
+        },
+        {
+          "pid": 20060,
+          "startedAt": "2026-09-08T23:21:49.6710919Z",
+          "name": "steam",
+          "cpuSeconds": 1.5625,
+          "cpuPercent": 2.820902852949573,
+          "rssBytesStart": 114876416,
+          "rssBytesEnd": 115056640
+        }
+      ]
+    }
+  ],
+  "scriptSha256": "b141de264c0e69d73783a8b06468a7dc924bb10bab45efa254c8657544c7282a",
+  "actualFormalWindowSourceSha256": "576d32be4c66c8e8408e1ee00659e70ece5edece6ce210ec255445747b3f5d41",
+  "supersedes": "host-analysis-summary-v2.json (bind final frozen proc summary; selected interior endpoints unchanged)",
+  "limitations": [
+    "CPU 100 percent means one logical CPU; these are cumulative process deltas, not WMI formatted counters.",
+    "Only stable identities and fully interior endpoints are included; process churn and protected/missing counters are excluded.",
+    "Snapshots are not atomic; timestamps bound enumeration. This is a sampled subwindow, not exact whole-window host CPU.",
+    "Vmmem includes this WSL workload and may include other WSL work; do not sum it again with guest Java/EDGE CPU.",
+    "Process CPU excludes some interrupt/kernel attribution; these values cannot establish a hardware ceiling.",
+    "The host observer and measurement CPU isolation changed versus OUT10, so differences are not fanout-only causality."
+  ]
+}

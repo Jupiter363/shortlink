@@ -1,12 +1,10 @@
 package com.jupiter.shortlink.agent.securityriskagent.node;
 
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
 import com.jupiter.shortlink.agent.riskcommon.json.RiskJsonCodec;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskPolicyAction;
-import com.jupiter.shortlink.agent.riskcommon.model.RiskPolicySource;
-import com.jupiter.shortlink.agent.riskpolicy.model.RiskPolicy;
-import com.jupiter.shortlink.agent.riskpolicy.model.RiskPolicyActivationCommand;
 import com.jupiter.shortlink.agent.riskpolicy.model.RiskPolicyPayload;
 import com.jupiter.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
@@ -30,7 +28,10 @@ public class RiskAutoActionNode {
         this(riskPolicyService, properties, new RiskJsonCodec());
     }
 
-    public RiskAutoActionNode(RiskPolicyService riskPolicyService, AgentProperties properties, RiskJsonCodec jsonCodec) {
+    public RiskAutoActionNode(
+            RiskPolicyService riskPolicyService,
+            AgentProperties properties,
+            RiskJsonCodec jsonCodec) {
         this.riskPolicyService = riskPolicyService;
         this.properties = properties;
         this.jsonCodec = jsonCodec;
@@ -44,60 +45,67 @@ public class RiskAutoActionNode {
         return apply(
                 state.value("profileRiskContext", ProfileRiskAnalysisContext.empty()),
                 state.value("eventIdsByTarget", Map.of()),
-                state.value("traceId", "")
-        );
+                state.value("traceId", ""),
+                AgentPrincipal.fromState(state.value("principal").orElse(null)));
     }
 
     public Map<String, Object> apply(
             ProfileRiskAnalysisContext context,
             Map<String, String> eventIdsByTarget,
-            String traceId
-    ) {
+            String traceId) {
+        return apply(context, eventIdsByTarget, traceId, null);
+    }
+
+    public Map<String, Object> apply(
+            ProfileRiskAnalysisContext context,
+            Map<String, String> eventIdsByTarget,
+            String traceId,
+            AgentPrincipal principal) {
         if (context == null || context.isEmpty() || riskPolicyService == null) {
             return Map.of(
                     "activatedPolicies", List.of(),
-                    "visitedNodes", List.of(RISK_AUTO_ACTION_NODE)
-            );
+                    "visitedNodes", List.of(RISK_AUTO_ACTION_NODE));
         }
-        List<Map<String, Object>> activatedPolicies = context.shortLinkProfiles().stream()
-                .filter(this::canAutoLimitRate)
-                .map(profile -> activateLimitRate(profile, eventIdsByTarget, traceId))
-                .toList();
+        List<Map<String, Object>> activatedPolicies =
+                context.shortLinkProfiles().stream()
+                        .filter(this::canAutoLimitRate)
+                        .map(
+                                profile ->
+                                        activateLimitRate(
+                                                profile, eventIdsByTarget, traceId, principal))
+                        .toList();
         return Map.of(
-                "activatedPolicies", activatedPolicies,
-                "visitedNodes", List.of(RISK_AUTO_ACTION_NODE)
-        );
+                "activatedPolicies",
+                activatedPolicies,
+                "visitedNodes",
+                List.of(RISK_AUTO_ACTION_NODE));
     }
 
     private boolean canAutoLimitRate(ShortLinkRiskProfile profile) {
         if (hasManualRecommendation(profile)) {
             return false;
         }
-        return riskPolicyService.canAutoLimitRate(profile.riskLevel(), profile.riskScore(), profile.reasonCodes());
+        return riskPolicyService.canAutoLimitRate(
+                profile.riskLevel(), profile.riskScore(), profile.reasonCodes());
     }
 
     private Map<String, Object> activateLimitRate(
             ShortLinkRiskProfile profile,
             Map<String, String> eventIdsByTarget,
-            String traceId
-    ) {
-        String eventId = eventIdsByTarget == null ? "" : eventIdsByTarget.getOrDefault(targetKey(profile), "");
-        RiskPolicy policy = riskPolicyService.activatePolicy(RiskPolicyActivationCommand.shortLink(
-                autoPolicyId(profile, eventId, traceId),
-                RiskPolicyAction.LIMIT_RATE,
-                profile.gid(),
-                profile.domain(),
-                profile.shortUri(),
-                policyPayloadJson(profile),
-                RiskPolicySource.AGENT_AUTO,
-                "security-risk-agent",
-                "auto limit rate for high-confidence risk profile",
-                traceId,
-                eventId
-        ));
+            String traceId,
+            AgentPrincipal principal) {
+        String eventId =
+                eventIdsByTarget == null
+                        ? ""
+                        : eventIdsByTarget.getOrDefault(targetKey(profile), "");
+        String policyId = autoPolicyId(profile, eventId, traceId);
+        Map<String, Object> receipt =
+                riskPolicyService.autoLimitRate(principal, profile, policyId, policyId);
         Map<String, Object> activated = new LinkedHashMap<>();
-        activated.put("policyId", policy.policyId());
-        activated.put("action", policy.action().name());
+        activated.put("policyId", policyId);
+        activated.put("commandId", policyId);
+        activated.put("status", receipt.get("status"));
+        activated.put("action", "LIMIT_RATE");
         activated.put("domain", profile.domain());
         activated.put("shortUri", profile.shortUri());
         activated.put("eventId", eventId);
@@ -105,11 +113,21 @@ public class RiskAutoActionNode {
     }
 
     private String autoPolicyId(ShortLinkRiskProfile profile, String eventId, String traceId) {
-        String sourceKey = eventId == null || eventId.isBlank()
-                ? "trace|" + traceId + "|" + targetKey(profile)
-                : "event|" + eventId;
+        String sourceKey =
+                profile.evidence() != null
+                        ? profile.evidence().tenantId()
+                                + "|"
+                                + profile.evidence().linkId()
+                                + "|"
+                                + profile.evidence().meta().get("snapshotId")
+                                + "|"
+                                + profile.evidence().ruleVersion()
+                        : eventId == null || eventId.isBlank()
+                                ? "trace|" + traceId + "|" + targetKey(profile)
+                                : "event|" + eventId;
         String idempotencyKey = RiskPolicyAction.LIMIT_RATE.name() + "|" + sourceKey;
-        return "policy-auto-rate-" + UUID.nameUUIDFromBytes(idempotencyKey.getBytes(StandardCharsets.UTF_8));
+        return "policy-auto-rate-"
+                + UUID.nameUUIDFromBytes(idempotencyKey.getBytes(StandardCharsets.UTF_8));
     }
 
     private String policyPayloadJson(ShortLinkRiskProfile profile) {

@@ -1,0 +1,79 @@
+{
+  "group": "redirect-invalidation-perf-20260909T132900Z-09adb5ee",
+  "origin": "perf-20260909T132900Z-09adb5ee",
+  "runId": "20260909T132900Z-09adb5ee",
+  "label": "after-r7000-repeat",
+  "startedAt": "2026-09-09T14:06:24.120762461Z",
+  "endedAt": "2026-09-09T14:06:24.818868359Z",
+  "rows": [
+    {
+      "topic": "shortlink.route.change.v1",
+      "partition": 0,
+      "committed": 233462,
+      "end": 233462,
+      "lag": 0,
+      "missing": null
+    },
+    {
+      "topic": "shortlink.route.change.v1",
+      "partition": 1,
+      "committed": 235749,
+      "end": 235749,
+      "lag": 0,
+      "missing": null
+    },
+    {
+      "topic": "shortlink.risk.policy.change.v1",
+      "partition": 0,
+      "committed": 6,
+      "end": 6,
+      "lag": 0,
+      "missing": null
+    },
+    {
+      "topic": "shortlink.risk.policy.change.v1",
+      "partition": 1,
+      "committed": 6,
+      "end": 6,
+      "lag": 0,
+      "missing": null
+    }
+  ],
+  "brokerBefore": {
+    "id": "950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+    "image": "sha256:fbc7d7c428e3755cf36518d4976596002477e4c052d1f80b5b9eafd06d0fff2f",
+    "pid": 1978,
+    "running": true,
+    "startTicks": 40912
+  },
+  "brokerAfter": {
+    "id": "950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+    "image": "sha256:fbc7d7c428e3755cf36518d4976596002477e4c052d1f80b5b9eafd06d0fff2f",
+    "pid": 1978,
+    "running": true,
+    "startTicks": 40912
+  },
+  "processProof": {
+    "elapsedMillis": 1697.518159999163,
+    "stderrBytes": 365,
+    "stderrSha256": "dd1739844780668a81d1166aae17dd72a1d42d1a169ddd87faa637b93b10322a",
+    "childExited": true,
+    "pid": 16718,
+    "stdoutBytes": 624
+  },
+  "elapsedSeconds": 2.2349308939992625,
+  "finishedAt": "2026-09-09T14:06:25.117928+00:00",
+  "stateSha256": "a57d4b7ad3d6819078b6b04b9beb90464747a59f5b4232f390f4a6f8df9c35d5",
+  "runtimeIdentitySha256": "5208c51a124b1f66305e05446178ca96d30e6626114c4a88dca1c698f974f17d",
+  "helperSha256": {
+    "group-progress.py": "6b9ea078ab38f6545e2272bec0297b33a6003a0fee289e18bd933c9dbbf16ff8",
+    "group-progress.java": "c8d8913f9442cd85a2b53470e2c6da291c4f936c54b1719da40ddcb0227f121a"
+  },
+  "boundedWrapperSha256": "156fe8d695c910df520a92b670827a7e62ebf3341c43e71d9045af09d68af521",
+  "librarySha256": {
+    "kafka-clients-3.9.0.jar": "15c1e137f2c2c94398e27abc4060a03b6bde10bf9fac15e8f70c02320b202f18",
+    "slf4j-api-2.0.7.jar": "5d6298b93a1905c32cda6478808ac14c2d4a47e91535e53c41f7feeb85d946f4"
+  },
+  "payloadRead": false,
+  "commitCalled": false
+}

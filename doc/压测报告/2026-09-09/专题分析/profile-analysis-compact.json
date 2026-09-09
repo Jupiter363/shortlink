@@ -1,0 +1,2564 @@
+{
+  "sourceSummarySha256": "576d32be4c66c8e8408e1ee00659e70ece5edece6ce210ec255445747b3f5d41",
+  "scriptSha256": "c41a6cd5844e76ff37ea3ebdba015837b782eeb4afbdc9ad564e7d59da5b946a",
+  "runs": [
+    {
+      "label": "fanout-r6000",
+      "available": true,
+      "formalWindow": {
+        "start": "2026-09-09T13:34:21.947220716Z",
+        "end": "2026-09-09T13:35:21.947220716Z",
+        "seconds": 60.0,
+        "plannedEnd": "2026-09-09T13:35:21.947220716Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "selection": {
+        "rule": "Full observedAt..finishedAt inside actual formal window; no interpolation",
+        "retained": 60,
+        "total": 109,
+        "jsonlLines": [
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91
+        ],
+        "firstUtc": [
+          "2026-09-09T13:34:22.281006+00:00",
+          "2026-09-09T13:34:22.388035+00:00"
+        ],
+        "lastUtc": [
+          "2026-09-09T13:35:21.281123+00:00",
+          "2026-09-09T13:35:21.388865+00:00"
+        ],
+        "counterSeconds": 59.0004759295,
+        "counterElapsedBoundsSeconds": [
+          58.893065513,
+          59.107886346
+        ]
+      },
+      "originalStatus": "CAPACITY_STAGE_PASSED",
+      "originalFailedChecks": [],
+      "originalMeasure": {
+        "planned_arrivals": 360000,
+        "scheduled": 360000,
+        "sent": 360000,
+        "completed": 360000,
+        "received_http": 360000,
+        "correct": 360000,
+        "incorrect_http": 0,
+        "client_errors": 0,
+        "errors": 0,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 0,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 360000,
+          "mean": 2.3509071725333173,
+          "p50": 0.888409,
+          "p95": 6.649926,
+          "p99": 23.753602,
+          "p99_9": 146.598155,
+          "max": 345.373643
+        },
+        "scheduled_to_completion_ms": {
+          "count": 360000,
+          "mean": 2.51312519159445,
+          "p50": 1.024555,
+          "p95": 6.946411,
+          "p99": 24.210196,
+          "p99_9": 148.11389,
+          "max": 345.636842
+        }
+      },
+      "systemDiagnostics": {
+        "passed": true,
+        "checks": {
+          "observerExited": true,
+          "observerCpuIsolation": true,
+          "observerFollowedClient": true,
+          "sufficientSamples": true,
+          "noSampleBudgetLoss": true
+        }
+      },
+      "monitorStop": null,
+      "javaCpu": 203.12849626185087,
+      "ioCpu": 150.26593640864164,
+      "edgeCpu": 236.24702776812816,
+      "javaGroups": {
+        "io": 150.26593640864164,
+        "compiler": 7.965823382817682,
+        "gc": 1.5762161161745627,
+        "other": 43.35441747499496
+      },
+      "fanoutAndLettuceCpu": {
+        "redirect-change": 0.16948560388973793,
+        "lettuce-epollEv": 3.508352000517575
+      },
+      "relevantThreads": [
+        {
+          "tid": 1478,
+          "startTicks": 1659540,
+          "name": "lettuce-epollEv",
+          "group": "other",
+          "cpuPercent": 3.508352000517575,
+          "userTicksDelta": 145,
+          "systemTicksDelta": 62,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 59,
+          "observations": 60,
+          "fullWindowIdentityPresent": true
+        },
+        {
+          "tid": 1476,
+          "startTicks": 1659520,
+          "name": "redirect-change",
+          "group": "other",
+          "cpuPercent": 0.16948560388973793,
+          "userTicksDelta": 10,
+          "systemTicksDelta": 0,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 59,
+          "observations": 60,
+          "fullWindowIdentityPresent": true
+        }
+      ],
+      "cpuGroups": {
+        "0-3": 232.55744608560954,
+        "4-7": 228.6252744150417
+      },
+      "hostPsiSome": 7.241183961134542,
+      "edgePsiSome": 1.4401443151328164,
+      "edgePsiFull": 1.2377950999457115,
+      "softnet": {
+        "processed": 2706644,
+        "dropped": 0,
+        "time_squeeze": 4
+      },
+      "javaFdSize": [
+        4096,
+        4096
+      ],
+      "throttle": {
+        "/sys/fs/cgroup": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/d12e311ccb6159b2df9f110601a2062e623f221951457e1257d6e7ade4d4de0e": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        }
+      },
+      "observerCpuBinding": {
+        "start": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "stop": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "identity": {
+          "pid": 16689,
+          "startTicks": 1679587
+        }
+      },
+      "runtimeIdentitySha256": "5208c51a124b1f66305e05446178ca96d30e6626114c4a88dca1c698f974f17d",
+      "firstFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:34:22.281006+00:00",
+          "lastFinishedAt": "2026-09-09T13:34:23.380205+00:00",
+          "counterSeconds": 0.996222036,
+          "javaCpuPercent": 194.07471934917356,
+          "edgeFourWorkerCpuPercent": 227.1615702336297,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 218.82671946838968,
+            "4-7": 217.82292717725028
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 47476,
+              "stallWallPercent": 4.765604281413426
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 8890,
+              "stallWallPercent": 0.8923713468229284
+            },
+            "full": {
+              "deltaTotalUsec": 8051,
+              "stallWallPercent": 0.8081531735963327
+            }
+          },
+          "hostRunnableAtEnd": 8,
+          "softnet": {
+            "processed": 45244,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:34:23.281269+00:00",
+          "lastFinishedAt": "2026-09-09T13:34:24.395798+00:00",
+          "counterSeconds": 1.0076847915,
+          "javaCpuPercent": 201.32167419985296,
+          "edgeFourWorkerCpuPercent": 232.19798954180578,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 241.14683683801536,
+            "4-7": 228.2459772540886
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 63255,
+              "stallWallPercent": 6.2772605613945105
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 12452,
+              "stallWallPercent": 1.2357038733773527
+            },
+            "full": {
+              "deltaTotalUsec": 10172,
+              "stallWallPercent": 1.0094426437515605
+            }
+          },
+          "hostRunnableAtEnd": 13,
+          "softnet": {
+            "processed": 46407,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:34:24.281051+00:00",
+          "lastFinishedAt": "2026-09-09T13:34:25.386492+00:00",
+          "counterSeconds": 0.9953660845,
+          "javaCpuPercent": 217.0493850295264,
+          "edgeFourWorkerCpuPercent": 231.32174436864506,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 227.05214043286,
+            "4-7": 221.02420750101416
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 49673,
+              "stallWallPercent": 4.9904252087263075
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 10793,
+              "stallWallPercent": 1.0843246688902026
+            },
+            "full": {
+              "deltaTotalUsec": 9394,
+              "stallWallPercent": 0.9437733660293305
+            }
+          },
+          "hostRunnableAtEnd": 7,
+          "softnet": {
+            "processed": 45227,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:34:25.281092+00:00",
+          "lastFinishedAt": "2026-09-09T13:34:26.386103+00:00",
+          "counterSeconds": 0.999955208,
+          "javaCpuPercent": 195.36953923671655,
+          "edgeFourWorkerCpuPercent": 227.73209364850658,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 217.00972029939166,
+            "4-7": 222.0099442694237
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 47277,
+              "stallWallPercent": 4.727911772624119
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 8369,
+              "stallWallPercent": 0.8369374881039671
+            },
+            "full": {
+              "deltaTotalUsec": 7505,
+              "stallWallPercent": 0.7505336179018129
+            }
+          },
+          "hostRunnableAtEnd": 9,
+          "softnet": {
+            "processed": 45662,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:34:26.281389+00:00",
+          "lastFinishedAt": "2026-09-09T13:34:27.383624+00:00",
+          "counterSeconds": 0.999355862,
+          "javaCpuPercent": 205.3106242055818,
+          "edgeFourWorkerCpuPercent": 239.1310570439191,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 246.15856008257447,
+            "4-7": 235.15146999758133
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 119748,
+              "stallWallPercent": 11.982518395434198
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 18733,
+              "stallWallPercent": 1.8745074414743363
+            },
+            "full": {
+              "deltaTotalUsec": 15060,
+              "stallWallPercent": 1.5069706970908827
+            }
+          },
+          "hostRunnableAtEnd": 9,
+          "softnet": {
+            "processed": 45706,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        }
+      ],
+      "lastFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:35:16.285546+00:00",
+          "lastFinishedAt": "2026-09-09T13:35:17.388821+00:00",
+          "counterSeconds": 0.992119703,
+          "javaCpuPercent": 200.28897159388626,
+          "edgeFourWorkerCpuPercent": 241.22521206314494,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 236.8665789918296,
+            "4-7": 237.8745218811565
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 64115,
+              "stallWallPercent": 6.46242583491964
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 10905,
+              "stallWallPercent": 1.099161720811022
+            },
+            "full": {
+              "deltaTotalUsec": 9658,
+              "stallWallPercent": 0.9734712425119533
+            }
+          },
+          "hostRunnableAtEnd": 12,
+          "softnet": {
+            "processed": 45438,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:35:17.281187+00:00",
+          "lastFinishedAt": "2026-09-09T13:35:18.407453+00:00",
+          "counterSeconds": 1.009268252,
+          "javaCpuPercent": 215.55425804421859,
+          "edgeFourWorkerCpuPercent": 262.2517929866235,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 248.69503177436712,
+            "4-7": 253.64911607266131
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 79356,
+              "stallWallPercent": 7.862726271508637
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 18891,
+              "stallWallPercent": 1.8717521295815018
+            },
+            "full": {
+              "deltaTotalUsec": 13728,
+              "stallWallPercent": 1.3601933849396464
+            }
+          },
+          "hostRunnableAtEnd": 9,
+          "softnet": {
+            "processed": 46292,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:35:18.281092+00:00",
+          "lastFinishedAt": "2026-09-09T13:35:19.401481+00:00",
+          "counterSeconds": 0.9970521175,
+          "javaCpuPercent": 229.05544493194475,
+          "edgeFourWorkerCpuPercent": 252.8653404237379,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 264.7805419258838,
+            "4-7": 255.75393254204687
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 79030,
+              "stallWallPercent": 7.926365995607045
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 18138,
+              "stallWallPercent": 1.8191626778226064
+            },
+            "full": {
+              "deltaTotalUsec": 15394,
+              "stallWallPercent": 1.5439513872753998
+            }
+          },
+          "hostRunnableAtEnd": 11,
+          "softnet": {
+            "processed": 45562,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:35:19.281161+00:00",
+          "lastFinishedAt": "2026-09-09T13:35:20.400924+00:00",
+          "counterSeconds": 0.999652304,
+          "javaCpuPercent": 220.25968947778964,
+          "edgeFourWorkerCpuPercent": 237.7249586669417,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 235.08173697962084,
+            "4-7": 218.0758240917334
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 62630,
+              "stallWallPercent": 6.26517837746113
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 15022,
+              "stallWallPercent": 1.5027224905990912
+            },
+            "full": {
+              "deltaTotalUsec": 13553,
+              "stallWallPercent": 1.3557713962914049
+            }
+          },
+          "hostRunnableAtEnd": 7,
+          "softnet": {
+            "processed": 45695,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:35:20.281025+00:00",
+          "lastFinishedAt": "2026-09-09T13:35:21.388865+00:00",
+          "counterSeconds": 0.9940189395,
+          "javaCpuPercent": 193.0628452381934,
+          "edgeFourWorkerCpuPercent": 233.01287943930137,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 217.2996825479501,
+            "4-7": 226.353835987448
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 52450,
+              "stallWallPercent": 5.276559421129622
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 7988,
+              "stallWallPercent": 0.8036064186078821
+            },
+            "full": {
+              "deltaTotalUsec": 7555,
+              "stallWallPercent": 0.7600458803934088
+            }
+          },
+          "hostRunnableAtEnd": 9,
+          "softnet": {
+            "processed": 45151,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        }
+      ],
+      "peakHostPsiInterval": {
+        "firstObservedAt": "2026-09-09T13:34:44.281953+00:00",
+        "lastFinishedAt": "2026-09-09T13:34:45.436143+00:00",
+        "counterSeconds": 1.0209591695,
+        "javaCpuPercent": 250.99856131692215,
+        "edgeFourWorkerCpuPercent": 284.05442104074154,
+        "hostGroupBusyCpuPercent": {
+          "0-3": 286.9850320689049,
+          "4-7": 291.8823875649613
+        },
+        "hostCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 212500,
+            "stallWallPercent": 20.81376085823969
+          },
+          "full": {
+            "deltaTotalUsec": 0,
+            "stallWallPercent": 0.0
+          }
+        },
+        "edgeCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 58659,
+            "stallWallPercent": 5.745479520863444
+          },
+          "full": {
+            "deltaTotalUsec": 52079,
+            "stallWallPercent": 5.100987537582423
+          }
+        },
+        "hostRunnableAtEnd": 13,
+        "softnet": {
+          "processed": 53795,
+          "dropped": 0,
+          "time_squeeze": 4
+        }
+      },
+      "sourceSha256": {
+        "result": "1885d02b96321647fae8d9024f88b41b0b4877d56c5831a289f071604881b3b2",
+        "systemSummary": "dea82c30f32bf86ff6e302fb211b7a04cd49971898e1cab5b70f62f98e3696e2"
+      }
+    },
+    {
+      "label": "fanout-r8000-peak",
+      "available": true,
+      "formalWindow": {
+        "start": "2026-09-09T13:37:50.135275454Z",
+        "end": "2026-09-09T13:38:00.135275454Z",
+        "seconds": 10.0,
+        "plannedEnd": "2026-09-09T13:38:00.135275454Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "selection": {
+        "rule": "Full observedAt..finishedAt inside actual formal window; no interpolation",
+        "retained": 10,
+        "total": 45,
+        "jsonlLines": [
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41
+        ],
+        "firstUtc": [
+          "2026-09-09T13:37:50.489158+00:00",
+          "2026-09-09T13:37:50.597746+00:00"
+        ],
+        "lastUtc": [
+          "2026-09-09T13:37:59.489357+00:00",
+          "2026-09-09T13:37:59.600460+00:00"
+        ],
+        "counterSeconds": 9.001455153,
+        "counterElapsedBoundsSeconds": [
+          8.891583375,
+          9.111326931
+        ]
+      },
+      "originalStatus": "CAPACITY_STAGE_FAILED",
+      "originalFailedChecks": [
+        "noDroppedArrivals"
+      ],
+      "originalMeasure": {
+        "planned_arrivals": 80000,
+        "scheduled": 80000,
+        "sent": 79999,
+        "completed": 79999,
+        "received_http": 79999,
+        "correct": 79999,
+        "incorrect_http": 0,
+        "client_errors": 0,
+        "errors": 0,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 1,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 79999,
+          "mean": 5.513906457030726,
+          "p50": 2.108856,
+          "p95": 22.312105,
+          "p99": 40.316953,
+          "p99_9": 62.801903,
+          "max": 120.595929
+        },
+        "scheduled_to_completion_ms": {
+          "count": 79999,
+          "mean": 5.693395866523357,
+          "p50": 2.275448,
+          "p95": 22.663916,
+          "p99": 40.807333,
+          "p99_9": 62.998347,
+          "max": 120.801109
+        }
+      },
+      "systemDiagnostics": {
+        "passed": true,
+        "checks": {
+          "observerExited": true,
+          "observerCpuIsolation": true,
+          "observerFollowedClient": true,
+          "sufficientSamples": true,
+          "noSampleBudgetLoss": true
+        }
+      },
+      "monitorStop": null,
+      "javaCpu": 251.075056384299,
+      "ioCpu": 193.41666954206394,
+      "edgeCpu": 304.1127259065865,
+      "javaGroups": {
+        "io": 193.41666954206394,
+        "compiler": 7.776661038451738,
+        "gc": 2.221903153843354,
+        "other": 47.1043468614791
+      },
+      "fanoutAndLettuceCpu": {
+        "redirect-change": 0.22219031538433537,
+        "lettuce-epollEv": 3.555045046149366
+      },
+      "relevantThreads": [
+        {
+          "tid": 1478,
+          "startTicks": 1659540,
+          "name": "lettuce-epollEv",
+          "group": "other",
+          "cpuPercent": 3.555045046149366,
+          "userTicksDelta": 23,
+          "systemTicksDelta": 9,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 9,
+          "observations": 10,
+          "fullWindowIdentityPresent": true
+        },
+        {
+          "tid": 1476,
+          "startTicks": 1659520,
+          "name": "redirect-change",
+          "group": "other",
+          "cpuPercent": 0.22219031538433537,
+          "userTicksDelta": 2,
+          "systemTicksDelta": 0,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 9,
+          "observations": 10,
+          "fullWindowIdentityPresent": true
+        }
+      ],
+      "cpuGroups": {
+        "0-3": 293.1748206422464,
+        "4-7": 288.2867220790563
+      },
+      "hostPsiSome": 14.645565384621541,
+      "edgePsiSome": 3.125994577734692,
+      "edgePsiFull": 2.823176871745061,
+      "softnet": {
+        "processed": 526784,
+        "dropped": 0,
+        "time_squeeze": 2
+      },
+      "javaFdSize": [
+        4096,
+        4096
+      ],
+      "throttle": {
+        "/sys/fs/cgroup": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/d12e311ccb6159b2df9f110601a2062e623f221951457e1257d6e7ade4d4de0e": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        }
+      },
+      "observerCpuBinding": {
+        "start": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "stop": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "identity": {
+          "pid": 29339,
+          "startTicks": 1700408
+        }
+      },
+      "runtimeIdentitySha256": "5208c51a124b1f66305e05446178ca96d30e6626114c4a88dca1c698f974f17d",
+      "firstFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:37:50.489158+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:51.596387+00:00",
+          "counterSeconds": 0.999363607,
+          "javaCpuPercent": 237.8755626546019,
+          "edgeFourWorkerCpuPercent": 290.15659601753543,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 288.1833978971379,
+            "4-7": 265.16875153729706
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 104660,
+              "stallWallPercent": 10.472664730525853
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 20718,
+              "stallWallPercent": 2.073119318622536
+            },
+            "full": {
+              "deltaTotalUsec": 19007,
+              "stallWallPercent": 1.901910362441285
+            }
+          },
+          "hostRunnableAtEnd": 12,
+          "softnet": {
+            "processed": 57972,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:51.489243+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:52.603898+00:00",
+          "counterSeconds": 1.0037368465,
+          "javaCpuPercent": 248.40224943741975,
+          "edgeFourWorkerCpuPercent": 291.3418867214106,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 290.91290313611097,
+            "4-7": 278.95757834969544
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 121396,
+              "stallWallPercent": 12.094405064764151
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 21909,
+              "stallWallPercent": 2.1827434228798133
+            },
+            "full": {
+              "deltaTotalUsec": 20007,
+              "stallWallPercent": 1.9932515250151273
+            }
+          },
+          "hostRunnableAtEnd": 13,
+          "softnet": {
+            "processed": 58577,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:52.489207+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:53.615412+00:00",
+          "counterSeconds": 1.0057666125,
+          "javaCpuPercent": 248.2667114963895,
+          "edgeFourWorkerCpuPercent": 311.402058899124,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 298.2799351971927,
+            "4-7": 292.31433649324885
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 158541,
+              "stallWallPercent": 15.763199735366042
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 27346,
+              "stallWallPercent": 2.718921035967477
+            },
+            "full": {
+              "deltaTotalUsec": 26004,
+              "stallWallPercent": 2.585490478289266
+            }
+          },
+          "hostRunnableAtEnd": 20,
+          "softnet": {
+            "processed": 59151,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:53.489225+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:54.614467+00:00",
+          "counterSeconds": 0.999602043,
+          "javaCpuPercent": 256.56345151457026,
+          "edgeFourWorkerCpuPercent": 338.32267504045194,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 318.1266007076378,
+            "4-7": 305.1214252070111
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 195995,
+              "stallWallPercent": 19.60730286342562
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 43516,
+              "stallWallPercent": 4.353332439117474
+            },
+            "full": {
+              "deltaTotalUsec": 41465,
+              "stallWallPercent": 4.148150785642201
+            }
+          },
+          "hostRunnableAtEnd": 14,
+          "softnet": {
+            "processed": 58920,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:54.489378+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:55.617715+00:00",
+          "counterSeconds": 1.0019342715,
+          "javaCpuPercent": 261.61988919274324,
+          "edgeFourWorkerCpuPercent": 331.56661267629846,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 317.38608913329307,
+            "4-7": 329.3629226854927
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 245954,
+              "stallWallPercent": 24.54791766248112
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 54498,
+              "stallWallPercent": 5.439278957731511
+            },
+            "full": {
+              "deltaTotalUsec": 45751,
+              "stallWallPercent": 4.566267598722418
+            }
+          },
+          "hostRunnableAtEnd": 18,
+          "softnet": {
+            "processed": 59757,
+            "dropped": 0,
+            "time_squeeze": 2
+          }
+        }
+      ],
+      "lastFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:37:54.489378+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:55.617715+00:00",
+          "counterSeconds": 1.0019342715,
+          "javaCpuPercent": 261.61988919274324,
+          "edgeFourWorkerCpuPercent": 331.56661267629846,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 317.38608913329307,
+            "4-7": 329.3629226854927
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 245954,
+              "stallWallPercent": 24.54791766248112
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 54498,
+              "stallWallPercent": 5.439278957731511
+            },
+            "full": {
+              "deltaTotalUsec": 45751,
+              "stallWallPercent": 4.566267598722418
+            }
+          },
+          "hostRunnableAtEnd": 18,
+          "softnet": {
+            "processed": 59757,
+            "dropped": 0,
+            "time_squeeze": 2
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:55.489995+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:56.613785+00:00",
+          "counterSeconds": 0.9976185425,
+          "javaCpuPercent": 260.7949290231555,
+          "edgeFourWorkerCpuPercent": 313.57226523703355,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 296.7065941439235,
+            "4-7": 287.68510986252045
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 163526,
+              "stallWallPercent": 16.391635984452446
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 39209,
+              "stallWallPercent": 3.930259746550371
+            },
+            "full": {
+              "deltaTotalUsec": 35068,
+              "stallWallPercent": 3.5151712308915912
+            }
+          },
+          "hostRunnableAtEnd": 15,
+          "softnet": {
+            "processed": 58479,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:56.489160+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:57.624065+00:00",
+          "counterSeconds": 1.0051361005,
+          "javaCpuPercent": 233.93359350474537,
+          "edgeFourWorkerCpuPercent": 288.0930004823452,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 266.63055865438,
+            "4-7": 278.56924038517315
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 96438,
+              "stallWallPercent": 9.594521572951901
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 18560,
+              "stallWallPercent": 1.8465161076960046
+            },
+            "full": {
+              "deltaTotalUsec": 16122,
+              "stallWallPercent": 1.6039618905320576
+            }
+          },
+          "hostRunnableAtEnd": 7,
+          "softnet": {
+            "processed": 58910,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:57.489156+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:58.598413+00:00",
+          "counterSeconds": 0.987178028,
+          "javaCpuPercent": 275.68778671736584,
+          "edgeFourWorkerCpuPercent": 285.2642593389304,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 289.7147139502582,
+            "4-7": 286.67574841931145
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 131621,
+              "stallWallPercent": 13.333056071624805
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 36453,
+              "stallWallPercent": 3.6926470166534138
+            },
+            "full": {
+              "deltaTotalUsec": 32354,
+              "stallWallPercent": 3.2774230262750543
+            }
+          },
+          "hostRunnableAtEnd": 14,
+          "softnet": {
+            "processed": 56703,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:37:58.489163+00:00",
+          "lastFinishedAt": "2026-09-09T13:37:59.600460+00:00",
+          "counterSeconds": 1.0011191015,
+          "javaCpuPercent": 236.6356740597679,
+          "edgeFourWorkerCpuPercent": 287.18112320337343,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 272.6948268102744,
+            "4-7": 270.697062511298
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 100183,
+              "stallWallPercent": 10.00710103821748
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 19176,
+              "stallWallPercent": 1.9154564098585427
+            },
+            "full": {
+              "deltaTotalUsec": 18349,
+              "stallWallPercent": 1.8328488560958698
+            }
+          },
+          "hostRunnableAtEnd": 12,
+          "softnet": {
+            "processed": 58315,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        }
+      ],
+      "peakHostPsiInterval": {
+        "firstObservedAt": "2026-09-09T13:37:54.489378+00:00",
+        "lastFinishedAt": "2026-09-09T13:37:55.617715+00:00",
+        "counterSeconds": 1.0019342715,
+        "javaCpuPercent": 261.61988919274324,
+        "edgeFourWorkerCpuPercent": 331.56661267629846,
+        "hostGroupBusyCpuPercent": {
+          "0-3": 317.38608913329307,
+          "4-7": 329.3629226854927
+        },
+        "hostCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 245954,
+            "stallWallPercent": 24.54791766248112
+          },
+          "full": {
+            "deltaTotalUsec": 0,
+            "stallWallPercent": 0.0
+          }
+        },
+        "edgeCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 54498,
+            "stallWallPercent": 5.439278957731511
+          },
+          "full": {
+            "deltaTotalUsec": 45751,
+            "stallWallPercent": 4.566267598722418
+          }
+        },
+        "hostRunnableAtEnd": 18,
+        "softnet": {
+          "processed": 59757,
+          "dropped": 0,
+          "time_squeeze": 2
+        }
+      },
+      "sourceSha256": {
+        "result": "0f2bccec3b9ef480618bed6b5b0addad4f11413e255d11e871899dd97c81eb77",
+        "systemSummary": "c1453a48dc6b70f8bb153af373d50160cc9a7dc6320a4cc37064254fa5b20bcf"
+      }
+    },
+    {
+      "label": "fanout-r8000",
+      "available": true,
+      "formalWindow": {
+        "start": "2026-09-09T13:40:03.449395253Z",
+        "end": "2026-09-09T13:41:03.439093122Z",
+        "seconds": 59.989697869,
+        "plannedEnd": "2026-09-09T13:41:03.449395253Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "selection": {
+        "rule": "Full observedAt..finishedAt inside actual formal window; no interpolation",
+        "retained": 60,
+        "total": 116,
+        "jsonlLines": [
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91
+        ],
+        "firstUtc": [
+          "2026-09-09T13:40:03.725725+00:00",
+          "2026-09-09T13:40:03.841653+00:00"
+        ],
+        "lastUtc": [
+          "2026-09-09T13:41:02.725756+00:00",
+          "2026-09-09T13:41:02.834150+00:00"
+        ],
+        "counterSeconds": 58.9962645915,
+        "counterElapsedBoundsSeconds": [
+          58.884079214,
+          59.108449969
+        ]
+      },
+      "originalStatus": "CAPACITY_STAGE_FAILED",
+      "originalFailedChecks": [
+        "clientExitedSuccessfully",
+        "allHttpCompleteAndCorrect",
+        "noDroppedArrivals",
+        "noMonitorStop",
+        "threeProducerLanesMatch",
+        "actualKafkaOffsetsMatch",
+        "measurementComplete",
+        "nativeConservationVerified"
+      ],
+      "originalMeasure": {
+        "planned_arrivals": 480000,
+        "scheduled": 480000,
+        "sent": 479199,
+        "completed": 479199,
+        "received_http": 479199,
+        "correct": 479080,
+        "incorrect_http": 119,
+        "client_errors": 0,
+        "errors": 119,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 801,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 479199,
+          "mean": 6.443828461547213,
+          "p50": 1.795733,
+          "p95": 18.357891,
+          "p99": 59.93105,
+          "p99_9": 404.447697,
+          "max": 551.888606
+        },
+        "scheduled_to_completion_ms": {
+          "count": 479199,
+          "mean": 6.649789069394961,
+          "p50": 1.948625,
+          "p95": 18.651279,
+          "p99": 60.24756,
+          "p99_9": 411.219499,
+          "max": 564.586262
+        }
+      },
+      "systemDiagnostics": {
+        "passed": true,
+        "checks": {
+          "observerExited": true,
+          "observerCpuIsolation": true,
+          "observerFollowedClient": true,
+          "sufficientSamples": true,
+          "noSampleBudgetLoss": true
+        }
+      },
+      "monitorStop": "STAGE_WALLCLOCK_BUDGET_EXCEEDED",
+      "javaCpu": 246.79888739119158,
+      "ioCpu": 191.10345823334143,
+      "edgeCpu": 296.6633782786778,
+      "javaGroups": {
+        "io": 191.10345823334143,
+        "compiler": 6.9492166630305965,
+        "gc": 2.186460852514505,
+        "other": 46.424157170831236
+      },
+      "fanoutAndLettuceCpu": {
+        "redirect-change": 0.15254378040798872,
+        "lettuce-epollEv": 3.4407097136468563
+      },
+      "relevantThreads": [
+        {
+          "tid": 1478,
+          "startTicks": 1659540,
+          "name": "lettuce-epollEv",
+          "group": "other",
+          "cpuPercent": 3.4407097136468563,
+          "userTicksDelta": 138,
+          "systemTicksDelta": 65,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 59,
+          "observations": 60,
+          "fullWindowIdentityPresent": true
+        },
+        {
+          "tid": 1476,
+          "startTicks": 1659520,
+          "name": "redirect-change",
+          "group": "other",
+          "cpuPercent": 0.15254378040798872,
+          "userTicksDelta": 7,
+          "systemTicksDelta": 2,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 59,
+          "observations": 60,
+          "fullWindowIdentityPresent": true
+        }
+      ],
+      "cpuGroups": {
+        "0-3": 281.98395466544275,
+        "4-7": 280.1533302903605
+      },
+      "hostPsiSome": 13.827534771032504,
+      "edgePsiSome": 3.2180969645212727,
+      "edgePsiFull": 2.8193717204252398,
+      "softnet": {
+        "processed": 3446867,
+        "dropped": 0,
+        "time_squeeze": 9
+      },
+      "javaFdSize": [
+        4096,
+        4096
+      ],
+      "throttle": {
+        "/sys/fs/cgroup": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/d12e311ccb6159b2df9f110601a2062e623f221951457e1257d6e7ade4d4de0e": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        }
+      },
+      "observerCpuBinding": {
+        "start": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "stop": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "identity": {
+          "pid": 6186,
+          "startTicks": 1713739
+        }
+      },
+      "runtimeIdentitySha256": "5208c51a124b1f66305e05446178ca96d30e6626114c4a88dca1c698f974f17d",
+      "firstFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:40:03.725725+00:00",
+          "lastFinishedAt": "2026-09-09T13:40:04.831214+00:00",
+          "counterSeconds": 0.994773432,
+          "javaCpuPercent": 238.0342524148197,
+          "edgeFourWorkerCpuPercent": 291.0040224150739,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 278.45536590486665,
+            "4-7": 275.4396038192544
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 115792,
+              "stallWallPercent": 11.64003744724055
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 24194,
+              "stallWallPercent": 2.4321115966434457
+            },
+            "full": {
+              "deltaTotalUsec": 20843,
+              "stallWallPercent": 2.0952509716805547
+            }
+          },
+          "hostRunnableAtEnd": 10,
+          "softnet": {
+            "processed": 57727,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:40:04.725713+00:00",
+          "lastFinishedAt": "2026-09-09T13:40:05.838348+00:00",
+          "counterSeconds": 1.0058944505,
+          "javaCpuPercent": 239.13919050449377,
+          "edgeFourWorkerCpuPercent": 290.5214176301679,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 267.4236843301881,
+            "4-7": 270.40610460152845
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 107392,
+              "stallWallPercent": 10.676269259326231
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 22180,
+              "stallWallPercent": 2.2050027206109934
+            },
+            "full": {
+              "deltaTotalUsec": 20608,
+              "stallWallPercent": 2.048723898392757
+            }
+          },
+          "hostRunnableAtEnd": 9,
+          "softnet": {
+            "processed": 58434,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:40:05.730365+00:00",
+          "lastFinishedAt": "2026-09-09T13:40:06.841715+00:00",
+          "counterSeconds": 0.999505886,
+          "javaCpuPercent": 237.8505338865091,
+          "edgeFourWorkerCpuPercent": 287.55507162596587,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 274.1354541657997,
+            "4-7": 281.13891467368506
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 99493,
+              "stallWallPercent": 9.954218518729162
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 18923,
+              "stallWallPercent": 1.8932354741530755
+            },
+            "full": {
+              "deltaTotalUsec": 16499,
+              "stallWallPercent": 1.650715641708587
+            }
+          },
+          "hostRunnableAtEnd": 14,
+          "softnet": {
+            "processed": 58094,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:40:06.726005+00:00",
+          "lastFinishedAt": "2026-09-09T13:40:07.830648+00:00",
+          "counterSeconds": 0.994459708,
+          "javaCpuPercent": 239.02408406671057,
+          "edgeFourWorkerCpuPercent": 293.66342899253175,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 267.4819279857641,
+            "4-7": 274.5209260906526
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 108481,
+              "stallWallPercent": 10.90853647737732
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 23350,
+              "stallWallPercent": 2.3480086535592446
+            },
+            "full": {
+              "deltaTotalUsec": 21902,
+              "stallWallPercent": 2.2024019499038365
+            }
+          },
+          "hostRunnableAtEnd": 5,
+          "softnet": {
+            "processed": 57544,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:40:07.725990+00:00",
+          "lastFinishedAt": "2026-09-09T13:40:08.840057+00:00",
+          "counterSeconds": 1.0046400355,
+          "javaCpuPercent": 240.13220574640252,
+          "edgeFourWorkerCpuPercent": 287.9580619311728,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 290.65136733743077,
+            "4-7": 276.7160278075539
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 138686,
+              "stallWallPercent": 13.804546414574975
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 27968,
+              "stallWallPercent": 2.783882685511392
+            },
+            "full": {
+              "deltaTotalUsec": 23082,
+              "stallWallPercent": 2.297539335918691
+            }
+          },
+          "hostRunnableAtEnd": 12,
+          "softnet": {
+            "processed": 58666,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        }
+      ],
+      "lastFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:40:57.725779+00:00",
+          "lastFinishedAt": "2026-09-09T13:40:58.830086+00:00",
+          "counterSeconds": 0.9891438575,
+          "javaCpuPercent": 239.24094613698577,
+          "edgeFourWorkerCpuPercent": 284.6887666110915,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 267.90845233550874,
+            "4-7": 258.80967470901976
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 102036,
+              "stallWallPercent": 10.315587487738101
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 20865,
+              "stallWallPercent": 2.1093999464076942
+            },
+            "full": {
+              "deltaTotalUsec": 19824,
+              "stallWallPercent": 2.0041574185279716
+            }
+          },
+          "hostRunnableAtEnd": 8,
+          "softnet": {
+            "processed": 56930,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:40:58.725735+00:00",
+          "lastFinishedAt": "2026-09-09T13:40:59.835643+00:00",
+          "counterSeconds": 1.002767607,
+          "javaCpuPercent": 233.622799519768,
+          "edgeFourWorkerCpuPercent": 284.8474031074511,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 262.274128286635,
+            "4-7": 262.274128286635
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 96518,
+              "stallWallPercent": 9.625161336110052
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 18504,
+              "stallWallPercent": 1.8452929543026215
+            },
+            "full": {
+              "deltaTotalUsec": 15256,
+              "stallWallPercent": 1.5213893920687847
+            }
+          },
+          "hostRunnableAtEnd": 12,
+          "softnet": {
+            "processed": 58228,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:40:59.725720+00:00",
+          "lastFinishedAt": "2026-09-09T13:41:00.833341+00:00",
+          "counterSeconds": 0.999138705,
+          "javaCpuPercent": 242.8535909770345,
+          "edgeFourWorkerCpuPercent": 302.8793575761701,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 282.24309456613435,
+            "4-7": 277.23878437879154
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 130950,
+              "stallWallPercent": 13.106288380650813
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 24880,
+              "stallWallPercent": 2.490144749221781
+            },
+            "full": {
+              "deltaTotalUsec": 21595,
+              "stallWallPercent": 2.1613615699133586
+            }
+          },
+          "hostRunnableAtEnd": 6,
+          "softnet": {
+            "processed": 58163,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:41:00.726294+00:00",
+          "lastFinishedAt": "2026-09-09T13:41:01.841331+00:00",
+          "counterSeconds": 1.0038327185,
+          "javaCpuPercent": 236.14193795271618,
+          "edgeFourWorkerCpuPercent": 280.77380973813206,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 266.9767532587154,
+            "4-7": 261.9958436829931
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 98007,
+              "stallWallPercent": 9.763280095756313
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 16776,
+              "stallWallPercent": 1.6711947808463468
+            },
+            "full": {
+              "deltaTotalUsec": 14941,
+              "stallWallPercent": 1.4883953994173382
+            }
+          },
+          "hostRunnableAtEnd": 14,
+          "softnet": {
+            "processed": 58405,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:41:01.725968+00:00",
+          "lastFinishedAt": "2026-09-09T13:41:02.834150+00:00",
+          "counterSeconds": 0.996302355,
+          "javaCpuPercent": 235.9111387615848,
+          "edgeFourWorkerCpuPercent": 286.74628982423394,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 272.00578081540317,
+            "4-7": 263.976089868823
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 109782,
+              "stallWallPercent": 11.018944143718299
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 24210,
+              "stallWallPercent": 2.4299852227088232
+            },
+            "full": {
+              "deltaTotalUsec": 21688,
+              "stallWallPercent": 2.1768492156178834
+            }
+          },
+          "hostRunnableAtEnd": 10,
+          "softnet": {
+            "processed": 57532,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        }
+      ],
+      "peakHostPsiInterval": {
+        "firstObservedAt": "2026-09-09T13:40:38.726898+00:00",
+        "lastFinishedAt": "2026-09-09T13:40:39.897024+00:00",
+        "counterSeconds": 1.0209349625,
+        "javaCpuPercent": 265.5669596556031,
+        "edgeFourWorkerCpuPercent": 306.0807474016141,
+        "hostGroupBusyCpuPercent": {
+          "0-3": 336.9460471386296,
+          "4-7": 318.3356550001588
+        },
+        "hostCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 269541,
+            "stallWallPercent": 26.40138793366086
+          },
+          "full": {
+            "deltaTotalUsec": 0,
+            "stallWallPercent": 0.0
+          }
+        },
+        "edgeCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 94367,
+            "stallWallPercent": 9.24319407858461
+          },
+          "full": {
+            "deltaTotalUsec": 77269,
+            "stallWallPercent": 7.568454684986852
+          }
+        },
+        "hostRunnableAtEnd": 15,
+        "softnet": {
+          "processed": 62030,
+          "dropped": 0,
+          "time_squeeze": 0
+        }
+      },
+      "sourceSha256": {
+        "result": "02a407f851cc92707b3dc0bd85a58b77ed122838e6af12164f6fd01db7adf571",
+        "systemSummary": "7e975e5c0ad23ff01cad376cb4f1a3199170a6b528f4e1b15e9bd262ab2c0926"
+      }
+    },
+    {
+      "label": "fanout-r7000",
+      "available": true,
+      "formalWindow": {
+        "start": "2026-09-09T13:43:53.376253481Z",
+        "end": "2026-09-09T13:44:53.376253481Z",
+        "seconds": 60.0,
+        "plannedEnd": "2026-09-09T13:44:53.376253481Z",
+        "rule": "measure.start through min(measure.end, warmup.start + stop.elapsedMillis, warmup.start + scheduler.schedulingElapsedMillis)"
+      },
+      "selection": {
+        "rule": "Full observedAt..finishedAt inside actual formal window; no interpolation",
+        "retained": 60,
+        "total": 105,
+        "jsonlLines": [
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          66,
+          67,
+          68,
+          69,
+          70,
+          71,
+          72,
+          73,
+          74,
+          75,
+          76,
+          77,
+          78,
+          79,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87,
+          88,
+          89,
+          90,
+          91
+        ],
+        "firstUtc": [
+          "2026-09-09T13:43:53.702109+00:00",
+          "2026-09-09T13:43:53.809592+00:00"
+        ],
+        "lastUtc": [
+          "2026-09-09T13:44:52.705526+00:00",
+          "2026-09-09T13:44:52.826901+00:00"
+        ],
+        "counterSeconds": 59.010365663,
+        "counterElapsedBoundsSeconds": [
+          58.895912524,
+          59.124818802
+        ]
+      },
+      "originalStatus": "CAPACITY_STAGE_PASSED",
+      "originalFailedChecks": [],
+      "originalMeasure": {
+        "planned_arrivals": 420000,
+        "scheduled": 420000,
+        "sent": 420000,
+        "completed": 420000,
+        "received_http": 420000,
+        "correct": 420000,
+        "incorrect_http": 0,
+        "client_errors": 0,
+        "errors": 0,
+        "status429": 0,
+        "status503": 0,
+        "not_completed": 0,
+        "dropped": 0,
+        "cancelled_arrivals": 0,
+        "roundtrip_ms": {
+          "count": 420000,
+          "mean": 3.7082609695785558,
+          "p50": 1.242481,
+          "p95": 13.287744,
+          "p99": 41.16839,
+          "p99_9": 113.907039,
+          "max": 226.517389
+        },
+        "scheduled_to_completion_ms": {
+          "count": 420000,
+          "mean": 3.891619048723793,
+          "p50": 1.390587,
+          "p95": 13.620469,
+          "p99": 41.991189,
+          "p99_9": 114.776141,
+          "max": 226.65846
+        }
+      },
+      "systemDiagnostics": {
+        "passed": true,
+        "checks": {
+          "observerExited": true,
+          "observerCpuIsolation": true,
+          "observerFollowedClient": true,
+          "sufficientSamples": true,
+          "noSampleBudgetLoss": true
+        }
+      },
+      "monitorStop": null,
+      "javaCpu": 227.11292861073287,
+      "ioCpu": 175.76212093290877,
+      "edgeCpu": 274.1246548830943,
+      "javaGroups": {
+        "io": 175.76212093290877,
+        "compiler": 3.9148635556360944,
+        "gc": 1.8472732794992823,
+        "other": 45.48698607500985
+      },
+      "fanoutAndLettuceCpu": {
+        "redirect-change": 0.13557969023847943,
+        "lettuce-epollEv": 3.287807488283126
+      },
+      "relevantThreads": [
+        {
+          "tid": 1478,
+          "startTicks": 1659540,
+          "name": "lettuce-epollEv",
+          "group": "other",
+          "cpuPercent": 3.287807488283126,
+          "userTicksDelta": 129,
+          "systemTicksDelta": 65,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 59,
+          "observations": 60,
+          "fullWindowIdentityPresent": true
+        },
+        {
+          "tid": 1476,
+          "startTicks": 1659520,
+          "name": "redirect-change",
+          "group": "other",
+          "cpuPercent": 0.13557969023847943,
+          "userTicksDelta": 7,
+          "systemTicksDelta": 1,
+          "firstSampleIndex": 0,
+          "lastSampleIndex": 59,
+          "observations": 60,
+          "fullWindowIdentityPresent": true
+        }
+      ],
+      "cpuGroups": {
+        "0-3": 260.208521460285,
+        "4-7": 257.37851018813467
+      },
+      "hostPsiSome": 10.710589451512107,
+      "edgePsiSome": 2.120830782759761,
+      "edgePsiFull": 1.8699816339079105,
+      "softnet": {
+        "processed": 3080312,
+        "dropped": 0,
+        "time_squeeze": 9
+      },
+      "javaFdSize": [
+        4096,
+        4096
+      ],
+      "throttle": {
+        "/sys/fs/cgroup": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/d12e311ccb6159b2df9f110601a2062e623f221951457e1257d6e7ade4d4de0e": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "/sys/fs/cgroup/docker/950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5": {
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        }
+      },
+      "observerCpuBinding": {
+        "start": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "stop": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "identity": {
+          "pid": 19426,
+          "startTicks": 1736732
+        }
+      },
+      "runtimeIdentitySha256": "5208c51a124b1f66305e05446178ca96d30e6626114c4a88dca1c698f974f17d",
+      "firstFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:43:53.702109+00:00",
+          "lastFinishedAt": "2026-09-09T13:43:54.808931+00:00",
+          "counterSeconds": 0.999553452,
+          "javaCpuPercent": 213.9187829531077,
+          "edgeFourWorkerCpuPercent": 259.54524590824093,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 251.1121336210442,
+            "4-7": 241.10766614610225
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 72978,
+              "stallWallPercent": 7.301060273863174
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 10909,
+              "stallWallPercent": 1.091387356841423
+            },
+            "full": {
+              "deltaTotalUsec": 9976,
+              "stallWallPercent": 0.998045675300214
+            }
+          },
+          "hostRunnableAtEnd": 12,
+          "softnet": {
+            "processed": 51615,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:43:54.701871+00:00",
+          "lastFinishedAt": "2026-09-09T13:43:55.799952+00:00",
+          "counterSeconds": 0.995576645,
+          "javaCpuPercent": 216.33087103649703,
+          "edgeFourWorkerCpuPercent": 255.40740787493195,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 242.07076492839988,
+            "4-7": 245.08409395240483
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 65931,
+              "stallWallPercent": 6.622393196055739
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 14236,
+              "stallWallPercent": 1.4299250661911622
+            },
+            "full": {
+              "deltaTotalUsec": 11420,
+              "stallWallPercent": 1.1470739151378948
+            }
+          },
+          "hostRunnableAtEnd": 8,
+          "softnet": {
+            "processed": 51565,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:43:55.702004+00:00",
+          "lastFinishedAt": "2026-09-09T13:43:56.811846+00:00",
+          "counterSeconds": 1.0060187755,
+          "javaCpuPercent": 214.64319582521819,
+          "edgeFourWorkerCpuPercent": 262.57877712610934,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 250.49234282407284,
+            "4-7": 240.55217048978426
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 72478,
+              "stallWallPercent": 7.204438104445695
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 12316,
+              "stallWallPercent": 1.2242316246909846
+            },
+            "full": {
+              "deltaTotalUsec": 11126,
+              "stallWallPercent": 1.1059435739129502
+            }
+          },
+          "hostRunnableAtEnd": 14,
+          "softnet": {
+            "processed": 52598,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:43:56.702151+00:00",
+          "lastFinishedAt": "2026-09-09T13:43:57.809421+00:00",
+          "counterSeconds": 0.9986629805,
+          "javaCpuPercent": 217.16686330834247,
+          "edgeFourWorkerCpuPercent": 260.3677532202811,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 232.31060380734715,
+            "4-7": 254.3400576166646
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 70453,
+              "stallWallPercent": 7.0547323146719965
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 13450,
+              "stallWallPercent": 1.346800698796905
+            },
+            "full": {
+              "deltaTotalUsec": 10517,
+              "stallWallPercent": 1.0531080259663235
+            }
+          },
+          "hostRunnableAtEnd": 11,
+          "softnet": {
+            "processed": 51726,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:43:57.701900+00:00",
+          "lastFinishedAt": "2026-09-09T13:43:58.806677+00:00",
+          "counterSeconds": 0.99873993,
+          "javaCpuPercent": 227.03475799979333,
+          "edgeFourWorkerCpuPercent": 278.7947701579079,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 279.35200307851915,
+            "4-7": 273.3444331198413
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 183336,
+              "stallWallPercent": 18.35673076573598
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 37676,
+              "stallWallPercent": 3.772353429385766
+            },
+            "full": {
+              "deltaTotalUsec": 31797,
+              "stallWallPercent": 3.183711699601316
+            }
+          },
+          "hostRunnableAtEnd": 8,
+          "softnet": {
+            "processed": 52158,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        }
+      ],
+      "lastFiveIntervals": [
+        {
+          "firstObservedAt": "2026-09-09T13:44:47.703589+00:00",
+          "lastFinishedAt": "2026-09-09T13:44:48.827747+00:00",
+          "counterSeconds": 0.9933120555,
+          "javaCpuPercent": 237.36378991588361,
+          "edgeFourWorkerCpuPercent": 299.8050499882567,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 268.7977041269283,
+            "4-7": 270.81117007544464
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 103516,
+              "stallWallPercent": 10.421297056330754
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 20053,
+              "stallWallPercent": 2.0188016332798853
+            },
+            "full": {
+              "deltaTotalUsec": 18230,
+              "stallWallPercent": 1.835274212072623
+            }
+          },
+          "hostRunnableAtEnd": 10,
+          "softnet": {
+            "processed": 51364,
+            "dropped": 0,
+            "time_squeeze": 1
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:44:48.702075+00:00",
+          "lastFinishedAt": "2026-09-09T13:44:49.839710+00:00",
+          "counterSeconds": 1.006052656,
+          "javaCpuPercent": 229.8659429234296,
+          "edgeFourWorkerCpuPercent": 294.4481311879489,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 272.35154975824645,
+            "4-7": 269.3695984835211
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 109898,
+              "stallWallPercent": 10.923682706325463
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 19984,
+              "stallWallPercent": 1.9863771424703638
+            },
+            "full": {
+              "deltaTotalUsec": 18371,
+              "stallWallPercent": 1.8260475622659655
+            }
+          },
+          "hostRunnableAtEnd": 8,
+          "softnet": {
+            "processed": 52667,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:44:49.702284+00:00",
+          "lastFinishedAt": "2026-09-09T13:44:50.822406+00:00",
+          "counterSeconds": 0.991272354,
+          "javaCpuPercent": 240.17959922955748,
+          "edgeFourWorkerCpuPercent": 300.2563559867941,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 273.3860163722471,
+            "4-7": 263.2979714876624
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 130153,
+              "stallWallPercent": 13.129893058633611
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 37224,
+              "stallWallPercent": 3.755173827837833
+            },
+            "full": {
+              "deltaTotalUsec": 29928,
+              "stallWallPercent": 3.019150073058529
+            }
+          },
+          "hostRunnableAtEnd": 16,
+          "softnet": {
+            "processed": 53193,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:44:50.702142+00:00",
+          "lastFinishedAt": "2026-09-09T13:44:51.855154+00:00",
+          "counterSeconds": 1.0163978485,
+          "javaCpuPercent": 224.92847949137612,
+          "edgeFourWorkerCpuPercent": 283.79900136301535,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 270.5633432871242,
+            "4-7": 270.5633432871242
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 123785,
+              "stallWallPercent": 12.17879398138061
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 20362,
+              "stallWallPercent": 2.0033493803681544
+            },
+            "full": {
+              "deltaTotalUsec": 17714,
+              "stallWallPercent": 1.742821477450225
+            }
+          },
+          "hostRunnableAtEnd": 16,
+          "softnet": {
+            "processed": 53427,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        },
+        {
+          "firstObservedAt": "2026-09-09T13:44:51.702180+00:00",
+          "lastFinishedAt": "2026-09-09T13:44:52.826901+00:00",
+          "counterSeconds": 0.987545634,
+          "javaCpuPercent": 232.60133085556816,
+          "edgeFourWorkerCpuPercent": 294.5550707446649,
+          "hostGroupBusyCpuPercent": {
+            "0-3": 272.3924755866016,
+            "4-7": 262.2663612525272
+          },
+          "hostCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 148447,
+              "stallWallPercent": 15.03191294550344
+            },
+            "full": {
+              "deltaTotalUsec": 0,
+              "stallWallPercent": 0.0
+            }
+          },
+          "edgeCpuPsi": {
+            "some": {
+              "deltaTotalUsec": 31828,
+              "stallWallPercent": 3.2229396702492035
+            },
+            "full": {
+              "deltaTotalUsec": 27258,
+              "stallWallPercent": 2.7601762451820027
+            }
+          },
+          "hostRunnableAtEnd": 11,
+          "softnet": {
+            "processed": 51210,
+            "dropped": 0,
+            "time_squeeze": 0
+          }
+        }
+      ],
+      "peakHostPsiInterval": {
+        "firstObservedAt": "2026-09-09T13:44:33.702441+00:00",
+        "lastFinishedAt": "2026-09-09T13:44:34.849967+00:00",
+        "counterSeconds": 1.0137206775,
+        "javaCpuPercent": 273.1277030415819,
+        "edgeFourWorkerCpuPercent": 292.7919551923328,
+        "hostGroupBusyCpuPercent": {
+          "0-3": 305.80415974596707,
+          "4-7": 283.1154640228792
+        },
+        "hostCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 225558,
+            "stallWallPercent": 22.250507956122853
+          },
+          "full": {
+            "deltaTotalUsec": 0,
+            "stallWallPercent": 0.0
+          }
+        },
+        "edgeCpuPsi": {
+          "some": {
+            "deltaTotalUsec": 49453,
+            "stallWallPercent": 4.878365519973326
+          },
+          "full": {
+            "deltaTotalUsec": 40572,
+            "stallWallPercent": 4.002285925552703
+          }
+        },
+        "hostRunnableAtEnd": 24,
+        "softnet": {
+          "processed": 53563,
+          "dropped": 0,
+          "time_squeeze": 0
+        }
+      },
+      "sourceSha256": {
+        "result": "4da0f9a90c89ed31750b7a4dae5555b0f475311eaa19a6aa2a8385813f484003",
+        "systemSummary": "6a21eb481bc2b5601ca4f39795e416626295a45bdd46ec2cf25ff298fc5241c5"
+      }
+    }
+  ],
+  "limits": [
+    "Observer affinity proven at start and stop only; stage controller affinity is not independently in these proc targets.",
+    "Old/current observer placements differ; whole before-after differences cannot be attributed solely to fanout.",
+    "Only original successful formal windows count as passed. Peak10s failed1drop is not sustained8k acceptance.",
+    "Last complete sample precedes actual cutoff; no interpolation into missing final partial interval.",
+    "No JFR was requested: no GC pause/allocation/stack evidence. GC thread CPU is not STW duration.",
+    "No Windows process JSONL is parsed by this proc-only lane; absence of old host-* filenames does not mean host sampling absent.",
+    "PSI/ticks/FDSize do not establish individual HTTP504 root cause or absolute physical hardware ceiling."
+  ]
+}

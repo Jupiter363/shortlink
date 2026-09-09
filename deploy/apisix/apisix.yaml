@@ -1,0 +1,76 @@
+# Local topology values come from container environment; no fallback wildcard Host.
+global_rules:
+  - id: shortlink-edge-events
+    plugins:
+      shortlink-request-logger:
+        brokers:
+          - host: "${{KAFKA_HOST}}"
+            port: 9092
+        instance_id: "${{APISIX_INSTANCE_ID}}"
+        queue_count: 1000
+        queue_bytes: 8388608
+        max_event_bytes: 4096
+        send_concurrency: 1
+        send_batch_size: 32
+        send_batch_bytes: 65536
+        send_linger_ms: 5
+routes:
+  - id: shortlink-management
+    priority: 100
+    hosts: ["${{MANAGEMENT_HOST}}"]
+    uris: ["/api/short-link/admin/v1/*", "/api/short-link/v1/user", "/api/short-link/v1/user/*"]
+    plugins:
+      shortlink-boundary:
+        mode: management
+      limit-req:
+        rate: 100
+        burst: 100
+        rejected_code: 429
+        key_type: var_combination
+        key: "shortlink-management:$remote_addr"
+      limit-conn:
+        conn: 200
+        burst: 100
+        default_conn_delay: 0.1
+        rejected_code: 429
+        key_type: var_combination
+        key: "shortlink-management:$remote_addr"
+    upstream:
+      type: roundrobin
+      pass_host: pass
+      retries: 0
+      timeout: {connect: 1, send: 3, read: 5}
+      nodes:
+        - host: "${{GATEWAY_UPSTREAM_HOST}}"
+          port: 8000
+          weight: 1
+  - id: shortlink-redirect
+    priority: 10
+    hosts: ["${{SHORTLINK_HOST}}"]
+    uri: "/*"
+    plugins:
+      shortlink-boundary:
+        mode: redirect
+      limit-req:
+        rate: 1000
+        burst: 200
+        rejected_code: 429
+        key_type: var_combination
+        key: "shortlink-redirect:$remote_addr"
+      limit-conn:
+        conn: 200
+        burst: 100
+        default_conn_delay: 0.1
+        rejected_code: 429
+        key_type: var_combination
+        key: "shortlink-redirect:$remote_addr"
+    upstream:
+      type: roundrobin
+      pass_host: pass
+      retries: 0
+      timeout: {connect: 0.2, send: 1, read: 1}
+      nodes:
+        - host: "${{REDIRECT_UPSTREAM_HOST}}"
+          port: 8003
+          weight: 1
+#END

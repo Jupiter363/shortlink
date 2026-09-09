@@ -1,5 +1,8 @@
 package com.jupiter.shortlink.agent.riskcommon;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.jupiter.shortlink.agent.riskcommon.json.RiskJsonCodec;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskPolicyAction;
@@ -10,24 +13,24 @@ import com.jupiter.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.jupiter.shortlink.agent.riskcommon.redis.RiskPolicyRedisKeyBuilder;
 import com.jupiter.shortlink.agent.riskcommon.safety.RiskHashService;
 import com.jupiter.shortlink.agent.riskcommon.safety.RiskSensitiveDataGuard;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
-import javax.sql.DataSource;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import javax.sql.DataSource;
 
 class RiskCommonModelTest {
 
     @Test
     void riskTablesAreCreatedByAgentServiceSchema() {
         DataSource dataSource = h2DataSource("risk_schema");
-        new ResourceDatabasePopulator(new ClassPathResource("sql/agent_service_schema.sql")).execute(dataSource);
+        new ResourceDatabasePopulator(new ClassPathResource("sql/agent_service_schema.sql"))
+                .execute(dataSource);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
 
         assertThat(tableExists(jdbcTemplate, "t_agent_risk_event")).isTrue();
@@ -35,7 +38,7 @@ class RiskCommonModelTest {
         assertThat(tableExists(jdbcTemplate, "t_agent_short_link_risk_profile")).isTrue();
         assertThat(tableExists(jdbcTemplate, "t_agent_group_risk_profile")).isTrue();
         assertThat(tableExists(jdbcTemplate, "t_agent_risk_review")).isTrue();
-        assertThat(tableExists(jdbcTemplate, "t_agent_risk_policy")).isTrue();
+        assertThat(tableExists(jdbcTemplate, "t_agent_risk_policy")).isFalse();
         assertThat(tableExists(jdbcTemplate, "t_agent_risk_action_audit")).isTrue();
     }
 
@@ -48,32 +51,33 @@ class RiskCommonModelTest {
         assertThat(RiskLevel.fromScore(70)).isEqualTo(RiskLevel.HIGH);
         assertThat(RiskLevel.fromScore(100)).isEqualTo(RiskLevel.HIGH);
 
-        assertThat(RiskTargetType.values()).containsExactly(RiskTargetType.GROUP, RiskTargetType.SHORT_LINK);
-        assertThat(RiskReasonCode.values()).contains(
-                RiskReasonCode.TRAFFIC_SPIKE,
-                RiskReasonCode.IP_CONCENTRATION,
-                RiskReasonCode.HIGH_REPEAT_VISIT,
-                RiskReasonCode.PEAK_HOUR_BURST,
-                RiskReasonCode.DEVICE_CONCENTRATION,
-                RiskReasonCode.REGION_CONCENTRATION,
-                RiskReasonCode.BROWSER_CONCENTRATION
-        );
+        assertThat(RiskTargetType.values())
+                .containsExactly(RiskTargetType.GROUP, RiskTargetType.SHORT_LINK);
+        assertThat(RiskReasonCode.values())
+                .contains(
+                        RiskReasonCode.TRAFFIC_SPIKE,
+                        RiskReasonCode.IP_CONCENTRATION,
+                        RiskReasonCode.HIGH_REPEAT_VISIT,
+                        RiskReasonCode.PEAK_HOUR_BURST,
+                        RiskReasonCode.DEVICE_CONCENTRATION,
+                        RiskReasonCode.REGION_CONCENTRATION,
+                        RiskReasonCode.BROWSER_CONCENTRATION);
         assertThat(RiskPolicyAction.DISABLE_SHORT_LINK.requiresManualReview()).isTrue();
         assertThat(RiskPolicyAction.BLOCK_IP.requiresManualReview()).isTrue();
         assertThat(RiskPolicyAction.LIMIT_TIME_WINDOW.requiresManualReview()).isTrue();
         assertThat(RiskPolicyAction.LIMIT_RATE.requiresManualReview()).isFalse();
-        assertThat(RiskPolicyStatus.values()).containsExactly(
-                RiskPolicyStatus.ACTIVE,
-                RiskPolicyStatus.DISABLED,
-                RiskPolicyStatus.EXPIRED
-        );
-        assertThat(RiskReviewAction.values()).contains(
-                RiskReviewAction.CONFIRM_RISK,
-                RiskReviewAction.FALSE_POSITIVE,
-                RiskReviewAction.IGNORE,
-                RiskReviewAction.WATCH,
-                RiskReviewAction.UNWATCH
-        );
+        assertThat(RiskPolicyStatus.values())
+                .containsExactly(
+                        RiskPolicyStatus.ACTIVE,
+                        RiskPolicyStatus.DISABLED,
+                        RiskPolicyStatus.EXPIRED);
+        assertThat(RiskReviewAction.values())
+                .contains(
+                        RiskReviewAction.CONFIRM_RISK,
+                        RiskReviewAction.FALSE_POSITIVE,
+                        RiskReviewAction.IGNORE,
+                        RiskReviewAction.WATCH,
+                        RiskReviewAction.UNWATCH);
     }
 
     @Test
@@ -94,8 +98,7 @@ class RiskCommonModelTest {
                 .isEqualTo("risk:policy:short-link:rate-limit:nurl.ink:abc123");
         assertThat(keyBuilder.timeWindowShortLinkKey("nurl.ink", "abc123"))
                 .isEqualTo("risk:policy:short-link:time-window:nurl.ink:abc123");
-        assertThat(keyBuilder.blockIpKey("hash001"))
-                .isEqualTo("risk:policy:ip:block:hash001");
+        assertThat(keyBuilder.blockIpKey("hash001")).isEqualTo("risk:policy:ip:block:hash001");
         assertThat(keyBuilder.rateCounterKey("nurl.ink", "abc123", "hash001"))
                 .isEqualTo("risk:rate:nurl.ink:abc123:hash001");
 
@@ -116,18 +119,20 @@ class RiskCommonModelTest {
     private DataSource h2DataSource(String name) {
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:" + name + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1");
+        dataSource.setUrl(
+                "jdbc:h2:mem:" + name + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1");
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         return dataSource;
     }
 
     private boolean tableExists(JdbcTemplate jdbcTemplate, String tableName) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'PUBLIC' AND TABLE_NAME = ?",
-                Integer.class,
-                tableName
-        );
+        Integer count =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ="
+                            + " 'PUBLIC' AND TABLE_NAME = ?",
+                        Integer.class,
+                        tableName);
         return count != null && count > 0;
     }
 }

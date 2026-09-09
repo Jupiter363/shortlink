@@ -1,0 +1,13 @@
+{
+  "runId": "20260909T132900Z-09adb5ee",
+  "jarSha256": {
+    "shortlink-command": "d0d2f2fc30cfceaed25c122ec13ffc18f69e2af0a52f535ab3ddcac583893fa0",
+    "admin": "a5cf08e51b43e18cb6634e4a05c74fc84295f5f601f6fd9c68b2bb51c88402a2",
+    "gateway": "7df62d3269702f8a2c1dc03406248c933fd844a2fa94684d880d83c31b1f57f8",
+    "shortlink-redirect": "e805c149d0d5a414068c5768c961b9f16daeb1ad1ddf687263a0f429fb7a0f4d"
+  },
+  "pid": 981,
+  "fdSize": 4096,
+  "explicitFdWarmupEnvironmentVerified": true,
+  "realPathCaseCount": 12
+}

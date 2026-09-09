@@ -1,12 +1,12 @@
 package com.jupiter.shortlink.agent.riskprofile.model;
 
 public record ShortLinkRiskMetrics(
-        int pv2h,
-        int uv2h,
-        int pv24h,
-        int uv24h,
-        int pv7d,
-        int uv7d,
+        long pv2h,
+        long uv2h,
+        long pv24h,
+        long uv24h,
+        long pv7d,
+        long uv7d,
         Double pvGrowth2hVs24hAvg,
         Double topIpShare,
         Double topVisitorShare,
@@ -15,6 +15,4 @@ public record ShortLinkRiskMetrics(
         Double topBrowserShare,
         Double pvPerUv,
         Double peakHourShare,
-        Double repeatVisitRatio
-) {
-}
+        Double repeatVisitRatio) {}

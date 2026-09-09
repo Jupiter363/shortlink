@@ -1,0 +1,55 @@
+{
+  "candidateTree": "d9f1d52696f34ada775fe4e998533c934ad99166",
+  "rows": [
+    {
+      "suite": "logger",
+      "command": [
+        "python3",
+        "-B",
+        "test_edge_execution_diagnostics.py",
+        "--emit-lua",
+        "--suite",
+        "logger"
+      ],
+      "exitCode": 0,
+      "bytes": 141629,
+      "inputLuaSha256": "11868d82ad8964244259bd5c78ff13d03801a8dbacb150a20980992f57a69900",
+      "historicalInputLuaSha256": "11868d82ad8964244259bd5c78ff13d03801a8dbacb150a20980992f57a69900",
+      "matchesHistoricalInput": true,
+      "luaExecuted": false
+    },
+    {
+      "suite": "kafka",
+      "command": [
+        "python3",
+        "-B",
+        "test_edge_execution_diagnostics.py",
+        "--emit-lua",
+        "--suite",
+        "kafka"
+      ],
+      "exitCode": 0,
+      "bytes": 50537,
+      "inputLuaSha256": "dbf4df4b8b11127458e4cd0d4a2d9f2a1fe47c63d98c4299faf7410c5b347c28",
+      "historicalInputLuaSha256": "dbf4df4b8b11127458e4cd0d4a2d9f2a1fe47c63d98c4299faf7410c5b347c28",
+      "matchesHistoricalInput": true,
+      "luaExecuted": false
+    },
+    {
+      "suite": "snapshot",
+      "command": [
+        "python3",
+        "-B",
+        "test_edge_snapshot_consistency.py",
+        "--emit-lua"
+      ],
+      "exitCode": 0,
+      "bytes": 108110,
+      "inputLuaSha256": "014233489fd4edd685d1b52db01244e6ed31068b715ba4c1c79251edded548b7",
+      "historicalInputLuaSha256": "014233489fd4edd685d1b52db01244e6ed31068b715ba4c1c79251edded548b7",
+      "matchesHistoricalInput": true,
+      "luaExecuted": false
+    }
+  ],
+  "liveRuntime": false
+}

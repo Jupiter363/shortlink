@@ -10,8 +10,9 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 @MapperScan("com.jupiter.shortlink.admin.dao.mapper")
 @EnableDiscoveryClient
 @EnableFeignClients("com.jupiter.shortlink.admin.remote")
+@org.springframework.scheduling.annotation.EnableScheduling
 public class ShortLinkAdminApplication {
     public static void main(String[] args) {
-        SpringApplication.run(ShortLinkAdminApplication.class,args);
+        SpringApplication.run(ShortLinkAdminApplication.class, args);
     }
 }

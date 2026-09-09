@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 public interface RiskCenterFacadeService {
+    Result<Map<String, Object>> commandResult(String commandId);
+
+    Result<Map<String, Object>> currentPolicies(long linkId, String cursor);
 
     Result<RiskGroupOverviewRespDTO> groupOverview(String gid);
 
@@ -30,5 +33,6 @@ public interface RiskCenterFacadeService {
 
     Result<RiskReviewRespDTO> review(RiskReviewReqDTO requestParam);
 
-    Result<Map<String, Object>> disablePolicy(String policyId, RiskPolicyDisableReqDTO requestParam);
+    Result<Map<String, Object>> disablePolicy(
+            String policyId, RiskPolicyDisableReqDTO requestParam);
 }

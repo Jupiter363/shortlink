@@ -1,0 +1,127 @@
+{
+  "declaredRuntimeJarSha256": "e805c149d0d5a414068c5768c961b9f16daeb1ad1ddf687263a0f429fb7a0f4d",
+  "runtimeIdentitySha256": "5208c51a124b1f66305e05446178ca96d30e6626114c4a88dca1c698f974f17d",
+  "jarInspection": "ZIP directory only; runtime JAR content SHA not recomputed or payload extracted",
+  "bootLibraryListing": "upstream-review-netty-boot-libraries.txt",
+  "bootLibraryListingSha256": "cf25b08341a9df680868a0335b92d787f9d4634ef636021f6d92c2274e2f65dd",
+  "localExactVersionDependencies": [
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-core\\1.1.7\\reactor-netty-core-1.1.7.jar",
+      "sha256": "d4fb1c4dee1da5b01ef6a48f1c6bd25002ee0ddf479d1a5f996abbc7cc091ba7",
+      "sourcesJarExists": false
+    },
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-http\\1.1.7\\reactor-netty-http-1.1.7.jar",
+      "sha256": "426341e653eb26a22e504af6eaebb0c0ef106bbe12401c99ed8bb9510703a853",
+      "sourcesJarExists": false
+    },
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport\\4.1.92.Final\\netty-transport-4.1.92.Final.jar",
+      "sha256": "7474e5e27a4f908a003ace4965964ccdb6f8cca202b180ea20fccafebe57ca99",
+      "sourcesJarExists": false
+    },
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-classes-epoll\\4.1.92.Final\\netty-transport-classes-epoll-4.1.92.Final.jar",
+      "sha256": "873bfefc23e9f02bbb5723f6dd01973878087c368b7f42833308965fb1869360",
+      "sourcesJarExists": false
+    },
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-common\\4.1.92.Final\\netty-common-4.1.92.Final.jar",
+      "sha256": "af8c57741fb54606de9090b133b5c0f82f2a5a9408c1ae3c2d8fadb9aca1540e",
+      "sourcesJarExists": false
+    },
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-native-unix-common\\4.1.92.Final\\netty-transport-native-unix-common-4.1.92.Final.jar",
+      "sha256": "b37b9b1b7ef5cf5626d92d391de5422d5fd5a1816193447ee7bb61c70aa2db31",
+      "sourcesJarExists": false
+    },
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot\\3.0.7\\spring-boot-3.0.7.jar",
+      "sha256": "676786cffa33fbe1d06c15c25392e8d9c5eaa290fb0d5fbf2a5008f65a55203b",
+      "sourcesJarExists": false
+    },
+    {
+      "path": "C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot-autoconfigure\\3.0.7\\spring-boot-autoconfigure-3.0.7.jar",
+      "sha256": "558c3edfbd9cc1a47d0d9ee40065f71fc59ee23f743ec3621dbba0de28e4d8ae",
+      "sourcesJarExists": false
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "D:\\enviroment for coding\\java coding enviroment\\bin\\javap.exe",
+        "-classpath",
+        "C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-core\\1.1.7\\reactor-netty-core-1.1.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-http\\1.1.7\\reactor-netty-http-1.1.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport\\4.1.92.Final\\netty-transport-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-classes-epoll\\4.1.92.Final\\netty-transport-classes-epoll-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-common\\4.1.92.Final\\netty-common-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-native-unix-common\\4.1.92.Final\\netty-transport-native-unix-common-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot\\3.0.7\\spring-boot-3.0.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot-autoconfigure\\3.0.7\\spring-boot-autoconfigure-3.0.7.jar",
+        "-p",
+        "-c",
+        "reactor.netty.resources.LoopResources",
+        "reactor.netty.resources.DefaultLoopResources",
+        "reactor.netty.resources.DefaultLoopEpoll",
+        "reactor.netty.http.HttpResources",
+        "reactor.netty.http.server.HttpServerBind",
+        "reactor.netty.http.server.HttpServer",
+        "reactor.netty.http.server.HttpServerConfig",
+        "reactor.netty.transport.ServerTransport",
+        "reactor.netty.transport.ServerTransportConfig"
+      ],
+      "exitCode": 0,
+      "stderr": "",
+      "output": "upstream-review-netty-reactor-javap.txt",
+      "outputSha256": "8fa0e88dff37b03721e509ec3a0233649d51462d8bae0171b8a7ce2b3a3256a1",
+      "outputBytes": 263029
+    },
+    {
+      "argv": [
+        "D:\\enviroment for coding\\java coding enviroment\\bin\\javap.exe",
+        "-classpath",
+        "C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-core\\1.1.7\\reactor-netty-core-1.1.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-http\\1.1.7\\reactor-netty-http-1.1.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport\\4.1.92.Final\\netty-transport-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-classes-epoll\\4.1.92.Final\\netty-transport-classes-epoll-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-common\\4.1.92.Final\\netty-common-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-native-unix-common\\4.1.92.Final\\netty-transport-native-unix-common-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot\\3.0.7\\spring-boot-3.0.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot-autoconfigure\\3.0.7\\spring-boot-autoconfigure-3.0.7.jar",
+        "-p",
+        "-c",
+        "io.netty.channel.DefaultChannelConfig",
+        "io.netty.channel.DefaultMaxMessagesRecvByteBufAllocator",
+        "io.netty.channel.DefaultMaxMessagesRecvByteBufAllocator$MaxMessageHandle",
+        "io.netty.channel.AdaptiveRecvByteBufAllocator",
+        "io.netty.channel.epoll.AbstractEpollServerChannel",
+        "io.netty.channel.epoll.AbstractEpollServerChannel$EpollServerSocketUnsafe",
+        "io.netty.channel.epoll.EpollServerSocketChannel",
+        "io.netty.channel.epoll.EpollServerChannelConfig",
+        "io.netty.channel.epoll.EpollChannelConfig",
+        "io.netty.channel.epoll.EpollRecvByteAllocatorHandle",
+        "io.netty.util.NetUtil$1"
+      ],
+      "exitCode": 0,
+      "stderr": "",
+      "output": "upstream-review-netty-netty-javap.txt",
+      "outputSha256": "415a6bcdfef1f67f4b2ef1221a353e5fd333c7e3e1976f5c303b9f12b7f4f373",
+      "outputBytes": 139851
+    },
+    {
+      "argv": [
+        "D:\\enviroment for coding\\java coding enviroment\\bin\\javap.exe",
+        "-classpath",
+        "C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-core\\1.1.7\\reactor-netty-core-1.1.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\projectreactor\\netty\\reactor-netty-http\\1.1.7\\reactor-netty-http-1.1.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport\\4.1.92.Final\\netty-transport-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-classes-epoll\\4.1.92.Final\\netty-transport-classes-epoll-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-common\\4.1.92.Final\\netty-common-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\io\\netty\\netty-transport-native-unix-common\\4.1.92.Final\\netty-transport-native-unix-common-4.1.92.Final.jar;C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot\\3.0.7\\spring-boot-3.0.7.jar;C:\\Users\\Jupiter\\.m2\\repository\\org\\springframework\\boot\\spring-boot-autoconfigure\\3.0.7\\spring-boot-autoconfigure-3.0.7.jar",
+        "-p",
+        "-c",
+        "org.springframework.boot.web.embedded.netty.NettyReactiveWebServerFactory",
+        "org.springframework.boot.autoconfigure.web.embedded.NettyWebServerFactoryCustomizer"
+      ],
+      "exitCode": 0,
+      "stderr": "",
+      "output": "upstream-review-netty-boot-javap.txt",
+      "outputSha256": "cbd6492fc76530c1df9fd34ab306842e6b8d348ff866f0090966cd628556df6e",
+      "outputBytes": 44353
+    }
+  ],
+  "scriptSha256": "acd293838205c3561c554d29616d90f5637c71dd0a4276061f8395d4e9e53d05",
+  "preflightCommands": [
+    {
+      "kind": "read frozen JAR metadata + ZIP library names; locate javap; project override rg",
+      "exitCode": 0
+    },
+    {
+      "kind": "list exact dependency jar/source-jar filenames and read FD customizer",
+      "exitCode": 0
+    }
+  ],
+  "forbiddenOperationsPerformed": false
+}

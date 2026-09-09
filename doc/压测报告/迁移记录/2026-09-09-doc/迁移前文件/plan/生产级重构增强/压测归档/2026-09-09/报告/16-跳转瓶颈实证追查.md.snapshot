@@ -1,0 +1,118 @@
+# 跳转瓶颈实证追查
+
+日期：2026-09-08（北京时间）。分支：`codex/production-refactor-v07`。本次运行：`20260907T174017Z-1a225a7c`。
+
+**当前尚未测出服务端的独立 QPS 上限。已经证明：发生器未维持目标到达率、请求与 Kafka 回调共用的发布器锁存在实际竞争、Broker 存在旧格式转换和小批次开销及短暂停顿。两轮新诊断均未重现事件拒绝，不能把历史拒绝的唯一原因补写成“Kafka 容量不足”。**
+
+本报告接续 [15-持续吞吐瓶颈深析与突破方向.md](15-持续吞吐瓶颈深析与突破方向.md)。以下区分容量验收、已观测机制与待验证的收益，原失败记录继续保留。
+
+## 1. 两轮实测结果
+
+业务配置保持不变：网关 8 worker，每 worker 4 sender；5000 次/s 目标，30 秒从 100 次/s 渐增，计划正式 120 秒；512 VU、64 个实际来源 IP、10 条热点短链。Java 两条发布 lane 各 1000 条、8MiB，单事件 16KiB；原 ACK、重试、幂等、分区与队列语义保持不变。
+
+| 项目 | 第一轮诊断 | 第二轮补齐观测 |
+| --- | ---: | ---: |
+| 阶段 | `rcd-edge8-s4-r5000-120` | `rcd-edge8-s4-r5000-observed` |
+| 正式实际时长 | 45.283s，提前停止 | 120.021s，完整结束 |
+| 正式发出 / 正确完成 | 223366 / 223352 | 592483 / 592483 |
+| 正式未完成 HTTP | 14 | 0 |
+| 正式正确完成 QPS | 非完整阶段，不作容量值 | 4936.494 |
+| 正式 roundtrip P99 | 117ms | 119ms，门槛 80ms |
+| 全场景 dropped iterations | 3052 | 7292 |
+| 14 项事件失败/拒绝增量 | 全 0 | 全 0 |
+| 停止原因 | 观测连续不完整 30 秒 | 自然结束；少发、drops、P99 三项不通过 |
+| 容量验收 | FAIL | FAIL |
+
+第二轮全场景（含暖机）668766 个 HTTP 与 EDGE、click、result 的 attempted/delivered 完整对上；64 个来源均确认。正式发出数量仅为目标 600000 的 98.7472%，低于 99% 要求。因此“已发请求全部正确”不等于“通过 5000 QPS 验收”。Drops 目前只保留全场景总量，不将其全部归给正式阶段。
+
+原始结果：[第一轮](../../../../../.work/performance/20260907T174017Z-1a225a7c/stages/rcd-edge8-s4-r5000-120/wave-verdict.json)、[第二轮](../../../../../.work/performance/20260907T174017Z-1a225a7c/stages/rcd-edge8-s4-r5000-observed/wave-verdict.json)。第一轮 14 个未知响应使全运行最终账本仍有 4 项失败；排空、第二轮成功对账均不消除这些未知。
+
+## 2. 当前容量测量首先受到发生器约束
+
+第二轮 k6 在正式开始后约 2.5–3.5 秒明确报告 512 个 VU 全忙。发生器确实无法持续按计划启动迭代；原因可能包含客户端执行/调度、服务器响应变慢及其共同作用，不能把 VU 不足直接等同于某一方 CPU 满载。[k6 到达率与 VU 分配说明](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/arrival-rate-vu-allocation/)
+
+本机 Ryzen 7 5800H 为 8 物理核 / 16 逻辑 CPU；WSL 暴露的 SMT 兄弟为相邻编号：
+
+| 分配 | 逻辑 CPU | 对应物理核 | 实际含义 |
+| --- | --- | ---: | --- |
+| 应用与 APISIX | 0–7；网关与应用重叠 | 4 | 并非 8 个独立物理核 |
+| Kafka、MySQL、Redis、MinIO | 8–11 | 2 | 依赖共享 |
+| k6 与附加观察器 | 12–15 | 2 | 测量工具也竞争发生器资源 |
+
+第二轮正式内部 119.753 秒，发生器 CPU 组的四个逻辑 CPU 分别约 91.525%、91.378%、91.041%、91.577% 忙碌，合计 365.521%（100%=一个逻辑 CPU）。k6 全场景进程采样均值 308.10%、峰值 372.99%；两者时间窗和统计对象不同，不直接相减。OS 采集器自身在正式同窗消耗 19.914 CPU 秒，即约 16.63% 单逻辑 CPU；采集影响真实存在。
+
+不能再用“不到 400%/800%，还有几个核可用”解释余量，也不能仅按这些均值宣布客户端是唯一根因。当前缺少 k6 的正式逐秒 CPU/VU/sent/drop 序列与独立压力机对照，服务端独立上限仍未确定。
+
+发生器代码已生效 `per-vu-phase` 指标种子，12 个零计数不再逐请求重复初始化；成功 GET 仍有 9 次自定义 metric.add 及原生统计、SharedArray 读取和 Header 验证。应保留正确性校验，优先将发生器与观察器移到独立资源，再评估指标实现成本。[发生器分析](../../../../../.work/redirect-causal-20260908/id-generator-analysis.md)
+
+另一个关键分界是**客户端与服务端记录的时长相差明显**：Redirect的`GET /{shortUri}`、302、无异常计数在UTC18:10:22.806996–18:12:18.012340增570481，耗时总和增752.668583秒，服务端完成均值为**1.319358ms**；k6整个正式阶段HTTP均值**17.793991ms**、roundtrip均值**18.068201ms**。窗口及计时边界不同，不能直接相减或构造服务端P99，但明显不支持把客户端平均18ms全部归给Controller/Publisher。
+
+k6全场景blocked均值0.012604ms、connecting均值0.001753ms，TLS为0，连接获取/建连不是该场景平均延迟的大项。目前没有保留sending/waiting/receiving分项，也没有APISIX request/upstream精确时长，剩余差异仍需区分网关转发、HTTP计时边界外的排队、网络与客户端调度。**下一轮必须补齐这一分界，而不能把Kafka ACK时长代入HTTP耗时。**
+
+## 3. 服务端已证明的发布器竞争机制
+
+真实链路为：请求线程同步构造事件并 `offer` → 应用发送 worker 调用 Producer → Kafka Sender 处理响应与回调 → 回调结算并释放预约槽。`producer.send()` 返回不代表预约已经释放；槽位持有至最终结算。Kafka 回调运行在线程内，慢回调会阻碍该 Producer 后续处理。[KafkaProducer 文档](https://kafka.apache.org/39/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html)
+
+当前 `Lane.offerLocked` 在 Lane monitor 内进行 UTF-8 预算编码和入队；`terminalLocked` 在同一个 monitor 内结算。第一轮 JFR 直接记录到：
+
+- UTC `17:50:16.662504918–17:50:16.692138492`，click Kafka Sender 已进入 `ProducerBatch.completeFutureAndFireCallbacks`，等待 `Lane.terminalLocked` **29.634ms**。
+- 前一持锁线程为 `reactor-http-epoll-2`，该等待与 GC 暂停没有重叠。此时 ACK 已经进入回调，不能解释成 Broker 尚未响应。
+- 另一次约 28.817ms Lane 等待包含 14.868ms GC，说明不能把所有 monitor 等待都当成 UTF-8 编码本身的执行时间；持锁线程被抢占也会延长其他线程等待。
+
+因此，共用 monitor 形成请求与异步完成线程互相阻挡的机制已从静态猜测升级为现场证据。它**尚不能证明历史拒绝全部由此引起**：新两轮没有拒绝。第二轮同一进程的高水位由 click347/result365 增到608/615，仍未触及1000；5秒采样中的最大 reserved172/265并非真实瞬时峰。
+
+第一轮Redirect进程采样分配率约199MB/s（39.995秒内部窗口的整个JVM统计）；可见请求路径热点包括 Spring 参数解析用的 ConcurrentHashMap、Reactor 队列、Jackson 字符串和 Kafka StringSerializer 的 UTF-8 编码。锁内预算编码和 Kafka 序列化确实存在重复字节转换。请求处理、框架封装与事件构造应分别优化，不能把全部分配都归给 JSON，也不应只凭框架热点就重写整个服务。[第一轮请求路径证据](../../../../../.work/redirect-causal-20260908/gateway-round1-analysis.md)
+
+第二轮分配栈与本地spring-webflux6.0.9字节码进一步对上：`ControllerMethodResolver.getRequestMappingMethod`每次创建`InvocableHandlerMethod`，后者创建参数解析Composite及初始容量256的CHM；请求参数解析时触发`initTable`。仅该完整栈的保留分配采样权重约1.064GB，属于每请求框架对象生命周期成本。可在更小的发布器优化之后独立验证单条公开跳转的功能路由，保持鉴权、路由、缓存、Cookie与事件契约；不采用反射替换框架缓存，也不把采样权重份额当作收益承诺。
+
+第二轮两个应用发送 worker 在正式内部约 119.753 秒分别累计等待调度 24.88/27.95 线程秒；其中一个约255ms采样间隔分别等待141.06/152.71ms。这是可运行线程的累计等待，不能解读为全服务停止了二十多秒。[第二轮请求路径分析](../../../../../.work/redirect-causal-20260908/gateway-round2-analysis.md)
+
+## 4. Kafka 有真实开销和瞬态停顿，但不是已证实的容量硬上限
+
+第二轮Producer的23个正式内部采样点覆盖UTC18:10:22.806996–18:12:12.992999，跨度110.186003秒，与完整120.021秒或Broker内部117秒的窗口分别统计。该窗native指标给出反证：两lane的bufferpool等待、metadata等待、retry和error增量均为0，waiting threads为0。预约持有采样均值约7.43/7.61ms；有一次reserved172/265时queued为0，主要在等待回调。没有看到Producer缓冲耗尽或隐藏重试堆积。
+
+Broker 正式内部约 117 秒的进程 CPU 均值128.871%、1秒峰值202.665%；RequestQueue/Purgatory 采样峰值为0。1秒采样不能排除瞬时排队，也不代表依赖物理核有大量余量。
+
+两项低效已有实现和现场证据：
+
+1. **大量很小的 Produce 请求。** 网关 8 worker × 4 sender 分散批次，设置 batch32 并不等于每次实际32条。第二轮约4945条/s旧格式转换记录、2792个/s v1 Produce请求，约1.77条/请求。此比值来自同窗 Broker 转换记录与版本请求计数，不使用逐分区 append 计数伪装网络请求数。
+2. **旧格式转换。** 当前 APISIX 适配器发送 Produce v1、magic0 MessageSet，现代 Kafka 日志会转换记录格式。第一轮保留执行样本中转换栈21/260，分配权重约14.27%；这是采样份额，不是可直接兑现的 QPS 提升比例。实际两个 Topic 各2分区、RF1，不能拿创建脚本默认24分区解释当前实例。
+
+第二轮也存在具体瞬态：UTC18:10:25附近 Broker append锁最长约70.81ms；18:11:51附近多个 handler 的FileWrite约60ms、锁等待约71.74ms，伴随Broker Local/Total延迟及native request最大值上升。它们支持 Broker 短暂停顿参与**事件确认**尾延迟，但FileWrite墙钟时长含调度，不足以证明磁盘已经满载。5秒Publisher scrape及滚动最大值也不足以还原严格的逐毫秒先后关系。
+
+**跳转 HTTP 不同步等待 Kafka ACK。** 未满槽时，不能把 native request 最大121–142ms直接解释成HTTP P99 119ms；若要建立联系，还需证明同步offer锁、共享CPU/调度等中间路径。不能把日志锁、GC、系统调用等待相加当成端到端耗时。
+
+本环境仍是单Broker、RF1的本地诊断，不代表生产副本部署。Kafka ACK不等于逐条fsync；本轮大部分慢FileForce属于KRaft。Flink、ClickHouse、Agent统计查询未参与此轮容量负载，所以也不存在“已证明消费者处理不过来拖慢跳转”的结论。[Broker机制核查](../../../../../.work/redirect-causal-20260908/analytics-analysis.md)、[第二轮Broker证据](../../../../../.work/redirect-causal-20260908/analytics-round2-analysis.md)
+
+## 5. 观测问题与证据边界
+
+第一轮停止由网关采集器混合读取不同时间的worker快照和全局计数触发。18份快照采集器均可用，但11份全局守恒出现微小正负残差；连续8份不完整触发门禁。已排除“批发送遗漏oldest”的初始假设，批发送前仍给slot.item赋值。
+
+第二轮仅通过临时runner补采：每轮最多4次原始EDGE采样，整体预算5秒，完整保留每次原始结果，选中真实complete/fault0快照。原生产采集器未修复。33份快照包含74次EDGE尝试；未伪造complete、未放宽失败/拒绝门槛；独立复核全部原始尝试均未触队列硬界或1600拥塞阈值。重读存在选择偏差，不能把选中值当作瞬时峰。
+
+审查还发现临时runner在“后续尝试触1600阈值但未选中快照”分支可能返回第一份快照，遮蔽后续拥塞。**本轮所有原始尝试最大pending158，缺陷未触发；该runner不得未经修正直接复用下一轮。**正式解决方案是worker局部一致快照聚合与静止时全局对账，并保留缺worker、代际更换和非法计数等故障判定。
+
+第一轮原有Prometheus解析器丢弃新诊断label，后置Producer采样不能充当活动期证据。第二轮采用严格固定schema补齐202项；前两份16个native未初始化值以NaN及availability0保留，之后齐全。[观测复核](../../../../../.work/redirect-causal-20260908/account-round2-analysis.md)
+
+JFR原始记录无DataLoss，公开导出无整体截断；分配采样限额导致部分行省略，4096键的辅助聚合也有溢出。分析读取保留的event行并报告省略，不把聚合丢失当成热点不存在。新增诊断原子操作、计时、JFR及附加观察器均有成本；没有开关对照，不能把旧无JFR的90秒P99与本轮119ms直接作性能回归或收益比较。
+
+## 6. 突破顺序与验收条件
+
+| 顺序 | 单独实施/验证的内容 | 必须看到的证据 |
+| --- | --- | --- |
+| 1 | 修复观测一致性；独立压力机和观察器资源，补逐秒sent/drop/activeVU/CPU、实际到达量、客户端HTTP分项与网关request/upstream时长 | 达到目标且零drops；入口计数对齐，定位客户端与Redirect计时差异。先建立服务端测量余量 |
+| 2 | 只把UTF-8预算计算移出Lane monitor，保留序列化器、终态和关闭语义 | ACK锁等待/持有降低；HTTP尾延迟、事件质量、排空不恶化 |
+| 3 | 在独立变更中统一一次事件字节编码并复用；之后再评估缩小结算临界区 | 分配率、单位请求CPU下降；字节上限、重试、恰好一次释放及关闭竞态测试通过 |
+| 4 | APISIX单独测试减少sender分流或极短有界合批等待；再单独验证现代RecordBatch | 同record/s下records/request增加、wire请求及转换成本下降；保留ACK、超时、部分失败和重放语义 |
+| 5 | 版本化合并click与业务result事件，成功GET从3条原始输入变2条；统计tool复用同一消费视图 | HEAD、网关拒绝、未达业务层、去重、口径和Agent统计一致性全部通过 |
+| 6 | 依据上述稳定单位成本和生产副本目标做多实例、分区、Broker扩容 | 资源隔离、热点分布、副本故障、长期积压与恢复都有独立验收 |
+
+每项只改变一个可归因变量。第一项是测量有效性前提，不宣称优化产品性能；第2项只移动预算计算时，不同时改byte[] serializer、线程数和batch。不得以扩大1000槽、丢弃事件、降低ACK或放宽P99来制造容量通过。
+
+## 7. 本次改动、校验与资源释放
+
+本次产品代码仅为 [AsyncKafkaPublisher.java](../../../../../shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/AsyncKafkaPublisher.java) 增加固定基数的拒绝原因、首次拒绝现场、高水位、1/64采样阶段耗时、Producer native指标及自定义JFR事件；未执行上述性能改造。既有未提交优化保持原状。
+
+诊断JAR SHA256：`f3a50ee23fd089cf49d781df5abc6a0f2c086cf4b26f456469ce29e63460459a`，两轮使用同一JAR。新增诊断及既有Publisher单元测试11项通过，真实Kafka集成测试1项通过，无跳过。[验证清单](../../../../../.work/redirect-causal-20260908/root-verification.json)
+
+最终SQL完整性通过，11300条fixture记录保持一致，队列排空；全运行账本保留第一轮14个未知HTTP对应的4项FAIL。两轮失败证据、Kafka数据和原始JFR均保留。应用、APISIX、依赖和观察器已停止，依赖CPU设置恢复，专用WSL已终止。[关闭证据](../../../../../.work/redirect-causal-20260908/root-runtime-closed.json)、[最终账本](../../../../../.work/performance/20260907T174017Z-1a225a7c/causal-ledger-verification.json)

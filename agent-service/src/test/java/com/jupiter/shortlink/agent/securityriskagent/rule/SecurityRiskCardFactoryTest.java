@@ -1,11 +1,11 @@
 package com.jupiter.shortlink.agent.securityriskagent.rule;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class SecurityRiskCardFactoryTest {
 
@@ -13,15 +13,26 @@ class SecurityRiskCardFactoryTest {
 
     @Test
     void buildCreatesTopIpConcentrationRiskCardWithMaskedEvidence() {
-        List<Object> cards = factory.build(List.of(statsExecution(Map.of(
-                "pv", 100,
-                "uv", 80,
-                "uip", 20,
-                "topIpStats", List.of(
-                        Map.of("ip", "192.168.1.10", "cnt", 45),
-                        Map.of("ip", "10.0.0.8", "cnt", 10)
-                )
-        ))));
+        List<Object> cards =
+                factory.build(
+                        List.of(
+                                statsExecution(
+                                        Map.of(
+                                                "pv", 100,
+                                                "uv", 80,
+                                                "uip", 20,
+                                                "topIpStats",
+                                                        List.of(
+                                                                Map.of(
+                                                                        "ip",
+                                                                        "192.168.1.10",
+                                                                        "cnt",
+                                                                        45),
+                                                                Map.of(
+                                                                        "ip",
+                                                                        "10.0.0.8",
+                                                                        "cnt",
+                                                                        10))))));
 
         Map<String, Object> card = firstCard(cards, "top_ip_concentration");
 
@@ -41,12 +52,15 @@ class SecurityRiskCardFactoryTest {
 
     @Test
     void buildCreatesHighRepeatVisitsCardWhenPvUvRatioIsHigh() {
-        List<Object> cards = factory.build(List.of(statsExecution(Map.of(
-                "pv", 120,
-                "uv", 20,
-                "uip", 18,
-                "topIpStats", List.of()
-        ))));
+        List<Object> cards =
+                factory.build(
+                        List.of(
+                                statsExecution(
+                                        Map.of(
+                                                "pv", 120,
+                                                "uv", 20,
+                                                "uip", 18,
+                                                "topIpStats", List.of()))));
 
         Map<String, Object> card = firstCard(cards, "high_repeat_visits");
 
@@ -60,13 +74,20 @@ class SecurityRiskCardFactoryTest {
 
     @Test
     void buildCreatesHourBurstCardWhenPeakHourShareIsHigh() {
-        List<Object> cards = factory.build(List.of(statsExecution(Map.of(
-                "pv", 100,
-                "uv", 90,
-                "uip", 80,
-                "hourStats", List.of(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 70, 30),
-                "topIpStats", List.of()
-        ))));
+        List<Object> cards =
+                factory.build(
+                        List.of(
+                                statsExecution(
+                                        Map.of(
+                                                "pv", 100,
+                                                "uv", 90,
+                                                "uip", 80,
+                                                "hourStats",
+                                                        List.of(
+                                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 70,
+                                                                30),
+                                                "topIpStats", List.of()))));
 
         Map<String, Object> card = firstCard(cards, "hour_burst");
 
@@ -79,14 +100,16 @@ class SecurityRiskCardFactoryTest {
 
     @Test
     void sanitizeForPromptRemovesUsersAndMasksIpRecursively() {
-        Object sanitized = factory.sanitizeForPrompt(List.of(Map.of(
-                "ip", "172.16.1.2",
-                "user", "visitor-001",
-                "nested", Map.of(
-                        "ip", "10.0.0.9",
-                        "user", "visitor-002"
-                )
-        )));
+        Object sanitized =
+                factory.sanitizeForPrompt(
+                        List.of(
+                                Map.of(
+                                        "ip", "172.16.1.2",
+                                        "user", "visitor-001",
+                                        "nested",
+                                                Map.of(
+                                                        "ip", "10.0.0.9",
+                                                        "user", "visitor-002"))));
 
         String text = sanitized.toString();
 
@@ -101,13 +124,16 @@ class SecurityRiskCardFactoryTest {
 
     @Test
     void sanitizeForPromptUsesSharedSafetyRulesForIdentityAndSecrets() {
-        Object sanitized = factory.sanitizeForPrompt(Map.of(
-                "username", "admin",
-                "uid", "u-001",
-                "token", "internal-token",
-                "password", "db-password",
-                "message", "token=abc password:secret jdbc:mysql://127.0.0.1:3306/shortlink?user=root"
-        ));
+        Object sanitized =
+                factory.sanitizeForPrompt(
+                        Map.of(
+                                "username", "admin",
+                                "uid", "u-001",
+                                "token", "internal-token",
+                                "password", "db-password",
+                                "message",
+                                        "token=abc password:secret"
+                                            + " jdbc:mysql://127.0.0.1:3306/shortlink?user=root"));
 
         String text = sanitized.toString();
 
@@ -128,7 +154,8 @@ class SecurityRiskCardFactoryTest {
 
     @Test
     void sanitizeTextMasksInlineIpAndUserIdentifiers() {
-        String sanitized = factory.sanitizeText("focus ip=192.168.1.10 user=visitor-001 username:admin");
+        String sanitized =
+                factory.sanitizeText("focus ip=192.168.1.10 user=visitor-001 username:admin");
 
         assertThat(sanitized)
                 .contains("192.168.*.*")
@@ -141,20 +168,27 @@ class SecurityRiskCardFactoryTest {
 
     private Map<String, Object> statsExecution(Map<String, Object> data) {
         return Map.of(
-                "name", "get_group_stats",
-                "success", true,
-                "arguments", Map.of("gid", "g1", "startDate", "2026-07-01", "endDate", "2026-07-07"),
-                "data", data
-        );
+                "name",
+                "get_group_stats",
+                "success",
+                true,
+                "arguments",
+                Map.of("gid", "g1", "startDate", "2026-07-01", "endDate", "2026-07-07"),
+                "data",
+                com.jupiter.shortlink.agent.StatsTestFixtures.envelope(data));
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> firstCard(List<Object> cards, String reasonCode) {
-        return (Map<String, Object>) cards.stream()
-                .map(item -> (Map<String, Object>) item)
-                .filter(item -> reasonCode.equals(map(item.get("summary")).get("reasonCode")))
-                .findFirst()
-                .orElseThrow();
+        return (Map<String, Object>)
+                cards.stream()
+                        .map(item -> (Map<String, Object>) item)
+                        .filter(
+                                item ->
+                                        reasonCode.equals(
+                                                map(item.get("summary")).get("reasonCode")))
+                        .findFirst()
+                        .orElseThrow();
     }
 
     @SuppressWarnings("unchecked")

@@ -1,0 +1,128 @@
+# 19－跳转共享锁与调度瓶颈优化复测
+
+**当前结论：不能把约5000 QPS认定为硬件上限。** 同一台主机的正式窗口已测得5999.6 QPS、HTTP P99 27.544ms，但仍有24次发生器未发出的请求，严格容量验收保持FAIL。共享CPU与隔离CPU在匹配预热条件下的5000档延迟接近，因此不能把改善归功于CPU隔离。末组旧制品对照与最终收尾结果见第6节；[上轮报告18](D:/学习/Project/马哥Project/shortlink/plan/生产级重构增强/18-跳转事件终态与路由开销对照复测.md)原结论保持。
+
+主机为Ryzen 7 5800H、8物理核/16逻辑CPU、约32GiB内存，WSL可见约16GiB。默认Java与APISIX共享0–7（4物理核的SMT线程），依赖8–11，发生器12–15；隔离试验将相同应用CPU集合分为Java0–3/APISIX4–7。每个Java最大堆384MiB、APC2，8个网关worker、每worker4个sender；Kafka单broker、512MiB最大堆、相关topic两分区/单副本。这些亲和性不能阻止Windows和其它虚拟化工作争用物理主机。[主机采样](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/host-resources.json)与[环境记录](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/environment.json)保留原始值。
+
+## 1. 新基线仍未达到容量门槛
+
+运行 `20260908T141930Z-3d562b15`，阶段 `inv-baseline-r5000`：原生Go发生器、64来源IP、每来源8连接/总512槽，30秒渐进预热后计划5000 GET/s、正式60秒。Java与8worker APISIX共享CPU0–7，依赖8–11，发生器及OS观察器12–15；这些是guest逻辑CPU亲和性，不是独占物理核。网关每worker4sender、节点总32槽，batch32/64KiB、linger0；节点队列仍2000条/16MiB。Redirect基线制品为 `f70d938c…`，完整身份见[运行state](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T141930Z-3d562b15/state.json)。
+
+正式窗口严格取原生输出：**2026-09-08 14:27:40.534380320–14:28:40.534380320 UTC，60秒**。
+
+| 指标 | 正式期 | 全场景，含预热 |
+|---|---:|---:|
+| 已发＝完成＝收到HTTP＝正确302 | 294,991 | 370,996 |
+| 正确吞吐，实际窗口分母 | 4,916.5167/s | 不混入正式QPS |
+| 未发送drops | 5,009 | 5,504 |
+| HTTP未确认 | 0 | 0 |
+| HTTP roundtrip P99 | 175.619470ms | 178.376522ms |
+| scheduled-to-completion P99 | 178.268844ms | 180.605168ms |
+
+原始[summary](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T141930Z-3d562b15/stages/inv-baseline-r5000/native-summary.json)与[result](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T141930Z-3d562b15/stages/inv-baseline-r5000/result.json)保留 `CAPACITY_STAGE_FAILED`：未达99%目标、非零drops、两项P99均超过80ms；本阶段无Monitor中止，正式窗口完整。
+
+14项事件失败增量全0，结束排空；click/result/edge三路各交付370,996条，主区间Kafka点击370,996、请求741,992，SQL267条不变，未列入的请求差额0。[原生账本](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T141930Z-3d562b15/native-get-ledger.json)仅计数守恒PASS，**不是容量PASS，也不是eventId exactly-once证明**。旧128 GET协议校准只继承证据，没有在本基线重复执行。
+
+## 2. 已定位的共享锁与调度竞争
+
+| 证据 | 已确认事实 | 不能据此推导 |
+|---|---|---|
+| UUID/NativePRNG共享monitor | 正式窗37次等待，合计292.100线程ms；最大33.444ms，最长两次没有GC重叠 | UUID是全部HTTP P99或drops的唯一原因 |
+| Publisher Lane与scrape交错 | 419次Lane等待，合计2428.425线程ms；scrape的`outsideQueue()`等Lane26.853ms，随后epoll等待记录previousOwner为该scrape线程，时长30.121ms | scrape连续持锁30ms；成功ACK仍在等旧Lane终态锁 |
+| 可运行线程未获CPU | 同约59.750s内部OS窗口，4个HTTP线程累计runqueue31.886线程秒，2个dispatch线程30.432线程秒，2个Kafka Sender10.516线程秒 | 整个服务停顿对应秒数；这些等待可与锁/GC直接相加 |
+
+锁栈与时间锚见[Publisher基线分析](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/baseline-publisher-analysis.md)，逐线程身份/区间见[调度分析](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/baseline-scheduling-analysis.md)。当前CAS结算已经让成功ACK避开admission monitor；这轮新证据定位到**请求侧随机数共享状态和观测读取竞争**，不能把旧ACK锁问题直接搬回现版本。
+
+同一正式内部metrics窗口约51.406秒，Redirect GET302 handler均值1.150ms，APISIX upstream均值8.653ms、request均值8.860ms；客户端整个正式窗mean16.068ms属于另一边界和窗口。没有对应服务端直方图，不能生成handler/upstream P99，不能将均值或分位数相减当作某层精确开销。handler之外还包括连接、事件循环排队、可读事件调度和客户端处理。
+
+**Kafka ACK不是HTTP同步步骤。** HTTP只做有界接纳，异步worker发送，ACK/终态才释放预约；共享CPU、请求侧锁或后台完成尾部可能间接影响HTTP与队列。`awaiting_callback`也不等于精确的网络中ACK数量。缺少逐请求与Broker的完整关联，不能把一条Broker慢事件直接对应到HTTP P99。
+
+## 3. 健康检查和Broker启动资源配置
+
+[Broker基线分析](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/baseline-broker-analysis.md)识别出正式窗相交的5次Docker健康检查，每次启动Kafka CLI JVM、持续3.852–4.374秒、ExitCode均0；同PID/startTicks可见CPU增量下界合计**17.75 CPU秒**。这是匹配进程的下界，不是完整进程树成本。
+
+只比较完整落在健康检查内/外的250ms区间，Broker request/network组runqueue分别为1.914与0.857线程秒/墙秒，约2.23倍。健康检查参与调度竞争有证据；但`UnifiedLog.append`等待65.375ms、FileWrite33.114ms、FileForce50.459ms的三个极值均在健康检查窗口外，反证“全部尾部只由健康检查引起”。后者也不能证明每次Produce都同步fsync或磁盘已饱和。
+
+另一项已落实的运行修正是：**先限定Broker cpuset8–11，再重启同一个测试容器内的JVM**。之前Broker在0–15启动、随后才收窄到8–11；原JDK21 GC/JIT自适应配置仍为CICompilerCount12、ConcGCThreads3、G1ConcRefinementThreads13。修正后分别为3、1、4，heap256–512MiB不变，容器/image/挂载、健康检查与数据保留，未重启其它容器。[精确启动证明](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/broker-startup-cpu-fix.json)记录了前后PID、startTicks、VM.flags和8–11范围。
+
+后续运行 `20260908T144302Z-54871c40 / inv-broker-cpu-r5000` 已完成。正式窗口 **14:46:26.123734293–14:47:26.123734293 UTC，60秒**，结果如下：
+
+| 同目标5000/s对照 | 正式正确QPS | 正式drops | HTTP P99 | scheduled P99 | 容量 |
+|---|---:|---:|---:|---:|---|
+| 原基线 | 4,916.5167 | 5,009 | 175.619470ms | 178.268844ms | FAIL |
+| Broker在8–11启动 | 4,910.5167（294,631/60s） | 5,369 | 185.787135ms | 187.409645ms | FAIL |
+
+新对照全程369,780次HTTP四计数相等、未知0、drops6,720；14项事件失败增量0、结束drained/source64验证、SQL267不变，[原生账本](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T144302Z-54871c40/native-get-ledger.json)计数PASS。[实际result](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T144302Z-54871c40/stages/inv-broker-cpu-r5000/result.json)仍因供给/drops/双P99判容量FAIL。**本次对照没有显示启动CPU修正带来改善**；单次顺序运行略差也不能反推修正必然有害。健康检查策略未改变，不能写成已优化；其成本仍需独立对照。Broker业务线程同样有调度等待，平均CPU低于逻辑CPU总数不能证明没有调度瓶颈。
+
+## 4. 已落源码修改与保持的语义
+
+| 修改 | 实际作用 | 验证状态 |
+|---|---|---|
+| [SecureRequestIds](D:/学习/Project/马哥Project/shortlink/shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/web/SecureRequestIds.java)及Controller四处接入 | 每线程独立SUN DRBG，系统熵播种；保留UUIDv4/122随机位、事件时间绑定、访客cookie和同请求关联，无弱随机fallback | 测试通过，见第6节；[只读审查](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/request-id-code-review.md)完成 |
+| 启动随机源自检 | Controller构造时实际生成16随机字节；provider/首次熵源失败令bean构造失败 | helper与Controller构造失败回归均通过 |
+| [AsyncKafkaPublisher.outsideQueue](D:/学习/Project/马哥Project/shortlink/shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/AsyncKafkaPublisher.java:326)移除Lane同步锁 | 两次邻接读取后`max(0,pending-queueSize)`，仅做诊断；权威State和`A=D+F+R+P`、count/bytes预算、ACK/重试/关闭不变 | [观测隔离测试](D:/学习/Project/马哥Project/shortlink/shortlink-redirect/src/test/java/com/jupiter/shortlink/redirect/event/AsyncKafkaPublisherObservationIsolationTest.java)已通过，真实持有Lane锁时两次读取均完成 |
+| 专用Redis显式空DB选择与有限准入、可选CPU分组 | 原自动DB8–15保持；专用breakthrough容器/16381仅允许显式空DB1–15，requested/actual一致；DB0在任何I/O前拒绝。增加0–3 Java/4–7网关试验配置，默认仍共享0–7 | 10项Redis、9项CPU、25项worker、10项linger离线测试全部通过，共54项；真实启动路径的配置传递有回归覆盖，旧失败准备不删除 |
+
+每线程DRBG仍可能在初始化/reseed时访问共享熵源，不宣称完全无锁。启动自检只覆盖启动线程，不能保证未来每个请求线程都无熵源故障；运行期失败传播及部分事件边界见代码审查。`outside_queue`是邻接诊断，不能拿它与其它gauge强行拼成原子分区；守恒仍使用quality权威快照。
+
+这轮保持1000预约槽/8MiB、ACK语义、事件保护及统计采集。既有JSON编码、Kafka消息格式、发生器512连接槽和自旋配置保持；CPU隔离单独做了对照，见第6节，不能把相关配置直接计为已证实的性能收益。
+
+## 5. DB0准备失败：没有容量阶段
+
+`20260908T143245Z-8cf5d49c` 已真实准备267条，但freeze时旧observer仍拒绝DB0，错误为 `A dedicated non-default Redis logical database is required`。[失败日志](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/prepare-broker-cpu-freeze.log)与[停止记录](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/stopped-broker-cpu.json)保留；该run没有run-manifest、baseline或stages目录，servicesStopped=true。这是准备兼容性失败，不能记作容量测试，也不能抹去已经产生的准备数据和Kafka事件预算。
+
+后续新run必须使用冻结后的显式空库合同，失败run的数据与证据原样保留。运行清单、准确socket/容器、CPU/Redis边界及收尾顺序见[运行审阅](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/runtime-review.md)。
+
+## 6. 测试、候选结果与收尾
+
+| 项目 | 实际结果 |
+|---|---|
+| 相关单元/集成测试数量、失败/跳过、日志、最终JAR SHA | 75项单元测试及1项真实Kafka集成测试全部通过，失败/错误/跳过均0；[构建与源码绑定](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/request-lock-java-verification.json)、[完整日志](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/request-lock-java-verify.log)。候选JAR SHA `fde312cc852ec0ccc0d18c95b0b04da683e226f87071555698c09ed87f403b75` |
+| Broker启动CPU修正后的独立对照 | 已完成，见第3节：容量FAIL、计数账本PASS；没有观察到性能改善 |
+| DRBG及观测隔离候选复测 | 下表8次尝试全部完成；末组旧制品约4995.2 QPS/P99 75.241ms，候选共享CPU约4999.933 QPS/P99 26.423ms，窗口及顺序差异限制归因 |
+| 新轮最终计数/预算/所有FAIL和未知请求 | [最终对账](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/investigation-accounting.json)已封存，新增实际7,658,194条、family累计33,300,061条，8阶段/10M新增/40M累计/128GiB模型均通过；容量及整轮事件完整性不通过，23次HTTP504和原生账本REFUSED保留 |
+| JAR/源码冻结与环境清理证明 | 所有登记应用均STOPPED后[恢复已验证fde制品](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/jar-switch-candidate.json)。[清理记录](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/cleanup-result.json)确认2026-09-08 15:40:31 UTC已停止本轮4个专用依赖及专用engine3911，恢复原cpuset0–15；未删数据、未操作默认Docker、未终止WSL |
+
+容量门槛为：完整窗口、正确吞吐至少目标99%、所有实际HTTP正确、预热及正式阶段均零drops、HTTP及计划到完成P99均不超过80ms、14项事件失败增量全0、来源64/计数/SQL267/排空成立。下表QPS与P99只取正式期，除末组45秒及未进入正式期的失败组外均为60秒；容量drops门槛同时检查预热。
+
+| 阶段 | 制品/条件 | 正式正确QPS | 正式drops / 预热drops | HTTP P99 ms | 容量 |
+|---|---|---:|---:|---:|---|
+| baseline 5000 | 旧f70d，共享CPU，额外JFR/OS/JMX，预热30s | 4916.517 | 5009 / 495 | 175.619 | FAIL |
+| broker-cpu 5000 | 旧f70d，Broker先设CPU再启动，其余同上 | 4910.517 | 5369 / 1351 | 185.787 | FAIL |
+| request-lock 5000 | 新fde，共享CPU，额外JFR/OS/JMX | 未进入正式期 | 不适用 / 320 | 不适用 | FAIL，预热23个504 |
+| request-lock-plain 5000 | 新fde，共享CPU，无额外采集，**无预热** | 4871.133 | 7732 / 不适用 | 192.755 | FAIL |
+| isolated-cpu 5000 | 新fde，分组CPU，无额外采集，预热30s | 5000.000 | 0 / 1 | 28.220 | FAIL，仅预热drop |
+| isolated-cpu 6000 | 新fde，分组CPU，无额外采集，预热30s | 5999.600 | 24 / 0 | 27.544 | FAIL，仅drops |
+| shared-paired 5000 | 新fde，共享CPU，无额外采集，预热30s | 4999.933 | 4 / 0 | 26.423 | FAIL，仅drops |
+| old-paired 5000 | 旧f70d，共享CPU，无额外采集，预热30s，**正式45s** | 4995.200 | 216 / 0 | 75.241 | FAIL，仅drops |
+
+全部阶段均保留原始失败。request-lock第一次预热约11.88秒终止，12393次实际HTTP中12370次正确、23次504；网关日志均为连接上游超时，没有证据把它说成Kafka ACK超时。该run后续plain阶段虽HTTP全部正确，也没有改写整run的`NATIVE_HTTP_UNKNOWN_OR_FAILED`账本拒绝。[预热故障分析](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/request-lock-warmup-failure.md)和[调度分析](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/request-lock-warmup-scheduling.md)记录了C2编译线程与HTTP调度等待；不足以证明一次全JVM长停顿或某个具体编译方法。
+
+新制品共享CPU匹配组的P99 26.423ms，与隔离组28.220ms接近。因此，不能拿没有预热的plain组192.755ms与隔离组直接相减，宣称CPU隔离降低85%尾延迟。[共享/隔离核验](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/shared-isolated-comparison.md)确认了制品、发生器与其余配置一致，CPU分配及执行时间/Redis DB有差异。额外JFR/OS采集和预热条件会改变测量环境，未逐项重复验证之前，不能唯一归因。
+
+末组旧f70d恢复对照正式窗口为15:38:22.404902047–15:39:07.404902047 UTC，224784次正确HTTP/45s，216次busyDropped；预热76500次全部正确、无drop。它与新fde共享组使用同发生器、同CPU资源、同30秒预热、无额外JFR/OS/JMX，其余三个JAR相同；但正式期45s对60s、重启/执行时间/DB不同，不能视作严格等长因果试验。新组尾延迟和drops较少，支持组合修复值得保留；不能把表面差值当成可复现收益比例，也不能拆成DRBG与指标锁各自贡献。旧组自身在这个条件下也比早期185.787ms快，说明诊断/预热/宿主条件影响不能忽略。[末组原始result](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T153446Z-1d323c8b/stages/inv-old-paired-r5000/result.json)保留全部门槛；三路事件各交付301284条、14失败增量0、SQL267和排空通过，[原生账本](D:/学习/Project/马哥Project/shortlink/.work/performance/20260908T153446Z-1d323c8b/native-get-ledger.json)仅计数PASS，容量仍FAIL。
+
+[旧版/候选逐项核验](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/old-candidate-comparison.md)保留两组制品、配置、窗口与原始输入SHA；没有补造候选相同45秒的分位数。
+
+6000档正式359976次HTTP全部正确，包含预热的451476次请求在click/result/edge三路各交付451476条，14项事件失败增量0并排空。**这证明本次实际消息生产交付能够跟上，不证明下游统计消费者吞吐。** 24次drops为发生器的busyDropped，发生在请求发出前，不是HTTP错误或网关429；每个来源仅8槽，总maxActive410小于512也不能排除单来源槽位满。服务端或网络尾延迟同样会占住槽位，不能将全部原因推给发生器。
+
+在该正式期内49.177秒采样窗，APISIX CPU 345.653%、Redirect 210.263%、所有Java 232.428%；100%代表一个逻辑CPU运行时间。网关使用其4逻辑CPU时间预算约86.4%，是当前最明显的应用侧资源热点，但SMT下不能解释为物理核只剩13.6%余量。Redirect handler平均0.488ms、网关upstream平均2.424ms；没有服务端同口径P99，不能用均值相减定位客户端P99。Java两路预约采样峰值101/75，edge pending峰值39，Producer重试/错误/bufferpool等待增量为0，未出现持续队列耗尽。[6000档完整分析](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/isolation-6000-analysis.md)保留窗口、源码证据及计算。
+
+构建过程第一次因缓存路径未复用而产生下载，已主动中止并保留日志；随后复用既有挂载缓存完成上述构建和测试。中止的构建不计测试通过。
+
+健康检查的下一部署配置已写入[compose.integration.yaml:44](D:/学习/Project/马哥Project/shortlink/deploy/test/compose.integration.yaml:44)：保留`kafka-topics.sh --list`，仅其子JVM使用16–64MiB堆、APC1、SerialGC及TieredStopAtLevel1。Compose实际渲染及6次真实协议检查通过；3组原命令/候选命令的子进程CPU总和分别为6.414/4.346秒（候选低32.24%）。[验证记录](D:/学习/Project/马哥Project/shortlink/.work/redirect-investigation-20260908/health-command-verification.json)记录了每次退出码与耗时、broker JVM flags及当前容器healthcheck均未改变。这是无跳转负载的短样本，未验证大规模topic、不可达broker及满载场景；当前容量复测仍用原healthcheck，不能归入候选QPS收益。
+
+本轮上限为8个容量阶段、每档≤10000/s、暖机≤30秒/正式≤60秒、额外≤10M事件；旧family起点25,641,867条继续累计，family同时受40M条/128GiB模型约束，所以有效额外额度更小。保留25GiB磁盘底线、2000积压、300秒排空及原错误门禁，每档重新准入。末组原30+60秒的保守预测超过模型余量，故在发压前将正式期缩为45秒；没有降低每记录4096B模型或按预热实际较低流量绕过准入。最终模型累计136,397,049,856B，余量254,371条；该数是保守模型额度，不是磁盘实占或可继续压测授权。最终对账包含准备失败、所有失败HTTP产生的消息以及本轮Kafka集成测试，不用“正确HTTP乘3”替代实际Topic偏移。整轮23次504没有取得完整事件验收，`eventCompletenessPassed=false`保留。这不是长期容量认证。
+
+此次未运行Analytics统计消费者，Kafka生产者ACK与Topic偏移对账只能说明消息生产交付，不能声称统计已落库，更不能把消费者吞吐视作已定位瓶颈。
+
+## 7. 当前瓶颈判断与后续突破顺序
+
+**尚未证实整机物理资源已到上限，也尚未测得零丢弃的稳定峰值。** 前面约4900 QPS/175–193ms的观测，不能继续作为硬件只能支撑5000的依据；相同主机已有约6000 QPS/27.5ms的短时结果。应区分“当前配置最先承压的组件”“压测发生器的并发准入边界”和“整套系统可持续容量”。
+
+1. **应用侧优先追查网关CPU与事件发送固定成本。** 6000档中网关在所分配逻辑CPU集合上最忙，edge平均每次Produce仅1.263条，接近逐条发送；即使Kafka没有持续积压，Lua组包、socket操作及高频回调也会消耗网关CPU。现有8worker并不等于8个独占物理核。下一轮应先冻结同一制品/预热/观测口径，单独对比小幅linger与批效，同时验证事件等待、CPU、HTTP双P99与守恒；本轮没有完成这个新对照，不能预报收益。
+2. **先校准发生器并发边界，再判断更高QPS。** 保留64个真实来源与开放式到达时间，增加按来源busyDrops/活跃槽位观测；独立比较每来源8槽与更大槽位。更大连接数会改变负载形状，必须用新制品校准、单独登记，并继续把任何未发出请求计为失败，不能靠排队或隐藏drops获得虚假吞吐。当前未改512槽发生器。
+3. **按需增加网关可用CPU或副本，验证吞吐是否随资源增长。** 只有先排除发生器不足、固定下游及观测开销，再做资源阶梯对照，才能判定是实现固定成本、资源配额还是共享主机干扰。增加worker数量本身不增加CPU预算；单机SMT亲和性也不能代替独立压测机与应用节点。
+4. **独立验收统计消费链路。** 本轮三路生产约为每个正确跳转各一条事件；消费者尚未运行。后续完整容量验收必须加入consumer lag、落库吞吐、重试/死信、重复处理和最终统计一致性，不能把当前跳转/生产交付结果推广成全链路生产容量。
+
+目前没有证据支持优先扩Kafka broker或直接堆更多异步worker作为唯一修复；也没有证据证明内存、磁盘带宽或整机CPU已全部耗尽。JFR已经确认的共享锁值得修复，但其存在本身不等于整个P99或QPS的全部原因。后续每个优化都应在相同预热和观测条件下独立复测，保留冷启动结果与所有失败窗口。

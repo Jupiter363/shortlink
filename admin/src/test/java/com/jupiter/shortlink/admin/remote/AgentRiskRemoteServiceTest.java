@@ -1,5 +1,8 @@
 package com.jupiter.shortlink.admin.remote;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.jupiter.shortlink.admin.common.convention.result.Result;
 import com.jupiter.shortlink.admin.remote.dto.req.RiskPolicyDisableReqDTO;
 import com.jupiter.shortlink.admin.remote.dto.req.RiskReviewReqDTO;
@@ -10,6 +13,7 @@ import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkCardRespDTO;
 import com.jupiter.shortlink.admin.remote.dto.resp.RiskShortLinkDetailRespDTO;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,26 +33,22 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 @SpringBootTest(
         classes = AgentRiskRemoteServiceTest.FeignTestConfiguration.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-                "spring.cloud.discovery.enabled=false",
-                "spring.cloud.nacos.discovery.enabled=false",
-                "spring.autoconfigure.exclude=org.redisson.spring.starter.RedissonAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"
-        }
-)
+            "spring.cloud.discovery.enabled=false",
+            "spring.cloud.nacos.discovery.enabled=false",
+            "spring.autoconfigure.exclude="
+                + "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
+                + "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,"
+                + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"
+        })
 class AgentRiskRemoteServiceTest {
 
     private static final RecordingHttpServer SERVER = RecordingHttpServer.start();
 
-    @Autowired
-    private AgentRiskRemoteService agentRiskRemoteService;
+    @Autowired private AgentRiskRemoteService agentRiskRemoteService;
 
     @DynamicPropertySource
     static void dynamicProperties(DynamicPropertyRegistry registry) {
@@ -67,73 +67,64 @@ class AgentRiskRemoteServiceTest {
 
     @Test
     void groupOverviewSendsInternalPathAndTrustedHeaders() {
-        Result<RiskGroupOverviewRespDTO> result = agentRiskRemoteService.groupOverview(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1"
-        );
+        Result<RiskGroupOverviewRespDTO> result =
+                agentRiskRemoteService.groupOverview(
+                        "internal-token", "trusted-user", "1001", 1L, "g1");
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("GET");
-        assertThat(SERVER.lastRequest.path()).isEqualTo("/internal/short-link-agent/v1/risk/groups/g1/overview");
+        assertThat(SERVER.lastRequest.path())
+                .isEqualTo("/internal/short-link-agent/v1/risk/groups/g1/overview");
         assertTrustedHeaders();
         assertThat(SERVER.lastRequest.body()).isEmpty();
     }
 
     @Test
     void groupShortLinksSendsInternalPathAndTrustedHeaders() {
-        Result<List<RiskShortLinkCardRespDTO>> result = agentRiskRemoteService.groupShortLinks(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1"
-        );
+        Result<List<RiskShortLinkCardRespDTO>> result =
+                agentRiskRemoteService.groupShortLinks(
+                        "internal-token", "trusted-user", "1001", 1L, "g1");
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("GET");
-        assertThat(SERVER.lastRequest.path()).isEqualTo("/internal/short-link-agent/v1/risk/groups/g1/short-links");
+        assertThat(SERVER.lastRequest.path())
+                .isEqualTo("/internal/short-link-agent/v1/risk/groups/g1/short-links");
         assertTrustedHeaders();
     }
 
     @Test
     void shortLinkDetailUsesInternalPathVariables() {
-        Result<RiskShortLinkDetailRespDTO> result = agentRiskRemoteService.shortLinkDetail(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1",
-                "nurl.ink",
-                "abc123"
-        );
+        Result<RiskShortLinkDetailRespDTO> result =
+                agentRiskRemoteService.shortLinkDetail(
+                        "internal-token", "trusted-user", "1001", 1L, "g1", "nurl.ink", "abc123");
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("GET");
-        assertThat(SERVER.lastRequest.path()).isEqualTo("/internal/short-link-agent/v1/risk/groups/g1/short-links/nurl.ink/abc123");
+        assertThat(SERVER.lastRequest.path())
+                .isEqualTo(
+                        "/internal/short-link-agent/v1/risk/groups/g1/short-links/nurl.ink/abc123");
         assertTrustedHeaders();
     }
 
     @Test
     void eventsSendsInternalQueryParametersAndTrustedHeaders() {
-        Result<RiskPageRespDTO<?>> result = agentRiskRemoteService.events(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "g1",
-                "SHORT_LINK",
-                "nurl.ink",
-                "abc123",
-                2,
-                20
-        );
+        Result<RiskPageRespDTO<?>> result =
+                agentRiskRemoteService.events(
+                        "internal-token",
+                        "trusted-user",
+                        "1001",
+                        1L,
+                        "g1",
+                        "SHORT_LINK",
+                        "nurl.ink",
+                        "abc123",
+                        2,
+                        20);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("GET");
-        assertThat(SERVER.lastRequest.path()).isEqualTo("/internal/short-link-agent/v1/risk/events");
+        assertThat(SERVER.lastRequest.path())
+                .isEqualTo("/internal/short-link-agent/v1/risk/events");
         assertThat(SERVER.lastRequest.query()).contains("gid=g1");
         assertThat(SERVER.lastRequest.query()).contains("targetType=SHORT_LINK");
         assertThat(SERVER.lastRequest.query()).contains("domain=nurl.ink");
@@ -150,17 +141,14 @@ class AgentRiskRemoteServiceTest {
         request.setReviewer("trusted-user");
         request.setReviewAction("WATCH");
 
-        Result<RiskReviewRespDTO> result = agentRiskRemoteService.review(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                request
-        );
+        Result<RiskReviewRespDTO> result =
+                agentRiskRemoteService.review(
+                        "internal-token", "trusted-user", "1001", 1L, request);
 
         assertThat(result.isSuccess()).isTrue();
         assertThat(SERVER.lastRequest.method()).isEqualTo("POST");
-        assertThat(SERVER.lastRequest.path()).isEqualTo("/internal/short-link-agent/v1/risk/reviews");
+        assertThat(SERVER.lastRequest.path())
+                .isEqualTo("/internal/short-link-agent/v1/risk/reviews");
         assertTrustedHeaders();
         assertThat(SERVER.lastRequest.body())
                 .contains("\"eventId\":\"event-1\"")
@@ -169,25 +157,26 @@ class AgentRiskRemoteServiceTest {
     }
 
     @Test
-    void disablePolicySendsInternalPathHeadersAndBody() {
+    void legacyPolicyDisablePropagatesGoneWithTrustedHeaders() {
         RiskPolicyDisableReqDTO request = new RiskPolicyDisableReqDTO();
         request.setGid("g1");
         request.setReviewer("trusted-user");
         request.setReason("false positive");
         request.setTraceId("trace-1");
 
-        Result<Map<String, Object>> result = agentRiskRemoteService.disablePolicy(
-                "internal-token",
-                "trusted-user",
-                "1001",
-                "Trusted Name",
-                "policy-1",
-                request
-        );
-
-        assertThat(result.isSuccess()).isTrue();
+        assertThatThrownBy(
+                        () ->
+                                agentRiskRemoteService.disablePolicy(
+                                        "internal-token",
+                                        "trusted-user",
+                                        "1001",
+                                        1L,
+                                        "policy-1",
+                                        request))
+                .isInstanceOf(feign.FeignException.Gone.class);
         assertThat(SERVER.lastRequest.method()).isEqualTo("POST");
-        assertThat(SERVER.lastRequest.path()).isEqualTo("/internal/short-link-agent/v1/risk/policies/policy-1/disable");
+        assertThat(SERVER.lastRequest.path())
+                .isEqualTo("/internal/short-link-agent/v1/risk/policies/policy-1/disable");
         assertTrustedHeaders();
         assertThat(SERVER.lastRequest.body())
                 .contains("\"gid\":\"g1\"")
@@ -200,14 +189,16 @@ class AgentRiskRemoteServiceTest {
         assertThat(SERVER.lastRequest.header("X-Agent-Internal-Token")).isEqualTo("internal-token");
         assertThat(SERVER.lastRequest.header("X-Agent-Username")).isEqualTo("trusted-user");
         assertThat(SERVER.lastRequest.header("X-Agent-UserId")).isEqualTo("1001");
-        assertThat(SERVER.lastRequest.header("X-Agent-RealName")).isEqualTo("Trusted Name");
+        assertThat(SERVER.lastRequest.header("X-Agent-Auth-Version")).isEqualTo("1");
+        assertThat(SERVER.lastRequest.header("X-Agent-RealName")).isNull();
     }
 
     @Configuration
     @EnableAutoConfiguration
     @EnableFeignClients(clients = AgentRiskRemoteService.class)
-    static class FeignTestConfiguration {
-    }
+    @org.springframework.context.annotation.Import(
+            com.jupiter.shortlink.admin.config.AdminFeignTransportConfiguration.class)
+    static class FeignTestConfiguration {}
 
     private static class RecordingHttpServer {
 
@@ -246,18 +237,22 @@ class AgentRiskRemoteServiceTest {
         private void handle(HttpExchange exchange) throws IOException {
             byte[] requestBody = exchange.getRequestBody().readAllBytes();
             Map<String, String> headers = new LinkedHashMap<>();
-            exchange.getRequestHeaders().forEach((key, values) ->
-                    headers.put(key, values.isEmpty() ? "" : values.get(0)));
-            lastRequest = new RecordedRequest(
-                    exchange.getRequestMethod(),
-                    exchange.getRequestURI().getPath(),
-                    exchange.getRequestURI().getRawQuery(),
-                    headers,
-                    new String(requestBody, StandardCharsets.UTF_8)
-            );
+            exchange.getRequestHeaders()
+                    .forEach(
+                            (key, values) ->
+                                    headers.put(key, values.isEmpty() ? "" : values.get(0)));
+            lastRequest =
+                    new RecordedRequest(
+                            exchange.getRequestMethod(),
+                            exchange.getRequestURI().getPath(),
+                            exchange.getRequestURI().getRawQuery(),
+                            headers,
+                            new String(requestBody, StandardCharsets.UTF_8));
             byte[] responseBody = responseBody(exchange).getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, responseBody.length);
+            exchange.sendResponseHeaders(
+                    exchange.getRequestURI().getPath().endsWith("/disable") ? 410 : 200,
+                    responseBody.length);
             exchange.getResponseBody().write(responseBody);
             exchange.close();
         }
@@ -274,19 +269,14 @@ class AgentRiskRemoteServiceTest {
                 return "{\"code\":\"0\",\"message\":\"success\",\"data\":{\"reviewId\":\"review-1\"}}";
             }
             if (path.endsWith("/disable")) {
-                return "{\"code\":\"0\",\"message\":\"success\",\"data\":{\"disabled\":true}}";
+                return "{\"code\":\"410\",\"message\":\"Use authorized Admin Command revocation\"}";
             }
             return "{\"code\":\"0\",\"message\":\"success\",\"data\":{}}";
         }
     }
 
     private record RecordedRequest(
-            String method,
-            String path,
-            String query,
-            Map<String, String> headers,
-            String body
-    ) {
+            String method, String path, String query, Map<String, String> headers, String body) {
 
         private String header(String name) {
             return headers.entrySet().stream()
