@@ -1,0 +1,1043 @@
+{
+  "kind": "PERFORMANCE_REPORT_ARCHIVE",
+  "createdAt": "2026-09-09T14:33:11.9879494Z",
+  "archiveDate": "2026-09-09",
+  "branch": "codex/production-refactor-v07",
+  "reportCount": 22,
+  "referencedContextCount": 1,
+  "runCount": 11,
+  "stageResultCount": 38,
+  "originalFilesModified": false,
+  "copyReceipts": [
+    {
+      "source": "plan/生产级重构增强/06-接口与网关跳转压测计划.md",
+      "path": "报告/06-接口与网关跳转压测计划.md",
+      "kind": "report",
+      "sourceBytes": 29695,
+      "bytes": 29695,
+      "sourceSha256": "b7f21162635005118ecee43a30d094cb82dcdbe287fa58326ad41ed224257b25",
+      "sha256": "b7f21162635005118ecee43a30d094cb82dcdbe287fa58326ad41ed224257b25",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 7
+    },
+    {
+      "source": "plan/生产级重构增强/07-首轮压测报告.md",
+      "path": "报告/07-首轮压测报告.md",
+      "kind": "report",
+      "sourceBytes": 14444,
+      "bytes": 14444,
+      "sourceSha256": "936a4dbef6a1442d813f7fa5de45ab8b53d18b58100fa874cdac7db400574283",
+      "sha256": "936a4dbef6a1442d813f7fa5de45ab8b53d18b58100fa874cdac7db400574283",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": "plan/生产级重构增强/08-首轮压测问题优化与复测.md",
+      "path": "报告/08-首轮压测问题优化与复测.md",
+      "kind": "report",
+      "sourceBytes": 20773,
+      "bytes": 20773,
+      "sourceSha256": "000dc9c61e55d63a5241dda04b02b1463fc992939802b6ce6cef54e400e994ec",
+      "sha256": "000dc9c61e55d63a5241dda04b02b1463fc992939802b6ce6cef54e400e994ec",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 1
+    },
+    {
+      "source": "plan/生产级重构增强/09-Outbox确认与元数据吞吐优化.md",
+      "path": "报告/09-Outbox确认与元数据吞吐优化.md",
+      "kind": "report",
+      "sourceBytes": 13426,
+      "bytes": 13426,
+      "sourceSha256": "e95ce05e4c738d9388678655c96f272171be01a5e49a7ebb0d93465a5ae245ce",
+      "sha256": "e95ce05e4c738d9388678655c96f272171be01a5e49a7ebb0d93465a5ae245ce",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 1
+    },
+    {
+      "source": "plan/生产级重构增强/10-元数据任务执行优化与复测.md",
+      "path": "报告/10-元数据任务执行优化与复测.md",
+      "kind": "report",
+      "sourceBytes": 14346,
+      "bytes": 14346,
+      "sourceSha256": "a41515fca0e810e8e7b581f80906c1e139b7a420d0ada657443259295ae56ec4",
+      "sha256": "a41515fca0e810e8e7b581f80906c1e139b7a420d0ada657443259295ae56ec4",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 1
+    },
+    {
+      "source": "plan/生产级重构增强/11-当前版本QPS峰值与元数据优化评估.md",
+      "path": "报告/11-当前版本QPS峰值与元数据优化评估.md",
+      "kind": "report",
+      "sourceBytes": 57766,
+      "bytes": 58684,
+      "sourceSha256": "993906e46082d2f67de16064b3009c8594652379b21511de6b53255177a8b446",
+      "sha256": "15ea2339b3798998a18b9a0b77b821e41d32f60afbde460705e8cfdf68cbcd47",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 114
+    },
+    {
+      "source": "plan/生产级重构增强/12-网关事件并发优化与复测.md",
+      "path": "报告/12-网关事件并发优化与复测.md",
+      "kind": "report",
+      "sourceBytes": 19071,
+      "bytes": 19539,
+      "sourceSha256": "1c7e985c0950025df7c56f664db56f3b614a4121718115f132eb4b0fa00270e1",
+      "sha256": "ae028a8c3172657d92addf5fccedbe173fe857abcd5ed057fa862d607bb627e5",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 53
+    },
+    {
+      "source": "plan/生产级重构增强/13-网关有界批发送优化与复测.md",
+      "path": "报告/13-网关有界批发送优化与复测.md",
+      "kind": "report",
+      "sourceBytes": 23305,
+      "bytes": 21940,
+      "sourceSha256": "5e24ef177383d22640e2585577d47583b6292b7263a9f868f9be6a2bd3864bd5",
+      "sha256": "8a30acf1bd44a498efbb53f7ec4ebf6bd0344c6d6f6c3f1df76d5f64cac74e93",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 49
+    },
+    {
+      "source": "plan/生产级重构增强/14-跳转热路径分配优化与对照复测.md",
+      "path": "报告/14-跳转热路径分配优化与对照复测.md",
+      "kind": "report",
+      "sourceBytes": 12027,
+      "bytes": 11676,
+      "sourceSha256": "7106361160dc134188a89489ecd2ae638417568786ee79d8045c1741f1a63697",
+      "sha256": "11760f6d5c0287f3fd6be8805fe94676996baa585251118d18365ac15d92440c",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 13
+    },
+    {
+      "source": "plan/生产级重构增强/15-持续吞吐瓶颈深析与突破方向.md",
+      "path": "报告/15-持续吞吐瓶颈深析与突破方向.md",
+      "kind": "report",
+      "sourceBytes": 16942,
+      "bytes": 16699,
+      "sourceSha256": "4094e4e9b198d5b1dc3f92584d854cbb55f14b31478c159072043aabfbf4d3d6",
+      "sha256": "92d3e466b816e3bcfda523d92d6abe6e3ace7b4ca1822a4cbdd6cab60edf28da",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 9
+    },
+    {
+      "source": "plan/生产级重构增强/16-跳转瓶颈实证追查.md",
+      "path": "报告/16-跳转瓶颈实证追查.md",
+      "kind": "report",
+      "sourceBytes": 16366,
+      "bytes": 15973,
+      "sourceSha256": "d889781e4845b69880eeedde78134a65a8225b83ef9f01418d2ebfa0cf518f3e",
+      "sha256": "4b7b0958b28e1e796d4cfe6a55aa5b58c243a7756a88fbd26013492921a1d15a",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 13
+    },
+    {
+      "source": "plan/生产级重构增强/17-暴露问题修复与短时对照验收.md",
+      "path": "报告/17-暴露问题修复与短时对照验收.md",
+      "kind": "report",
+      "sourceBytes": 14709,
+      "bytes": 14907,
+      "sourceSha256": "0b2fe59d47ab8e7d5201f8309fc5ea30a7b045990ec38872dd3243b2a7f28341",
+      "sha256": "bb5aa1808b829057a6bf654c61bb61d05cb9c5fb49f77139b734880111f28911",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 23
+    },
+    {
+      "source": "plan/生产级重构增强/18-跳转事件终态与路由开销对照复测.md",
+      "path": "报告/18-跳转事件终态与路由开销对照复测.md",
+      "kind": "report",
+      "sourceBytes": 59308,
+      "bytes": 60181,
+      "sourceSha256": "b170dd422aec07df76b0bd2b3ca7b4dd1506aae342471068d2be94785f84d770",
+      "sha256": "52bfeb2a30f285d16bd9ff93a752565814b7f94d312239e3f58fcfb8d8d1f395",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 98
+    },
+    {
+      "source": "plan/生产级重构增强/19-跳转共享锁与调度瓶颈优化复测.md",
+      "path": "报告/19-跳转共享锁与调度瓶颈优化复测.md",
+      "kind": "report",
+      "sourceBytes": 23066,
+      "bytes": 22106,
+      "sourceSha256": "d5735769e618106c6cd0cb86509fd7fc021d98df9505856b3c47ff169077215d",
+      "sha256": "a409d0d75715f89fe112524a930393d46106551672a5fc94ffb16af3a44e4455",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 34
+    },
+    {
+      "source": "plan/生产级重构增强/20-网关批量发送定时器优化与验收.md",
+      "path": "报告/20-网关批量发送定时器优化与验收.md",
+      "kind": "report",
+      "sourceBytes": 10757,
+      "bytes": 10406,
+      "sourceSha256": "7926da7fc3592cd6b856d19dae1cf4965ce6ce42f80356a74cc57fc20788cfa0",
+      "sha256": "5801161dd19542f4bd9673eeae3caac22118931789f3319610e9ad442fad0dfc",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 13
+    },
+    {
+      "source": "plan/生产级重构增强/21-网关接入调度与消息攒批深度排查.md",
+      "path": "报告/21-网关接入调度与消息攒批深度排查.md",
+      "kind": "report",
+      "sourceBytes": 17921,
+      "bytes": 18056,
+      "sourceSha256": "7123537f3be32ead0dd15817fa533d75cc8840013e8c4e488f496e35bbda6247",
+      "sha256": "83ee4ae23aeae6739213dea3af5b6cc8aa4c65fbf46e674f065b5fea3b7a6f6f",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 16
+    },
+    {
+      "source": "plan/生产级重构增强/22-硬件边界与架构实现瓶颈归因复核.md",
+      "path": "报告/22-硬件边界与架构实现瓶颈归因复核.md",
+      "kind": "report",
+      "sourceBytes": 11258,
+      "bytes": 11294,
+      "sourceSha256": "35d8201e99518c41834e15dcc583371b5f5e1f4251cf7079bedd8de7651f0b38",
+      "sha256": "e43b1e3825c216f9b61240046dd51991ef86743f278e87cb139ded66b1056e42",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 4
+    },
+    {
+      "source": "plan/生产级重构增强/23-网关瓶颈分阶段执行计划.md",
+      "path": "报告/23-网关瓶颈分阶段执行计划.md",
+      "kind": "report",
+      "sourceBytes": 14358,
+      "bytes": 14358,
+      "sourceSha256": "bcfc4f612afc5bd99408a72fb4534a680607ccaae02be2923c76f6a3be03140a",
+      "sha256": "bcfc4f612afc5bd99408a72fb4534a680607ccaae02be2923c76f6a3be03140a",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 2
+    },
+    {
+      "source": "plan/生产级重构增强/24-接入调度与发送组织优化执行报告.md",
+      "path": "报告/24-接入调度与发送组织优化执行报告.md",
+      "kind": "report",
+      "sourceBytes": 16594,
+      "bytes": 16594,
+      "sourceSha256": "0efa7aab063738aa75fd37acdc8cc91a6975fab93cacc5a83b975e2e83acda4f",
+      "sha256": "0efa7aab063738aa75fd37acdc8cc91a6975fab93cacc5a83b975e2e83acda4f",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 2
+    },
+    {
+      "source": "plan/生产级重构增强/25-真实网关跳转压测与验收.md",
+      "path": "报告/25-真实网关跳转压测与验收.md",
+      "kind": "report",
+      "sourceBytes": 12642,
+      "bytes": 12642,
+      "sourceSha256": "778e2fd5f527b3abc1ca5f3ff4e0650d67d63610cf60b5790419089d2f7bb36b",
+      "sha256": "778e2fd5f527b3abc1ca5f3ff4e0650d67d63610cf60b5790419089d2f7bb36b",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": "plan/生产级重构增强/26-真实跳转瓶颈深析与硬件上限验证方案.md",
+      "path": "报告/26-真实跳转瓶颈深析与硬件上限验证方案.md",
+      "kind": "report",
+      "sourceBytes": 18680,
+      "bytes": 18734,
+      "sourceSha256": "3253c296f97364cf0095c4393cd98544c22f6ddb5c762939212e555589242d71",
+      "sha256": "b441da98f8c0041299e139f27bb40de244b6f1b7df204d0d756fd220d903d1e9",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 7
+    },
+    {
+      "source": "plan/生产级重构增强/27-真实跳转按序突破执行记录.md",
+      "path": "报告/27-真实跳转按序突破执行记录.md",
+      "kind": "report",
+      "sourceBytes": 51413,
+      "bytes": 51413,
+      "sourceSha256": "bca2d4aa8e83eb08d3059ba879eefe8a3a97dba41f5b794850462b169f436d1f",
+      "sha256": "bca2d4aa8e83eb08d3059ba879eefe8a3a97dba41f5b794850462b169f436d1f",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": "plan/生产级重构增强/05-创建跳转E2E验收.md",
+      "path": "报告/05-创建跳转E2E验收.md",
+      "kind": "referenced-context",
+      "sourceBytes": 8683,
+      "bytes": 8683,
+      "sourceSha256": "9d9ed24a697c533932a83cc52d1051283e12da20418b0451d384b12b6c31a2ea",
+      "sha256": "9d9ed24a697c533932a83cc52d1051283e12da20418b0451d384b12b6c31a2ea",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/result.json",
+      "path": "运行结果/20260909T091523Z-fa0a8707/cpu-r8000-isolated1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 13611,
+      "bytes": 13611,
+      "sourceSha256": "88ddb108d2212ad1d12b713d73ba2472d0f1c2033ee8382b5391ec8cb625fc3f",
+      "sha256": "88ddb108d2212ad1d12b713d73ba2472d0f1c2033ee8382b5391ec8cb625fc3f",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/result.json",
+      "path": "运行结果/20260909T091523Z-fa0a8707/p0-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24499,
+      "bytes": 24499,
+      "sourceSha256": "1c8828ffaaa344cf4a1ba0872f5d2c27f3c72be27330f5e8c69d6e4e0c638215",
+      "sha256": "1c8828ffaaa344cf4a1ba0872f5d2c27f3c72be27330f5e8c69d6e4e0c638215",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/result.json",
+      "path": "运行结果/20260909T091523Z-fa0a8707/p0-r6000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24594,
+      "bytes": 24594,
+      "sourceSha256": "301356947a94aa2c7a6798fa5aecb9cb33b3bd07aab66115d507da6c531a0de1",
+      "sha256": "301356947a94aa2c7a6798fa5aecb9cb33b3bd07aab66115d507da6c531a0de1",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/result.json",
+      "path": "运行结果/20260909T091523Z-fa0a8707/p0-r8000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 9784,
+      "bytes": 9784,
+      "sourceSha256": "c30a4f404e2f8b09e198cafe94e9a438927a2d7b6aec585f7d45fbcf49d0dca7",
+      "sha256": "c30a4f404e2f8b09e198cafe94e9a438927a2d7b6aec585f7d45fbcf49d0dca7",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/result.json",
+      "path": "运行结果/20260909T095927Z-ade55186/edge-cpu-r6000-shared1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 28874,
+      "bytes": 28874,
+      "sourceSha256": "6976576c8202e2f7f0f8e3fcb446055d85ce201c40a8b486ffd2716cd257b9d4",
+      "sha256": "6976576c8202e2f7f0f8e3fcb446055d85ce201c40a8b486ffd2716cd257b9d4",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/result.json",
+      "path": "运行结果/20260909T095927Z-ade55186/edge-cpu-r8000-shared1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 14045,
+      "bytes": 14045,
+      "sourceSha256": "c76e21996b6aad76af05bc50a17672e9e4f4b1a96cbcf9edc6cb1f50f51002df",
+      "sha256": "c76e21996b6aad76af05bc50a17672e9e4f4b1a96cbcf9edc6cb1f50f51002df",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/result.json",
+      "path": "运行结果/20260909T095927Z-ade55186/functional-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24817,
+      "bytes": 24817,
+      "sourceSha256": "5256b187916f6affddc2ed2876dc93d4619332ee7a3456988acb02843bbdf9ab",
+      "sha256": "5256b187916f6affddc2ed2876dc93d4619332ee7a3456988acb02843bbdf9ab",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/result.json",
+      "path": "运行结果/20260909T095927Z-ade55186/functional-r6000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10116,
+      "bytes": 10116,
+      "sourceSha256": "90e6154f014c989242e583385d917408fdef35734e4253bf9d08daa70ee82341",
+      "sha256": "90e6154f014c989242e583385d917408fdef35734e4253bf9d08daa70ee82341",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/result.json",
+      "path": "运行结果/20260909T095927Z-ade55186/functional-r6000-repeat/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24961,
+      "bytes": 24961,
+      "sourceSha256": "73063bed22c973503758f164ed4c5b33b611d9cc7eda44cfa1c12500e063a8d5",
+      "sha256": "73063bed22c973503758f164ed4c5b33b611d9cc7eda44cfa1c12500e063a8d5",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/result.json",
+      "path": "运行结果/20260909T103657Z-e9885f7a/s2-l5-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24756,
+      "bytes": 24756,
+      "sourceSha256": "0eab9dac973bb6cd070df64998b15f1245e5d61f808189a96541303bdaa21c46",
+      "sha256": "0eab9dac973bb6cd070df64998b15f1245e5d61f808189a96541303bdaa21c46",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/result.json",
+      "path": "运行结果/20260909T103657Z-e9885f7a/s2-l5-r6000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10155,
+      "bytes": 10155,
+      "sourceSha256": "1757da9da487f4bcb3dd178014bf1386270de555765051d4d4ed9453399f85ea",
+      "sha256": "1757da9da487f4bcb3dd178014bf1386270de555765051d4d4ed9453399f85ea",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/result.json",
+      "path": "运行结果/20260909T103657Z-e9885f7a/s2-l5-r6000-repeat/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10027,
+      "bytes": 10027,
+      "sourceSha256": "b1f0be91d49a952d70a33da56c9689d2224447da25e754a07615af8322c7503f",
+      "sha256": "b1f0be91d49a952d70a33da56c9689d2224447da25e754a07615af8322c7503f",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/result.json",
+      "path": "运行结果/20260909T105233Z-7fa63a14/health-s1-l5-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24781,
+      "bytes": 24781,
+      "sourceSha256": "6e90005c48a3ed07d94525d435b68748624be64ccb333e3550f923db37426dca",
+      "sha256": "6e90005c48a3ed07d94525d435b68748624be64ccb333e3550f923db37426dca",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/result.json",
+      "path": "运行结果/20260909T105233Z-7fa63a14/health-s1-l5-r6000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10185,
+      "bytes": 10185,
+      "sourceSha256": "ed4e9208ae009e0f8e8f1c94d4e3b6c2f60e3bed845915fbeddeca47e2227f5c",
+      "sha256": "ed4e9208ae009e0f8e8f1c94d4e3b6c2f60e3bed845915fbeddeca47e2227f5c",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/result.json",
+      "path": "运行结果/20260909T105233Z-7fa63a14/health-s1-l5-r6000-repeat/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24921,
+      "bytes": 24921,
+      "sourceSha256": "c89ca74c5d7b293bf7699a97974ca8a580b00997a0cc5d476f6b3cc67269850c",
+      "sha256": "c89ca74c5d7b293bf7699a97974ca8a580b00997a0cc5d476f6b3cc67269850c",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/result.json",
+      "path": "运行结果/20260909T105233Z-7fa63a14/health-s1-l5-r8000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10201,
+      "bytes": 10201,
+      "sourceSha256": "1e22d6a580c97a64aef856b1f6f68f627caa1a9b0bb087f6f78872e35d8e79b0",
+      "sha256": "1e22d6a580c97a64aef856b1f6f68f627caa1a9b0bb087f6f78872e35d8e79b0",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/result.json",
+      "path": "运行结果/20260909T110822Z-3289dc12/l10-r6000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 9892,
+      "bytes": 9892,
+      "sourceSha256": "20fa8f1dee0b01b551b339fe0af039b47e1b2430c70955a841c0ebaa731d39a2",
+      "sha256": "20fa8f1dee0b01b551b339fe0af039b47e1b2430c70955a841c0ebaa731d39a2",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/result.json",
+      "path": "运行结果/20260909T110822Z-3289dc12/l10-r6000-repeat/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24943,
+      "bytes": 24943,
+      "sourceSha256": "15384e9829179f7fbf8dc8242510eed7332ea313384a74cbe611c472e605c31f",
+      "sha256": "15384e9829179f7fbf8dc8242510eed7332ea313384a74cbe611c472e605c31f",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/result.json",
+      "path": "运行结果/20260909T112420Z-6c44f3e1/p3-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24758,
+      "bytes": 24758,
+      "sourceSha256": "85d231af07d923f974cdd5db9438ecc07a1c4a783bb51c6e3fbddae129e4c1f6",
+      "sha256": "85d231af07d923f974cdd5db9438ecc07a1c4a783bb51c6e3fbddae129e4c1f6",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/result.json",
+      "path": "运行结果/20260909T112420Z-6c44f3e1/p3-r6000-profile1/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10147,
+      "bytes": 10147,
+      "sourceSha256": "047e2fd6d207c718c7d19981717fdd129d637512da392d4366f8f7f4dcf4a02b",
+      "sha256": "047e2fd6d207c718c7d19981717fdd129d637512da392d4366f8f7f4dcf4a02b",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/result.json",
+      "path": "运行结果/20260909T112420Z-6c44f3e1/p3-r6000-repeat/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10042,
+      "bytes": 10042,
+      "sourceSha256": "60b94d2a1d94ceb71de74ba745df77bf594ced273affee778ad11e13f4603415",
+      "sha256": "60b94d2a1d94ceb71de74ba745df77bf594ced273affee778ad11e13f4603415",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/result.json",
+      "path": "运行结果/20260909T113636Z-9a84ff43/off-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24766,
+      "bytes": 24766,
+      "sourceSha256": "97bccee2a8d29e01b7b1d561d1f5a3e2e209511b9cf4a0ea96e1fb56caa92cbf",
+      "sha256": "97bccee2a8d29e01b7b1d561d1f5a3e2e209511b9cf4a0ea96e1fb56caa92cbf",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/result.json",
+      "path": "运行结果/20260909T113636Z-9a84ff43/off-r6000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24826,
+      "bytes": 24826,
+      "sourceSha256": "35cbf031712d991944cd7ac4cc7ba6209dc44781501296d829e1391224f2b8d0",
+      "sha256": "35cbf031712d991944cd7ac4cc7ba6209dc44781501296d829e1391224f2b8d0",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/result.json",
+      "path": "运行结果/20260909T113636Z-9a84ff43/off-r7000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 9823,
+      "bytes": 9823,
+      "sourceSha256": "82969583172e4c3f2a94a8d118a411fd3682df7b62ec3b9b7f70b5e4c61f1b3c",
+      "sha256": "82969583172e4c3f2a94a8d118a411fd3682df7b62ec3b9b7f70b5e4c61f1b3c",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/result.json",
+      "path": "运行结果/20260909T115443Z-b8cd8a25/eight-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24767,
+      "bytes": 24767,
+      "sourceSha256": "0f7717c8a30c2130e2bcd9cd92cc384585fcf59eeb3c2e7d572ffa3652f051e3",
+      "sha256": "0f7717c8a30c2130e2bcd9cd92cc384585fcf59eeb3c2e7d572ffa3652f051e3",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/result.json",
+      "path": "运行结果/20260909T115443Z-b8cd8a25/eight-r6000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10013,
+      "bytes": 10013,
+      "sourceSha256": "c0e91f7caeecdeb4b533406706f753772e93b2f5e49aa8f3e95da04234c8b51a",
+      "sha256": "c0e91f7caeecdeb4b533406706f753772e93b2f5e49aa8f3e95da04234c8b51a",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/result.json",
+      "path": "运行结果/20260909T115443Z-b8cd8a25/eight-r6000-repeat/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24932,
+      "bytes": 24932,
+      "sourceSha256": "6f04df4f73ac184e3cf2fb89b205e54bba531b267e7d9bfd9d300b45f960638c",
+      "sha256": "6f04df4f73ac184e3cf2fb89b205e54bba531b267e7d9bfd9d300b45f960638c",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/result.json",
+      "path": "运行结果/20260909T115443Z-b8cd8a25/eight-r7000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24903,
+      "bytes": 24903,
+      "sourceSha256": "36e48928d2c9f90fc787c588e45e2fa0b93737c7adf7ebab572c607e9c4e9aa2",
+      "sha256": "36e48928d2c9f90fc787c588e45e2fa0b93737c7adf7ebab572c607e9c4e9aa2",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/result.json",
+      "path": "运行结果/20260909T115443Z-b8cd8a25/eight-r8000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 9996,
+      "bytes": 9996,
+      "sourceSha256": "61f1634bd62b8d679f020db0658a0235dbb5b3981dcedf0f946d59602d0962d2",
+      "sha256": "61f1634bd62b8d679f020db0658a0235dbb5b3981dcedf0f946d59602d0962d2",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/result.json",
+      "path": "运行结果/20260909T121904Z-b31eb04c/parallel-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24776,
+      "bytes": 24776,
+      "sourceSha256": "63a1d06fc2487709c097307ac3f2177cd8dbb13f952c15c0629dfe985f6cf8ee",
+      "sha256": "63a1d06fc2487709c097307ac3f2177cd8dbb13f952c15c0629dfe985f6cf8ee",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/result.json",
+      "path": "运行结果/20260909T121904Z-b31eb04c/parallel-r6000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 9760,
+      "bytes": 9760,
+      "sourceSha256": "dbfd13f25e76b7143a1e532b2e542c99a9a2db2228bef99c8462ebd622acad1e",
+      "sha256": "dbfd13f25e76b7143a1e532b2e542c99a9a2db2228bef99c8462ebd622acad1e",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/result.json",
+      "path": "运行结果/20260909T121904Z-b31eb04c/parallel-r6000-caught-up/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 10133,
+      "bytes": 10133,
+      "sourceSha256": "e92e2485a9413462b8fa32ad1aa887634263ed1d1bc676fb765d70de6d54773b",
+      "sha256": "e92e2485a9413462b8fa32ad1aa887634263ed1d1bc676fb765d70de6d54773b",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/result.json",
+      "path": "运行结果/20260909T132900Z-09adb5ee/fanout-r1000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24866,
+      "bytes": 24866,
+      "sourceSha256": "e72146a6382b3c66a63faa1bc84460f15ae7612c0a82beb670770c22bad8e270",
+      "sha256": "e72146a6382b3c66a63faa1bc84460f15ae7612c0a82beb670770c22bad8e270",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/result.json",
+      "path": "运行结果/20260909T132900Z-09adb5ee/fanout-r6000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24944,
+      "bytes": 24944,
+      "sourceSha256": "1885d02b96321647fae8d9024f88b41b0b4877d56c5831a289f071604881b3b2",
+      "sha256": "1885d02b96321647fae8d9024f88b41b0b4877d56c5831a289f071604881b3b2",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/result.json",
+      "path": "运行结果/20260909T132900Z-09adb5ee/fanout-r7000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24934,
+      "bytes": 24934,
+      "sourceSha256": "4da0f9a90c89ed31750b7a4dae5555b0f475311eaa19a6aa2a8385813f484003",
+      "sha256": "4da0f9a90c89ed31750b7a4dae5555b0f475311eaa19a6aa2a8385813f484003",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/result.json",
+      "path": "运行结果/20260909T132900Z-09adb5ee/fanout-r7000-repeat/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24962,
+      "bytes": 24962,
+      "sourceSha256": "e4e3751c1a051727ea492fcb625f3bef2230194c30a3bf3ddf757972f9ede8d8",
+      "sha256": "e4e3751c1a051727ea492fcb625f3bef2230194c30a3bf3ddf757972f9ede8d8",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/result.json",
+      "path": "运行结果/20260909T132900Z-09adb5ee/fanout-r8000/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 9838,
+      "bytes": 9838,
+      "sourceSha256": "02a407f851cc92707b3dc0bd85a58b77ed122838e6af12164f6fd01db7adf571",
+      "sha256": "02a407f851cc92707b3dc0bd85a58b77ed122838e6af12164f6fd01db7adf571",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/result.json",
+      "path": "运行结果/20260909T132900Z-09adb5ee/fanout-r8000-peak/result.json",
+      "kind": "original-stage-result",
+      "sourceBytes": 24982,
+      "bytes": 24982,
+      "sourceSha256": "0f2bccec3b9ef480618bed6b5b0addad4f11413e255d11e871899dd97c81eb77",
+      "sha256": "0f2bccec3b9ef480618bed6b5b0addad4f11413e255d11e871899dd97c81eb77",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/profile-analysis-report.md",
+      "path": "专题分析/profile-analysis-report.md",
+      "kind": "evidence",
+      "sourceBytes": 4978,
+      "bytes": 4978,
+      "sourceSha256": "71aed612eb848740d485a695d676a8bf51895827d1f05999963cbec48843618d",
+      "sha256": "71aed612eb848740d485a695d676a8bf51895827d1f05999963cbec48843618d",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/profile-analysis-summary.json",
+      "path": "专题分析/profile-analysis-summary.json",
+      "kind": "evidence",
+      "sourceBytes": 1239068,
+      "bytes": 1239068,
+      "sourceSha256": "576d32be4c66c8e8408e1ee00659e70ece5edece6ce210ec255445747b3f5d41",
+      "sha256": "576d32be4c66c8e8408e1ee00659e70ece5edece6ce210ec255445747b3f5d41",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/profile-analysis-compact.json",
+      "path": "专题分析/profile-analysis-compact.json",
+      "kind": "evidence",
+      "sourceBytes": 75361,
+      "bytes": 75361,
+      "sourceSha256": "bff7b7d21a22494acc753b02c818609d38e5cb10012adcb4984f618d68b1abea",
+      "sha256": "bff7b7d21a22494acc753b02c818609d38e5cb10012adcb4984f618d68b1abea",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/profile-analysis-window-report.md",
+      "path": "专题分析/profile-analysis-window-report.md",
+      "kind": "evidence",
+      "sourceBytes": 2416,
+      "bytes": 2416,
+      "sourceSha256": "313ce27dc5f4a8a058b8865ab40e0a319d179a5a590359400b82f7fe1322a42f",
+      "sha256": "313ce27dc5f4a8a058b8865ab40e0a319d179a5a590359400b82f7fe1322a42f",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/profile-analysis-window-summary.json",
+      "path": "专题分析/profile-analysis-window-summary.json",
+      "kind": "evidence",
+      "sourceBytes": 54820,
+      "bytes": 54820,
+      "sourceSha256": "8237dacb5dbf7f36e9b826a60812264e0769064f2e030d159b8d3c11ad0f86b2",
+      "sha256": "8237dacb5dbf7f36e9b826a60812264e0769064f2e030d159b8d3c11ad0f86b2",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/failure-analysis-handoff.md",
+      "path": "专题分析/failure-analysis-handoff.md",
+      "kind": "evidence",
+      "sourceBytes": 5669,
+      "bytes": 5669,
+      "sourceSha256": "3ca059cd3550f3f4caad905deaad538812996e54f49e83b3e9d758e3c6a8f618",
+      "sha256": "3ca059cd3550f3f4caad905deaad538812996e54f49e83b3e9d758e3c6a8f618",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/failure-analysis-summary.json",
+      "path": "专题分析/failure-analysis-summary.json",
+      "kind": "evidence",
+      "sourceBytes": 2037,
+      "bytes": 2037,
+      "sourceSha256": "fa0218d09c2cbb613de213944ea7082944c7c17b4685388a97d3e9b561adf0c4",
+      "sha256": "fa0218d09c2cbb613de213944ea7082944c7c17b4685388a97d3e9b561adf0c4",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/failure-analysis-native.json",
+      "path": "专题分析/failure-analysis-native.json",
+      "kind": "evidence",
+      "sourceBytes": 147647,
+      "bytes": 147647,
+      "sourceSha256": "7a348380dc620874ca23ca1b8ccddeb94f4cc1000a32e63af7834b0bfd77cba7",
+      "sha256": "7a348380dc620874ca23ca1b8ccddeb94f4cc1000a32e63af7834b0bfd77cba7",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/failure-analysis-drop-decisions.json",
+      "path": "专题分析/failure-analysis-drop-decisions.json",
+      "kind": "evidence",
+      "sourceBytes": 2192,
+      "bytes": 2192,
+      "sourceSha256": "3b1be312d50d72decc128872805160dc05cc0aa9958bd442deeee6fb44b544df",
+      "sha256": "3b1be312d50d72decc128872805160dc05cc0aa9958bd442deeee6fb44b544df",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/measurement-analysis.md",
+      "path": "专题分析/measurement-analysis.md",
+      "kind": "evidence",
+      "sourceBytes": 15590,
+      "bytes": 15590,
+      "sourceSha256": "757b0c7e17cc9294368b37e9534193ad9e268d44b0c62e58226835ea432ac8c0",
+      "sha256": "757b0c7e17cc9294368b37e9534193ad9e268d44b0c62e58226835ea432ac8c0",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/host-analysis-summary-v3.json",
+      "path": "专题分析/host-analysis-summary-v3.json",
+      "kind": "evidence",
+      "sourceBytes": 23143,
+      "bytes": 23143,
+      "sourceSha256": "e1ed0a751bda0995c5b0dad5c745bd032da87e21fdc0e074d074b003da1dd678",
+      "sha256": "e1ed0a751bda0995c5b0dad5c745bd032da87e21fdc0e074d074b003da1dd678",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/edge-error-window.json",
+      "path": "专题分析/edge-error-window.json",
+      "kind": "evidence",
+      "sourceBytes": 42789,
+      "bytes": 42789,
+      "sourceSha256": "db7a0d4da6a68c5986adcdb76295162fbadfb2521d7be2c8f927ff83f341bd76",
+      "sha256": "db7a0d4da6a68c5986adcdb76295162fbadfb2521d7be2c8f927ff83f341bd76",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/tcp-idle-evidence.json",
+      "path": "专题分析/tcp-idle-evidence.json",
+      "kind": "evidence",
+      "sourceBytes": 1271,
+      "bytes": 1271,
+      "sourceSha256": "58fd1e3d3890b9b4ef888215586c164f5cf53ad00bd1844ecd98ea7f96c62119",
+      "sha256": "58fd1e3d3890b9b4ef888215586c164f5cf53ad00bd1844ecd98ea7f96c62119",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/upstream-review.md",
+      "path": "专题分析/upstream-review.md",
+      "kind": "evidence",
+      "sourceBytes": 10830,
+      "bytes": 10587,
+      "sourceSha256": "3244bd20f7b2bd3ec7d7d88efb2dd107bd3cc53a50d595afb845d761fe84fcbe",
+      "sha256": "69fa751f3308c03663daac2c144a225f27bc41d7f6650bfd1e282ff5eea3cb63",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 9
+    },
+    {
+      "source": ".work/real-fanout-20260909/upstream-review-netty-report.md",
+      "path": "专题分析/upstream-review-netty-report.md",
+      "kind": "evidence",
+      "sourceBytes": 6889,
+      "bytes": 6889,
+      "sourceSha256": "ff3d8f22cdfd6f3a15dc1256392f9b895098c7733d7ba44b07592e1e4bffa684",
+      "sha256": "ff3d8f22cdfd6f3a15dc1256392f9b895098c7733d7ba44b07592e1e4bffa684",
+      "transformation": "UTF-8 report copy; only local Markdown links rewritten for archive location",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/upstream-review-netty-evidence.json",
+      "path": "专题分析/upstream-review-netty-evidence.json",
+      "kind": "evidence",
+      "sourceBytes": 8672,
+      "bytes": 8672,
+      "sourceSha256": "f986b290a9d8506dc03c880c6c4eae5e41e99c7d625b6db0d6a4fa0d2be1c70a",
+      "sha256": "f986b290a9d8506dc03c880c6c4eae5e41e99c7d625b6db0d6a4fa0d2be1c70a",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/upstream-review-source-receipt.json",
+      "path": "专题分析/upstream-review-source-receipt.json",
+      "kind": "evidence",
+      "sourceBytes": 3303,
+      "bytes": 3303,
+      "sourceSha256": "00d84dfd368e14a8525675553aee59f5de6023cfaeb31760ce1f1b724ce8c04a",
+      "sha256": "00d84dfd368e14a8525675553aee59f5de6023cfaeb31760ce1f1b724ce8c04a",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/startup-verification.json",
+      "path": "验收凭据/startup-verification.json",
+      "kind": "evidence",
+      "sourceBytes": 520,
+      "bytes": 520,
+      "sourceSha256": "bce2034ed7e846bff02bc7c51f7749904609f9b35804111d810f5e3ba386f25d",
+      "sha256": "bce2034ed7e846bff02bc7c51f7749904609f9b35804111d810f5e3ba386f25d",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/diagnostics-off-verification.json",
+      "path": "验收凭据/diagnostics-off-verification.json",
+      "kind": "evidence",
+      "sourceBytes": 480,
+      "bytes": 480,
+      "sourceSha256": "9e2b015da13870efb03fb08d4fc246195c1b98163af04bbee0fa169b36ab1418",
+      "sha256": "9e2b015da13870efb03fb08d4fc246195c1b98163af04bbee0fa169b36ab1418",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/test-proof-final.json",
+      "path": "验收凭据/test-proof-final.json",
+      "kind": "evidence",
+      "sourceBytes": 4762,
+      "bytes": 4762,
+      "sourceSha256": "258d99cebbabcd72ccc794a37a189c6ee7feae788e06c15e6cef3ac8491667bc",
+      "sha256": "258d99cebbabcd72ccc794a37a189c6ee7feae788e06c15e6cef3ac8491667bc",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/services-stopped.json",
+      "path": "验收凭据/services-stopped.json",
+      "kind": "evidence",
+      "sourceBytes": 91,
+      "bytes": 91,
+      "sourceSha256": "c83adb1daa7a2de4f81161a2c19795db9f7952faea3cb9194d786be9e6dc9f9b",
+      "sha256": "c83adb1daa7a2de4f81161a2c19795db9f7952faea3cb9194d786be9e6dc9f9b",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/fanout-bootstrap-20260909/implementation-test-receipt.json",
+      "path": "验收凭据/单元与集成测试.json",
+      "kind": "evidence",
+      "sourceBytes": 3195,
+      "bytes": 3195,
+      "sourceSha256": "4adad7864c992ba51688eca7a34e82890e18d8e4dab9c3112c66332de5c10d67",
+      "sha256": "4adad7864c992ba51688eca7a34e82890e18d8e4dab9c3112c66332de5c10d67",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/fanout-build-20260909/build-01.json",
+      "path": "验收凭据/隔离构建.json",
+      "kind": "evidence",
+      "sourceBytes": 6755,
+      "bytes": 6755,
+      "sourceSha256": "c014d8d57dc10f0955f0d82465f5817a2cdd638677e9a55714d78c8caec146d9",
+      "sha256": "c014d8d57dc10f0955f0d82465f5817a2cdd638677e9a55714d78c8caec146d9",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/fanout-build-20260909/deployment.json",
+      "path": "验收凭据/测试制品部署.json",
+      "kind": "evidence",
+      "sourceBytes": 1078,
+      "bytes": 1078,
+      "sourceSha256": "aa173bac3c4ce85ae882a2ba27182d4aba4d6e091f4c7af6ea9a7e82ff8f6355",
+      "sha256": "aa173bac3c4ce85ae882a2ba27182d4aba4d6e091f4c7af6ea9a7e82ff8f6355",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-eight-20260909/final-resource-audit.json",
+      "path": "验收凭据/资源释放审计.json",
+      "kind": "evidence",
+      "sourceBytes": 4026,
+      "bytes": 4026,
+      "sourceSha256": "baecbf4c709db58fa5a921fb83250e4e02345e5e368f2a8533e398b44d1e92e3",
+      "sha256": "baecbf4c709db58fa5a921fb83250e4e02345e5e368f2a8533e398b44d1e92e3",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    },
+    {
+      "source": ".work/real-fanout-20260909/group-progress-after-r7000-repeat.json",
+      "path": "验收凭据/最终失效订阅进度.json",
+      "kind": "evidence",
+      "sourceBytes": 2546,
+      "bytes": 2546,
+      "sourceSha256": "9cfec99b3c66930c8492d09f865a0106ac36b19974b1293c19f85a4b3bb71448",
+      "sha256": "9cfec99b3c66930c8492d09f865a0106ac36b19974b1293c19f85a4b3bb71448",
+      "transformation": "byte-for-byte copy",
+      "localLinksRewritten": 0
+    }
+  ],
+  "generatedFiles": [
+    {
+      "path": "运行结果/20260909T091523Z-fa0a8707/配置快照.json",
+      "bytes": 4875,
+      "sha256": "651f1e16f62f16023f67b771fc4b30bd0d9c27dd6deb075f27e51cc10178103e"
+    },
+    {
+      "path": "运行结果/20260909T095927Z-ade55186/配置快照.json",
+      "bytes": 4870,
+      "sha256": "e8c5469ed3a75c3682374f488b48630c73dd09a4468808e00be0dc7bb4801e83"
+    },
+    {
+      "path": "运行结果/20260909T103657Z-e9885f7a/配置快照.json",
+      "bytes": 4983,
+      "sha256": "d710173feb1e76131c0268efc879e4e3bd2692c26f279345e77c07182cd78fa1"
+    },
+    {
+      "path": "运行结果/20260909T105233Z-7fa63a14/配置快照.json",
+      "bytes": 4983,
+      "sha256": "5d6459bd1ad34883196eb7e4c22ed393fdd077374cd617d2c624a8ab58d68268"
+    },
+    {
+      "path": "运行结果/20260909T110822Z-3289dc12/配置快照.json",
+      "bytes": 4980,
+      "sha256": "2d7a1da9d58bb9c7f1bd2406bef0a82751b0a268c0e19b0f805782027713bb8f"
+    },
+    {
+      "path": "运行结果/20260909T112420Z-6c44f3e1/配置快照.json",
+      "bytes": 4983,
+      "sha256": "5e8464157843777b43b65d81a6d8f3fc377cd3e107485a94df4f1fd5e1f032e7"
+    },
+    {
+      "path": "运行结果/20260909T113636Z-9a84ff43/配置快照.json",
+      "bytes": 4982,
+      "sha256": "f8cb99dd69226c9d2d265d5aa362b996ef5e0b48443f796e7a5e4cd555dc45fe"
+    },
+    {
+      "path": "运行结果/20260909T115443Z-b8cd8a25/配置快照.json",
+      "bytes": 4985,
+      "sha256": "0b38a29cd319151454971803162134ca980d359ea709cf69c34ad0e76132a68e"
+    },
+    {
+      "path": "运行结果/20260909T121904Z-b31eb04c/配置快照.json",
+      "bytes": 4985,
+      "sha256": "fba4417fb2d54b2a7ddc2d71b56a0f2b9b8802c96174ad58f77029039ae35914"
+    },
+    {
+      "path": "运行结果/20260909T132900Z-09adb5ee/配置快照.json",
+      "bytes": 4984,
+      "sha256": "35d84d7e2b26151d227b6f1d42e8737c63d0d695c6afe562f6f025501149c997"
+    },
+    {
+      "path": "轮次索引.json",
+      "bytes": 47014,
+      "sha256": "26ec022749a41d30b27a711f70dbd7ad6dd9c4e7f87c230f7542597e7a857d7a"
+    },
+    {
+      "path": "原始证据索引.json",
+      "bytes": 107501,
+      "sha256": "ea062bdbd8698b97f15074d01a111c3a6178f616bc0d2f2370e2992285e67060"
+    },
+    {
+      "path": "轮次索引.md",
+      "bytes": 8155,
+      "sha256": "7a168120003daaed1316dcf1e10e946c72f5081c4b86752ded7151a98b953a82"
+    },
+    {
+      "path": "README.md",
+      "bytes": 6649,
+      "sha256": "c45834acf7ec25341aa865066ca99b11f166cbe1df4e566ed1ab55366270f655"
+    }
+  ],
+  "unresolvedOriginalLinks": []
+}

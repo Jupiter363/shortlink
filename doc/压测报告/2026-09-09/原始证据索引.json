@@ -1,0 +1,3047 @@
+{
+  "note": "Large raw evidence remains at original .work paths; this archive did not reread/hash those large files.",
+  "workspacePathsAreRelative": true,
+  "files": [
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/native-summary.json",
+      "bytes": 366771898,
+      "copied": false,
+      "sha256": "59a13c4394faad05a8ff39db58d1a733043463da595ee9a60ea6ec09609c0b4f",
+      "sha256Source": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/metrics.jsonl",
+      "bytes": 1366965,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/before.json",
+      "bytes": 226987,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/after.json",
+      "bytes": 227823,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/kafka-before.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/kafka-after.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/system/system-samples.jsonl",
+      "bytes": 6664667,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "cpu-r8000-isolated1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1/system/system-summary.json",
+      "bytes": 48157,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/native-summary.json",
+      "bytes": 34522791,
+      "copied": false,
+      "sha256": "78c714d5107735069e0ae9934cdd185a30036e664bc9133ad14b2099b8a4073d",
+      "sha256Source": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/metrics.jsonl",
+      "bytes": 1479193,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/before.json",
+      "bytes": 222368,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/after.json",
+      "bytes": 223502,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/kafka-before.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/kafka-after.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/system/system-samples.jsonl",
+      "bytes": 6665054,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r1000",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r1000/system/system-summary.json",
+      "bytes": 47234,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/native-summary.json",
+      "bytes": 590313168,
+      "copied": false,
+      "sha256": "298eba10e291d7c13055bd096a7c48138240a168f60699621b605077f47166dc",
+      "sha256Source": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/metrics.jsonl",
+      "bytes": 2842396,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/before.json",
+      "bytes": 224677,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/after.json",
+      "bytes": 225629,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/kafka-before.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/kafka-after.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/system/system-samples.jsonl",
+      "bytes": 16930272,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r6000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r6000-profile1/system/system-summary.json",
+      "bytes": 47008,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/native-summary.json",
+      "bytes": 613328187,
+      "copied": false,
+      "sha256": "0e2dea9bc1f61ce03dab69de92d67a30283b9e7f88298a38bf8e83fdea4e30a6",
+      "sha256Source": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/metrics.jsonl",
+      "bytes": 2044587,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/before.json",
+      "bytes": 226932,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/after.json",
+      "bytes": 225693,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/kafka-before.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/kafka-after.json",
+      "bytes": 41259,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/system/system-samples.jsonl",
+      "bytes": 13029794,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "stage": "p0-r8000-profile1",
+      "path": ".work/performance/20260909T091523Z-fa0a8707/stages/p0-r8000-profile1/system/system-summary.json",
+      "bytes": 47460,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/native-summary.json",
+      "bytes": 590323970,
+      "copied": false,
+      "sha256": "130e81b756b04d07bde873b24d1bef144cb0caa4d41a2bcacf9f560777a9fb99",
+      "sha256Source": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/metrics.jsonl",
+      "bytes": 2845858,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/before.json",
+      "bytes": 224567,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/after.json",
+      "bytes": 225232,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/kafka-before.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/kafka-after.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/system/system-samples.jsonl",
+      "bytes": 17504058,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r6000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r6000-shared1/system/system-summary.json",
+      "bytes": 47148,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/native-summary.json",
+      "bytes": 694008377,
+      "copied": false,
+      "sha256": "ab3ffe6b8c828180e44f1678c316253f6d91487a324558baf26d90aec25de27e",
+      "sha256Source": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/metrics.jsonl",
+      "bytes": 2314266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/before.json",
+      "bytes": 226539,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/after.json",
+      "bytes": 225240,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/kafka-before.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/kafka-after.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/system/system-samples.jsonl",
+      "bytes": 15053416,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "edge-cpu-r8000-shared1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/edge-cpu-r8000-shared1/system/system-summary.json",
+      "bytes": 47148,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/native-summary.json",
+      "bytes": 34522394,
+      "copied": false,
+      "sha256": "6c802383ca584d43f8228adc4b66463b17084eb9e34df2aa7ee698089e50571c",
+      "sha256Source": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/metrics.jsonl",
+      "bytes": 1465328,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/before.json",
+      "bytes": 218641,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/after.json",
+      "bytes": 222867,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/kafka-before.json",
+      "bytes": 41261,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/kafka-after.json",
+      "bytes": 41261,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/system/system-samples.jsonl",
+      "bytes": 6759643,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r1000",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r1000/system/system-summary.json",
+      "bytes": 47593,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/native-summary.json",
+      "bytes": 339724278,
+      "copied": false,
+      "sha256": "17ae62a3bb9b390289c5485c3334257250116eaefd8b042d898379ae21690b98",
+      "sha256Source": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/metrics.jsonl",
+      "bytes": 1482485,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/before.json",
+      "bytes": 224297,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/after.json",
+      "bytes": 222938,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/kafka-before.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/kafka-after.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/system/system-samples.jsonl",
+      "bytes": 8228590,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-profile1",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-profile1/system/system-summary.json",
+      "bytes": 46915,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/native-summary.json",
+      "bytes": 590371521,
+      "copied": false,
+      "sha256": "08273187a48fb23922bb81e03e55cb748c9f521e6df270e06cdba1840c29d572",
+      "sha256Source": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/metrics.jsonl",
+      "bytes": 2828943,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/before.json",
+      "bytes": 224258,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/after.json",
+      "bytes": 222981,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/kafka-before.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/kafka-after.json",
+      "bytes": 41262,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/system/system-samples.jsonl",
+      "bytes": 17230356,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "stage": "functional-r6000-repeat",
+      "path": ".work/performance/20260909T095927Z-ade55186/stages/functional-r6000-repeat/system/system-summary.json",
+      "bytes": 46691,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/native-summary.json",
+      "bytes": 34522886,
+      "copied": false,
+      "sha256": "057996c177a4c502de299c4439953bfeb4fd50411638a7b811bcf6e70945b251",
+      "sha256Source": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/metrics.jsonl",
+      "bytes": 1474691,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/before.json",
+      "bytes": 219138,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/after.json",
+      "bytes": 224412,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/kafka-before.json",
+      "bytes": 41265,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/kafka-after.json",
+      "bytes": 41265,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/system/system-samples.jsonl",
+      "bytes": 6793569,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r1000",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000/system/system-summary.json",
+      "bytes": 44911,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/native-summary.json",
+      "bytes": 280674453,
+      "copied": false,
+      "sha256": "1cc34916db249d5d128e9adb0e765337420c9dca2662743a0a09337a7816e3fa",
+      "sha256Source": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/metrics.jsonl",
+      "bytes": 1220806,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/before.json",
+      "bytes": 224356,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/after.json",
+      "bytes": 224613,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/kafka-before.json",
+      "bytes": 41265,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/kafka-after.json",
+      "bytes": 41265,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/system/system-samples.jsonl",
+      "bytes": 6625359,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-profile1",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-profile1/system/system-summary.json",
+      "bytes": 47713,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/native-summary.json",
+      "bytes": 469193001,
+      "copied": false,
+      "sha256": "210f041a68db17d7d00f8022e506af256d0238edd41e08c1b478775d01db3af1",
+      "sha256Source": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/metrics.jsonl",
+      "bytes": 2034318,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/before.json",
+      "bytes": 224347,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/after.json",
+      "bytes": 224439,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/kafka-before.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/kafka-after.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/system/system-samples.jsonl",
+      "bytes": 13111075,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "stage": "s2-l5-r6000-repeat",
+      "path": ".work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat/system/system-summary.json",
+      "bytes": 47707,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/native-summary.json",
+      "bytes": 34525249,
+      "copied": false,
+      "sha256": "d7347a16b5cec24128d3de1ffbad7ca0da0295d08b4d7d0043572a6f8cd5ad00",
+      "sha256Source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/metrics.jsonl",
+      "bytes": 1483508,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/before.json",
+      "bytes": 221684,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/after.json",
+      "bytes": 225074,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/kafka-before.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/kafka-after.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/system/system-samples.jsonl",
+      "bytes": 6720367,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r1000",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r1000/system/system-summary.json",
+      "bytes": 44218,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/native-summary.json",
+      "bytes": 278993676,
+      "copied": false,
+      "sha256": "120dbbe34a1e229c8bfe1c73ea2846081ec59f1ac3189d9384021b30271b5f3f",
+      "sha256Source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/metrics.jsonl",
+      "bytes": 1224686,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/before.json",
+      "bytes": 224854,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/after.json",
+      "bytes": 226047,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/kafka-before.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/kafka-after.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/system/system-samples.jsonl",
+      "bytes": 6262689,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-profile1/system/system-summary.json",
+      "bytes": 47267,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/native-summary.json",
+      "bytes": 590388942,
+      "copied": false,
+      "sha256": "fb2f555485f77a0ba9f60df47e8b6886d7db43df4d16d2e6f70b99d3377642ff",
+      "sha256Source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/metrics.jsonl",
+      "bytes": 2871316,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/before.json",
+      "bytes": 227602,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/after.json",
+      "bytes": 226156,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/kafka-before.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/kafka-after.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/system/system-samples.jsonl",
+      "bytes": 17607761,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r6000-repeat",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r6000-repeat/system/system-summary.json",
+      "bytes": 47481,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/native-summary.json",
+      "bytes": 370268361,
+      "copied": false,
+      "sha256": "d851dc1ec265f5470db1eae740f69546ba2e977495e3a2428f3ce127035ec2bb",
+      "sha256Source": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/metrics.jsonl",
+      "bytes": 1233117,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/before.json",
+      "bytes": 227696,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/after.json",
+      "bytes": 226210,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/kafka-before.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/kafka-after.json",
+      "bytes": 41266,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/system/system-samples.jsonl",
+      "bytes": 6483998,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "stage": "health-s1-l5-r8000-profile1",
+      "path": ".work/performance/20260909T105233Z-7fa63a14/stages/health-s1-l5-r8000-profile1/system/system-summary.json",
+      "bytes": 47735,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/native-summary.json",
+      "bytes": 239420780,
+      "copied": false,
+      "sha256": "014d2383a18da92966e692b68b3c4e5db963b58376023fcde800a269963fb5ce",
+      "sha256Source": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/metrics.jsonl",
+      "bytes": 1070642,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/before.json",
+      "bytes": 220397,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/after.json",
+      "bytes": 223696,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/kafka-before.json",
+      "bytes": 41269,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/kafka-after.json",
+      "bytes": 41269,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/system/system-samples.jsonl",
+      "bytes": 4599922,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-profile1",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-profile1/system/system-summary.json",
+      "bytes": 47147,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/native-summary.json",
+      "bytes": 590402730,
+      "copied": false,
+      "sha256": "8519009ec4db73ade4ba84cf13655354d002a65dd260ed31895fd6e29973e8d8",
+      "sha256Source": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/metrics.jsonl",
+      "bytes": 2975938,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/before.json",
+      "bytes": 224737,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/after.json",
+      "bytes": 223793,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/system/system-samples.jsonl",
+      "bytes": 17972685,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "stage": "l10-r6000-repeat",
+      "path": ".work/performance/20260909T110822Z-3289dc12/stages/l10-r6000-repeat/system/system-summary.json",
+      "bytes": 46915,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/native-summary.json",
+      "bytes": 34522950,
+      "copied": false,
+      "sha256": "3657341cbc68096edc84d3120a4498211f56a53eede6ecf496fecc911946fa35",
+      "sha256Source": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/metrics.jsonl",
+      "bytes": 1475247,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/before.json",
+      "bytes": 219926,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/after.json",
+      "bytes": 224038,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/system/system-samples.jsonl",
+      "bytes": 6875086,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r1000",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r1000/system/system-summary.json",
+      "bytes": 45150,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/native-summary.json",
+      "bytes": 311212946,
+      "copied": false,
+      "sha256": "e6370c10ab093050b903e5ed62ffc8112cdfdfb3b4ac58a0f8a966915f2bc6e4",
+      "sha256Source": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/metrics.jsonl",
+      "bytes": 1357982,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/before.json",
+      "bytes": 223969,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/after.json",
+      "bytes": 225204,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/system/system-samples.jsonl",
+      "bytes": 7501946,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-profile1",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-profile1/system/system-summary.json",
+      "bytes": 47718,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/native-summary.json",
+      "bytes": 498735663,
+      "copied": false,
+      "sha256": "53a27ee35c423d2e8a4fbd085821ff0ecad4d6e692788fdc5c27224786a10be3",
+      "sha256Source": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/metrics.jsonl",
+      "bytes": 2179832,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/before.json",
+      "bytes": 226681,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/after.json",
+      "bytes": 225098,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/system/system-samples.jsonl",
+      "bytes": 14295411,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "stage": "p3-r6000-repeat",
+      "path": ".work/performance/20260909T112420Z-6c44f3e1/stages/p3-r6000-repeat/system/system-summary.json",
+      "bytes": 47709,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/native-summary.json",
+      "bytes": 34521614,
+      "copied": false,
+      "sha256": "3f2ef6377b4a93658826ffcc1cc9fac16c5d8d4350ea0a7e9824aac7a98536b7",
+      "sha256Source": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/metrics.jsonl",
+      "bytes": 1254733,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/before.json",
+      "bytes": 202135,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/after.json",
+      "bytes": 201205,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/system/system-samples.jsonl",
+      "bytes": 6700496,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r1000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r1000/system/system-summary.json",
+      "bytes": 44142,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/native-summary.json",
+      "bytes": 590329176,
+      "copied": false,
+      "sha256": "e6b302a0e0cdfccaec9b7e895abbfbf8ea350b08e607412d5563cbe1bb1a4c1a",
+      "sha256Source": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/metrics.jsonl",
+      "bytes": 2395646,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/before.json",
+      "bytes": 201181,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/after.json",
+      "bytes": 201428,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/system/system-samples.jsonl",
+      "bytes": 17060915,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r6000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r6000/system/system-summary.json",
+      "bytes": 43908,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/native-summary.json",
+      "bytes": 574785545,
+      "copied": false,
+      "sha256": "98bc59459251200dc5a29d02f810416c50f020af1fa2cc8a77b271f86c6149c6",
+      "sha256Source": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/metrics.jsonl",
+      "bytes": 1830501,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/before.json",
+      "bytes": 203003,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/after.json",
+      "bytes": 201497,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/system/system-samples.jsonl",
+      "bytes": 13812649,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "stage": "off-r7000",
+      "path": ".work/performance/20260909T113636Z-9a84ff43/stages/off-r7000/system/system-summary.json",
+      "bytes": 44142,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/native-summary.json",
+      "bytes": 34524092,
+      "copied": false,
+      "sha256": "5eeb47b9395e0484f4b1200d6e3d7fd82d76941bfa2249e458ed618747512245",
+      "sha256Source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/metrics.jsonl",
+      "bytes": 1278218,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/before.json",
+      "bytes": 204370,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/after.json",
+      "bytes": 205034,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/system/system-samples.jsonl",
+      "bytes": 7225338,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r1000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r1000/system/system-summary.json",
+      "bytes": 48437,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/native-summary.json",
+      "bytes": 538063503,
+      "copied": false,
+      "sha256": "054d3acf30ac8e81601af498b538b03766e460b4187fb5fa4db1ea6953c1f5b7",
+      "sha256Source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/metrics.jsonl",
+      "bytes": 1993468,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/before.json",
+      "bytes": 206632,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/after.json",
+      "bytes": 206668,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/system/system-samples.jsonl",
+      "bytes": 16171591,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000/system/system-summary.json",
+      "bytes": 48682,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/native-summary.json",
+      "bytes": 590340279,
+      "copied": false,
+      "sha256": "ee84fb3783f45b6ca53fe4e174455ace2d57043231458cd01337c0d38579e278",
+      "sha256Source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/metrics.jsonl",
+      "bytes": 2466480,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/before.json",
+      "bytes": 208194,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/after.json",
+      "bytes": 206683,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/system/system-samples.jsonl",
+      "bytes": 18422250,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r6000-repeat",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r6000-repeat/system/system-summary.json",
+      "bytes": 48443,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/native-summary.json",
+      "bytes": 688855440,
+      "copied": false,
+      "sha256": "8baffb7b87d5ecf0ef3fe2530de6bb69d6e4f3eb91f1951fadc106437edbc303",
+      "sha256Source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/metrics.jsonl",
+      "bytes": 2466650,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/before.json",
+      "bytes": 208199,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/after.json",
+      "bytes": 206680,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/system/system-samples.jsonl",
+      "bytes": 18559367,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r7000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r7000/system/system-summary.json",
+      "bytes": 48664,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/native-summary.json",
+      "bytes": 514848326,
+      "copied": false,
+      "sha256": "e626baba69b7bc7f780e6a118128968b3f8b83c129b8467e19021b6331cc7a01",
+      "sha256Source": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/metrics.jsonl",
+      "bytes": 1646814,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/before.json",
+      "bytes": 208006,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/after.json",
+      "bytes": 207731,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/system/system-samples.jsonl",
+      "bytes": 11558330,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "stage": "eight-r8000",
+      "path": ".work/performance/20260909T115443Z-b8cd8a25/stages/eight-r8000/system/system-summary.json",
+      "bytes": 49142,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/native-summary.json",
+      "bytes": 34523442,
+      "copied": false,
+      "sha256": "de1072215a4316e37613552ff388197f79a991c65905b8290eaba2b330267307",
+      "sha256Source": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/metrics.jsonl",
+      "bytes": 1248258,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/before.json",
+      "bytes": 199276,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/after.json",
+      "bytes": 200930,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/system/system-samples.jsonl",
+      "bytes": 6844525,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r1000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r1000/system/system-summary.json",
+      "bytes": 45218,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/native-summary.json",
+      "bytes": 545086974,
+      "copied": false,
+      "sha256": "36a30d225167478a0a75d35d1a94b93e1cdb1a075cebb2b34883fea262a65064",
+      "sha256Source": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/metrics.jsonl",
+      "bytes": 2167148,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/before.json",
+      "bytes": 202508,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/after.json",
+      "bytes": 201857,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/system/system-samples.jsonl",
+      "bytes": 15423737,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000/system/system-summary.json",
+      "bytes": 44752,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/native-summary.json",
+      "bytes": 358078796,
+      "copied": false,
+      "sha256": "b38cf8ae44fca8570c84d339679cd6332a0301ea1b0a27e0e2416f3279e3f454",
+      "sha256Source": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/metrics.jsonl",
+      "bytes": 1261265,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/before.json",
+      "bytes": 203160,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/after.json",
+      "bytes": 201839,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/kafka-before.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/kafka-after.json",
+      "bytes": 41270,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/system/system-samples.jsonl",
+      "bytes": 9139548,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "stage": "parallel-r6000-caught-up",
+      "path": ".work/performance/20260909T121904Z-b31eb04c/stages/parallel-r6000-caught-up/system/system-summary.json",
+      "bytes": 44971,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/native-summary.json",
+      "bytes": 34523004,
+      "copied": false,
+      "sha256": "dcff29b7199bcdd0f8519bfc9ce7cc97a88237eee625870ab2879a43c7805eae",
+      "sha256Source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/metrics.jsonl",
+      "bytes": 1244553,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/before.json",
+      "bytes": 200370,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/after.json",
+      "bytes": 199218,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/kafka-before.json",
+      "bytes": 41275,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/kafka-after.json",
+      "bytes": 41275,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/system/system-samples.jsonl",
+      "bytes": 6776330,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r1000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r1000/system/system-summary.json",
+      "bytes": 44344,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/native-summary.json",
+      "bytes": 590302449,
+      "copied": false,
+      "sha256": "c70abd6d70d67c1c99bbee892469eaf4014b502030455d0417b3110a2a172d97",
+      "sha256Source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/metrics.jsonl",
+      "bytes": 2494613,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/before.json",
+      "bytes": 200654,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/after.json",
+      "bytes": 200131,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/kafka-before.json",
+      "bytes": 41275,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/kafka-after.json",
+      "bytes": 41275,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/system/system-samples.jsonl",
+      "bytes": 17911673,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r6000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r6000/system/system-summary.json",
+      "bytes": 44121,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/native-summary.json",
+      "bytes": 688862923,
+      "copied": false,
+      "sha256": "edeb01a9be78d5e8b3ca331c2d723dc50a337dbf756e45b208e83eb67e6f879e",
+      "sha256Source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/metrics.jsonl",
+      "bytes": 2391115,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/before.json",
+      "bytes": 201810,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/after.json",
+      "bytes": 201235,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/kafka-before.json",
+      "bytes": 41276,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/kafka-after.json",
+      "bytes": 41276,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/system/system-samples.jsonl",
+      "bytes": 17346873,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000/system/system-summary.json",
+      "bytes": 44594,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/native-summary.json",
+      "bytes": 688809465,
+      "copied": false,
+      "sha256": "ef414df4868099efdc0ce1b6c0ac1ad914b53bb314f61dc3abd76b72fef926bc",
+      "sha256Source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/metrics.jsonl",
+      "bytes": 2513285,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/before.json",
+      "bytes": 202603,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/after.json",
+      "bytes": 201308,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/kafka-before.json",
+      "bytes": 41276,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/kafka-after.json",
+      "bytes": 41276,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/system/system-samples.jsonl",
+      "bytes": 17709317,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r7000-repeat",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r7000-repeat/system/system-summary.json",
+      "bytes": 44820,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/native-summary.json",
+      "bytes": 785077114,
+      "copied": false,
+      "sha256": "b0289c1f25250d25c8f3f1e4d67898db9c9d282c6f55b3d3997399f75c7cbba7",
+      "sha256Source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/metrics.jsonl",
+      "bytes": 2613411,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/before.json",
+      "bytes": 201758,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/after.json",
+      "bytes": 200205,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/kafka-before.json",
+      "bytes": 41275,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/kafka-after.json",
+      "bytes": 41276,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/system/system-samples.jsonl",
+      "bytes": 19176056,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000/system/system-summary.json",
+      "bytes": 44354,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/native-summary.json",
+      "bytes": 263069961,
+      "copied": false,
+      "sha256": "edd174d95ffe9fedccf149a3f89589b9ff34a7609f1f75d8ce621f0aafeba987",
+      "sha256Source": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/result.json#nativeSummarySha256",
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/metrics.jsonl",
+      "bytes": 1251437,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/before.json",
+      "bytes": 201747,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/after.json",
+      "bytes": 200186,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/kafka-before.json",
+      "bytes": 41275,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/kafka-after.json",
+      "bytes": 41275,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/system/system-samples.jsonl",
+      "bytes": 7438477,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "stage": "fanout-r8000-peak",
+      "path": ".work/performance/20260909T132900Z-09adb5ee/stages/fanout-r8000-peak/system/system-summary.json",
+      "bytes": 44584,
+      "copied": false,
+      "sha256": null,
+      "sha256Source": null,
+      "rehashPerformed": false
+    }
+  ],
+  "nativeHashesCopiedFromOriginalResults": true
+}

@@ -1,6 +1,8 @@
 # ShortLink
 
-Java 17 短链接平台。当前分支按 [生产级重构 v0.7](plan/生产级重构增强/01-开发阶段与任务拆分.md) 拆分业务写入、跳转、统计和 Agent，开发完成后使用新 schema 首次部署。
+Java 17 短链接平台。当前分支按 [生产级重构 v0.7](doc/plan/生产级重构增强/01-开发阶段与任务拆分.md) 拆分业务写入、跳转、统计和 Agent，开发完成后使用新 schema 首次部署。
+
+[文档总目录](doc/README.md) · [开发计划](doc/plan/README.md) · [压测报告与归档](doc/压测报告/README.md)
 
 ```mermaid
 flowchart LR
@@ -50,7 +52,7 @@ flowchart LR
 - Tool 和普通后台都经 Analytics 查询；Agent 无逐点击消费者，也不直接写 Redirect 的 Redis 策略键。
 - 统计结果保留时间范围、快照、sourceCut、近似算法及质量。未采集的地域/网络维度明确缺失；历史累计未证明完整覆盖时为未知。
 
-[运行配置与首次部署](deploy/README.md) · [统计运行与恢复](docs/analytics/runtime.md) · [查询任务](docs/analytics/query-jobs.md) · [Leaf 来源](id-generator/UPSTREAM.md) · [本轮实施与验收](plan/生产级重构增强/04-实施验收记录.md)
+[运行配置与首次部署](deploy/README.md) · [统计运行与恢复](doc/analytics/runtime.md) · [查询任务](doc/analytics/query-jobs.md) · [Leaf 来源](id-generator/UPSTREAM.md) · [本轮实施与验收](doc/plan/生产级重构增强/04-实施验收记录.md)
 
 ## 开发与验收
 
@@ -66,6 +68,6 @@ mvn package -DskipTests
 
 集成测试须显式提供隔离 MySQL、Redis、Kafka、ClickHouse、MinIO；具体变量和命令见测试与部署说明。Flink 的 RocksDB 集成测试在 Linux 上执行。默认单测与 `integration` profile 都排除 `e2e`、`performance` 标签；不得用全选 `-Dtest=*` 改变验收范围。
 
-已完成单元与组件集成验收，并开展短链接创建、跳转及网关的有限后端 E2E 和压测；范围与保留失败分别见 [E2E 记录](plan/生产级重构增强/05-创建跳转E2E验收.md)及[网关批发送复测](plan/生产级重构增强/13-网关有界批发送优化与复测.md)。最新八 worker 配置在 5000/s 目标的 90.024 秒正式窗口取得约 4982.32 正确请求/s、P99 67ms，但全场景仍有 1228 次丢迭代，容量档保持 FAIL，未执行该档长确认。Agent 和完整统计消费链路不在这轮压测范围内。
+已完成单元与组件集成验收，并开展短链接创建、跳转及网关的有限后端 E2E 和压测；范围与保留失败分别见 [E2E 记录](doc/plan/生产级重构增强/05-创建跳转E2E验收.md)及[网关批发送复测](doc/压测报告/过程报告/13-网关有界批发送优化与复测.md)。报告 13 中的八 worker 配置在 5000/s 目标的 90.024 秒正式窗口取得约 4982.32 正确请求/s、P99 67ms，但全场景仍有 1228 次丢迭代，容量档保持 FAIL，未执行该档长确认。Agent 和完整统计消费链路不在这轮压测范围内。
 
 集群十万跳转 QPS 仍是容量规划假设，尚未验证。首次正式部署前还需要持续容量、真实生产拓扑及故障耐久性验收，以及域名证书和生产权限配置。

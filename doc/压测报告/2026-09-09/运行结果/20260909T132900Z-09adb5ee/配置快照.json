@@ -1,0 +1,145 @@
+{
+  "kind": "ALLOWLISTED_CONFIGURATION_ARCHIVE",
+  "runId": "20260909T132900Z-09adb5ee",
+  "originalPath": ".work/performance/20260909T132900Z-09adb5ee/run-manifest.json",
+  "originalSha256": "1adc454f49e9e26d82de93f0284513e4678e87bf23af1a4c7c54404aed9eb2d4",
+  "scope": {
+    "realRedirect": true,
+    "realRedis": true,
+    "realKafka": true,
+    "tls": false,
+    "agent": false,
+    "analyticsConsumer": false,
+    "cache": "10 real links, L1/L2 plus authoritative expiry refresh",
+    "edgeLimitersEnabled": true,
+    "eventsPerSuccessfulGet": 3
+  },
+  "resourceProfile": {
+    "javaHeapMaxMiB": 384,
+    "javaActiveProcessors": 2,
+    "javaCpuSet": "0-7",
+    "edgeWorkers": 4,
+    "edgeCpuSet": "0-7",
+    "edgeQueueCountPerWorker": 500,
+    "edgeQueueBytesPerWorker": 4194304,
+    "edgeQueueCountNode": 2000,
+    "edgeQueueBytesNode": 16777216,
+    "edgeSendConcurrencyPerWorker": 2,
+    "edgeSenderSlotsNode": 8,
+    "edgeSendBatchSize": 32,
+    "edgeSendBatchBytes": 65536,
+    "applicationCpuSet": "0-7",
+    "applicationDependencyCpuOverlap": null,
+    "applicationCpuUnion": "0-7",
+    "javaEdgeCpuOverlap": "0-7",
+    "edgeSendLingerMillis": 5,
+    "dependencyCpuSet": "8-11",
+    "loadGeneratorCpuSet": "12-15",
+    "wslLogicalProcessors": 16,
+    "metadataWorkers": 8,
+    "metadataPollDefaultMillis": 1000,
+    "commandPool": 16,
+    "idPool": 2,
+    "redirectPool": 8,
+    "adminPool": 12,
+    "kafkaReplicationFactor": 1,
+    "kafkaPartitions": 2
+  },
+  "containers": [
+    {
+      "name": "/shortlink-perf-apisix-a3fe9df0",
+      "id": "d12e311ccb6159b2df9f110601a2062e623f221951457e1257d6e7ade4d4de0e",
+      "image": "apache/apisix:3.11.0-debian",
+      "imageId": "sha256:178d1f79c2c39834f50213bf6ace90284f6b985dc8189cc50f3666d9fb1037ad",
+      "cpu": "0-7",
+      "memory": 1073741824,
+      "quota": 0,
+      "period": 0
+    },
+    {
+      "name": "/shortlink-refactor-it-mysql-1",
+      "id": "0a290cbc951c06bd4c0d2c259bfbc32fdc2a58d33ea624f610681552ad1aa54f",
+      "image": "mysql:8.0.36",
+      "imageId": "sha256:a532724022429812ec797c285c1b540a644c15e248579c6bfdf12a8fbaab4964",
+      "cpu": "8-11",
+      "memory": 0,
+      "quota": 0,
+      "period": 0
+    },
+    {
+      "name": "/shortlink-perf-redis-20260909-functional",
+      "id": "1b686b8bc4ea6bf66cada565ed231e90c485bef7b6500d1e877238c089d8685d",
+      "image": "sha256:6aaf3f5e6bc8a592fbfe2cccf19eb36d27c39d12dab4f4b01556b7449e7b1f44",
+      "imageId": "sha256:6aaf3f5e6bc8a592fbfe2cccf19eb36d27c39d12dab4f4b01556b7449e7b1f44",
+      "cpu": "8-11",
+      "memory": 0,
+      "quota": 0,
+      "period": 0
+    },
+    {
+      "name": "/shortlink-refactor-it-kafka-1",
+      "id": "950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+      "image": "apache/kafka:3.9.0",
+      "imageId": "sha256:fbc7d7c428e3755cf36518d4976596002477e4c052d1f80b5b9eafd06d0fff2f",
+      "cpu": "8-11",
+      "memory": 0,
+      "quota": 0,
+      "period": 0
+    },
+    {
+      "name": "/shortlink-refactor-it-minio-1",
+      "id": "1e70400d6ec4a00d397d1a77a5a7e86e0332c31f8eac822279a2a155656f492c",
+      "image": "minio/minio:RELEASE.2025-04-22T22-12-26Z",
+      "imageId": "sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e",
+      "cpu": "8-11",
+      "memory": 0,
+      "quota": 0,
+      "period": 0
+    }
+  ],
+  "jvmArtifacts": {
+    "shortlink-command": {
+      "pid": 30447,
+      "businessPort": 8001,
+      "healthPort": 8101,
+      "sha256": "d0d2f2fc30cfceaed25c122ec13ffc18f69e2af0a52f535ab3ddcac583893fa0"
+    },
+    "admin": {
+      "pid": 31389,
+      "businessPort": 8002,
+      "healthPort": 8102,
+      "sha256": "a5cf08e51b43e18cb6634e4a05c74fc84295f5f601f6fd9c68b2bb51c88402a2"
+    },
+    "gateway": {
+      "pid": 32611,
+      "businessPort": 8000,
+      "healthPort": 8100,
+      "sha256": "7df62d3269702f8a2c1dc03406248c933fd844a2fa94684d880d83c31b1f57f8"
+    },
+    "shortlink-redirect": {
+      "pid": 981,
+      "businessPort": 8003,
+      "healthPort": 8103,
+      "sha256": "e805c149d0d5a414068c5768c961b9f16daeb1ad1ddf687263a0f429fb7a0f4d"
+    }
+  },
+  "topology": "APISIX standalone + four real production JARs",
+  "redisDatabase": 10,
+  "redisPort": 16380,
+  "redirectFunctionalRoutingEnabled": true,
+  "executionDiagnosticsEnabled": false,
+  "edgeHttpTimingEnabled": false,
+  "publisherDiagnosticObservationRequired": true,
+  "campaignBudgetRevision": {
+    "version": 4,
+    "policySha256": "a752b19011978f085f3dcd0bd55f57e6f085aa61296af7ef5126250d981293f5"
+  },
+  "budgets": {
+    "maximumCampaignKafkaRecords": 35000000,
+    "maximumRequestsPerStage": 1000000,
+    "stageReservationMultiplier": 9,
+    "bytesPerRecord": 4096,
+    "p99Millis": 80
+  },
+  "note": "Explicit field projection, not a byte-for-byte copy of runtime state; private configuration and observer credentials are not included."
+}

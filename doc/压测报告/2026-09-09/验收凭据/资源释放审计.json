@@ -1,0 +1,154 @@
+{
+  "runs": [
+    {
+      "runId": "20260909T091523Z-fa0a8707",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T095927Z-ade55186",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T103657Z-e9885f7a",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T104540Z-05228fdd",
+      "servicesStopped": true,
+      "jvmsChecked": []
+    },
+    {
+      "runId": "20260909T105233Z-7fa63a14",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T110822Z-3289dc12",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T112420Z-6c44f3e1",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T113636Z-9a84ff43",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T115443Z-b8cd8a25",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T121904Z-b31eb04c",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    },
+    {
+      "runId": "20260909T132900Z-09adb5ee",
+      "servicesStopped": true,
+      "jvmsChecked": [
+        "shortlink-command",
+        "admin",
+        "gateway",
+        "shortlink-redirect"
+      ]
+    }
+  ],
+  "receipts": {
+    "real-batching-20260909/kafka-health-script-restored.json": {
+      "sha256": "fbcc2fc69210e88b94e62eaebb1d10046d1b955f7c5316391c9858539a2bfec4",
+      "receipt": {
+        "containerId": "950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+        "originalSha256": "bec7535636637038a6901f8ff22f49f4514e10debe2d19d752c04ddd792a37cd",
+        "restored": true
+      }
+    },
+    "real-breakthrough-20260909/dependencies-stopped.json": {
+      "sha256": "62b140f5a935cdffcdc1be484fa01afbb0203f4d8d2e751daf80d5d734b743bf",
+      "receipt": {
+        "ids": [
+          "0a290cbc951c06bd4c0d2c259bfbc32fdc2a58d33ea624f610681552ad1aa54f",
+          "950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+          "1e70400d6ec4a00d397d1a77a5a7e86e0332c31f8eac822279a2a155656f492c",
+          "dde586c4b594d4a622f3abb6e7655fb126255e086a6146972a19065af6b6af75"
+        ],
+        "stopped": true,
+        "originalCpuSetsRestored": true
+      }
+    },
+    "real-functional-20260909/redis-stopped.json": {
+      "sha256": "7e75da39fb4e06ef4d65408db6023ca8a899776b730a0919ff250bbc3275cf19",
+      "receipt": {
+        "id": "1b686b8bc4ea6bf66cada565ed231e90c485bef7b6500d1e877238c089d8685d",
+        "stopped": true,
+        "dataRetained": true
+      }
+    }
+  },
+  "engineStartReceipt": {
+    "pid": 286,
+    "startTicks": 23933,
+    "socket": "unix:///var/run/shortlink-docker.sock",
+    "startedAt": "2026-09-09T08:57:55.267777+00:00"
+  },
+  "engineStopped": {
+    "pid": 286,
+    "ownedEngineStopped": true,
+    "defaultDockerModified": false,
+    "historicalDataDeleted": false,
+    "at": "2026-09-09T14:07:47.161737+00:00"
+  },
+  "scope": "Only exact owned process identities; no global WSL shutdown or data deletion"
+}

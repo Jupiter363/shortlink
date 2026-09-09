@@ -1,0 +1,463 @@
+# 跳转事件终态与路由开销对照复测（已结束，容量未通过）
+
+日期：2026-09-08。分支：`codex/production-refactor-v07`。接续 [17-暴露问题修复与短时对照验收](17-暴露问题修复与短时对照验收.md)。
+
+**本轮10个容量阶段全部FAIL，没有彻底突破当前瓶颈。** Functional的handler均值和进程分配摊销出现约11%的局部下降，但正式吞吐仅增加0.72%，仍保持默认关闭。Linger将真实批效从1.389提高至5.399条/Produce、网关CPU约降低16%，但端到端尾延迟与drops没有改善。最后6000档扩应用CPU范围后仍因click251次、result4次事件拒绝提前中止，原账本REFUSED保留；此前encoded的124次result拒绝/145个HTTP未知，以及linger准备失败的1个HEAD未知和未排空残余均保留。
+
+CAS终态改动通过64项单元测试和1项真实Kafka集成测试，linger量化修复通过80项Lua及35项配置测试；这些不替代容量验收。所有本轮应用、发生器、5个依赖容器和专用engine已经停止，数据保留、Docker Desktop未修改。最终新增9371078records，10/10次尝试用完且全部FAIL，预算与资源收尾通过。本报告将局部成本收益、功能正确性、数量对账、容量失败和清理结果分别保留，不以任何一项PASS回填原失败。
+
+## 1. 本轮变量与制品边界
+
+| 角色 | Redirect 行为 | functional routing | 制品与当前状态 |
+| --- | --- | --- | --- |
+| control | 已封存的历史 String Producer；UTF-8 计长已在接纳 monitor 外，发送时仍需编码 | false | SHA `2cf2de8cbec51903f63a05e95a0fa8e8a1874d078260090344b2c1838e947f2a`；已执行，容量 FAIL |
+| encoded | key/body 只编码一次，预算与 Kafka 发送复用私有 byte[]；保留原接纳/终态 monitor | false | SHA `771cd79c49c7f9d8e524db2c6d8a37b658b8b2f8275c3bc1a5d335f6aa6128d6`；已执行，容量及通用最终账本 FAIL |
+| settlement / CAS | 在 encoded 基础上，以单个不可变 LaneState 的 CAS 维护权威质量状态；成功终态不获取接纳 monitor | false | SHA `f70d938ce7184838ce98071efa2cb7d71f5126c9cbc144b9b3822aea2e282e7b`；首轮已执行，容量FAIL、GET账本PASS |
+| settlement3 / functional2 | 在同一个新Redis实例上，使用同一个CAS JAR，仅切换functional routing=false→true，复用原跳转处理逻辑 | false / true | 两轮均已完成，容量FAIL、GET账本PASS。准备失败及同窗成本见第5节，不把旧Redis上的CAS与新Redis上的functional当单变量 |
+| sender2 / GMP2 | 同f70d JAR、functional=false，APISIX每worker sender4→2；随后保持服务不变，仅给k6子进程配置GOMAXPROCS=2 | false | 同run两个阶段均已结束、容量FAIL；第二阶段实际供给下降，不能把P99下降称服务端收益 |
+| native首阶段 | 恢复sender4，服务JAR与resource profile同settlement3，换用独立native Go发生器 | false | 已执行、容量FAIL、native GET账本PASS；发生器成本下降不能记为服务源码优化 |
+| native 5ms / 最后6000档 | 前者使用量化修复后的5ms合批；后者再将应用允许CPU扩至0–11并将目标改为6000/s，依赖8–11重叠 | false | 两者均已执行并停止、容量FAIL；最后一档事件拒绝255次、原GET账本REFUSED |
+
+Control 与 encoded 使用同一份本轮发生器：10 链接预计算工作集、`vu-precomputed`、跳过成功 GET 的冗余零行数指标、固定 phase timing 与独立 k6 timeline。发生器还移除了 Location header 查找时显式数组/回调分配；所有响应状态、目标地址、sent/correct/未知及失败判断保留。它们不同于报告17的旧发生器与11300行 fixture，不能跨报告直接归因性能差异。本轮每个新运行准备267行 fixture，统计工作集仍为10条普通短链。
+
+前5个阶段公共参数：edge GET、目标5000/s；从100/s开始预热30秒，再正式60秒；512 VU、64个真实TCP来源、10链接均匀工作集；8 APISIX worker、每 worker 4 sender。后2个sender阶段仅将每worker sender降为2，GMP2再改变发生器子进程配置，详见第5节。P99预算80ms、drops允许值0、事件失败允许值0，发生异常立即停止。入口与发生器、APISIX配置和运行制品的身份由每次 manifest 冻结；当前源码并不代表历史 control 的 JAR。
+
+初始control、encoded和settlement的manifest资源参数相同：每个Java最大heap384MiB、ActiveProcessorCount=2；APISIX每worker队列250条/2MiB、节点合计2000条/16MiB，batch32/65536B；Kafka单副本、相关topic两分区。这里记录实际本轮配置，不把库中的最大上限或旧轮参数当成现值。
+
+证据：[control manifest](../../../../../.work/performance/20260908T113346Z-db230aca/run-manifest.json)、[encoded manifest](../../../../../.work/performance/20260908T114244Z-8b4f2562/run-manifest.json)、[control spec](../../../../../.work/redirect-breakthrough-20260908/root-control-spec.json)、[encoded spec](../../../../../.work/redirect-breakthrough-20260908/root-spec-bt-encoded-r5000.json)、[发生器变更与验证](../../../../../.work/redirect-breakthrough-20260908/id-generator-notes.md)。
+
+## 2. 已完成的 HTTP 结果：失败不回填
+
+| 指标 | control | encoded | settlement / CAS |
+| --- | ---: | ---: | ---: |
+| run ID | `20260908T113346Z-db230aca` | `20260908T114244Z-8b4f2562` | `20260908T120213Z-23676dd7` |
+| 阶段 | `bt-control-r5000` | `bt-encoded-r5000` | `bt-settlement-r5000` |
+| 正式起点 UTC | 11:39:22.003 | 11:46:48.182 | 12:06:15.741 |
+| 实际正式 elapsed | 59.999s，完整 | 20.109s，提前中断 | 60.091s，完整 |
+| 正式 sent / received / correct | 283416 / 283416 / 283416 | 93593 / 93448 / 93448 | 279225 / 279225 / 279225 |
+| 正式 HTTP 未知 | 0 | 145 | 0 |
+| 正确率，correct / sent | 100% | 99.845074% | 100% |
+| 正式或中断前正确吞吐 | 4723.678728/s | 4647.073450/s，仅中断前窗口 | 4646.702501/s |
+| 正式 roundtrip 均值 / P99 | 32.119340 / 206ms | 46.215564 / 220ms，仅已有完成样本 | 41.334784 / 235ms |
+| 正式已收到的 429 / 503 / client error | 0 / 0 / 0 | 0 / 0 / 0；不包含145个未知 | 0 / 0 / 0 |
+| 整轮 sent / received / correct，含预热 | 357379 / 357379 / 357379 | 167503 / 167358 / 167358 | 354847 / 354847 / 354847 |
+| 整轮 HTTP 未知 | 0 | 145 | 0 |
+| 全场景 dropped iterations | 19060 | 9495 | 21576 |
+| 容量状态 | FAIL | FAIL | FAIL |
+| 阶段结束已记录 drain | true | true | true |
+
+Control与CAS均未达到正式目标供给的99%，且drops非零、P99超预算，三项容量门槛失败。Encoded 首先触发事件失败保护，随后正式窗口不完整、存在未完成HTTP、drops及P99等检查也失败。它的20.109秒数据不能当成完整60秒成绩，窗口长度不同也不构成稳定性能差异的证明。
+
+正确率使用 correct/sent，不使用原 summary 的 correct/received 替代。Drops 没有可靠的阶段归属，不能擅自全部划入预热。原始整轮 roundtrip minimum 出现 control -1ms、encoded -2ms的墙钟计时现象；正式 minimum均为0，本报告不修改原始值，也不使用负值做成本推算。
+
+证据：[control result](../../../../../.work/performance/20260908T113346Z-db230aca/stages/bt-control-r5000/result.json)、[control k6-summary](../../../../../.work/performance/20260908T113346Z-db230aca/stages/bt-control-r5000/k6-summary.json)、[encoded result](../../../../../.work/performance/20260908T114244Z-8b4f2562/stages/bt-encoded-r5000/result.json)、[encoded k6-summary](../../../../../.work/performance/20260908T114244Z-8b4f2562/stages/bt-encoded-r5000/k6-summary.json)、[CAS result](../../../../../.work/performance/20260908T120213Z-23676dd7/stages/bt-settlement-r5000/result.json)、[CAS k6-summary](../../../../../.work/performance/20260908T120213Z-23676dd7/stages/bt-settlement-r5000/k6-summary.json)。
+
+## 3. 事件交付与 encoded 首次拒绝
+
+Control 整轮三个 lane 各 attempted=delivered=357379，failed/rejected均为0，最终pending为0；Kafka click.raw增量357379、gateway.request增量714758；SQL基线和最终均267行。专用 GET 账本为 PASS，同时明确 `allStagesCapacityPassed=false`。这是数量及分区 offset 守恒，不是逐eventId唯一性或exactly-once证明，更不是统计消费者已经落库。
+
+Encoded 的 result.slots rejected 增量为124，另外13个事件/管道失败计数增量为0。通用最终账本保留 FAIL，包括 result拒绝/未全部交付、145个HTTP未完成，以及已确认HTTP与click/result/edge交付数量不相等；不能用最终排空将这些失败抹除。
+
+CAS整轮三lane各attempted=delivered=354847，14项失败增量为0、最终pending为0；Kafka click.raw增量354847、gateway.request增量709694；SQL267→267，baseline/final drain均为true，专用GET账本PASS、64来源证明PASS。这一轮没有重现encoded拒绝，但不能据一次未复现确认唯一锁根因或宣称容量通过。证据：[CAS GET账本](../../../../../.work/performance/20260908T120213Z-23676dd7/breakthrough-get-ledger.json)、[CAS来源证明](../../../../../.work/performance/20260908T120213Z-23676dd7/stages/bt-settlement-r5000/source-distribution.json)。
+
+首次 result 拒绝记录于 **11:47:03.076 UTC**：reserved=1000、queued=42、outside_queue=958、reserved_bytes=504100、awaiting_callback=999、terminal_active=1，距最后一次 terminal 进展约155.359ms；click HWM为925。它直接证明当时 result 槽预算耗尽，绝大多数任务已经不在本地待发送队列中，而非字节预算或queue.offer拒绝。
+
+这份现场的 queue、awaiting_callback、send_active、terminal_active及进度年龄是邻接读取，不能拼成同一纳秒的原子分区；年龄为0也可能来自取样期间进度字段更新。终态进展空档支持有针对性地验证接纳/ACK共用monitor的成本，但并不能唯一归因于锁；OS脱调度、Producer/Broker尾部等待仍未被本轮数据单独排除。`ack_terminal_lock_wait` 是 callback到达后至本地monitor取得的采样耗时，不是Kafka ACK往返。HTTP跳转本身不等待Kafka ACK，不能用 native request最大值直接解释HTTP P99。
+
+证据：[control GET账本](../../../../../.work/performance/20260908T113346Z-db230aca/breakthrough-get-ledger.json)、[encoded 通用最终账本](../../../../../.work/performance/20260908T114244Z-8b4f2562/optimization-ledger-verification.json)、[encoded after](../../../../../.work/performance/20260908T114244Z-8b4f2562/stages/bt-encoded-r5000/after.json)。
+
+## 4. Control 的同窗成本分界
+
+正式内部采样窗取 control `metrics.jsonl` 第9–20行，**11:39:26.429823—11:40:21.426998 UTC，共54.997175秒**；它完全落在正式阶段内，但不等于全部60秒。
+
+| 指标 | 该内部子窗的实测 |
+| --- | ---: |
+| Redirect GET302 count / sum 增量 | 258930 / 579.856271939s |
+| Redirect GET302 均值 | 2.239433ms |
+| APISIX request / upstream count增量 | 两者均258933 |
+| APISIX request / upstream 均值 | 18.187813 / 17.324474ms |
+| Redirect进程 CPU | 131.9 CPU秒，均239.830500% |
+| APISIX全部9个已采样子进程 CPU合计 | 均285.941960%；不伪造8worker单独映射 |
+| Redirect GC次数 / 暂停时间增量 | 226 / 0.991s |
+| Redirect已分配字节增量 | 10801380952 B，进程级 |
+| WSL host aggregate忙比例 / load1峰值 | 78.790861% / 23.720215 |
+
+Redirect精确HTTP标签为 `error=none,exception=none,method=GET,outcome=REDIRECTION,status=302,uri=/{shortUri}`。阶段before里GET302 timer尚未注册，因此**整轮服务端精确before→after均值为N/A**，不把缺失基线补零。内部子窗的两个边界都有真实同label累计值，才可计算上述差量。APISIX与Redirect采集各有耗时，两个计数增量相差3；不同collector并非原子同刻或逐请求配对，框架计时也不覆盖全部代理与网络等待。
+
+独立k6 timeline仅取完全位于正式窗内的相邻区间，覆盖59.078533秒，CPU加权均值304.763829%、约1秒区间峰351.895730%；整轮CPU均值265.576075%另行保留，不能冒充正式均值。100%表示一个逻辑CPU，ActiveProcessorCount不是CPU quota，低于某个逻辑CPU总值也不证明有等量独立物理核余量。
+
+Publisher整轮1/64采样的click/result各5585个样本：offer wait均32.559696/13.672629μs，offer hold均17.677513/11.018023μs，reservation lifetime均9.448912/9.517479ms；HWM489/488。两个lane的native bufferpool wait、record retry/error增量均0，正式内部metadata wait增量也为0。这些事实不支持缓冲池耗尽或持续metadata查询是control主因，也不证明不存在短暂调度/ACK尾部等待。
+
+Control整轮真实Produce records/requests增量为357379/165205，即2.163246条记录/请求；此前约1.77属于旧轮诊断背景，不能混作本轮结果。本轮没有重新采Broker JMX/JFR，不能据均值CPU或少量native最大值宣布Broker容量已满。
+
+完整窗口、原始counter端点、来源SHA及单位见 [analytics-control-costs.json](../../../../../.work/redirect-breakthrough-20260908/analytics-control-costs.json) 与 [成本分析说明](../../../../../.work/redirect-breakthrough-20260908/analytics-control-costs.md)。GC/分配覆盖整个进程，不是单个GET或编码器的独占开销；不以whole mean减formal P99计算组件成本。
+
+### CAS按相同规则选取的内部窗口
+
+CAS取 `metrics.jsonl` 第9–20行，**12:06:20.244845—12:07:15.246962 UTC，共55.002117秒**；使用相同选取规则，但并非同一时刻、同一请求集合或完全受控的物理宿主背景。
+
+| 指标 | control内部窗 | CAS内部窗 |
+| --- | ---: | ---: |
+| Redirect GET302 count增量 | 258930 | 257028 |
+| Redirect GET302 sum增量 | 579.856271939s | 599.878023404s |
+| Redirect GET302均值 | 2.239433ms | 2.333901ms |
+| APISIX request / upstream均值 | 18.187813 / 17.324474ms | 22.550361 / 21.420474ms |
+| Redirect CPU | 239.830500% | 245.445097% |
+| APISIX全部9children CPU合计 | 285.941960% | 296.115874% |
+| 分配字节增量 | 10801380952 B | 10612637000 B |
+| GC次数 / 暂停增量 | 226 / 0.991s | 277 / 1.618s |
+
+CAS的GET302真实counter为95353→352381，sum246.162120496→846.040143900s；APISIX同observer边界count增量257816。两个collector耗时与观察时刻不同，不能要求活动期计数逐条一致，也不能将均值相减当成某一具体组件的精确耗时。CAS before同样没有注册GET302 timer，整轮服务端差量仍为N/A。
+
+CAS独立k6正式内部interval覆盖59.159051秒，CPU加权均值296.286022%、峰327.195444%；整轮均值260.414555%另记。全21个observer点overrun0、Publisher202系列可用，CAS内部点最大采集673.3ms。宿主load1峰25.843262、WSL aggregate忙78.838606%，没有独立量化外部Docker的争用。
+
+CAS整轮click/result reservation均9.401572/9.543540ms，各5545个样本，HWM526/461；control对应9.448912/9.517479ms、HWM489/488。两个退休锁phase均零样本、均值不可用，不能写成减少至0ms。以上未显示明确端到端收益；control→CAS还叠加一次编码变化，encoded又提前中断，不能将差异唯一归因于CAS。详细端点及原始来源SHA见 [CAS成本JSON](../../../../../.work/redirect-breakthrough-20260908/analytics-settlement-costs.json) 和 [CAS成本说明](../../../../../.work/redirect-breakthrough-20260908/analytics-settlement-costs.md)。
+
+## 5. CAS 与 functional：已交付行为、待证实性能
+
+CAS将每lane的attempted/delivered/failed/rejected/pending/bytes保存在一个不可变State中，同一次CAS维持 `attempted=delivered+failed+rejected+pending`。成功callback不获取offer monitor；接纳、queue入队、关闭门闩及失败重试仍保留有界协调。Pending唯一终态、三次应用尝试、30秒年龄、ACK等级和槽/字节预算不改变。quality来自单次State读取；不同lane、Prometheus各gauge仍不是全局原子快照。
+
+CAS不是wait-free，也不承诺所有路径无锁；失败callback的retry仍可能等接纳monitor。不可变State更新可能增加分配，必须由后续CPU/GC实测判断。最后terminal进度采用monotonic max，避免不同回调后写旧时间而制造倒退。
+
+固定202系列继续注册，但 **`ack_terminal_lock_wait` 和 `terminal_lock_hold` 在CAS版本退休，不再record**；它们的count=0、mean=N/A，不能写成“耗时降至0ms”。`reservation_hold`仍记录真实终态时长；terminal_active也应解释为正在结算的操作数，不再等于等待Java monitor的线程数。
+
+Functional在同一CAS JAR上仅切换配置，使用函数式路由复用原处理器，不改变资源授权、请求校验、HEAD/GET行为、事件构造和目标地址检查。同JAR配对已执行，具体结果见下文；一次局部成本下降不等于容量突破。
+
+| 验证 | 已有证据 / 当前状态 |
+| --- | --- |
+| encoded与路由定向测试 | 58项单元 + 1项真实KafkaPublisherIT，0失败/错误/跳过；已封存 |
+| CAS新增Settlement及既有回归 | 64项单元 + 1项真实KafkaPublisherIT，0失败/错误/跳过；已封存 |
+| CAS源码独立审阅 | 已完成；不替代实跑测试或性能结果 |
+| 首个CAS false：5000/s受控阶段 | `20260908T120213Z-23676dd7 / bt-settlement-r5000`已完成并停止；容量FAIL、GET账本及source64 PASS，详见第2–4节 |
+| 首次functional准备 | 原Redis的8..15预留DB全部占用，任何新Java/APISIX或SQL schema创建前失败，没有stage；旧数据保留 |
+| settlement2准备 | 新Redis端口16381未在supervisor原白名单内，未创建run/压测；有限扩展到本轮精确容器/端口后，25脚本测试及4项选择断言通过，由根节点记录 |
+| 新Redis上的settlement3 false / functional2 true | 两者已完成并停止，结果见下表；同f70d JAR、同Redis容器/端口与资源profile，冻结脚本SHA相同 |
+| 后置sender2 / GMP2 / APISIX linger | sender2与GMP2已完成；linger从78项初始候选进入真实预检，暴露量化缺口后修复，再完成两个容量阶段，详见第7节；不混入路由配对 |
+
+测试证据：[encoded构建验证](../../../../../.work/redirect-breakthrough-20260908/root-build-verification.json)、[CAS构建验证](../../../../../.work/redirect-breakthrough-20260908/root-settlement-build-verification.json)、[CAS测试日志](../../../../../.work/redirect-breakthrough-20260908/root-java-settlement-verify.log)、[CAS独立审阅](../../../../../.work/redirect-breakthrough-20260908/gateway-cas-review.md)。后置候选见 [linger设计](../../../../../.work/redirect-breakthrough-20260908/analytics-linger-design.md)，默认0、最多5ms的设计不是已取得收益。
+
+CAS运行启动前64个HEAD客户端响应均正确，但首次日志证明因标称5秒flush的实测墙钟仅4.998秒而返回 `LOG_CLOCK_WINDOW_UNVERIFIED`，原FAIL保留。根节点之后只读同一个唯一marker对应的已产生网关日志，补证64个真实TCP来源通过；没有重发请求或修改原证据。[延后日志补证](../../../../../.work/performance/20260908T120213Z-23676dd7/source-ip-preflight-late-log.json)明确 `PASS_LATE_LOG_SUPPLEMENT`。这个来源补证不代表后续5000/s阶段通过。
+
+首次functional和settlement2的准备失败记录分别为 [functional准备日志](../../../../../.work/redirect-breakthrough-20260908/root-supervisor-functional.log) 与 [settlement2准备日志](../../../../../.work/redirect-breakthrough-20260908/root-supervisor-settlement2.log)。新Redis使用相同image、独立卷、端口16381、cpuset8–11，按根节点冻结的128MiB/noeviction配置准备；容器身份见 [root-extra-redis.json](../../../../../.work/redirect-breakthrough-20260908/root-extra-redis.json)。这些准备失败不是已执行的容量成绩，但必须保留；换Redis后重新做false基线，不能直接把旧CAS与新functional当单变量对照。
+
+Settlement3的freeze期间，observer端口白名单尚未同步，另有一次准备拒绝，原日志`root-prepare-settlement3-3.log`保留。根节点对同一个本轮精确Redis容器/16381补齐同样guard，重新freeze成功后才开始阶段；没有用失败的freeze或缺失观察直接放行压测。这项补齐是准备链路接线，不是已有性能结果或放宽其它容器/端口权限。
+
+### 新Redis成对对照：两轮均已完成
+
+| 指标 | settlement3：functional=false | functional2：functional=true |
+| --- | ---: | --- |
+| run / stage | `20260908T121059Z-d0bcefe1 / bt-settlement3-r5000` | `20260908T121707Z-56028eed / bt-functional-r5000` |
+| 正式开始UTC / elapsed | 12:14:59.166 / 60.016s，完整 | 12:20:32.544 / 60.016s，完整 |
+| 正式sent / received / correct | 284345 / 284345 / 284345 | 286400 / 286400 / 286400 |
+| 正式正确吞吐 | 4737.819915/s | 4772.060784/s |
+| 正式roundtrip均值 / P99 | 33.399448 / 223ms | 33.857458 / 209ms |
+| 正式HTTP未知 / 429 / 503 / client error | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| 整轮sent / completed / received / correct | 四项均358503，含预热 | 四项均360698，含预热 |
+| 全场景drops | 16885 | 15471 |
+| 14失败增量 | 全部0 | 全部0 |
+| 容量状态 | FAIL：供给不足99%、drops非零、P99超过80ms | 相同三项FAIL |
+| 来源 / GET账本 / baseline-final drain | PASS / PASS / true-true | PASS / PASS / true-true |
+| SQL baseline / final | 267 / 267 | 267 / 267 |
+
+两轮均未重现事件拒绝，仍不满足目标供给和尾延迟门槛；settlement3不是已通过的5000 QPS容量基线。Functional的QPS仅增加0.722714%，P99虽由223降至209ms，仍远高于80ms；客户端均值反而略增。新Redis作为配对运行环境的作用是减少配置混杂，不能预先假定Redis改善了性能。
+
+证据：[settlement3 result](../../../../../.work/performance/20260908T121059Z-d0bcefe1/stages/bt-settlement3-r5000/result.json)、[k6-summary](../../../../../.work/performance/20260908T121059Z-d0bcefe1/stages/bt-settlement3-r5000/k6-summary.json)、[GET账本](../../../../../.work/performance/20260908T121059Z-d0bcefe1/breakthrough-get-ledger.json)、[来源证明](../../../../../.work/performance/20260908T121059Z-d0bcefe1/stages/bt-settlement3-r5000/source-distribution.json)、[停止记录](../../../../../.work/redirect-breakthrough-20260908/root-stopped-settlement3.json)；[functional2 result](../../../../../.work/performance/20260908T121707Z-56028eed/stages/bt-functional-r5000/result.json)、[k6-summary](../../../../../.work/performance/20260908T121707Z-56028eed/stages/bt-functional-r5000/k6-summary.json)、[GET账本](../../../../../.work/performance/20260908T121707Z-56028eed/breakthrough-get-ledger.json)、[来源证明](../../../../../.work/performance/20260908T121707Z-56028eed/stages/bt-functional-r5000/source-distribution.json)、[停止记录](../../../../../.work/redirect-breakthrough-20260908/root-stopped-functional2.json)。
+
+### 路由配对的局部机制证据：保留默认关闭候选
+
+两个manifest核对通过：同f70d JAR、命令行实际functional=false/true、同Redis容器名与端口16381、相同资源profile及全部冻结脚本/插件SHA；stageConfig除label无差异。两轮使用独立逻辑DB。Manifest没有单独附上每轮Redis完整容器ID，因此本处仅按已有声明/根节点控制记录描述，不冒充额外现场身份采样。
+
+按相同规则取metrics第9–20行：false为**12:15:03.743118—12:15:58.783668 UTC，55.040550秒**；true为**12:20:37.137446—12:21:32.122061 UTC，54.984615秒**。各自内部窗口的实际计数为261100与262039，采用相同GET302标签，均没有将缺失before当零。
+
+| 内部窗口指标 | false | true | 描述性变化 |
+| --- | ---: | ---: | ---: |
+| Handler GET302均值 | 1.733746ms | 1.543935ms | -10.95% |
+| APISIX request均值 | 18.210716ms | 18.553602ms | +1.88% |
+| APISIX upstream均值 | 17.366435ms | 17.596066ms | +1.32% |
+| Redirect进程CPU均值 | 243.311522% | 237.211809% | -2.51% |
+| 进程CPU摊销 / 已计数GET | 512.906932μs | 497.750335μs | -2.96% |
+| 进程heap分配摊销 / 已计数GET | 41521.358744 B | 36986.812742 B | -10.92% |
+| GC次数 / 暂停增量 | 240 / 1.45s | 253 / 1.39s | 次数增加、暂停略降 |
+| APISIX全部9children CPU均值 | 292.184580% | 295.791831% | +1.23% |
+
+分配摊销是**同内部窗口GC报告分配字节增量除以同窗口已计数GET302增量**：分别10841226768/261100和9691987424/262039。它包含整个进程的框架、采集及后台工作，不是每个请求独占的路由分配，也不包含全部native/direct内存；CPU摊销具有相同范围限制。GC次数增加，不能只选暂停时间下降就写成“GC全面改善”。
+
+独立k6正式内部interval覆盖59.078442/59.052086秒，CPU均值296.504093%/295.671180%，变化很小；这不是上表约55秒相同端点。Whole Publisher reservation均值click/result：false8.612313/8.830177ms，true8.558579/8.588902ms；HWM分别518/524与504/535。两退休锁phase仍为无样本，不按0ms比较。
+
+**建议保留functional为默认关闭的候选，不更改默认开关。** 已有路由等价测试和两轮真实HTTP/事件正确性支持兼容性；handler与分配摊销约11%的同向下降，与减少框架路径开销的机制一致，值得保留。但这是共享宿主上的一次顺序配对，没有重复试验或新的事件循环/网络分段证据，不能将下降全部归因；代理upstream和客户端均值没有同步改善，正式QPS只差0.72%，两个容量结果均失败，不能称突破。
+
+可复算端点、原始输入SHA、退休phase及窗口限制见 [路由配对成本JSON](../../../../../.work/redirect-breakthrough-20260908/analytics-routing-pair-costs.json) 和 [分析说明](../../../../../.work/redirect-breakthrough-20260908/analytics-routing-pair-costs.md)。后续sender2使用functional=false，对照settlement3的sender4；不要将路由true与sender2同时切换后归因。
+
+### Sender2与GMP2：批效提高未形成吞吐收益
+
+新run `20260908T122251Z-b9869e8e` 两个阶段已完成并停止。其manifest与settlement3核对：同f70d JAR、functional=false、同新Redis容器名/16381端口、全部冻结脚本/插件SHA相同；资源profile仅每worker sender4→2、节点槽32→16不同。GMP2阶段复用同一服务进程和APISIX，仅给新k6子进程配置 `GOMAXPROCS=2`；两个阶段的Go runtimeActual都没有测量，原阶段是NOT_CONFIGURED，不能写成已知原runtime值降至2。
+
+| 指标 | sender4基线settlement3 | sender2 | sender2 + GMP2配置 |
+| --- | ---: | ---: | ---: |
+| stage | `bt-settlement3-r5000` | `bt-sender2-r5000` | `bt-sender2-gmp2-r5000` |
+| 正式起点UTC | 12:14:59.166 | 12:26:06.119 | 12:29:05.330 |
+| 正式elapsed | 60.016s，完整 | 60.001s，完整 | 60.002s，完整 |
+| 正式sent / received / correct | 三者284345 | 三者281473 | 三者199593 |
+| 正确QPS | 4737.819915 | 4691.138481 | 3326.439119 |
+| 正式roundtrip均值 / P99 | 33.399448 / 223ms | 39.594824 / 239ms | 30.690059 / 185ms |
+| 整轮四HTTP计数，含预热 | 四项358503 | 四项356008 | 四项266873 |
+| 全场景drops | 16885 | 19986 | 56425 |
+| HTTP未知 / 429 / 503 / client error | 全0 | 全0 | 全0 |
+| 14失败增量 | 全0 | 全0 | 全0 |
+| 容量状态 | FAIL | FAIL | FAIL |
+| whole wire records / Produce requests | 358503 / 160977 | 356008 / 131721 | 266873 / 185874 |
+| whole实际records/request | 2.227045 | 2.702743 | 1.435774 |
+
+两个新增阶段仍失败于目标供给不足99%、drops非零、P99超过80ms；不存在只因“预热drop”即可宣布通过的依据。Sender2相对sender4批效提高21.360057%，但正确QPS下降0.985294%、P99升至239ms。GMP2将实际供给再降低29.091006%，所以其185ms P99不构成同等负载下服务端改善，且仍超过80ms门槛。
+
+同规则取metrics第9–20行：sender4为12:15:03.743118–12:15:58.783668（55.040550秒）；sender2为12:26:10.676932–12:27:05.676804（54.999872秒）；GMP2为12:29:09.647048–12:30:04.642589（54.995541秒）。下表均使用各自内部窗口，不包含预热/排空，也不冒称全60秒。
+
+| 正式内部窗口指标 | sender4 | sender2 | GMP2 |
+| --- | ---: | ---: | ---: |
+| GET302 count增量 | 261100 | 259248 | 183799 |
+| GET302 sum增量，秒 | 452.681144849 | 610.015465946 | 185.581384051 |
+| GET302 handler均值 | 1.733746ms | 2.353019ms | 1.009697ms |
+| APISIX request / upstream均值 | 18.210716 / 17.366435ms | 22.137610 / 21.004480ms | 6.829146 / 6.542616ms |
+| Redirect进程CPU | 243.311522% | 255.618777% | 203.852890% |
+| APISIX全部9children合计CPU | 292.184580% | 286.782486% | 256.657171% |
+| 进程分配摊销 / 已计数GET | 41521.358744 B | 41166.782293 B | 43437.979663 B |
+| GC次数 / 暂停增量 | 240 / 1.45s | 281 / 1.697s | 177 / 0.554s |
+| wire records / Produce requests | 260724 / 114482 | 259371 / 88926 | 183899 / 123604 |
+| 内部实际records/request | 2.277424 | 2.916706 | 1.487808 |
+
+Sender2的APISIX CPU略降，Redirect CPU/handler耗时却上升，不能只选批效增大就宣称整体优化。GMP2的整体负载下降后多个服务计时降低，与较轻负载一致；单位GET分配摊销反而增加，也不能据进程分配总量减少宣称每请求更省。
+
+独立k6正式内部相邻interval分别覆盖59.078442/59.073872/59.052449秒，CPU加权均值296.504093%/297.373430%/199.348209%，约1秒峰341.914402%/336.480970%/203.661579%。Sender2/GMP2整轮CPU均值另为261.700180%/181.302901%，不能将预热混入正式比较。GMP2约两逻辑CPU与供给下降支持检查发生器执行预算，但共享宿主顺序试验还不能证明客户端是唯一瓶颈。
+
+Sender2 whole Publisher click/result各5563个样本，reservation均9.225174/9.269666ms，HWM663/724；GMP2各4170个样本，均6.237594/6.460999ms。后者沿用同一进程，before/after HWM均663/724，不能记为本阶段独立峰。正式内部reserved采样峰分别154/180与67/81，仅为5秒采样所见。两退休锁phase保持N/A；timer max也可能携带上一阶段滚动样本，不将before遗留max算作GMP2造成。两个新增阶段内部native bufferpool wait、metadata wait、record retry/error增量均0；未新增Broker JMX/JFR，不能据此宣布Broker已满或完全无等待。
+
+两个stage各source64 PASS、14失败增量0；整个run的622881个GET四HTTP计数一致，三个事件lane各attempted=delivered=622881，failed/rejected/pending均0，Kafka click.raw增量622881、gateway.request增量1245762，总1868643。SQL267→267，baseline/final drain为true，专用GET账本PASS并保留 `allStagesCapacityPassed=false`。这没有修复本轮任何既有失败，也不代表统计消费者完成。
+
+证据：[sender2 result](../../../../../.work/performance/20260908T122251Z-b9869e8e/stages/bt-sender2-r5000/result.json)、[sender2 k6-summary](../../../../../.work/performance/20260908T122251Z-b9869e8e/stages/bt-sender2-r5000/k6-summary.json)、[sender2来源证明](../../../../../.work/performance/20260908T122251Z-b9869e8e/stages/bt-sender2-r5000/source-distribution.json)、[GMP2 result](../../../../../.work/performance/20260908T122251Z-b9869e8e/stages/bt-sender2-gmp2-r5000/result.json)、[GMP2 k6-summary](../../../../../.work/performance/20260908T122251Z-b9869e8e/stages/bt-sender2-gmp2-r5000/k6-summary.json)、[GMP2来源证明](../../../../../.work/performance/20260908T122251Z-b9869e8e/stages/bt-sender2-gmp2-r5000/source-distribution.json)、[运行GET账本](../../../../../.work/performance/20260908T122251Z-b9869e8e/breakthrough-get-ledger.json)、[停止记录](../../../../../.work/redirect-breakthrough-20260908/root-stopped-sender2.json)。全部端点、样本窗及SHA见 [sender/发生器成本JSON](../../../../../.work/redirect-breakthrough-20260908/analytics-sender-generator-costs.json) 和 [分析说明](../../../../../.work/redirect-breakthrough-20260908/analytics-sender-generator-costs.md)。
+
+### Native交叉验证已完成：供给改善，尾延迟与drops仍失败
+
+`20260908T125711Z-7ddc8abb / bt-native-r5000`已完成并停止。服务manifest与settlement3同f70d JAR、functional=false、8worker/sender4、batch32/65536B、资源profile及冻结源码SHA；发生器更换，因此不构成服务源码单变量优化。Native runtime实报GOMAXPROCS4/NumCPU4，binary SHA `baa99ca137adc576d8a3fc8bd433caf137002fa98a25a00db5c8d8bf85ea7b1b`。其调度、phase归属、nearest-rank分位数与k6不同，结果明确单列。
+
+| Native首阶段 | 实际结果 |
+| --- | ---: |
+| 正式窗口UTC | 13:05:38.579285038–13:06:38.579285038，完整60秒 |
+| 正式计划 / 实际sent=completed=received=correct | 300000 / 298344 |
+| 正式正确QPS / correct-sent率 | 4972.4 / 100% |
+| 正式HTTP roundtrip mean / P99 | 10.385819 / 117.083699ms |
+| 正式scheduled-to-completion mean / P99 | 10.915610 / 120.839191ms |
+| 整轮四HTTP计数，含30秒预热 | 四项374798 |
+| drops：whole / 预热 / 正式 | 1702 / 46 / 1656，全部busyDropped |
+| lateDropped / HTTP未知 / HTTP错误 / 14事件失败增量 | 全0 |
+| maxActive / maxSchedulerLag / maxRequestStartLag | 511 / 27.666225ms / 35.165962ms |
+| 容量状态 | FAIL：zero-drops、HTTP P99≤80ms、scheduled-completion P99≤80ms三项失败 |
+
+Native首次通过本组目标供给99%门槛，但仍没有通过容量验收。其scheduled_to_completion从计划到达计时，保留送压等待；不能将它与HTTP两个P99相减当调度P99。BusyDropped说明有界handoff当次不可用，并不证明唯一由服务端响应慢造成；catchupArrivals21803、Go/OS调度及共享CPU仍可影响到达形态，maxActive511也不能被解释为当时必然有一个可立即接单worker。
+
+正式内部采样依据真实时间选metrics第8–17行：13:05:42.039318–13:06:33.293776，51.254458秒。不能机械套用k6第9–20行，因为native观察点间隔为5.568153–5.944465秒。与settlement3按相同选择规则的55.040550秒内部窗口对照：
+
+| 内部成本 | settlement3 k6 | native |
+| --- | ---: | ---: |
+| GET302 count增量 / sum增量 | 261100 / 452.681144849s | 255451 / 228.478282884s |
+| GET302 handler均值 | 1.733746ms | 0.894411ms |
+| APISIX request / upstream均值 | 18.210716 / 17.366435ms | 6.204571 / 6.079374ms |
+| Redirect进程CPU | 243.311522% | 215.591003% |
+| APISIX全部9children合计CPU | 292.184580% | 328.342171% |
+| 进程heap分配摊销 / 已计数GET | 41521.358744 B | 39291.172240 B |
+| GC次数 / 暂停增量 / 观察到的滚动max | 240 / 1.45s / 55ms | 169 / 0.523s / 37ms |
+| 内部wire records / Produce requests | 260724 / 114482 | 255514 / 180977 |
+| 内部records/request | 2.277424 | 1.411859 |
+
+Native的真实GET timer端点为count93062→348513、sum165.205925873→393.684208757s；APISIX同observer边界count增量255549，存在非原子scrape时差。Whole native timer因128次校准已经注册，count128→374926、sum0.765922543→410.957463480s，whole均1.094434ms可计算；这与内部0.894411ms不同，也不与正式P99相减。
+
+客户端CPU按对应窗口比较：k6/native whole均262.291145%/154.057491%；正式内部interval均296.504093%/167.307488%。Native正式timeline覆盖58.072715秒、约1秒峰177.970933%；不能把native whole154%对k6 formal296%写成同窗降幅。它支持发生器成本明显降低，但服务共享物理CPU、到达形态和背景不同，不能把handler下降全归因服务端变化。
+
+Native whole wire374798/269811=1.389113条/Produce，较k6基线2.227045更小；APISIX CPU反而升高，给“合批减少小请求固定成本”提供了可验证目标。GC内部169次/0.523s，whole251次/0.831s；观察到的37ms只是滚动max，缺少逐暂停事件时间戳，不能直接解释117ms HTTP P99。未重新采Broker JMX/JFR，不能认定Kafka容量已满或将共享CPU/GC排除。
+
+Whole Publisher click/result各5857个采样，reservation均6.552615/6.569695ms，HWM377/455；内部native bufferpool wait、metadata wait、record retry/error增量均0，两退休锁phase仍N/A。HTTP不等待异步ACK，不能把reservation当HTTP阻塞时长。18个observer点全部Publisher202可用、overrun0；内部最长sample407.3ms，宿主WSL aggregate busy70.105202%、load1峰20.194824。
+
+128个预baseline校准GET全部正确，三lane与Kafka384records守恒并独立列出；主阶段374798个GET三lane交付一致，Kafka click.raw374798、gateway.request749596，共1124394。SQL267→267，baseline/final完整性与drain PASS，native-get-ledger PASS但容量false，source64 PASS。原八阶段FAIL以及encoded124拒绝/145未知都保留。
+
+证据：[native result](../../../../../.work/performance/20260908T125711Z-7ddc8abb/stages/bt-native-r5000/result.json)、[native summary](../../../../../.work/performance/20260908T125711Z-7ddc8abb/stages/bt-native-r5000/native-summary.json)、[来源证明](../../../../../.work/performance/20260908T125711Z-7ddc8abb/stages/bt-native-r5000/source-distribution.json)、[native GET账本](../../../../../.work/performance/20260908T125711Z-7ddc8abb/native-get-ledger.json)、[停止记录](../../../../../.work/redirect-breakthrough-20260908/root-stopped-native.json)、[成本JSON](../../../../../.work/redirect-breakthrough-20260908/analytics-native-costs.json)、[成本说明](../../../../../.work/redirect-breakthrough-20260908/analytics-native-costs.md)。
+
+## 6. 新授权预算、运行范围与宿主限制
+
+本轮是用户授权的有限新campaign，以报告17旧B最终Kafka cut为新增长起点；旧运行及其失败不变，不通过删除旧数据或重置offset获得预算。当前准入同时限制：
+
+- 新增最多1200万records且4096 B/record保守模型不超过48 GiB；整个family最多4000万records且模型不超过128 GiB。4096是预算模型，不是已测平均record大小。
+- 最多10次尝试，失败/不完整stage目录同样占用次数；每次只准入一个stage，rate≤10000/s、预热≤30秒、正式≤90秒、总时长≤120秒。本报告计划的5000/s、30+60秒阶段每次保守预留1350003 records / 5529612288 B，不将暖机按实际较少请求提前抵扣。
+- 物理VHDX所在D盘与guest filesystem均须在预留后保有 `max(10 GiB, 总量15%)`；不能只看虚拟磁盘free。每次准入要求新鲜cut、drain与磁盘证据，未通过则不启动。
+- SQL总体上限500000行；本轮fixture267行。运行期原事件失败、2000持久pending保护、最多300秒排空、供给/drops/P99门槛均保留，不因优化目的放松。
+
+Control与encoded阶段各自准入通过的保留文件为 [control预算](../../../../../.work/redirect-breakthrough-20260908/id-budget-bt-control-r5000.json) 和 [encoded预算](../../../../../.work/redirect-breakthrough-20260908/id-budget-bt-encoded-r5000.json)。它们只证明当次准入，不是后续CAS/functional的可重复使用额度。准入规则及历史锚点见 [预算工具](../../../../../.work/redirect-breakthrough-20260908/id-budget.py) 与 [预算说明](../../../../../.work/redirect-breakthrough-20260908/id-generator-notes.md)。
+
+本轮仍为本机专用WSL环境，Command/Admin/Redirect/Gateway及Kafka/Redis/MySQL/MinIO/APISIX运行；没有启动Agent、Flink、ClickHouse统计消费全链路。Kafka事件数量对账不能称统计落库完成或消费者容量验证。
+
+已保存拓扑显示16逻辑CPU、相邻两逻辑CPU共享一个物理core。应用/APISIX分配0–7，依赖8–11，发生器12–15：分别对应4/2/2物理core并带SMT，而不是8/4/4个独立物理core。另有外部Docker Desktop应用在物理宿主运行，不属于本轮控制范围；本轮不暂停或调节其资源。WSL host指标不能量化外部Windows项目对物理CPU/内存调度的全部影响，因此A/B漂移不能自动归因于单一源码改动。
+
+环境基线见 [root-environment.json](../../../../../.work/redirect-breakthrough-20260908/root-environment.json)，实际每轮资源/制品仍以各自manifest为准。各轮停止记录与最终依赖收尾均已封存，完整结论见第8节；停止成功不等于事件交付或容量通过。
+
+## 7. Linger预检失败、定时器修复与已完成的正式对照
+
+Native首阶段之后执行了插件字段显式 `send_linger_ms=5` 的有界验证，默认仍0。最初候选虽通过78项既有Lua测试，实际部署预检仍出现新故障，已按下述证据修复；不能用既有测试通过替代真实预检。5000档保持sender4/f70d/functional=false、服务CPU0–7、客户端12–15、64来源、512worker及所有事件/资源/80ms门槛。每worker平均625/s、等待5ms“可能聚约4条”是试验前的到达模型，不是当时已经测得的批效；正式结果以下文实际计数为准。
+
+### 失败预检单独保留：不算容量阶段，不伪造排空
+
+旧logger SHA `f6cc22a37da04dd37c3f747d1c979e41f253663079701fca5b6aa4fda8a61bf3` 的显式5ms运行 `20260908T131421Z-cce47806` 已停止；没有stage目录、baseline或optimization-final-boundary，`capacityTrafficIssued=false`。本次没有新增容量尝试，已完成容量阶段仍为8个。原HEAD未知、准备失败和未排空快照全部保留。
+
+| 预检事实 | 封存结果 |
+| --- | --- |
+| 顺序HEAD / 已收到且正确302 / 未确认 | 9 / 8 / 1；concurrency1、retries0、第9次2秒超时 |
+| 客户端区间UTC | 13:16:28.303277–13:16:30.790820；客户端自身elapsed2.292s，非相同外层计时 |
+| 失败字段 | `client.failure=TimeoutError`，另有`LOG_CLOCK_WINDOW_UNVERIFIED`；时钟flush问题不能掩盖真实客户端失败 |
+| 来源证明 | 只触达9个预定源，没有完成64源；补日志步骤因client.passed=false而拒绝，未回填来源PASS |
+| EDGE累计 | attempted12=delivered11+pending1，failed0/rejected0，pendingBytes620、activeSenders0 |
+| EDGE观测完整性 | observationComplete1、faults0、rawGlobalReconciled1；这是有效的未排空观测，不是观测器假不完整 |
+| Redirect | click全0；result attempted=delivered=8、failed/rejected/pending0 |
+| 最后快照排空 | false：`EDGE_PENDING_COUNT_NOT_DRAINED`与`EDGE_PENDING_BYTES_NOT_DRAINED` |
+| 停止 | `servicesStopped=true`；停止不代表残余事件交付完成 |
+
+失败快照标记13:19:00.481278 UTC，内嵌metrics13:19:00.501029，子collector还存在采集时差。对比上一native最终cut，26个已观察topic、67分区身份一致、offset无回退，新增route.change267、metadata.fetch267、gateway.request19、click.raw0，共553records。19在数值上等于Redirect result delivered8加EDGE delivered11；EDGE覆盖整个准备过程，不能把11条都归给9次HEAD，也不能据Kafka计数将那1次HTTP未知改成成功。553仅为未排空快照截至当时的增长，不是停止后的最终完整交付边界。
+
+同一PID/startTicks的短窗CPU增加105ticks/1.056511328s，按根节点给出的100Hz换算约99.3837%单逻辑CPU。快照没有SC_CLK_TCK或两个CPU采样的精确墙钟端点，也没有真实栈/JIT证据；它支持调查网关定时器忙转，不能单凭这个短窗断言唯一执行路径或长期满核。
+
+证据：[预检失败原结果](../../../../../.work/performance/20260908T131421Z-cce47806/source-ip-preflight.json)、[未排空失败快照](../../../../../.work/performance/20260908T131421Z-cce47806/preflight-failure-snapshot.json)、[停止记录](../../../../../.work/redirect-breakthrough-20260908/root-stopped-linger.json)、[独立事实核查](../../../../../.work/redirect-breakthrough-20260908/account-linger-preflight-failure.md)、[67分区及输入SHA明细](../../../../../.work/redirect-breakthrough-20260908/account-linger-preflight-failure.json)。
+
+### 时间量化模型复现与修复：测试通过，不覆盖原失败
+
+冻结的旧源码在 `ready_head` 中比较 `now>=item.created+linger/1000`，未到期则由 `arm_linger` 第427行将 `max(0, deadline-ngx.now())` 直接传给 `ngx.timer.at`。在整数毫秒截断、`ngx.now()`缓存值尚未推进的模型中，正的亚毫秒剩余量可以被量化成0ms；callback又判断deadline仍在未来，形成反复立即重arm。新增LG27在旧f6cc源码上确定性失败：8次callback后仍滞留，出现8个future zero-delay timer。这证明旧实现存在可复现的量化缺口；没有真实栈，仍不把模型证明扩大为现场唯一根因。
+
+修复对正剩余时间按毫秒向上取整并保证至少1ms，再换回timer秒单位；原始item deadline不刷新，默认linger0行为不变。其作用是避免未来deadline被量化到0ms，不是保证OS调度或实际发送必在5ms内完成。修复后logger SHA为 `c808adbe7ba5d78713b4d04527306d0b071569f74bcb38020fa92d924ee1aa10`。
+
+| 冻结验证 | 真实记录 |
+| --- | --- |
+| 旧源码量化复现 | 79项Lua，1项LG27失败，exit1；旧证据保留 |
+| 最终修复Lua回归 | 80项，52既有+28新增，0失败，exit0；LG27及LG28不同fractional clock/正linger值通过 |
+| 配置/资源渲染回归 | 10项linger配置+25项worker/sender配置，均exit0，共35项 |
+| 根节点汇总 | `root-linger-build-verification.json` passed=true，绑定实际tool输出SHA和最终源码；没有重复运行来覆盖失败 |
+
+证据：[旧源码快照](../../../../../.work/redirect-breakthrough-20260908/linger-candidate/canonical-prequantization.lua)、[旧模型失败](../../../../../.work/redirect-breakthrough-20260908/linger-candidate/quantization-before-tool.json)、[最终80项Lua](../../../../../.work/redirect-breakthrough-20260908/linger-candidate/quantization-final-tool.json)、[10项配置](../../../../../.work/redirect-breakthrough-20260908/linger-candidate/quantization-final-python10-tool.json)、[25项资源配置](../../../../../.work/redirect-breakthrough-20260908/linger-candidate/quantization-final-python25-tool.json)、[构建验证汇总](../../../../../.work/redirect-breakthrough-20260908/root-linger-build-verification.json)。
+
+修复后新运行 `20260908T132436Z-e1360a34` 的客户端64HEAD通过，原clock flush日志窗口问题以同批次晚日志补证PASS，baseline完成；同Go binary/f70d/资源/sender4、显式5ms的第9个容量stage `bt-native-linger-r5000` 现已完成并停止。下述分析仅在阶段封存后读取；新运行来源证明不修复旧失败运行的1个未知HEAD或620B残余。
+
+### 第9阶段：小批固定成本下降，端到端仍失败
+
+| 正式结果 | native无linger | native显式5ms |
+| --- | ---: | ---: |
+| 正式窗口UTC | 13:05:38.579285038–13:06:38.579285038 | 13:28:36.235219738–13:29:36.235219738 |
+| 正式时长 | 60s，完整 | 60s，完整 |
+| 正式sent=completed=received=correct | 四项298344 | 四项296395 |
+| 正式正确QPS | 4972.4 | 4939.916667 |
+| HTTP roundtrip mean / P99 | 10.385819 / 117.083699ms | 12.342476 / 151.188576ms |
+| scheduled-to-completion mean / P99 | 10.915610 / 120.839191ms | 12.801464 / 153.483437ms |
+| 全轮HTTP / 全轮drops / 正式drops | 374798 / 1702 / 1656 | 372340 / 4160 / 3605 |
+| busyDropped / lateDropped | 1702 / 0 | 4160 / 0 |
+| HTTP未知 / 错误 / 14失败增量 | 全0 | 全0 |
+| whole客户端CPU均值 | 154.057491% | 153.437049% |
+| whole wire records / Produce requests | 374798 / 269811 | 372340 / 68964 |
+| whole实际records/request | 1.389113 | 5.399049 |
+| 容量结果 | FAIL | FAIL |
+
+两阶段都没有重现事件拒绝或HTTP未知，但5ms阶段供给低于99%、存在drops、两种P99都超过80ms。它没有完成原条件7000的放行门槛，因此不继续按旧资源范围直接升7000。5ms不是同步HTTP睡眠；不能将P99增加简单解释为每个请求被加了5ms。
+
+5ms正式内部取metrics第8–17行，**13:28:40.273581–13:29:31.395169 UTC，51.121588秒**，与无linger按相同规则选取的51.254458秒窗口比较：
+
+| 内部成本 | 无linger | 5ms |
+| --- | ---: | ---: |
+| GET302 count / sum增量 | 255451 / 228.478282884s | 252459 / 283.340761296s |
+| GET302 handler均值 | 0.894411ms | 1.122324ms |
+| APISIX request / upstream均值 | 6.204571 / 6.079374ms | 7.883548 / 7.697938ms |
+| Redirect进程CPU | 215.591003% | 249.131541% |
+| APISIX全部9children合计CPU | 328.342171% | 276.008640% |
+| GC次数 / 暂停增量 / 滚动max | 169 / 0.523s / 37ms | 309 / 1.238s / 35ms |
+| 进程分配字节增量 | 10036969240 B | 10635705752 B |
+| wire records / Produce requests | 255514 / 180977 | 251953 / 42649 |
+| 内部records/request | 1.411859 | 5.907595 |
+| 同窗sync send调用 / 累计调用时间 | 180984 / 487.979053s | 42655 / 148.821158s |
+| EDGE pending采样峰 / oldest采样峰 | 265 / 0.150s | 469 / 0.401s |
+
+合批确实生效：whole平均从1.389增至5.399，APISIX CPU约下降16%，sync send调用及累计调用时间大幅减少；不能写“linger没有工作”。但Redirect CPU、GC频率/累计暂停和handler/upstream计时上升，端到端结果没有改善。两轮共享宿主、顺序采样且没有逐请求/GC时间轨迹，不能确定是谁单独抵消了收益；尤其35ms滚动GC max低于前轮37ms，不支持只拿最大GC暂停解释更高HTTP P99。
+
+Sync send累计时间包含并发调用，不能拿487.979s或148.821s当墙钟阻塞；每调用均值约2.696/3.489ms，也不是纯Broker ACK。5ms阶段EDGE send滚动max约252ms，原轮约266ms；oldest升至401ms提示仍有瞬态等待，却不能由均值唯一定位timer、Broker或OS。当前公开observer没有Kafka/MySQL/Redis进程或cgroup CPU，Redis INFO也未采used_cpu，**依赖CPU均为N/A，不补0**。
+
+5ms whole Publisher reservation click/result均6.162964/6.330647ms，HWM465/475；内部native bufferpool wait、metadata wait、retry/error增量均0，未见持续ACK槽耗尽证据。观察点overrun0，最长sample626.8ms。GC/进程CPU仍与edge在应用CPU0–7上共享，累计指标不足以证明唯一根因；此前functional约11%分配下降候选继续保留默认关闭，本轮不同时切换它。
+
+新运行baseline/final SQL267→267且完整性通过、final drain=true；主阶段三lane各attempted=delivered=372340，Kafka click.raw372340、gateway.request744680，合计1117020records，source64 PASS，native-get-ledger PASS且 `allStagesCapacityPassed=false`。校准复用先前128GET/binary证明，本轮未新增校准GET。运行已停止，不用有效最终边界覆盖旧预检的未排空失败快照。
+
+证据：[5ms result](../../../../../.work/performance/20260908T132436Z-e1360a34/stages/bt-native-linger-r5000/result.json)、[native summary](../../../../../.work/performance/20260908T132436Z-e1360a34/stages/bt-native-linger-r5000/native-summary.json)、[metrics](../../../../../.work/performance/20260908T132436Z-e1360a34/stages/bt-native-linger-r5000/metrics.jsonl)、[manifest](../../../../../.work/performance/20260908T132436Z-e1360a34/run-manifest.json)、[最终边界](../../../../../.work/performance/20260908T132436Z-e1360a34/optimization-final-boundary.json)、[GET账本](../../../../../.work/performance/20260908T132436Z-e1360a34/native-get-ledger.json)、[停止记录](../../../../../.work/redirect-breakthrough-20260908/root-stopped-linger2.json)。Manifest SHA `fd06e460722585d17c7bee16176fe02c715655bd90cd424ff7d872e4633c585c`，最终边界SHA `53439cc33f2392d04fe726b981517b89e3f8c228569680b3a64a5d79f06567d7`，GET账本SHA `aec6a6ef97b0d361d8a52a5d01f6e3ea8363f20b538b6332a7eae3d060086903`。
+
+### 最后6000档：扩允许CPU范围后仍因事件拒绝提前停止
+
+原条件7000因第9阶段失败而未执行。最后一个容量名额用于 `20260908T133935Z-708bebd5 / bt-native-cpu6-r6000`：应用允许CPU从0–7扩至0–11，目标从5000变为6000/s，依赖仍8–11。8worker、sender4、linger5ms、f70d/functional=false、Java APC2/heap384MiB、Go4和发生器12–15不变。实际affinity在13:42:11.454772 UTC核对4个Java进程244个线程及10个nginx进程的所有观察线程均0–11，4个依赖为8–11。新增范围与依赖重叠，**不是增加独占核心，也不是仅改变CPU范围的严格单变量试验**。
+
+| 最后阶段HTTP | 封存结果 |
+| --- | ---: |
+| 正式计划窗口UTC | 13:43:16.593480911–13:44:16.593480911 |
+| 实际正式elapsed | 10.788471789s，提前停止 |
+| 正式scheduled / sent=completed=received=correct | 64731 / 四项63138 |
+| 中止前已有窗口正确吞吐 | 5852.358076/s；不是60秒或6000稳态成绩 |
+| 正式HTTP mean / P99 | 14.310890 / 166.001513ms |
+| 正式scheduled-to-completion P99 | 167.740986ms |
+| 全轮四HTTP计数 / 正式HTTP未知 | 四项152559 / 0 |
+| 全轮busyDropped / 正式busyDropped / lateDropped | 3672 / 1593 / 0 |
+| 未执行的后续计划到达 | 295269次取消，不是HTTP未知 |
+| 事件拒绝增量 | click251、result4；另外12项失败计数增量0 |
+| 停止 / 容量 / 原账本 | EVENT_FAILURE_OR_COUNTER_RESET / FAIL / REFUSED |
+
+通用停止原因包含“counter reset”，但本次具体证据是两lane的slots拒绝增加，不能据原因名称宣称发生了计数器重置。所有发出的HTTP都确认正确，也不能修复运营统计事件未满足零拒绝门槛。
+
+**首次拒绝分别发生在13:43:21.310和13:43:21.364 UTC。**
+
+| 首拒字段 | click | result |
+| --- | ---: | ---: |
+| reserved / count上限 | 1000 / 1000 | 1000 / 1000 |
+| reserved bytes / byte上限 | 605450 / 8388608 | 504126 / 8388608 |
+| queued / outside queue | 11 / 989 | 19 / 981 |
+| awaiting_callback | 948 | 981 |
+| send_active / terminal_active | 0 / 0 | 1 / 0 |
+| 距send return | 0，邻接采样 | 2.108273ms |
+| 距callback / terminal | 0 / 0，邻接采样 | 49.847070 / 49.846699ms |
+
+明确耗尽的是1000条槽预算，非8MiB字节或queue.offer；约98%–99%的任务已不在本地queue。`awaiting_callback`还包含Producer尚未完成回调的任务，不等于全部已发到Broker且只等待wire ACK。这些字段来自邻接读取，不是全局原子分区；click进度年龄0可能由采样期间更新和非负钳制造成，不能证明无停顿。Result约49.85ms终态进展空档支持继续调查瞬态完成等待，但不能唯一归因于Broker或旧monitor。CAS退休的两个terminal锁phase仍无样本，不能将其0次record写成0ms耗时或据此排除其它协调/调度成本。
+
+正式期间只有metrics第8–9行两个点：**13:43:20.897511–13:43:26.748740，5.851229秒**，夹住首次拒绝。不能硬套前轮55秒内部窗口；另给第3–9行34.748791秒的负载内部窗口，但它包含预热和早停正式，二者不混用。
+
+| 成本口径 | 5.851229秒正式子窗，仅2点 | 34.748791秒负载子窗，含预热 |
+| --- | ---: | ---: |
+| GET302 count / sum差量 | 33521 / 53.951050709s | 145382 / 197.350984325s |
+| Handler均值 | 1.609470ms | 1.357465ms |
+| APISIX request / upstream均值 | 13.438162 / 13.085874ms | 10.621925 / 10.330828ms |
+| Redirect进程CPU | 301.475128% | 335.637577% |
+| APISIX全部9children合计CPU | 305.405927% | 251.461986% |
+| GC次数 / 暂停差量 / 滚动max | 34 / 0.179s / 26ms | 204 / 0.871s / 26ms |
+| 进程分配差量 | 1390411720 B | 6243221080 B |
+| Wire实际records/request | 7.566067 | 5.565535 |
+
+客户端whole CPU144.466085%；正式内部相邻timeline仅9.002277秒，均173.955996%、约1秒峰187.964646%。Whole服务GET timer before未注册，整轮handler均值N/A，不补零。全部max是滚动采样，可能含预热；26ms GC max没有事件时间戳，不能解释全部166ms HTTP P99。Native request滚动max188/220ms、queue max174/176ms，retry/error/bufferpool wait增量0，且native读数缓存最长约1秒；它们说明存在完成/排队尾部成本，但不证明与拒绝瞬间一一对应，更不证明Broker满载。
+
+Final SQL267、完整性与drain=true，所有应用已停止；原native GET账本仍 **REFUSED，原因GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS**。Kafka实际增长457422，相比152559×3=457677少255，与click251+result4拒绝数量相符。该差额解释不生成替代PASS、不回填原账本，也不构成逐eventId或exactly-once证明。
+
+独立复核见[失败计数解释](../../../../../.work/redirect-breakthrough-20260908/account-cpu6-failure-reconciliation.md)及[完整计数证据](../../../../../.work/redirect-breakthrough-20260908/account-cpu6-failure-reconciliation.json)：11份公开输入SHA一致，状态仅为FAILURE_COUNTS_RECONCILED，capacityPassed与eventCompletenessPassed均为false。255是缺失事件条数，不代表255个独立或失败HTTP请求。
+
+证据：[最后result](../../../../../.work/performance/20260908T133935Z-708bebd5/stages/bt-native-cpu6-r6000/result.json)、[native summary](../../../../../.work/performance/20260908T133935Z-708bebd5/stages/bt-native-cpu6-r6000/native-summary.json)、[metrics](../../../../../.work/performance/20260908T133935Z-708bebd5/stages/bt-native-cpu6-r6000/metrics.jsonl)、[实际线程affinity](../../../../../.work/performance/20260908T133935Z-708bebd5/actual-cpu-affinity.json)、[原REFUSED账本](../../../../../.work/performance/20260908T133935Z-708bebd5/native-get-ledger.json)、[最终边界](../../../../../.work/performance/20260908T133935Z-708bebd5/optimization-final-boundary.json)、[停止记录](../../../../../.work/redirect-breakthrough-20260908/root-stopped-cpu6.json)、[最终成本JSON](../../../../../.work/redirect-breakthrough-20260908/analytics-final-costs.json)、[成本与限制](../../../../../.work/redirect-breakthrough-20260908/analytics-final-costs.md)。
+
+## 8. 最终预算、收尾与已证明的边界
+
+| 收口项 | 最终结果 |
+| --- | --- |
+| 容量尝试 | 10/10，全部FAIL；不再继续升档或补跑 |
+| 新campaign实际records | 9371078，包含fixtures、probes、准备失败与容量流量 |
+| 整个family实际records | 25641867 |
+| 4096B/record保守模型 | 新增38383935488B，family105029087232B；模型不是实际磁盘均值 |
+| 尚余record账面额度 | 2628922，但容量尝试名额已耗尽，不构成追加压测授权 |
+| Native校准 | 128GET仅执行一次，后续复用binary语义证明，不隐藏其预算占用 |
+| Owned应用/发生器 | 全部停止，无本轮Java/native/k6/测试容器进程继续运行 |
+| 依赖 | 4个原依赖及新Redis共5容器均停止，cpuset恢复0–15，未删除卷/数据 |
+| 专用engine | 本轮独占socket daemon停止；Docker Desktop未改，发行版未终止 |
+| 最终D盘 | free238082035712 / total808120741888B，数据未删除 |
+
+[Campaign最终预算](../../../../../.work/redirect-breakthrough-20260908/root-campaign-final.json)明确allCapsSatisfied、allOwnedApplicationsStopped及oldFailedAndUnknownPreserved；[4依赖停止](../../../../../.work/redirect-breakthrough-20260908/root-dependencies-stopped.json)、[新Redis停止](../../../../../.work/redirect-breakthrough-20260908/root-extra-redis-stopped.json)、[专用engine停止](../../../../../.work/redirect-breakthrough-20260908/root-owned-engine-stopped.json)、[最终D盘](../../../../../.work/redirect-breakthrough-20260908/root-final-physical-disk.json)分别保留身份与状态。收尾PASS不是容量PASS，旧预检未排空残余和真实失败不会因停容器而变成已交付。
+
+本轮已经证明：发生器实现有明显CPU成本差异；functional具有局部handler/进程分配下降证据但不宜默认启用；有界linger提高了真实批效并降低网关小Produce请求固定成本。未证明的是完整5000/6000短时容量通过、长期生产上限或唯一瓶颈。生产端瞬态完成/排队积累、共享CPU/GC及尾部传播关系仍未闭合；依赖CPU未采，不能宣布Broker满载，也不能把未运行的Flink/ClickHouse/Agent消费者当成本次根因。
+
+所有原失败、未知、REFUSED及10次容量FAIL保持不变。本轮至此关闭；未来如继续诊断，应另定单变量与事件级观测窗口、重新授权有限预算，不沿用剩余record额度自动追加运行。

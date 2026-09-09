@@ -91,7 +91,7 @@ Nacos 和 APISIX 两套服务实例目录。DNS/LB 负责服务节点变更，et
 CA 和主机名，etcd 开启 TLS 与限定前缀账户。固定测试镜像 etcd 3.5.17、APISIX 3.11.0；
 Admin/公网测试端口只映射 localhost 19180/19444/19445。脚本只停止自己创建的容器。
 它验证重复导入、鉴权拒绝、同一路由边界、重启持久性，以及真实 Kafka 中的多节点/重启身份。
-执行方法及结果见 [组件验收记录](../../docs/integration/component-adapters.md)。
+执行方法及结果见 [组件验收记录](../../doc/integration/component-adapters.md)。
 
 配置依据：[APISIX 3.11 Admin API](https://apisix.apache.org/docs/apisix/3.11/admin-api/)、
 [3.11.0 原生 HTTPS Admin 配置实现](https://github.com/apache/apisix/blob/3.11.0/apisix/cli/ngx_tpl.lua)、

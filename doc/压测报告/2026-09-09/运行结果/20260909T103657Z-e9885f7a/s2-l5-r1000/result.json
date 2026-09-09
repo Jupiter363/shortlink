@@ -1,0 +1,931 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260909T103657Z-e9885f7a",
+  "label": "s2-l5-r1000",
+  "startedAt": "2026-09-09T10:39:17.242235+00:00",
+  "capacityPassed": true,
+  "status": "CAPACITY_STAGE_PASSED",
+  "stageConfig": {
+    "label": "s2-l5-r1000",
+    "rate": 1000,
+    "duration": 10,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 16500,
+    "formalRequests": 10000,
+    "maximumRequests": 26500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 976896000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+  "stageDirectory": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r1000",
+  "stopReasons": [],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "d04b50c464f2d512659f4833e36e1757c01a494e5e784055ceae265ed143eab0",
+    "edgePathProofSha256": "7acbb482e8b22b923b4be29071befe335fd15f5bbd318dd21db3efb51ccd7d14",
+    "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+    "containerId": "911d74229d63c70290e3827f67c934ffd4a560a64afd7d03ba3dbe06be36f315",
+    "containerPid": 22523
+  },
+  "privateConfigSha256": "96db247ced1c94952c9d15ef61b7a64e8c6f44009ed000404057a1bf050f853f",
+  "campaignAdmission": {
+    "maximumRecords": 25000000,
+    "actualRecordsSinceBaseline": 7803180,
+    "reservedRecords": 238500,
+    "projectedRecords": 8041680,
+    "failedStagesIncluded": true,
+    "retentionCredit": false,
+    "originBaseline": {
+      "path": ".work/performance/20260909T091523Z-fa0a8707/baseline-boundary.json",
+      "sha256": "1adfdb6ec074cb7623fa35eadfc7439a6692d57a33b1f1b7b5ede5312b10ef3e"
+    },
+    "scope": "ORIGINAL_CAMPAIGN_KAFKA_OFFSETS_ONLY_BUSINESS_REMAINS_CURRENT_RUN"
+  },
+  "diskAdmission": {
+    "workspace": {
+      "freeBytes": 195357786112,
+      "reservedBytes": 976896000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 194380890112
+    },
+    "kafka": {
+      "freeBytes": 953819099136,
+      "reservedBytes": 976896000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 952842203136
+    }
+  },
+  "clientLaunch": {
+    "pid": 32327,
+    "startedAt": "2026-09-09T10:39:29.282083+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": true,
+    "checks": {
+      "observerExited": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": true,
+      "noSampleBudgetLoss": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "7ceba34584c03d254add845b2df1232a5871dc4c0fcebd3f688c11fab81fb2bb",
+    "scripts/performance/observe.py": "a28a536ab716ec3365a2aaf6ba1106cf8330c1e28fb4eec2bac5f52c86a54204",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": true,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": true,
+    "noCancelledArrivals": true,
+    "sentAtLeast99PercentOfTarget": true,
+    "roundtripP99WithinBudget": true,
+    "scheduledCompletionP99WithinBudget": true,
+    "eventFailuresUnchanged": true,
+    "afterDrained": true,
+    "noMonitorStop": true,
+    "threeProducerLanesMatch": true,
+    "actualKafkaOffsetsMatch": true,
+    "sourceDistributionVerified": true,
+    "measurementComplete": true,
+    "nativeConservationVerified": true,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": true
+  },
+  "failedChecks": [],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 0.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": {
+    "lanes": {
+      "click": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "result": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "edge": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      }
+    },
+    "failureDeltas": {
+      "edge.failed": 0,
+      "edge.rejected": 0,
+      "metadata.intake_batches_failed": 0,
+      "metadata.intake_offset_commits_failed": 0,
+      "metadata.intake_records_rejected": 0,
+      "outbox.ack_failures": 0,
+      "outbox.broker_failures": 0,
+      "outbox.claim_failures": 0,
+      "outbox.fenced_acknowledgements": 0,
+      "outbox.retry_failures": 0,
+      "redirect.click.failed": 0,
+      "redirect.click.rejected": 0,
+      "redirect.result.failed": 0,
+      "redirect.result.rejected": 0
+    }
+  },
+  "kafkaConservation": {
+    "brokerId": 1,
+    "topicIds": {
+      "shortlink.it.adapter.d7f7254a1971.invalid": {
+        "topicId": "2d6D6LL8Q8OaVfjL-tQa8A",
+        "partitionCount": 1
+      },
+      "shortlink.it.adapter.4f89a76cdcf8.invalid": {
+        "topicId": "HC798-2-RzqZ32b1kI04tA",
+        "partitionCount": 1
+      },
+      "shortlink.stats.5m.v1": {
+        "topicId": "i01cE1nVQ-urXFCjwb6y9g",
+        "partitionCount": 2
+      },
+      "shortlink.metadata.dlq.v1": {
+        "topicId": "mjekczeKSOu_vsjud86Dlw",
+        "partitionCount": 2
+      },
+      "shortlink.it.adapter.f3fe5d51487b.invalid": {
+        "topicId": "KiQ_GbuVRkm_9TDZhlMuPA",
+        "partitionCount": 1
+      },
+      "shortlink.it.adapter.4f89a76cdcf8.valid": {
+        "topicId": "Eee7V_RARJ6aDrdzXpp2Mw",
+        "partitionCount": 1
+      },
+      "shortlink.batch.ready.v1": {
+        "topicId": "ymwiMdSwQbGMu-gHbSqA0A",
+        "partitionCount": 2
+      },
+      "shortlink.it.adapter.b32c4c9263d6.invalid": {
+        "topicId": "pZYlWUuvQgWDtCfodBC2eA",
+        "partitionCount": 1
+      },
+      "shortlink.it.connect.status": {
+        "topicId": "3Rqam99mRr-GbjkuPxC5Zg",
+        "partitionCount": 5
+      },
+      "shortlink.click.dlq.v1": {
+        "topicId": "OZIVKY8DQbaqNfSPWbs6PA",
+        "partitionCount": 2
+      },
+      "shortlink.gateway.request.v1": {
+        "topicId": "nRf5jG5CQ_y1nYXiZkYe7g",
+        "partitionCount": 2
+      },
+      "shortlink.risk.policy.change.v1": {
+        "topicId": "uHVJ7en1S6-6dRPODKOt5w",
+        "partitionCount": 2
+      },
+      "shortlink.it.adapter.b32c4c9263d6.valid": {
+        "topicId": "x1oa4Tu8R2qz0dnQq6i_8A",
+        "partitionCount": 1
+      },
+      "shortlink.it.adapter.d7f7254a1971.valid": {
+        "topicId": "z9CgrWQSRHC5fAiyiqOh1w",
+        "partitionCount": 1
+      },
+      "shortlink.it.connect.configs": {
+        "topicId": "rvJ6BSkiRH60y9rY-1CMpA",
+        "partitionCount": 1
+      },
+      "shortlink.click.enriched.v1": {
+        "topicId": "ynQPKV3QQN2Ki9T6aZ1iHg",
+        "partitionCount": 2
+      },
+      "shortlink.it.adapter.f3fe5d51487b.valid": {
+        "topicId": "NVoHNemBQJeBnNWa411JPw",
+        "partitionCount": 1
+      },
+      "shortlink.click.late.v1": {
+        "topicId": "d4vhYOpiTua9USlQHyKeKg",
+        "partitionCount": 2
+      },
+      "shortlink.click.raw.v1": {
+        "topicId": "SlFwAzynTgaUbrh0nZ77gg",
+        "partitionCount": 2
+      },
+      "shortlink.request.enriched.v1": {
+        "topicId": "drdEjibRRDulAQUPnx8qRg",
+        "partitionCount": 2
+      },
+      "shortlink.risk.signal.v1": {
+        "topicId": "WJGvnloWT9GvMxCWePAnNQ",
+        "partitionCount": 2
+      },
+      "shortlink.it.adapter.83cfe442806e.valid": {
+        "topicId": "sP_TEZhNTDGu1-EFyJKKwg",
+        "partitionCount": 1
+      },
+      "shortlink.metadata.fetch.v1": {
+        "topicId": "sf9mWBp0SLOK9vdshFGK5A",
+        "partitionCount": 2
+      },
+      "shortlink.it.connect.offsets": {
+        "topicId": "7Sl_-fOeQxyOQcIjtsbF2A",
+        "partitionCount": 25
+      },
+      "shortlink.route.change.v1": {
+        "topicId": "vWBvgjk7TnuG1WAbTONzsw",
+        "partitionCount": 2
+      },
+      "shortlink.it.adapter.83cfe442806e.invalid": {
+        "topicId": "UCMmPxKeQPymhQdZEOAeDQ",
+        "partitionCount": 1
+      }
+    },
+    "topicDeltas": {
+      "shortlink.batch.ready.v1": 0,
+      "shortlink.click.dlq.v1": 0,
+      "shortlink.click.enriched.v1": 0,
+      "shortlink.click.late.v1": 0,
+      "shortlink.click.raw.v1": 26500,
+      "shortlink.gateway.request.v1": 53000,
+      "shortlink.it.adapter.4f89a76cdcf8.invalid": 0,
+      "shortlink.it.adapter.4f89a76cdcf8.valid": 0,
+      "shortlink.it.adapter.83cfe442806e.invalid": 0,
+      "shortlink.it.adapter.83cfe442806e.valid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.invalid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.valid": 0,
+      "shortlink.it.adapter.d7f7254a1971.invalid": 0,
+      "shortlink.it.adapter.d7f7254a1971.valid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.invalid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.valid": 0,
+      "shortlink.it.connect.configs": 0,
+      "shortlink.it.connect.offsets": 0,
+      "shortlink.it.connect.status": 0,
+      "shortlink.metadata.dlq.v1": 0,
+      "shortlink.metadata.fetch.v1": 0,
+      "shortlink.request.enriched.v1": 0,
+      "shortlink.risk.policy.change.v1": 0,
+      "shortlink.risk.signal.v1": 0,
+      "shortlink.route.change.v1": 0,
+      "shortlink.stats.5m.v1": 0
+    },
+    "partitionDeltas": [
+      {
+        "topic": "shortlink.batch.ready.v1",
+        "partition": 0,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.batch.ready.v1",
+        "partition": 1,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.click.dlq.v1",
+        "partition": 0,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.click.dlq.v1",
+        "partition": 1,
+        "before": 96,
+        "after": 96,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.click.enriched.v1",
+        "partition": 0,
+        "before": 28,
+        "after": 28,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.click.enriched.v1",
+        "partition": 1,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.click.late.v1",
+        "partition": 0,
+        "before": 4,
+        "after": 4,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.click.late.v1",
+        "partition": 1,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 0,
+        "before": 17699430,
+        "after": 17714687,
+        "delta": 15257
+      },
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 1,
+        "before": 13410702,
+        "after": 13421945,
+        "delta": 11243
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 0,
+        "before": 27084796,
+        "after": 27111309,
+        "delta": 26513
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 1,
+        "before": 27076803,
+        "after": 27103290,
+        "delta": 26487
+      },
+      {
+        "topic": "shortlink.it.adapter.4f89a76cdcf8.invalid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.4f89a76cdcf8.valid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.83cfe442806e.invalid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.83cfe442806e.valid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.b32c4c9263d6.invalid",
+        "partition": 0,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.b32c4c9263d6.valid",
+        "partition": 0,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.d7f7254a1971.invalid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.d7f7254a1971.valid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.f3fe5d51487b.invalid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.adapter.f3fe5d51487b.valid",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.configs",
+        "partition": 0,
+        "before": 52,
+        "after": 52,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 0,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 1,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 2,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 3,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 4,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 5,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 6,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 7,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 8,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 9,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 10,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 11,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 12,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 13,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 14,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 15,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 16,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 17,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 18,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 19,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 20,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 21,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 22,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 23,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.offsets",
+        "partition": 24,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.status",
+        "partition": 0,
+        "before": 12,
+        "after": 12,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.status",
+        "partition": 1,
+        "before": 27,
+        "after": 27,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.status",
+        "partition": 2,
+        "before": 21,
+        "after": 21,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.status",
+        "partition": 3,
+        "before": 25,
+        "after": 25,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.it.connect.status",
+        "partition": 4,
+        "before": 9,
+        "after": 9,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.metadata.dlq.v1",
+        "partition": 0,
+        "before": 1,
+        "after": 1,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.metadata.dlq.v1",
+        "partition": 1,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.metadata.fetch.v1",
+        "partition": 0,
+        "before": 232428,
+        "after": 232428,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.metadata.fetch.v1",
+        "partition": 1,
+        "before": 234633,
+        "after": 234633,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.request.enriched.v1",
+        "partition": 0,
+        "before": 142,
+        "after": 142,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.request.enriched.v1",
+        "partition": 1,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.risk.policy.change.v1",
+        "partition": 0,
+        "before": 2,
+        "after": 2,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.risk.policy.change.v1",
+        "partition": 1,
+        "before": 2,
+        "after": 2,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.risk.signal.v1",
+        "partition": 0,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.risk.signal.v1",
+        "partition": 1,
+        "before": 0,
+        "after": 0,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.route.change.v1",
+        "partition": 0,
+        "before": 232434,
+        "after": 232434,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.route.change.v1",
+        "partition": 1,
+        "before": 234633,
+        "after": 234633,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.stats.5m.v1",
+        "partition": 0,
+        "before": 4,
+        "after": 4,
+        "delta": 0
+      },
+      {
+        "topic": "shortlink.stats.5m.v1",
+        "partition": 1,
+        "before": 4,
+        "after": 4,
+        "delta": 0
+      }
+    ],
+    "totalOffsetDelta": 79500
+  },
+  "accountingProblems": {},
+  "all": {
+    "planned_arrivals": 26500,
+    "scheduled": 26500,
+    "sent": 26500,
+    "completed": 26500,
+    "received_http": 26500,
+    "correct": 26500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 26500,
+      "mean": 1.7289096473962289,
+      "p50": 1.06198,
+      "p95": 4.983844,
+      "p99": 13.506409,
+      "p99_9": 23.52987,
+      "max": 43.647892
+    },
+    "scheduled_to_completion_ms": {
+      "count": 26500,
+      "mean": 1.830017382981132,
+      "p50": 1.169513,
+      "p95": 5.117093,
+      "p99": 13.623511,
+      "p99_9": 23.589931,
+      "max": 43.669215
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 16500,
+    "scheduled": 16500,
+    "sent": 16500,
+    "completed": 16500,
+    "received_http": 16500,
+    "correct": 16500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 16500,
+      "mean": 2.0315466177575727,
+      "p50": 1.239165,
+      "p95": 6.508369,
+      "p99": 15.859503,
+      "p99_9": 25.911784,
+      "max": 43.647892
+    },
+    "scheduled_to_completion_ms": {
+      "count": 16500,
+      "mean": 2.0959040761818155,
+      "p50": 1.304251,
+      "p95": 6.631407,
+      "p99": 15.959425,
+      "p99_9": 26.453588,
+      "max": 43.669215
+    }
+  },
+  "measure": {
+    "planned_arrivals": 10000,
+    "scheduled": 10000,
+    "sent": 10000,
+    "completed": 10000,
+    "received_http": 10000,
+    "correct": 10000,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 10000,
+      "mean": 1.2295586462999957,
+      "p50": 0.858237,
+      "p95": 3.358707,
+      "p99": 8.745653,
+      "p99_9": 12.223918,
+      "max": 26.08493
+    },
+    "scheduled_to_completion_ms": {
+      "count": 10000,
+      "mean": 1.3913043391999964,
+      "p50": 1.013433,
+      "p95": 3.578319,
+      "p99": 8.940112,
+      "p99_9": 12.872456,
+      "max": 26.283675
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 10000,
+      "elapsedMillis": 10000,
+      "start": "2026-09-09T10:39:59.40961023Z",
+      "end": "2026-09-09T10:40:09.40961023Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-09T10:39:29.40961023Z",
+      "end": "2026-09-09T10:39:59.40961023Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 16500,
+      "measure": 10000,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 1000.0,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 1000.0,
+  "measuredCorrectCohortQps": 1000.0,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 0,
+  "nativeSummarySha256": "057996c177a4c502de299c4439953bfeb4fd50411638a7b811bcf6e70945b251",
+  "finishedAt": "2026-09-09T10:40:25.023037+00:00",
+  "monitorStop": null,
+  "nativeClientProcess": {
+    "samples": 41,
+    "cpuPercentMean": 62.99385035991617,
+    "cpuPercentPeak": 116.98825414535538,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 64749568,
+    "rssBytesSampleMean": 48365568.0,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 40.01977948000058,
+    "timelineBytes": 10890,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-09T10:39:29.282083+00:00",
+    "end": "2026-09-09T10:40:10.440535+00:00"
+  }
+}

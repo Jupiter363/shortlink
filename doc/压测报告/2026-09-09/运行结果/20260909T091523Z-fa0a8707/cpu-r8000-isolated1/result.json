@@ -1,0 +1,374 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260909T091523Z-fa0a8707",
+  "label": "cpu-r8000-isolated1",
+  "startedAt": "2026-09-09T09:50:54.872602+00:00",
+  "capacityPassed": false,
+  "status": "CAPACITY_STAGE_FAILED",
+  "stageConfig": {
+    "label": "cpu-r8000-isolated1",
+    "rate": 8000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 121500,
+    "formalRequests": 480000,
+    "maximumRequests": 601500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 22173696000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+  "stageDirectory": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260909T091523Z-fa0a8707/stages/cpu-r8000-isolated1",
+  "stopReasons": [
+    "clientExitedSuccessfully",
+    "allHttpCompleteAndCorrect",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "fcdae1cf15fe5d827e5148ce1e5ca810d9c79378debefc98b5e72c98a2aa5360",
+    "edgePathProofSha256": "b99023f30300ecd8247997e82b354b5d25189e8a0f0cbb349a81bafeec22e534",
+    "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+    "containerId": "f4c8f286694c8adb4739a199fe000b47537a1025e9032b09f026d50c3b7efca3",
+    "containerPid": 7825
+  },
+  "privateConfigSha256": "ede340b14afa7b475150e1bc2d3a7cd6da069bfaf4d051e8a0ae360e8de6bf83",
+  "campaignAdmission": {
+    "maximumRecords": 15000000,
+    "actualRecordsSinceBaseline": 2649946,
+    "reservedRecords": 5413500,
+    "projectedRecords": 8063446,
+    "failedStagesIncluded": true,
+    "retentionCredit": false
+  },
+  "diskAdmission": {
+    "workspace": {
+      "freeBytes": 202660413440,
+      "reservedBytes": 22173696000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 180486717440
+    },
+    "kafka": {
+      "freeBytes": 956492054528,
+      "reservedBytes": 22173696000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 934318358528
+    }
+  },
+  "clientLaunch": {
+    "pid": 13085,
+    "startedAt": "2026-09-09T09:51:04.572316+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": false,
+    "checks": {
+      "observerExited": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": false,
+      "noSampleBudgetLoss": true,
+      "jfrCapturedAndStopped": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "7ceba34584c03d254add845b2df1232a5871dc4c0fcebd3f688c11fab81fb2bb",
+    "scripts/performance/observe.py": "a28a536ab716ec3365a2aaf6ba1106cf8330c1e28fb4eec2bac5f52c86a54204",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": false,
+    "allHttpCompleteAndCorrect": false,
+    "noDroppedArrivals": false,
+    "noCancelledArrivals": false,
+    "sentAtLeast99PercentOfTarget": false,
+    "roundtripP99WithinBudget": false,
+    "scheduledCompletionP99WithinBudget": false,
+    "eventFailuresUnchanged": true,
+    "afterDrained": true,
+    "noMonitorStop": true,
+    "threeProducerLanesMatch": false,
+    "actualKafkaOffsetsMatch": false,
+    "sourceDistributionVerified": true,
+    "measurementComplete": false,
+    "nativeConservationVerified": false,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": false,
+    "resourceExperimentValid": true
+  },
+  "failedChecks": [
+    "clientExitedSuccessfully",
+    "allHttpCompleteAndCorrect",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 0.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": null,
+  "kafkaConservation": null,
+  "accountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "all": {
+    "planned_arrivals": 601500,
+    "scheduled": 128832,
+    "sent": 125439,
+    "completed": 125439,
+    "received_http": 125439,
+    "correct": 124653,
+    "incorrect_http": 786,
+    "client_errors": 0,
+    "errors": 786,
+    "status429": 0,
+    "status503": 632,
+    "not_completed": 0,
+    "dropped": 3393,
+    "cancelled_arrivals": 472668,
+    "roundtrip_ms": {
+      "count": 125439,
+      "mean": 29.683366070671784,
+      "p50": 3.517141,
+      "p95": 105.018107,
+      "p99": 631.163237,
+      "p99_9": 1008.793605,
+      "max": 1094.447751
+    },
+    "scheduled_to_completion_ms": {
+      "count": 125439,
+      "mean": 30.1351386425114,
+      "p50": 3.827568,
+      "p95": 106.819641,
+      "p99": 632.312092,
+      "p99_9": 1009.360749,
+      "max": 1095.304479
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 121500,
+    "scheduled": 121500,
+    "sent": 121500,
+    "completed": 121500,
+    "received_http": 121500,
+    "correct": 121498,
+    "incorrect_http": 2,
+    "client_errors": 0,
+    "errors": 2,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 121500,
+      "mean": 14.364801783440198,
+      "p50": 3.170088,
+      "p95": 59.933748,
+      "p99": 157.266732,
+      "p99_9": 360.052411,
+      "max": 1010.621565
+    },
+    "scheduled_to_completion_ms": {
+      "count": 121500,
+      "mean": 14.78832137110281,
+      "p50": 3.464416,
+      "p95": 61.136811,
+      "p99": 158.053288,
+      "p99_9": 365.361287,
+      "max": 1011.638388
+    }
+  },
+  "measure": {
+    "planned_arrivals": 480000,
+    "scheduled": 7332,
+    "sent": 3939,
+    "completed": 3939,
+    "received_http": 3939,
+    "correct": 3155,
+    "incorrect_http": 784,
+    "client_errors": 0,
+    "errors": 784,
+    "status429": 0,
+    "status503": 632,
+    "not_completed": 0,
+    "dropped": 3393,
+    "cancelled_arrivals": 472668,
+    "roundtrip_ms": {
+      "count": 3939,
+      "mean": 502.19048993424656,
+      "p50": 466.257995,
+      "p95": 997.33767,
+      "p99": 1033.173944,
+      "p99_9": 1070.514367,
+      "max": 1094.447751
+    },
+    "scheduled_to_completion_ms": {
+      "count": 3939,
+      "mean": 503.51373688474206,
+      "p50": 466.928507,
+      "p95": 999.275221,
+      "p99": 1034.345332,
+      "p99_9": 1072.748238,
+      "max": 1095.304479
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 916.5801780000002,
+      "start": "2026-09-09T09:51:34.723135306Z",
+      "end": "2026-09-09T09:52:34.723135306Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-09T09:51:04.723135306Z",
+      "end": "2026-09-09T09:51:34.723135306Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 120643,
+      "measure": 4010,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 66.83333333333333,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 66.83333333333333,
+  "measuredCorrectCohortQps": 52.583333333333336,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 2,
+  "nativeSummarySha256": "59a13c4394faad05a8ff39db58d1a733043463da595ee9a60ea6ec09609c0b4f",
+  "finishedAt": "2026-09-09T09:52:10.733642+00:00",
+  "monitorStop": null,
+  "nativeClientProcess": {
+    "samples": 40,
+    "cpuPercentMean": 139.22621374868163,
+    "cpuPercentPeak": 211.97065435862547,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 2692313088,
+    "rssBytesSampleMean": 426410086.4,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 39.01564119099976,
+    "timelineBytes": 10660,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-09T09:51:04.572316+00:00",
+    "end": "2026-09-09T09:51:44.480568+00:00"
+  },
+  "resourceExperiment": {
+    "kind": "JAVA_AFFINITY_ONLY",
+    "wrapperSha256": "10cdb708f515c26cd3d8b6aa41ae5bf0aa12b3ff42881980e0d1a963606ccb5f",
+    "frozenStageSha256": "579366b20f7458831241974ed649b82a66c3037ff1b44059e174711dccfe7fea",
+    "runId": "20260909T091523Z-fa0a8707",
+    "label": "cpu-r8000-isolated1",
+    "originalCpuSet": "0-7",
+    "targetCpuSet": "0-3",
+    "edgeCpuSet": "4-7",
+    "applicationCpuUnionBefore": "0-7",
+    "applicationCpuUnionDuring": "0-7",
+    "stateFileUnmodified": true,
+    "staticResourceProfileOverride": "Only this stage: all four existing Java JVM thread affinities 0-3; heap/ActiveProcessorCount/JAR/cache unchanged",
+    "proofs": {
+      "before": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-before.json",
+        "sha256": "fcc1ccffd1b08a11786e0c6d0909da3ca9cce7e9e372bdfd5bd4402162573c3c"
+      },
+      "edge-before": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-edge-before.json",
+        "sha256": "359efb8eaca876c477205a458a85b579140d3f50387e23eadfe5dac2dbb10823"
+      },
+      "applied": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-applied.json",
+        "sha256": "a64414dc5be481ad99bcd21924d1cc5bb1790b6b5c52b74fc1d8ffd082ca6f17"
+      },
+      "edge-applied": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-edge-applied.json",
+        "sha256": "359efb8eaca876c477205a458a85b579140d3f50387e23eadfe5dac2dbb10823"
+      },
+      "after": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-after.json",
+        "sha256": "deea40113e4c87f6949b207e719343cb3e9e360ea2ae00b3d0b07fa1b502f423"
+      },
+      "edge-after": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-edge-after.json",
+        "sha256": "359efb8eaca876c477205a458a85b579140d3f50387e23eadfe5dac2dbb10823"
+      },
+      "observer": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-observer.json",
+        "sha256": "defe844f1bd85dadb143fc5133ceb96aa7c24ed6b5e7e0b51c216eec90f8c47f"
+      },
+      "restored": {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-restored.json",
+        "sha256": "40a180084bf0c36c04abd86e6e8aedc44f802f5adcfa33b6fd04806290874428"
+      }
+    },
+    "errors": [],
+    "passed": true,
+    "runtimeBinding": {
+      "runtimeIdentitySha256": "fcdae1cf15fe5d827e5148ce1e5ca810d9c79378debefc98b5e72c98a2aa5360",
+      "edgePathProofSha256": "b99023f30300ecd8247997e82b354b5d25189e8a0f0cbb349a81bafeec22e534",
+      "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+      "containerId": "f4c8f286694c8adb4739a199fe000b47537a1025e9032b09f026d50c3b7efca3",
+      "containerPid": 7825
+    },
+    "credential": {
+      "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/real-breakthrough-20260909/cpu-20260909T091523Z-fa0a8707-cpu-r8000-isolated1-credential.json",
+      "sha256": "2eae258b3181554f74cb8516e366ba9a31150affd8109ef69e3e0c7986321bad"
+    },
+    "restored": true,
+    "signals": [],
+    "baseCapacityPassed": false,
+    "baseStatus": "CAPACITY_STAGE_FAILED"
+  }
+}

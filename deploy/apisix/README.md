@@ -18,9 +18,9 @@ Kafka send 和 ACK 仅在 background timer 中执行，确认要求保持 `acks=
 
 新增 `shortlink_edge_batch_*` 指标区分调用数、事件尝试数、Produce 请求/记录尝试数和 metadata 请求数；Produce 计数在 socket 发送前递增，不能直接当作 ACK 数。`send_attempts` 在批量模式统计批调用而非事件条数，不可用旧的“一调用一事件”口径比较。旧世代缺少扩展指标时 `batch_observation_complete=0`，原事件账本仍独立核对；缺失的历史批量指标不能当作零。
 
-调度与记账回归入口为 `scripts/performance/test_edge_sender_batch.py`（包含原并发测试），协议故障入口为 `scripts/performance/test_edge_kafka_batch.py`，默认使用运行时已安装的固定 Kafka 编码器。有限真实 Kafka 故障/恢复验证入口为 `scripts/integration/apisix_sender_component.py`，显式四槽在途验证为 `scripts/integration/apisix_sender_four_component.py`，批发送及双分区精确核对为 `scripts/integration/apisix_sender_batch_component.py`。上一轮逐条并发发送的吞吐、失败和资源口径见[网关并发复测报告](../../plan/生产级重构增强/12-网关事件并发优化与复测.md)，其数据不代表本次批发送已经通过压测。
+调度与记账回归入口为 `scripts/performance/test_edge_sender_batch.py`（包含原并发测试），协议故障入口为 `scripts/performance/test_edge_kafka_batch.py`，默认使用运行时已安装的固定 Kafka 编码器。有限真实 Kafka 故障/恢复验证入口为 `scripts/integration/apisix_sender_component.py`，显式四槽在途验证为 `scripts/integration/apisix_sender_four_component.py`，批发送及双分区精确核对为 `scripts/integration/apisix_sender_batch_component.py`。上一轮逐条并发发送的吞吐、失败和资源口径见[网关并发复测报告](../../doc/压测报告/过程报告/12-网关事件并发优化与复测.md)，其数据不代表本次批发送已经通过压测。
 
-本次批发送与2/4/8 worker结果见[批发送复测报告](../../plan/生产级重构增强/13-网关有界批发送优化与复测.md)。隔离性能脚本支持 `--edge-workers 2/4/8`，默认2；8 worker实际使用CPU 0–7，与Java共享，每worker派生250条/2MiB队列、四槽，节点总预算保持2000条/16MiB。这个覆盖只写入独立run的派生清单，仓库部署基础清单仍为每worker1000条/8MiB；正式部署需结合实际worker数确定节点总预算。8 worker在5000/s目标的90.024秒窗口实测约4982.32正确请求/s、P99=67ms，因1228次全场景丢迭代仍未通过容量验收，未运行长确认。
+本次批发送与2/4/8 worker结果见[批发送复测报告](../../doc/压测报告/过程报告/13-网关有界批发送优化与复测.md)。隔离性能脚本支持 `--edge-workers 2/4/8`，默认2；8 worker实际使用CPU 0–7，与Java共享，每worker派生250条/2MiB队列、四槽，节点总预算保持2000条/16MiB。这个覆盖只写入独立run的派生清单，仓库部署基础清单仍为每worker1000条/8MiB；正式部署需结合实际worker数确定节点总预算。8 worker在5000/s目标的90.024秒窗口实测约4982.32正确请求/s、P99=67ms，因1228次全场景丢迭代仍未通过容量验收，未运行长确认。
 
 依据：[Standalone 与环境变量](https://apisix.apache.org/docs/apisix/3.11/deployment-modes/)、[插件装载](https://apisix.apache.org/docs/apisix/3.11/plugin-develop/)、[官方 Kafka logger producer 参数](https://github.com/apache/apisix/blob/3.11.0/apisix/plugins/kafka-logger.lua)。本目录是实现和部署输入，测试记录不将未运行的 APISIX HTTP 端到端验收视为已完成。
 # Component verification and coarse budgets
@@ -34,4 +34,4 @@ keys are not a supported template mechanism in the verified APISIX 3.11 runtime.
 Gateway and Redirect ports are 8000 and 8003 respectively.
 
 Reproducible isolated HTTP cases and actual results are documented in
-[`docs/integration/component-adapters.md`](../../docs/integration/component-adapters.md).
+[`doc/integration/component-adapters.md`](../../doc/integration/component-adapters.md).

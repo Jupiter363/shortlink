@@ -1,0 +1,12 @@
+{
+  "runId": "20260909T132900Z-09adb5ee",
+  "executionDiagnostics": false,
+  "httpTimings": false,
+  "javaTiming": false,
+  "publisherDiagnosticsRequired": true,
+  "edgeSnapshotVersionRequired": 3,
+  "threeLaneAccountingRetained": true,
+  "jfr": "Must remain absent from each subsequent stage invocation",
+  "manifestSha256": "c049e71bcbbd72dc4ea6f34dd2d548a09b836842c16907afcbc7767aeb5e188b",
+  "configSha256": "aa9c6c43934aaf21b2e9baf9c1247c7bf821f605827b8dee08c2eeea6e5f68a2"
+}

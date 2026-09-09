@@ -1,0 +1,132 @@
+# 暴露问题修复与短时对照验收（历史关闭）
+
+日期：2026-09-08。分支：`codex/production-refactor-v07`。接续 [16-跳转瓶颈实证追查](16-跳转瓶颈实证追查.md)。
+
+**本轮 A/B 已执行完毕，两轮容量验收均为 FAIL，没有证明锁外计长带来端到端性能提升。** 已发出的 GET 与生产者计数、Kafka 持久化 offset 对账通过；这不等于最终运行验收通过。B 在阶段结束后发生 live PID API 观测误判，随后 supervisor deadline 停止应用，最终 live drain 未成立，通用最终账本仍为 FAIL。原失败及用户暂停、资源关闭证据全部保留。
+
+本文只总结本轮历史制品 A/B，以及之后完成的身份修复功能验证。后续一次编码 byte[]、functional route 或新发生器实验属于下一轮，不纳入本文性能结果；当前源码可能已经演进，历史行为以本节 JAR SHA 和保存证据为准。
+
+## 1. 本轮交付与实际对照范围
+
+| 项目 | 本轮实际行为与边界 |
+| --- | --- |
+| Redirect Publisher | B 将 UTF-8 body+key 计长移出 Lane monitor，计长结束后才开始锁等待采样；B 制品仍采用 String Producer，Kafka 序列化重复编码在本轮尚未消除。事件内容、ACK、幂等、重试、队列、字节预算与关闭流程保持原规则 |
+| APISIX v3 快照 | attempted/delivered/failed/rejected 与 pending 从相同 worker JSON 行聚合；活动期 raw 全局值独立保留，静止时仍须精确对账。登记、历史世代、current PID 与前后 revision/boot 检查保留；后续发现的 PID API 问题及修复见第5节 |
+| HTTP 分段与入口计时 | k6 保留正式/预热原生 sending、TTFB、receiving、blocked、connecting、TLS；APISIX 记录合法 GET/302 request/upstream count、sum、max及缺失原因。缺失不补零，分位数不相加，入口计时没有可推导P99的histogram |
+| 发生器独立采样 | 每秒采样 owned k6 PID 的 CPU/RSS、PID/startTicks和实际间隔，有16MiB输出上界；采样线程独立于慢服务采集，但没有迁移到独立物理压力机 |
+| 可选工作集优化 | 本轮未启用 `vu-precomputed` 或跳过零行数指标；两侧均为 `shared-array`、`skip-redirect-zero-rows=false`，防止混入其它发生器变量 |
+
+| 对照项 | A：原计长位置 | B：锁外计长 |
+| --- | --- | --- |
+| run ID | `20260908T042406Z-850fb13d` | `20260908T044150Z-914f121b` |
+| 阶段 | `idfix-baseline-r5000` | `idfix-candidate-r5000` |
+| Redirect JAR SHA256 | `f3a50ee23fd089cf49d781df5abc6a0f2c086cf4b26f456469ce29e63460459a` | `2cf2de8cbec51903f63a05e95a0fa8e8a1874d078260090344b2c1838e947f2a` |
+| 负载 | 30秒从100/s预热至5000/s，再正式30秒；512 VU、64个真实TCP来源、10链接均匀工作集 | 同左 |
+| 公共参数 | 8 APISIX worker×4 sender；相同观测/发生器及资源配置，HTTP phase timings/client timeline开启，metric seed=`per-vu-phase` | 同左 |
+| 执行情况 | 完整执行，容量 FAIL | 完整执行，容量 FAIL；阶段后的最终运行验收另为 FAIL |
+
+每轮先准备11300条fixture，没有在本轮增加阶梯或长期确认。设计与预算见 [id-scope-notes.md](../../../../../.work/redirect-fixes-20260908/id-scope-notes.md)，B制品及测试绑定见 [root-verification-build.json](../../../../../.work/redirect-fixes-20260908/root-verification-build.json)。两轮没有运行JFR和全线程OS探针，不能与报告16的重探针轮次直接比较净收益。
+
+## 2. 已完成的 HTTP 与发生器结果
+
+| 指标 | A | B |
+| --- | ---: | ---: |
+| 正式开始 UTC | 04:39:26.996 | 04:52:20.425 |
+| 正式最后完成的 client elapsed 对应 UTC | 04:39:57.071 | 04:52:50.432 |
+| 实际正式 elapsed | 30.075s | 30.007s |
+| 正式 sent / correct | 150204 / 150204 | 149454 / 149454 |
+| 正式正确吞吐 | 4994.314/s | 4980.638/s |
+| 正式 HTTP 未知 / 429 / 503 / client error | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| 正式 roundtrip 均值 / P99 | 8.771ms / 72ms | 12.878ms / 97ms |
+| 整轮 sent / received / correct，含预热 | 225974 / 225974 / 225974 | 225206 / 225206 / 225206 |
+| 全场景 dropped iterations | 435 | 1195 |
+| 容量失败原因 | 非零 dropped | 非零 dropped；P99超过80ms |
+
+正式区间按原生scenario起点和phase client elapsed计算，请求仍归属其发起时的phase；完成可以略越过计划结束点。Drops发生于迭代phase标签建立之前，只有全场景数，不能擅自全部归入预热或正式阶段。正确率按 correct/sent 均为100%，这不消除到达/丢迭代及尾延迟门槛失败。
+
+原生正式分段如下，单位均为ms；每格为均值/P99。分项P99不能相加，也不能用A/B分位数相减解释某组件成本。
+
+| 分段 | A | B |
+| --- | ---: | ---: |
+| sending | 0.143993 / 3.427330 | 0.174769 / 4.084482 |
+| waiting/TTFB | 8.399712 / 71.121766 | 12.455559 / 96.655454 |
+| receiving | 0.086936 / 0.435327 | 0.086209 / 0.483339 |
+| blocked | 0.008335 / 0.025759 | 0.007700 / 0.028227 |
+| connecting / TLS | 两项均值与P99均为0 | 两项均值与P99均为0 |
+
+最后一行是已记录的有效零值，不是缺失补零。TTFB包含网络和远端处理，不等于服务端CPU。
+
+发生器独立timeline分别保留61/62点。只取完整落在正式窗内的相邻区间：A为04:39:27.288061—04:39:56.308856，共29.020801s；B为04:52:20.515806—04:52:49.570387，共29.054580s。加权CPU均值分别 **327.489% / 336.436%**，约1秒区间峰364.902% / 374.391%；100%为一个逻辑CPU。两个子窗各29个区间、身份/计数回退异常0；不是完整正式30秒CPU积分。服务observer两轮各15点、overrun0。
+
+证据：[A result](../../../../../.work/performance/20260908T042406Z-850fb13d/stages/idfix-baseline-r5000/result.json)、[A k6-summary](../../../../../.work/performance/20260908T042406Z-850fb13d/stages/idfix-baseline-r5000/k6-summary.json)、[B result](../../../../../.work/performance/20260908T044150Z-914f121b/stages/idfix-candidate-r5000/result.json)、[B k6-summary](../../../../../.work/performance/20260908T044150Z-914f121b/stages/idfix-candidate-r5000/k6-summary.json)。[analytics-comparison.json](../../../../../.work/redirect-fixes-20260908/analytics-comparison.json)保存原始来源SHA、分段与采样边界。
+
+## 3. 服务端与 Publisher 计时：未形成性能收益证明
+
+下表使用各阶段相同before/after的累计count/sum增量，**含预热及阶段尾部，不是正式窗均值或P99**。Redirect精确标签为 `error=none,exception=none,method=GET,outcome=REDIRECTION,status=302,uri=/{shortUri}`。
+
+| 整阶段指标 | A | B |
+| --- | ---: | ---: |
+| Redirect / APISIX request / upstream 的共同计数增量 | 225974 | 225206 |
+| Redirect框架GET/302耗时增量 | 179.138634022s | 303.953330221s |
+| Redirect框架GET/302均值 | 0.792740ms | 1.349668ms |
+| APISIX request均值 | 4.626457ms | 8.922378ms |
+| APISIX upstream均值 | 4.453893ms | 8.586774ms |
+
+三类计数在每轮均与k6整轮正确GET数一致，进程PID/startTicks及edge boot前后稳定。A的before/after采样开始为04:38:55.680543/04:39:58.181826 UTC，整次耗时398.8/325.1ms；B为04:51:48.852938/04:52:51.570933，耗时395.3/306.5ms。各collector并发执行，没有各自精确UTC读取瞬间；整次采样时长是每端对齐误差的保守范围，collector耗时不是读取时间偏移。不能将APISIX与框架均值之差直接归为网关CPU或Kafka ACK等待。
+
+[analytics-final-http-comparison.json](../../../../../.work/redirect-fixes-20260908/analytics-final-http-comparison.json)保存精确标签、计数/耗时原值、增量、单位与四份源文件SHA。
+
+Publisher下表同样为整个before→after的1/64抽样计时增量，A每lane3531个样本，B3519个样本。每格为 click/result；锁单位为微秒，reservation hold单位为毫秒。
+
+| 指标 | A | B |
+| --- | ---: | ---: |
+| offer lock wait均值，μs | 14.813 / 8.436 | 19.226 / 10.578 |
+| offer lock hold均值，μs | 18.028 / 11.178 | 15.583 / 9.222 |
+| ACK terminal lock wait均值，μs | 0.924 / 0.770 | 2.285 / 0.807 |
+| reservation hold均值，ms | 5.472 / 5.543 | 6.422 / 6.499 |
+| 进程占槽HWM，before→after | 1→283 / 10→330 | 1→365 / 15→430 |
+| 阶段14项失败/拒绝计数增量 | 全0 | 全0 |
+
+B抽样锁内持有均值较低，但锁等待、整体reservation、HTTP指标并未同时改善。HWM为进程历史高水位，rolling max不是阶段分位数，5秒scrape不能还原真实达峰时刻。因此本轮只证明功能及部分计时差异，**不证明稳定收益、端到端提升或服务端独立QPS上限**。
+
+## 4. 三种验收结论分别保留
+
+| 验收层次 | A | B |
+| --- | --- | --- |
+| 原GET阶段结束时的after排空记录 | drained=true，三lane pending0 | drained=true，三lane pending0 |
+| GET HTTP/生产者/持久化offset对账 | PASS | PASS |
+| 容量验收 | FAIL：drops435 | FAIL：drops1195、P99 97ms |
+| 最终运行边界 | 04:40:35.779965 UTC，服务与组件可用、drained=true | 05:22:26.016820 UTC，仅持久化边界；Java和原APISIX不可用，drained=false |
+| 通用最终账本 | 原full-schema为INCOMPLETE：82 PASS、1个不适用HEAD-only检查N_A；另保留GET-only派生账本82 PASS | FAIL：43 PASS、39 N_A、1 FAIL；失败项 `baselineAndFinalDrainRecorded` |
+
+GET持久化对账的具体增量：A click attempted/delivered均225974，Redirect result和EDGE各225974；Kafka click topic增225974、gateway.request增451948，总677922=3×225974。B对应225206、225206、225206；Kafka增225206+450412，总675618=3×225206。两轮SQL均11300→11300，无新增链接，身份/路由/额度完整性通过。
+
+这建立的是计数与partition offset守恒，**不是逐eventId内容核验、exactly-once或统计消费者已完成**。Flink/ClickHouse/Agent未参与该轮负载。B阶段after与更晚final是不同时间，前者不能替代后者；停机后服务指标缺失保留N_A，不能补0重新宣布运行验收通过。
+
+独立补账 [id-close-accounting.json](../../../../../.work/redirect-fixes-20260908/id-close-accounting.json)明确输出 `GET_ACCOUNTING_PASS_FINAL_ACCEPTANCE_NOT_ESTABLISHED`，`getAccountingPassed=true`、`finalOperationalAcceptancePassed=false`，没有运行额外负载或重试。原 [A GET-only账本](../../../../../.work/performance/20260908T042406Z-850fb13d/optimization-ledger-verification.json)、[A完整schema账本](../../../../../.work/performance/20260908T042406Z-850fb13d/optimization-ledger-verification-full-schema.json)、[B通用账本](../../../../../.work/performance/20260908T044150Z-914f121b/optimization-ledger-verification.json)、[B停机持久化边界](../../../../../.work/performance/20260908T044150Z-914f121b/optimization-final-boundary.json)均原样保留。
+
+## 5. B阶段后的观测问题、修复与补充验证
+
+B的GET阶段完成后，检查原运行进程、未reload的Lua闭包时发现 `ngx.worker.pids()` 连续返回空表，导致live PID覆盖被判不完整；这不是已经证明事件丢失。原API读不到PID时保持fail-closed是正确保护，但其结果不能用来宣布最终健康/排空。检查过程与失败尝试保存在 [原始读取](../../../../../.work/redirect-fixes-20260908/root-original-live-lua-view.json)、[后续原进程读取](../../../../../.work/redirect-fixes-20260908/root-original-live-lua-view-v3.json)、[进程PID映射](../../../../../.work/redirect-fixes-20260908/root-original-worker-pid-maps.json)。原文件恢复情况也由产物记录。
+
+此后supervisor到达deadline停止应用，见 [root-stopped-candidate.json](../../../../../.work/redirect-fixes-20260908/root-stopped-candidate.json)：`mechanism=supervisor deadline`、`rootIssuedStop=false`。更晚取得的最终边界只剩SQL/Kafka等持久化读取，不能完成原live drain与14项最终失败增量核验，所以B通用最终账本仍FAIL；不能把“PID API问题已修复”写成原运行验收已通过。
+
+后续修复改为每次调用独占FFI数组查询同一原生C API，不缓存PID；空、异常、截断、非法值仍返回不可用。另修复HTTP计时聚合在缺worker行时可能将剩余子集误报完整的问题：结构覆盖失败只影响计时完整性，不反向改变发送终态。
+
+| 功能验证 | 已保存结果与时间边界 |
+| --- | --- |
+| 历史B Publisher单元 | 21/21通过，0失败/错误/跳过；准确UTF-8预算、并发与终态守恒 |
+| 历史B真实Kafka Publisher IT | 1/1通过，0跳过；不等于容量或业务端到端 |
+| 最终Lua快照回归 | **84项PASS**，包含HTTP结构覆盖修复；[root-lua-consistency-v4.log](../../../../../.work/redirect-fixes-20260908/root-lua-consistency-v4.log)。早期构建清单的81是此前版本，不代替84 |
+| worker identity FFI边界 | **13项PASS**；真实LuaJIT数组、受控native边界，覆盖空/满/非法/PID变更；[root-worker-identity.log](../../../../../.work/redirect-fixes-20260908/root-worker-identity.log) |
+| 恢复后的独立冷启动8worker验证 | **PASS：128次metrics、8192次native调用，覆盖8个worker，业务事件0，独占组件容器已删除**；[root-cold-identity.json](../../../../../.work/redirect-breakthrough-20260908/root-cold-identity.json) |
+
+最后一项是在A/B结束、用户暂停后、本次恢复期间完成的独立功能验证，**不是原A/B负载时已经存在的证据**。它支持修复后的冷启动身份覆盖，不回填历史失败，也不证明热负载、reload或长期容量。Observer/run_stage/workload定向测试曾分别34/15/57通过，Supervisor旧25通过；这些测试与Lua/Java计数分开，不合并成容量结论。
+
+## 6. 历史资源关闭与预算封存
+
+当时用户要求暂停后，负载和优化已停，四个依赖容器停止、cpuset恢复0–15、专用WSL停止，没有删除容器数据/卷或历史证据；见 [root-paused-by-user.json](../../../../../.work/redirect-fixes-20260908/root-paused-by-user.json) 与 [root-dependencies-stopped.json](../../../../../.work/redirect-fixes-20260908/root-dependencies-stopped.json)。后续另行授权恢复不改变这份历史关闭记录。
+
+补账时家族历史实际offset增量为16270789条；按4096B/条模型为66645151744B，低于64GiB的68719476736B，模型余量2074324992B。这个家族范围包含更早运行，不是A/B两阶段单独数据量；4096B是保守预算模型，不是实际事件均值或实测磁盘。失败、停机和保留期均不返还预算，历史数据及原容量FAIL继续保留。
+
+本报告作为本轮历史总结关闭：功能修复和GET持久化计数对账已补齐，两轮容量FAIL与B最终运行验收FAIL保持不变。下一轮一次编码/functional等新变更应使用新制品、新运行和独立报告，不从本轮推导性能提升。

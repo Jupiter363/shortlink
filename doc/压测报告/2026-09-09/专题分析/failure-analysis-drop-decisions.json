@@ -1,0 +1,76 @@
+{
+  "nativeSha256": "b0289c1f25250d25c8f3f1e4d67898db9c9d282c6f55b3d3997399f75c7cbba7",
+  "arrayOffset": 650873760,
+  "groups": [
+    {
+      "reason": "DISPATCH_WINDOW_CLOSED",
+      "count": 85,
+      "decisionPresent": 85,
+      "decisionMinMillis": 90001.294849,
+      "decisionMaxMillis": 90001.294849,
+      "decisionBeforeStop": 0,
+      "decisionAtOrAfterStop": 85,
+      "attemptStages": [
+        "NONE"
+      ],
+      "first": {
+        "reason": "DISPATCH_WINDOW_CLOSED",
+        "disposition": "DROPPED",
+        "attemptStage": "NONE",
+        "scheduledElapsedMillis": 89989.375,
+        "attemptElapsedMillis": null,
+        "decisionElapsedMillis": 90001.294849,
+        "globalActive": 1999,
+        "sourceIdle": 2
+      },
+      "last": {
+        "reason": "DISPATCH_WINDOW_CLOSED",
+        "disposition": "DROPPED",
+        "attemptStage": "NONE",
+        "scheduledElapsedMillis": 89999.875,
+        "attemptElapsedMillis": null,
+        "decisionElapsedMillis": 90001.294849,
+        "globalActive": 1999,
+        "sourceIdle": 0
+      }
+    },
+    {
+      "reason": "SOURCE_BUSY",
+      "count": 716,
+      "decisionPresent": 716,
+      "decisionMinMillis": 89851.247883,
+      "decisionMaxMillis": 89989.250417,
+      "decisionBeforeStop": 716,
+      "decisionAtOrAfterStop": 0,
+      "attemptStages": [
+        "DISPATCH"
+      ],
+      "first": {
+        "reason": "SOURCE_BUSY",
+        "disposition": "DROPPED",
+        "attemptStage": "DISPATCH",
+        "scheduledElapsedMillis": 89848.75,
+        "attemptElapsedMillis": 89851.247883,
+        "decisionElapsedMillis": 89851.247883,
+        "globalActive": 1846,
+        "sourceIdle": 0
+      },
+      "last": {
+        "reason": "SOURCE_BUSY",
+        "disposition": "DROPPED",
+        "attemptStage": "DISPATCH",
+        "scheduledElapsedMillis": 89989.25,
+        "attemptElapsedMillis": 89989.250417,
+        "decisionElapsedMillis": 89989.250417,
+        "globalActive": 2036,
+        "sourceIdle": 0
+      }
+    }
+  ],
+  "limits": {
+    "blockBytes": 4194304,
+    "arrayRecords": 1000000,
+    "objectBytes": 32768
+  },
+  "scriptSha256": "a95c8163c67841d36e639d798f7c9555680f50ce711248022e9d3f2b352619fd"
+}

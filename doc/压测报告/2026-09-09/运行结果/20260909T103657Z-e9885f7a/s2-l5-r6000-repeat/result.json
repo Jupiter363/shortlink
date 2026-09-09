@@ -1,0 +1,314 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260909T103657Z-e9885f7a",
+  "label": "s2-l5-r6000-repeat",
+  "startedAt": "2026-09-09T10:42:00.074493+00:00",
+  "capacityPassed": false,
+  "status": "CAPACITY_STAGE_FAILED",
+  "stageConfig": {
+    "label": "s2-l5-r6000-repeat",
+    "rate": 6000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 91500,
+    "formalRequests": 360000,
+    "maximumRequests": 451500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 16644096000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+  "stageDirectory": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260909T103657Z-e9885f7a/stages/s2-l5-r6000-repeat",
+  "stopReasons": [
+    "EVENT_FAILURE_OR_COUNTER_RESET",
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified"
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "d04b50c464f2d512659f4833e36e1757c01a494e5e784055ceae265ed143eab0",
+    "edgePathProofSha256": "7acbb482e8b22b923b4be29071befe335fd15f5bbd318dd21db3efb51ccd7d14",
+    "binarySha256": "931602247f59b7fe9d9b01bec71b8cc01a3701c74d8bdc39f93c62e515141571",
+    "containerId": "911d74229d63c70290e3827f67c934ffd4a560a64afd7d03ba3dbe06be36f315",
+    "containerPid": 22523
+  },
+  "privateConfigSha256": "8758d383f90ce23707289275f56a1224e7ab69e37d52f05ffe99120bf211c01e",
+  "campaignAdmission": {
+    "maximumRecords": 25000000,
+    "actualRecordsSinceBaseline": 8180703,
+    "reservedRecords": 4063500,
+    "projectedRecords": 12244203,
+    "failedStagesIncluded": true,
+    "retentionCredit": false,
+    "originBaseline": {
+      "path": ".work/performance/20260909T091523Z-fa0a8707/baseline-boundary.json",
+      "sha256": "1adfdb6ec074cb7623fa35eadfc7439a6692d57a33b1f1b7b5ede5312b10ef3e"
+    },
+    "scope": "ORIGINAL_CAMPAIGN_KAFKA_OFFSETS_ONLY_BUSINESS_REMAINS_CURRENT_RUN"
+  },
+  "diskAdmission": {
+    "workspace": {
+      "freeBytes": 195021434880,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 178377338880
+    },
+    "kafka": {
+      "freeBytes": 953523961856,
+      "reservedBytes": 16644096000,
+      "minimumRemainingBytes": 26843545600,
+      "afterReserveBytes": 936879865856
+    }
+  },
+  "clientLaunch": {
+    "pid": 13478,
+    "startedAt": "2026-09-09T10:42:12.150495+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": true,
+    "checks": {
+      "observerExited": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": true,
+      "noSampleBudgetLoss": true,
+      "jfrCapturedAndStopped": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "7ceba34584c03d254add845b2df1232a5871dc4c0fcebd3f688c11fab81fb2bb",
+    "scripts/performance/observe.py": "a28a536ab716ec3365a2aaf6ba1106cf8330c1e28fb4eec2bac5f52c86a54204",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": false,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": false,
+    "noCancelledArrivals": false,
+    "sentAtLeast99PercentOfTarget": false,
+    "roundtripP99WithinBudget": false,
+    "scheduledCompletionP99WithinBudget": false,
+    "eventFailuresUnchanged": false,
+    "afterDrained": true,
+    "noMonitorStop": false,
+    "threeProducerLanesMatch": false,
+    "actualKafkaOffsetsMatch": false,
+    "sourceDistributionVerified": true,
+    "measurementComplete": false,
+    "nativeConservationVerified": false,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": true
+  },
+  "failedChecks": [
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified"
+  ],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 179.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": null,
+  "kafkaConservation": null,
+  "accountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "all": {
+    "planned_arrivals": 451500,
+    "scheduled": 313855,
+    "sent": 313854,
+    "completed": 313854,
+    "received_http": 313854,
+    "correct": 313854,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1,
+    "cancelled_arrivals": 137645,
+    "roundtrip_ms": {
+      "count": 313854,
+      "mean": 13.83178045901285,
+      "p50": 3.779125,
+      "p95": 59.179689,
+      "p99": 132.747291,
+      "p99_9": 245.607285,
+      "max": 428.937353
+    },
+    "scheduled_to_completion_ms": {
+      "count": 313854,
+      "mean": 14.092958913759254,
+      "p50": 3.986517,
+      "p95": 59.786249,
+      "p99": 133.823559,
+      "p99_9": 245.774387,
+      "max": 429.232438
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 91500,
+    "scheduled": 91500,
+    "sent": 91500,
+    "completed": 91500,
+    "received_http": 91500,
+    "correct": 91500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 91500,
+      "mean": 3.0674880039890824,
+      "p50": 1.195247,
+      "p95": 11.377247,
+      "p99": 33.360398,
+      "p99_9": 67.447545,
+      "max": 89.966986
+    },
+    "scheduled_to_completion_ms": {
+      "count": 91500,
+      "mean": 3.2438867085355167,
+      "p50": 1.359552,
+      "p95": 11.580633,
+      "p99": 33.851204,
+      "p99_9": 67.962049,
+      "max": 90.066228
+    }
+  },
+  "measure": {
+    "planned_arrivals": 360000,
+    "scheduled": 222355,
+    "sent": 222354,
+    "completed": 222354,
+    "received_http": 222354,
+    "correct": 222354,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1,
+    "cancelled_arrivals": 137645,
+    "roundtrip_ms": {
+      "count": 222354,
+      "mean": 18.261351141953877,
+      "p50": 7.039737,
+      "p95": 73.947532,
+      "p99": 150.720126,
+      "p99_9": 270.088756,
+      "max": 428.937353
+    },
+    "scheduled_to_completion_ms": {
+      "count": 222354,
+      "mean": 18.557416970632357,
+      "p50": 7.281152,
+      "p95": 74.621679,
+      "p99": 151.849964,
+      "p99_9": 271.337554,
+      "max": 429.232438
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 37059.03095,
+      "start": "2026-09-09T10:42:42.283959579Z",
+      "end": "2026-09-09T10:43:42.283959579Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-09T10:42:12.283959579Z",
+      "end": "2026-09-09T10:42:42.283959579Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 91452,
+      "measure": 222402,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 3706.7,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 3706.7,
+  "measuredCorrectCohortQps": 3705.9,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 2,
+  "nativeSummarySha256": "210f041a68db17d7d00f8022e506af256d0238edd41e08c1b478775d01db3af1",
+  "finishedAt": "2026-09-09T10:44:01.157775+00:00",
+  "monitorStop": "EVENT_FAILURE_OR_COUNTER_RESET",
+  "nativeClientProcess": {
+    "samples": 78,
+    "cpuPercentMean": 152.3778778579378,
+    "cpuPercentPeak": 191.9791335960487,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 3131252736,
+    "rssBytesSampleMean": 395481088.0,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 77.04530450899983,
+    "timelineBytes": 20886,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-09T10:42:12.150495+00:00",
+    "end": "2026-09-09T10:43:30.138577+00:00"
+  }
+}

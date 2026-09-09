@@ -1,0 +1,63 @@
+{
+  "runId": "20260909T132900Z-09adb5ee",
+  "originalStatus": "CAPACITY_STAGE_FAILED",
+  "scriptSha256": "17b5a418264ea2196453d45ac2d15a3c3d182da2b7f8f7ae55c6ac7b1d90823e",
+  "mainAnalysisSha256": "7a348380dc620874ca23ca1b8ccddeb94f4cc1000a32e63af7834b0bfd77cba7",
+  "dropDecisionSha256": "3b1be312d50d72decc128872805160dc05cc0aa9958bd442deeee6fb44b544df",
+  "commands": [
+    {
+      "script": "failure-analysis.py",
+      "exitCode": 0,
+      "toolChunk": "16a130",
+      "seconds": 21.513814593999996
+    },
+    {
+      "script": "failure-analysis-drop-decisions.py",
+      "exitCode": 0,
+      "toolChunk": "d183b9",
+      "seconds": 6.2162495
+    }
+  ],
+  "eventModel": {
+    "correct302": 600580,
+    "http504": 119,
+    "click": 600580,
+    "business": 600580,
+    "edge": 600699,
+    "kafkaClick": 600580,
+    "kafkaGateway": 1201279,
+    "total": 1801859,
+    "formula": "3 * successful302 + 1 * gateway504",
+    "matchesAggregate": true,
+    "perIdUniquenessProven": false
+  },
+  "existingErrorLog": {
+    "proofSha256": "db7a0d4da6a68c5986adcdb76295162fbadfb2521d7be2c8f927ff83f341bd76",
+    "sourceHashes": {
+      "stdout": {
+        "bytes": 2650674,
+        "sha256": "3d7211683ed70fa30c2f170ffe1a90fa5eef7757cfec5a3500aa31dd29caffa3"
+      },
+      "stderr": {
+        "bytes": 39613,
+        "sha256": "c3a9961765021278a8f96167af62c15752a5893ce627a96963ada9bfdce9c83b"
+      }
+    },
+    "workerCounts": {
+      "50": 119
+    },
+    "classifications": {
+      "connectTimeout": 119
+    },
+    "first": "2026-09-09T13:41:03.438940973Z",
+    "last": "2026-09-09T13:41:03.488935016Z",
+    "sameContainerBeforeAfter": true,
+    "hasNativeIdJoin": false
+  },
+  "notes": [
+    "Aggregate and temporal evidence supports APISIX upstream-connect-timeout origin, not Java authority/business refusal.",
+    "Exact native error-ID to error-log row join is unavailable.",
+    "No live collection was performed by this analysis lane; existing root-captured bounded logs only."
+  ],
+  "finishedAt": "2026-09-09T13:56:21.516831+00:00"
+}

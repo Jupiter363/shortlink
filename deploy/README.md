@@ -60,7 +60,7 @@ Kafka 的 `KAFKA_SECURITY_PROPERTIES` 指向权限受控、UTF-8 且最多 64 Ki
 7. 启动 Command、Worker，执行恢复 begin/reconcile/activate 协议。Command 初态自动动作关闭；完成真实覆盖和世代证明后才解除恢复门禁，Agent 仍逐次核验当前授权和统计证据。`collectionQuality=UNKNOWN` 会阻止自动动作；近似 UV 只阻止依赖精确 UV 的规则，不能以其他精确指标代替该证据。Flink 从固定 checkpoint/savepoint 启动，参数见下节。开始归档、派生投递和规范窗口发布后启动 Analytics API。
 8. 启动 Admin、Gateway、Redirect、Agent，再配置 APISIX TLS。注册/初始化分开显示状态：默认组未就绪不能伪报 READY。Agent 必须使用当前账号 authVersion，不能把旧开发 userId 复制为可信身份。
 
-当前是新环境首次部署方案，不包含生产流量切换，也不修改原有开发 schema。任何恢复、备份或保留期变更都按 [统计恢复协议](../docs/analytics/runtime.md) 核对外部存储覆盖。
+当前是新环境首次部署方案，不包含生产流量切换，也不修改原有开发 schema。任何恢复、备份或保留期变更都按 [统计恢复协议](../doc/analytics/runtime.md) 核对外部存储覆盖。
 
 ## Flink 启动
 

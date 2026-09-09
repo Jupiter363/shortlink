@@ -1,0 +1,138 @@
+{
+  "status": "BUILD_AND_ARTIFACT_CHECKS_PASSED",
+  "startedUtc": "2026-09-09T13:26:20.549018+00:00",
+  "command": [
+    "/usr/bin/mvn",
+    "-B",
+    "-o",
+    "-Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository",
+    "-pl",
+    "shortlink-redirect",
+    "-am",
+    "-Dmaven.test.skip=true",
+    "package"
+  ],
+  "cwd": "/mnt/d/学习/Project/马哥Project/shortlink/.work/fanout-build-20260909/source",
+  "manifestSha256": "2f74c63fdd4393fd76e6be88732541bd74cf8e2f6cf595b13675e5d28c265592",
+  "verifiedInputFiles": 106,
+  "cleanSnapshotBeforeBuild": true,
+  "runtimeJarsBefore": {
+    "gateway/target/shortlink-gateway-1.0-SNAPSHOT.jar": {
+      "bytes": 54755727,
+      "sha256": "7df62d3269702f8a2c1dc03406248c933fd844a2fa94684d880d83c31b1f57f8"
+    },
+    "admin/target/shortlink-admin.jar": {
+      "bytes": 160808997,
+      "sha256": "a5cf08e51b43e18cb6634e4a05c74fc84295f5f601f6fd9c68b2bb51c88402a2"
+    },
+    "shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar": {
+      "bytes": 142546259,
+      "sha256": "d0d2f2fc30cfceaed25c122ec13ffc18f69e2af0a52f535ab3ddcac583893fa0"
+    },
+    "shortlink-redirect/target/shortlink-redirect-1.0-SNAPSHOT.jar": {
+      "bytes": 53194133,
+      "sha256": "1dfd3f0b076f8993cb87d710e803eaa520c5b7cad0c277521b0b659317ea1741"
+    }
+  },
+  "testsExecuted": false,
+  "deploymentPerformed": false,
+  "testAssociation": {
+    "receiptPath": "/mnt/d/学习/Project/马哥Project/shortlink/.work/fanout-bootstrap-20260909/implementation-test-receipt.json",
+    "receiptSha256": "4adad7864c992ba51688eca7a34e82890e18d8e4dab9c3112c66332de5c10d67",
+    "sourceSha256": {
+      "shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/ChangeFanout.java": "9197fa4d63b989ef43f567c9a84d22d5eae2ca66fba30e92bd1ad465eead805c",
+      "shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/event/InvalidationBootstrap.java": "1907a2806a3f0044f460a11eee84ba7e63ee0b28bbc99625c6bdb8129bb1cf63",
+      "shortlink-redirect/src/test/java/com/jupiter/shortlink/redirect/event/ChangeFanoutIT.java": "017df7c14ee39e23051e312a4d0ed58a39c4b0f4b5cae20da0a9b6b4e599ae1c",
+      "shortlink-redirect/src/test/java/com/jupiter/shortlink/redirect/event/InvalidationBootstrapTest.java": "c43c4195c70ebce65382e9b4a9450d5163fc72b0c7be8b3237d537fa18bee34b"
+    },
+    "reports": [
+      {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/shortlink-redirect/target/surefire-reports/TEST-com.jupiter.shortlink.redirect.event.InvalidationBootstrapTest.xml",
+        "sha256": "7b734d20ab6d372d867b366cc78a6fe8be63efe010e4493a141f81975a5e3f6a",
+        "tests": 18,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "path": "/mnt/d/学习/Project/马哥Project/shortlink/shortlink-redirect/target/surefire-reports/TEST-com.jupiter.shortlink.redirect.event.ChangeFanoutIT.xml",
+        "sha256": "920c35b12b73dda09f729a145c96adadef89a3cddfed3b08ac67da69eafd4dc5",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "testsRunByBuildLane": false,
+    "provenance": "Parent test lane supplied the tested-source attestation; XML and exact current source hashes reverified."
+  },
+  "mavenSeconds": 56.5714079749996,
+  "exitCode": 0,
+  "sourceInputsUnchangedAfterBuild": true,
+  "artifact": {
+    "path": "/mnt/d/学习/Project/马哥Project/shortlink/.work/fanout-build-20260909/source/shortlink-redirect/target/shortlink-redirect-1.0-SNAPSHOT.jar",
+    "sha256": "e805c149d0d5a414068c5768c961b9f16daeb1ad1ddf687263a0f429fb7a0f4d",
+    "bytes": 53199244,
+    "requiredRedirectEntries": [
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/web/RedirectController.class",
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/event/AsyncKafkaPublisher.class",
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/event/ChangeFanout.class",
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/event/InvalidationBootstrap.class",
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/web/RedirectFileDescriptorWarmup.class",
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/web/RedirectFileDescriptorWarmupConfiguration.class",
+      "BOOT-INF/classes/application-production.properties"
+    ],
+    "fanoutClasses": {
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/event/ChangeFanout.class": "2b6709eadcd061e29cd27d076d5a53079b885449b500a1675379e16909187381",
+      "BOOT-INF/classes/com/jupiter/shortlink/redirect/event/InvalidationBootstrap.class": "8d67e4ac6db42aa5b69b4472f2624a10de3fb2bc05a7ef7c19223ba331cd8f21"
+    },
+    "embeddedDependencies": {
+      "risk-core": {
+        "embeddedPath": "BOOT-INF/lib/risk-core-1.0-SNAPSHOT.jar",
+        "reactorJar": "/mnt/d/学习/Project/马哥Project/shortlink/.work/fanout-build-20260909/source/risk-core/target/risk-core-1.0-SNAPSHOT.jar",
+        "sha256": "695d7b4991eb882d526b8140e5312789cedc0ec433ac309766c6332988ad9e18",
+        "bytes": 19820,
+        "matchesReactorJar": true,
+        "requiredClasses": [
+          "com/jupiter/shortlink/risk/RiskHash.class",
+          "com/jupiter/shortlink/risk/RiskHash$MacFactory.class"
+        ],
+        "obsoleteWriterClasses": []
+      },
+      "event-contract": {
+        "embeddedPath": "BOOT-INF/lib/event-contract-1.0-SNAPSHOT.jar",
+        "reactorJar": "/mnt/d/学习/Project/马哥Project/shortlink/.work/fanout-build-20260909/source/event-contract/target/event-contract-1.0-SNAPSHOT.jar",
+        "sha256": "87c808e8398c9e968c978ccc3390c573583dde82ac8864a3a7ccb91914d24444",
+        "bytes": 33234,
+        "matchesReactorJar": true,
+        "requiredClasses": [
+          "com/jupiter/shortlink/contract/EventJson.class",
+          "com/jupiter/shortlink/contract/ClickEventV1.class",
+          "com/jupiter/shortlink/contract/GatewayRequestEventV1.class"
+        ],
+        "obsoleteWriterClasses": []
+      }
+    },
+    "obsoleteApplicationWriterClasses": []
+  },
+  "endedUtc": "2026-09-09T13:27:22.157401+00:00",
+  "runtimeJarsAfter": {
+    "gateway/target/shortlink-gateway-1.0-SNAPSHOT.jar": {
+      "bytes": 54755727,
+      "sha256": "7df62d3269702f8a2c1dc03406248c933fd844a2fa94684d880d83c31b1f57f8"
+    },
+    "admin/target/shortlink-admin.jar": {
+      "bytes": 160808997,
+      "sha256": "a5cf08e51b43e18cb6634e4a05c74fc84295f5f601f6fd9c68b2bb51c88402a2"
+    },
+    "shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar": {
+      "bytes": 142546259,
+      "sha256": "d0d2f2fc30cfceaed25c122ec13ffc18f69e2af0a52f535ab3ddcac583893fa0"
+    },
+    "shortlink-redirect/target/shortlink-redirect-1.0-SNAPSHOT.jar": {
+      "bytes": 53194133,
+      "sha256": "1dfd3f0b076f8993cb87d710e803eaa520c5b7cad0c277521b0b659317ea1741"
+    }
+  },
+  "runtimeJarsUnchanged": true
+}
