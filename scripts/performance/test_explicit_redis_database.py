@@ -148,6 +148,7 @@ class ExplicitRedisDatabaseTests(unittest.TestCase):
         socket_instance.__enter__ = Mock(return_value=socket_instance)
         socket_instance.__exit__ = Mock(return_value=False)
         socket_instance.connect_ex.return_value = 1
+        probe_profile = {"passed": True, "profile": "OFFLINE_BOUNDED_JVM_PROFILE"}
         with contextlib.ExitStack() as stack:
             stack.enter_context(patch.object(supervisor.sys, "platform", "linux"))
             stack.enter_context(patch.object(Path, "read_text", read_source))
@@ -159,6 +160,8 @@ class ExplicitRedisDatabaseTests(unittest.TestCase):
             stack.enter_context(patch.object(supervisor, "write_json", side_effect=write_json))
             stack.enter_context(patch.object(supervisor, "sql", side_effect=lambda statement, *a: sql_statements.append(statement) or ""))
             stack.enter_context(patch.object(supervisor, "command", side_effect=command))
+            probe = stack.enter_context(patch.object(supervisor, "inspect_actual_profile",
+                                                     return_value=probe_profile))
             stack.enter_context(patch.object(supervisor, "request_http", return_value=(200, {}, b'{"status":"UP"}')))
             stack.enter_context(patch.object(supervisor.subprocess, "Popen", side_effect=popen))
             stack.enter_context(patch.object(supervisor.socket, "socket", return_value=socket_instance))
@@ -169,6 +172,12 @@ class ExplicitRedisDatabaseTests(unittest.TestCase):
             else:
                 with self.assertRaisesRegex(RuntimeError, "not confirmed empty"):
                     supervisor.serve(args)
+        if probe_value == "0":
+            probe.assert_called_once_with(supervisor.KAFKA)
+            self.assertTrue(states)
+            self.assertTrue(all(state["kafkaHealthProbeProfile"] == probe_profile for state in states))
+        else:
+            probe.assert_not_called()
         return states, commands, launches, sql_statements
 
     def test_actual_serve_records_selection_and_wires_all_java_clients(self):

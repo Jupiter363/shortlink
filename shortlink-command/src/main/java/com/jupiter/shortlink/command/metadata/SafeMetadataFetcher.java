@@ -6,6 +6,7 @@ import org.apache.hc.client5.http.DnsResolver;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.util.Timeout;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.io.*;
 import java.net.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class SafeMetadataFetcher implements AutoCloseable {
@@ -209,10 +211,15 @@ public class SafeMetadataFetcher implements AutoCloseable {
                         .setConnectionRequestTimeout(
                                 Timeout.ofMilliseconds(Math.min(250, remaining)))
                         .build());
+        AtomicBoolean deadlineExpired = new AtomicBoolean();
         ScheduledFuture<?> cancellation =
-                deadlines.schedule(request::cancel, remaining, TimeUnit.MILLISECONDS);
+                deadlines.schedule(() -> {
+                    // Publish ownership before cancel can release an endpoint on another thread.
+                    deadlineExpired.set(true);
+                    request.cancel();
+                }, remaining, TimeUnit.MILLISECONDS);
         try (var client =
-                HttpClients.custom()
+                newHttpClientBuilder()
                         .setConnectionManager(connections)
                         .disableRedirectHandling()
                         .disableAutomaticRetries()
@@ -249,10 +256,20 @@ public class SafeMetadataFetcher implements AutoCloseable {
                             request.cancel(); /* Do not drain an unbounded redirect/error entity. */
                         }
                     });
+        } catch (IllegalStateException failure) {
+            // HttpClient5 can report its endpoint lifecycle race as an unchecked exception.
+            // The response handler also cancels requests, so isCancelled() alone is not proof
+            // that this operation exhausted its deadline. Unrelated failures stay unchanged.
+            if (deadlineExpired.get()) throw new IOException("Metadata deadline exceeded", failure);
+            throw failure;
         } finally {
             cancellation.cancel(false);
             connections.close();
         }
+    }
+
+    HttpClientBuilder newHttpClientBuilder() {
+        return HttpClients.custom();
     }
 
     private static long remaining(long deadline) throws IOException {

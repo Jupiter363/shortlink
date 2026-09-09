@@ -4,12 +4,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.sun.net.httpserver.HttpServer;
 
+import org.apache.hc.client5.http.classic.ExecChainHandler;
+import org.apache.hc.client5.http.impl.ChainElement;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * Loopback is injected only into the HTTP transport test, beneath the production public-address
@@ -96,6 +101,49 @@ class SafeMetadataTransportTest {
         long started = System.nanoTime();
         assertThrows(IOException.class, () -> get("/slow", 1024, 150));
         assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < 900);
+    }
+
+    @Test
+    void deadlineCancellationAfterAcquisitionPreservesRealEndpointFailureAsIoCause() {
+        var acquired = new AtomicBoolean();
+        interceptConnect((request, scope, chain) -> {
+            // Use the real HttpClient5 runtime and manager. Stop exactly between acquiring
+            // and connecting, where the deadline task can discard the acquired endpoint.
+            scope.execRuntime.acquireEndpoint(scope.exchangeId, scope.route, null, scope.clientContext);
+            acquired.set(true);
+            long safetyDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (!scope.execRuntime.isExecutionAborted() || scope.execRuntime.isEndpointAcquired()) {
+                assertTrue(System.nanoTime() < safetyDeadline, "deadline must cancel the real request");
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+            }
+            assertFalse(scope.execRuntime.isEndpointAcquired());
+            scope.execRuntime.connectEndpoint(scope.clientContext);
+            throw new AssertionError("Connecting a cancelled endpoint must fail");
+        });
+        IOException failure = assertThrows(IOException.class, () -> get("/not-connected", 1024, 3000));
+        assertTrue(acquired.get(), "the test must exercise acquisition, not a pre-execute cancellation");
+        assertEquals("Metadata deadline exceeded", failure.getMessage());
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+        assertEquals("Endpoint not acquired / already released", failure.getCause().getMessage());
+    }
+
+    @Test
+    void nonDeadlineIllegalStateFromActualExecutionChainIsNotConverted() {
+        var original = new IllegalStateException("independent execution failure");
+        interceptConnect((request, scope, chain) -> { throw original; });
+        assertSame(original, assertThrows(IllegalStateException.class,
+                () -> get("/not-connected", 1024, 3000)));
+    }
+
+    private void interceptConnect(ExecChainHandler interceptor) {
+        fetcher.close();
+        fetcher = new SafeMetadataFetcher(1, 1024, 1, 1000) {
+            @Override
+            HttpClientBuilder newHttpClientBuilder() {
+                return super.newHttpClientBuilder().addExecInterceptorBefore(
+                        ChainElement.CONNECT.name(), "test-acquisition-boundary", interceptor);
+            }
+        };
     }
 
     @Test
