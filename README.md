@@ -115,9 +115,13 @@ Command 业务事实 + Analytics 统计证据
 
 ## 全局架构
 
-![ShortLink 全局架构图](doc/images/shortlink-global-architecture.png)
+![ShortLink 全局架构图：含美团 Leaf Segment 发号链路](doc/images/shortlink-global-architecture-leaf-hd.png)
 
-图按链路分区，同名组件表示同一服务。归档与补算的实际方向分别是 `Kafka → Analytics Worker → 对象存储`、`对象存储 → Analytics Worker → ClickHouse`；图中底部补算连线应按这两个方向理解，对象存储不直接写 ClickHouse。
+[查看 SVG 矢量图](doc/images/shortlink-global-architecture-leaf-hd.svg) · [查看高清 PNG（5600 × 6120）](doc/images/shortlink-global-architecture-leaf-hd.png)。品牌图标采用官方 SVG，通用功能图标复用 Phosphor Icons，文字采用真实字体转曲；SVG 放大不失真，跨设备查看不依赖本地字体。图标来源与适配说明见[许可说明](doc/images/architecture-icons-NOTICE.md)。
+
+图按链路分区，同名组件表示同一服务。归档与补算的实际方向分别是 `Kafka → Analytics Worker → 对象存储`、`对象存储 → Analytics Worker → ClickHouse`；补算结果由 Analytics Worker 写入 ClickHouse，对象存储不直接写 ClickHouse。
+
+美团 Leaf Segment 在本项目中以受控源码适配的形式嵌入 Command 的 `id-generator`：通过业务 MySQL 的 `t_id_alloc` 独立事务预留号段、Current/Next 双号段异步预取和内存取号，供单条及批量创建复用。后续数值置换与 9 位 Base62 编码由项目的 `ShortCodeCodec` 完成；点击跳转不调用发号器。实现边界见[发号模块说明](libraries/id-generator/README.md)和[Leaf 来源与适配说明](libraries/id-generator/UPSTREAM.md)。
 
 ### 分层架构
 
