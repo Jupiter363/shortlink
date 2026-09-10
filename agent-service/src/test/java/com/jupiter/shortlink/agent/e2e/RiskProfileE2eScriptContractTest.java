@@ -24,15 +24,7 @@ class RiskProfileE2eScriptContractTest {
                 .contains("run-once scannedCount is 0");
     }
 
-    private Path locateScript() {
-        Path workingDirectory = Path.of("").toAbsolutePath();
-        Path fromRepositoryRoot = workingDirectory.resolve("scripts/risk-profile-policy-e2e.ps1");
-        if (Files.exists(fromRepositoryRoot)) {
-            return fromRepositoryRoot;
-        }
-        Path fromModule =
-                workingDirectory.resolve("../scripts/risk-profile-policy-e2e.ps1").normalize();
-        assertThat(fromModule).exists();
-        return fromModule;
+    private Path locateScript() throws IOException {
+        return com.jupiter.shortlink.agent.support.RepositoryFiles.riskProfileScript(Path.of(""));
     }
 }

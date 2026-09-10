@@ -37,9 +37,8 @@ class QueryJobMySqlIntegrationTest {
                         System.getenv("SHORTLINK_QUERY_TEST_USER"),
                         System.getenv("SHORTLINK_QUERY_TEST_PASSWORD"));
         var db = new JdbcTemplate(data);
-        Path schema = Path.of("deploy/mysql/002-analytics-control-schema.sql");
-        if (!Files.exists(schema))
-            schema = Path.of("../deploy/mysql/002-analytics-control-schema.sql");
+        Path schema = com.jupiter.shortlink.analytics.api.support.RepositoryFiles
+                .analyticsControlSchema(Path.of(""));
         try (var connection = data.getConnection()) {
             ScriptUtils.executeSqlScript(connection, new FileSystemResource(schema));
         }

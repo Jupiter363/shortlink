@@ -4,6 +4,7 @@
 
 | 目录 | 内容 |
 | --- | --- |
+| [development](development/repository-layout.md) | 当前开发入口、模块职责、构建方式与仓库布局 |
 | [plan](plan/README.md) | 生产级重构、Agent 开发计划、任务拆分与验收要求 |
 | [压测报告](压测报告/README.md) | 压测过程报告、按日期归档的结果与配置、校验凭据 |
 | [analytics](analytics/runtime.md) | 统计运行、恢复与[查询任务](analytics/query-jobs.md)说明 |

@@ -25,8 +25,8 @@ $env:SHORTLINK_ADMIN_SHARD_TEST_ALLOW_RESET = 'true'
 New-Item -ItemType Directory -Path (Join-Path $repoRoot '.work/verification') -Force | Out-Null
 Push-Location $repoRoot
 try {
-    & $Maven -pl agent-service -am -Pintegration verify 2>&1 | Tee-Object -FilePath (Join-Path $repoRoot '.work/verification/agent-rerun.log')
+    & $Maven -pl :shortlink-agent-service -am -Pintegration verify 2>&1 | Tee-Object -FilePath (Join-Path $repoRoot '.work/verification/agent-rerun.log')
     if ($LASTEXITCODE -ne 0) { throw 'Agent unit/integration verification failed; inspect agent-rerun.log.' }
-    & $Maven -pl admin -Pintegration verify "-Daccount.it.jdbc-url=jdbc:mysql://127.0.0.1:$MysqlPort/shortlink_account_it" "-Daccount.it.user=$TestUser" "-Daccount.it.password=$TestPassword" "-Daccount.it.redis-port=$RedisPort" 2>&1 | Tee-Object -FilePath (Join-Path $repoRoot '.work/verification/admin-rerun.log')
+    & $Maven -pl :shortlink-admin -am -Pintegration verify "-Daccount.it.jdbc-url=jdbc:mysql://127.0.0.1:$MysqlPort/shortlink_account_it" "-Daccount.it.user=$TestUser" "-Daccount.it.password=$TestPassword" "-Daccount.it.redis-port=$RedisPort" 2>&1 | Tee-Object -FilePath (Join-Path $repoRoot '.work/verification/admin-rerun.log')
     if ($LASTEXITCODE -ne 0) { throw 'Admin unit/integration verification failed; inspect admin-rerun.log.' }
 } finally { Pop-Location }
