@@ -1,0 +1,174 @@
+{
+  "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+  "tree": "69e62a7c5761d26273aae89b824053fcc6750fa5",
+  "inputsSha256": "ce1516c0bdac2f9941ab07a99b399ee3316edac1af9f04be9077f84b190fd497",
+  "manifestFileCount": 1048,
+  "normalizationUsed": false,
+  "summary": {
+    "productionJava": {
+      "count": 450,
+      "rawMatches": 450,
+      "candidateManifestMatches": 450
+    },
+    "testJava": {
+      "count": 182,
+      "rawMatches": 182,
+      "candidateManifestMatches": 182
+    },
+    "trackedClasspathResources": {
+      "count": 20,
+      "rawMatches": 20,
+      "candidateManifestMatches": 20
+    },
+    "leafProvenance": {
+      "count": 7,
+      "rawMatches": 7,
+      "candidateManifestMatches": 7
+    },
+    "leafUpstream": {
+      "count": 13,
+      "rawMatches": 13
+    }
+  },
+  "poms": {
+    "rootModulePaths": [
+      "libraries/event-contract",
+      "libraries/id-generator",
+      "libraries/risk-core",
+      "services/shortlink-command",
+      "services/shortlink-redirect",
+      "jobs/analytics-flink",
+      "services/analytics-worker",
+      "services/shortlink-analytics-api",
+      "services/admin",
+      "services/gateway",
+      "services/agent-service"
+    ],
+    "exactRootModuleList": true,
+    "rootOnlyModulesChanged": true,
+    "rootMatchesCandidateManifest": true,
+    "rootSha256": "433fac1d84c244438b1019ac769018b91a7fdc635b323d377b32d406daabe426",
+    "intermediatePoms": [],
+    "oldModulePomsRemaining": [],
+    "leaves": [
+      {
+        "path": "services/admin/pom.xml",
+        "sha256": "724f67c9cbe6fd9c182f0d8534b041a73eedea60f66080be9afc94ccf3b0b5d7",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "shortlink-admin",
+        "finalName": "${project.artifactId}"
+      },
+      {
+        "path": "services/gateway/pom.xml",
+        "sha256": "0465eb421639adbce61fbc2b50c834c1b3f5ff507b1cf91719a1b794411eaaf8",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "shortlink-gateway",
+        "finalName": null
+      },
+      {
+        "path": "services/agent-service/pom.xml",
+        "sha256": "38ae375207ff4a710982308258370ca5cff1ae6ef2514df3647547fa0e983f29",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "shortlink-agent-service",
+        "finalName": "${project.artifactId}"
+      },
+      {
+        "path": "services/shortlink-command/pom.xml",
+        "sha256": "b79163755bd2c992752ea6d73203b1ad5669dab652a3de212f8fa1d81f7db898",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "shortlink-command",
+        "finalName": null
+      },
+      {
+        "path": "services/shortlink-redirect/pom.xml",
+        "sha256": "1b8ab6ed157670ce8f3170739938f6f33f13d5999fe6964dec4be5d47532df0b",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "shortlink-redirect",
+        "finalName": null
+      },
+      {
+        "path": "services/shortlink-analytics-api/pom.xml",
+        "sha256": "5278c653a6819aab6556c0d7050fb675eac01395df7af97d548fe7593093219b",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "shortlink-analytics-api",
+        "finalName": null
+      },
+      {
+        "path": "services/analytics-worker/pom.xml",
+        "sha256": "7e2f32298f320c3c6e1b70580d8ed1b1af7621058c6fdcae2b9cf28ff6315ceb",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "analytics-worker",
+        "finalName": null
+      },
+      {
+        "path": "libraries/event-contract/pom.xml",
+        "sha256": "2b31cb4876fd62b4cebe56225928a714b1d393e001179693fda5cb9e37a66d66",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "event-contract",
+        "finalName": null
+      },
+      {
+        "path": "libraries/id-generator/pom.xml",
+        "sha256": "bdd732e547665022fc17e3c492fdd710382543226997034288f9f1955e84d4f7",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "id-generator",
+        "finalName": null
+      },
+      {
+        "path": "libraries/risk-core/pom.xml",
+        "sha256": "c9b25ac1b0697e652e22a5b9b03f7b331a794e676b8b429f906cd29442138c59",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "risk-core",
+        "finalName": null
+      },
+      {
+        "path": "jobs/analytics-flink/pom.xml",
+        "sha256": "02d76eb1f6fc27f9953d88451e9260a4353348f9f1c90ead0088d5ed1eca091e",
+        "relativePath": "../../pom.xml",
+        "parentResolvesCandidateRoot": true,
+        "onlyParentRelativePathChanged": true,
+        "candidateManifestMatches": true,
+        "artifactId": "analytics-flink",
+        "finalName": null
+      }
+    ],
+    "exactLeafPoms": true
+  },
+  "passed": true,
+  "originalAuditLocalFile": "java-migration-audit.json",
+  "originalAuditSha256": "7d58efac85cee798b17f29477a5cad28d5140b3d2e3d9c1553478cb4200d945d",
+  "initialWorktreeDiagnostic": {
+    "rawByteGatePassed": false,
+    "reason": "Windows working tree has CRLF/LF differences. This failed raw comparison is retained in the original audit; final checks use exact Git blob bytes without normalization."
+  }
+}

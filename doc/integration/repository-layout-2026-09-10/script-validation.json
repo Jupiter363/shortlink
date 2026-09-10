@@ -1,0 +1,94 @@
+{
+  "python": {
+    "skips": 0,
+    "testCount": 164,
+    "loadStarted": false,
+    "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+    "elapsedSeconds": 6.387,
+    "businessProcessesStarted": false,
+    "log": {
+      "sha256": "99f56a2f32464bf34413640d0b49dcc3ed6c7225f91ca2cb5ad208eb4f2cca7f",
+      "path": "candidate-python-linux-discovery.log"
+    },
+    "tree": "69e62a7c5761d26273aae89b824053fcc6750fa5",
+    "inputs": {
+      "inputManifestSha256": "ce1516c0bdac2f9941ab07a99b399ee3316edac1af9f04be9077f84b190fd497",
+      "allRawShaMatch": true,
+      "after": "candidate-python-inputs-after.json",
+      "sourceUnchanged": true,
+      "before": "candidate-python-inputs-before.json",
+      "checkedFiles": 92
+    },
+    "command": {
+      "command": [
+        "wsl",
+        "-d",
+        "shortlink-refactor-it",
+        "--cd",
+        "/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/candidate",
+        "--exec",
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/performance",
+        "-v"
+      ],
+      "cwd": "/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/candidate",
+      "exitCode": 0
+    },
+    "scope": "Complete unittest discovery in supported Linux host; exact frozen scripts/deploy inputs. No real service or integration acceptance.",
+    "status": "PASS",
+    "failures": 0,
+    "candidate": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate",
+    "errors": 0,
+    "earlierAttempt": {
+      "preserved": true,
+      "reason": "Windows signal module lacks getitimer; existing Linux timer tests",
+      "platform": "Windows",
+      "sha256": "85672cbfdbaf4389a3a8023c91b58364a215126a150fd55313a3062258d272cb",
+      "errors": 2,
+      "passed": 162,
+      "testCount": 164,
+      "log": "candidate-python-discovery.log",
+      "status": "FAIL"
+    },
+    "realNetworkRequests": false
+  },
+  "node": {
+    "limits": "Mock transport; real k6 input-object compatibility and engine cancellation need the authorized smoke",
+    "privateFilesRead": 0,
+    "candidate": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate",
+    "status": "PASS",
+    "inputs": {
+      "inputManifestSha256": "ce1516c0bdac2f9941ab07a99b399ee3316edac1af9f04be9077f84b190fd497",
+      "allRawShaMatch": true,
+      "after": "candidate-python-inputs-after.json",
+      "sourceUnchanged": true,
+      "before": "candidate-python-inputs-before.json",
+      "checkedFiles": 92
+    },
+    "httpRequests": 0,
+    "groups": 64,
+    "k6Processes": 0,
+    "command": {
+      "command": [
+        "D:/New Folder for enviroment/node.exe",
+        "scripts/performance/test_workload_diagnostics.js"
+      ],
+      "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate",
+      "exitCode": 0
+    },
+    "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+    "tree": "69e62a7c5761d26273aae89b824053fcc6750fa5",
+    "log": {
+      "sha256": "dcd3365ef27aa6a77a3cf1924b480c3be9fea7ac5fa7a164e5f6d100d9ee14ef",
+      "path": "candidate-node-discovery.log"
+    }
+  },
+  "pathTestsIncludedInPythonTotal": 10,
+  "doubleCountTargetedEarlierRuns": false,
+  "scope": "Offline script regression. Synthetic process/HTTP/database/Docker adapters for path cases; real JVM component evidence is recorded separately."
+}

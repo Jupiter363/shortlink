@@ -1227,7 +1227,7 @@ shortlink/
 
 ### 已有验收记录
 
-2026-09-09 合并验收记录覆盖 **11 个 Java 模块、830 项测试**（包含 Agent 271 项）、**Python 154 项**与 **Node 64 组**。这些是前一轮实际验收结果，本次 README 更新没有重跑测试。集成证据与来源限制见[main 合并验收](doc/integration/main-merge-2026-09-09/README.md)。
+2026-09-09 合并验收记录覆盖 **11 个 Java 模块、830 项测试**（包含 Agent 271 项）、**Python 154 项**与 **Node 64 组**。这些是前一轮实际验收结果；当时的 README 内容更新未重跑测试。集成证据与来源限制见[main 合并验收](doc/integration/main-merge-2026-09-09/README.md)。2026-09-10 目录迁移的独立构建、脚本与路径验证见[仓库整理验收](doc/integration/repository-layout-2026-09-10/README.md)，不与前轮结果重复累计。
 
 独立创建 / 跳转 E2E 曾完成 16 个业务用例、14 个网关用例与 HEAD 原始消息核对；它没有运行 Agent、LLM、Flink、Analytics 或完整 ClickHouse 消费链路。
 

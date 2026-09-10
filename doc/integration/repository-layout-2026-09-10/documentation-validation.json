@@ -1,0 +1,84 @@
+{
+  "passed": true,
+  "documents": [
+    {
+      "file": "README.md",
+      "links": 43,
+      "headings": 95,
+      "renderedHtmlBytes": 88652
+    },
+    {
+      "file": "deploy/README.md",
+      "links": 3,
+      "headings": 6,
+      "renderedHtmlBytes": 11680
+    },
+    {
+      "file": "libraries/id-generator/README.md",
+      "links": 1,
+      "headings": 5,
+      "renderedHtmlBytes": 8182
+    },
+    {
+      "file": "scripts/README.md",
+      "links": 38,
+      "headings": 6,
+      "renderedHtmlBytes": 14676
+    },
+    {
+      "file": "doc/README.md",
+      "links": 13,
+      "headings": 1,
+      "renderedHtmlBytes": 2163
+    },
+    {
+      "file": "doc/plan/README.md",
+      "links": 12,
+      "headings": 1,
+      "renderedHtmlBytes": 2344
+    },
+    {
+      "file": "doc/development/repository-layout.md",
+      "links": 16,
+      "headings": 6,
+      "renderedHtmlBytes": 10166
+    },
+    {
+      "file": "doc/analytics/runtime.md",
+      "links": 0,
+      "headings": 7,
+      "renderedHtmlBytes": 17565
+    },
+    {
+      "file": "doc/analytics/query-jobs.md",
+      "links": 0,
+      "headings": 1,
+      "renderedHtmlBytes": 5794
+    },
+    {
+      "file": "doc/integration/component-adapters.md",
+      "links": 3,
+      "headings": 6,
+      "renderedHtmlBytes": 12038
+    },
+    {
+      "file": "doc/plan/仓库结构整理/01-现状分析与整理计划.md",
+      "links": 4,
+      "headings": 16,
+      "renderedHtmlBytes": 27060
+    },
+    {
+      "file": "doc/integration/repository-layout-2026-09-10/README.md",
+      "links": 13,
+      "headings": 4,
+      "renderedHtmlBytes": 8919
+    }
+  ],
+  "localFileLinks": 146,
+  "failures": [],
+  "readmeHeadingsPreserved": true,
+  "readmeH2Count": 25,
+  "architectureImagePreserved": true,
+  "imageSha256": "8213c429fe33edb98e54f47da70777fa7b3cf0721f3aa03972f347d19902f264",
+  "scope": "Markdown parsing/rendering and local file targets; existing README H2 identity. No browser or external URL check."
+}

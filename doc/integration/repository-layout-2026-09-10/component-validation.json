@@ -1,0 +1,352 @@
+{
+  "passed": true,
+  "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+  "scope": "Real Windows Command/Gateway/Redirect production JAR startup, real dependency health and metrics; no business E2E or load",
+  "runner": {
+    "path": ".work/repository-layout-execution-20260910/run-windows-components.py",
+    "sha256": "22c597fa077f282c50150f178321346a3fba024471cdc92d9bec705f3ee61fc8",
+    "method": "Executes unchanged candidate component entry with observation hooks that forward to native Popen and real HTTP; no fake JVM, health response or Command adapter."
+  },
+  "jdk": {
+    "path": "D:\\develop\\javaJDK\\17",
+    "releaseVersion": "17.0.16",
+    "javaExeSha256": "48c0197872cfce460ce1698832e1b79c7b4ca11d71efab844f43144597c8ce00"
+  },
+  "processes": [
+    {
+      "module": "command",
+      "pid": 38704,
+      "argv": [
+        "D:\\develop\\javaJDK\\17\\bin\\java.exe",
+        "-Xms64m",
+        "-Xmx384m",
+        "-XX:ActiveProcessorCount=2",
+        "-Dfile.encoding=UTF-8",
+        "-jar",
+        "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate\\services\\shortlink-command\\target\\shortlink-command-1.0-SNAPSHOT.jar",
+        "--spring.profiles.active=production",
+        "--spring.config.location=classpath:application-production.properties",
+        "--server.address=127.0.0.1",
+        "--server.port=28001",
+        "--management.server.port=28101"
+      ],
+      "jarPath": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate\\services\\shortlink-command\\target\\shortlink-command-1.0-SNAPSHOT.jar",
+      "jarSha256": "75d277c83ec8e33b4c0e7ee8e3d0a11b8e6e4958f13d8a89bd65d05ea76fc149",
+      "javaHomeEnvironmentIntentionallyInvalid": true,
+      "explicitJavaHomeSelected": true,
+      "creationTime100ns": 134335003068966378,
+      "executable": "D:\\develop\\javaJDK\\17\\bin\\java.exe",
+      "exitCode": 1
+    },
+    {
+      "module": "gateway",
+      "pid": 3136,
+      "argv": [
+        "D:\\develop\\javaJDK\\17\\bin\\java.exe",
+        "-Dfile.encoding=UTF-8",
+        "-jar",
+        "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate\\services\\gateway\\target\\shortlink-gateway-1.0-SNAPSHOT.jar",
+        "--spring.profiles.active=production",
+        "--spring.config.location=classpath:application-production.properties",
+        "--server.port=18000",
+        "--management.server.port=18100",
+        "--spring.data.redis.password=",
+        "--management.endpoint.health.probes.enabled=true",
+        "--management.endpoint.health.show-details=always"
+      ],
+      "jarPath": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate\\services\\gateway\\target\\shortlink-gateway-1.0-SNAPSHOT.jar",
+      "jarSha256": "bb299793e536e505a110bae05056e9fc1082c5a839cc3e1308d6b6a99f17139c",
+      "javaHomeEnvironmentIntentionallyInvalid": true,
+      "explicitJavaHomeSelected": true,
+      "creationTime100ns": 134335003167254880,
+      "executable": "D:\\develop\\javaJDK\\17\\bin\\java.exe",
+      "exitCode": 1
+    },
+    {
+      "module": "shortlink-redirect",
+      "pid": 3816,
+      "argv": [
+        "D:\\develop\\javaJDK\\17\\bin\\java.exe",
+        "-Dfile.encoding=UTF-8",
+        "-jar",
+        "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate\\services\\shortlink-redirect\\target\\shortlink-redirect-1.0-SNAPSHOT.jar",
+        "--spring.profiles.active=production",
+        "--spring.config.location=classpath:application-production.properties",
+        "--server.port=18003",
+        "--management.server.port=18103",
+        "--spring.data.redis.password=",
+        "--management.endpoint.health.probes.enabled=true",
+        "--management.endpoint.health.show-details=always"
+      ],
+      "jarPath": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\candidate\\services\\shortlink-redirect\\target\\shortlink-redirect-1.0-SNAPSHOT.jar",
+      "jarSha256": "a4e3b93b408d575f8e56e6e8c0c383291b3735e92a7168f1c6bb65c86eb72bff",
+      "javaHomeEnvironmentIntentionallyInvalid": true,
+      "explicitJavaHomeSelected": true,
+      "creationTime100ns": 134335003348000873,
+      "executable": "D:\\develop\\javaJDK\\17\\bin\\java.exe",
+      "exitCode": 1
+    }
+  ],
+  "observations": [
+    {
+      "module": "command",
+      "path": "/actuator/health",
+      "httpStatus": 200,
+      "passed": true,
+      "ownerPid": 38704,
+      "bodySha256": "647a83cca85203d6d4eb07eea84ef6eb91d5c6482eaff2ac8bb65a342b9f2946"
+    },
+    {
+      "module": "command",
+      "path": "/internal/short-link-command/v1/risk/ready",
+      "httpStatus": 200,
+      "passed": true,
+      "ownerPid": 38704,
+      "bodySha256": "b342fc286d0216cc212e0d7ba234894e2e7283ddf14f959adf0fe7fd5924308a"
+    },
+    {
+      "module": "gateway",
+      "path": "/actuator/health/liveness",
+      "httpStatus": 503,
+      "ownerPid": 3136,
+      "bytes": 17,
+      "bodySha256": "389b19ff86182369d14c35024f98e3b752e3449cd22d8ebc764966506e6f236f"
+    },
+    {
+      "module": "gateway",
+      "path": "/actuator/health/liveness",
+      "httpStatus": 503,
+      "ownerPid": 3136,
+      "bytes": 17,
+      "bodySha256": "389b19ff86182369d14c35024f98e3b752e3449cd22d8ebc764966506e6f236f"
+    },
+    {
+      "module": "gateway",
+      "path": "/actuator/health/liveness",
+      "httpStatus": 200,
+      "ownerPid": 3136,
+      "bytes": 15,
+      "bodySha256": "647a83cca85203d6d4eb07eea84ef6eb91d5c6482eaff2ac8bb65a342b9f2946"
+    },
+    {
+      "module": "gateway",
+      "path": "/actuator/health",
+      "httpStatus": 200,
+      "ownerPid": 3136,
+      "bytes": 411,
+      "bodySha256": "35cf7ddb9b0d67df4afa13e67bbbd91fae34343eb737407dce75b32393ca237a"
+    },
+    {
+      "module": "gateway",
+      "path": "/actuator/prometheus",
+      "httpStatus": 200,
+      "ownerPid": 3136,
+      "bytes": 14181,
+      "bodySha256": "4dc0b0fd48f3d7bf4797dceb1b6e6d1ea75c955660df8cbc33ff55bd24aae2ce"
+    },
+    {
+      "module": "shortlink-redirect",
+      "path": "/actuator/health/liveness",
+      "httpStatus": 200,
+      "ownerPid": 3816,
+      "bytes": 15,
+      "bodySha256": "647a83cca85203d6d4eb07eea84ef6eb91d5c6482eaff2ac8bb65a342b9f2946"
+    },
+    {
+      "module": "shortlink-redirect",
+      "path": "/actuator/health",
+      "httpStatus": 503,
+      "ownerPid": 3816,
+      "bytes": 508,
+      "bodySha256": "c8293d69e433af1c5472ccbe40f0b6292f5952580aef39d058f738a95ca80e83"
+    },
+    {
+      "module": "shortlink-redirect",
+      "path": "/actuator/health",
+      "httpStatus": 200,
+      "ownerPid": 3816,
+      "bytes": 504,
+      "bodySha256": "288b6e248471a771a32a94f57b04e5937b1e69140e2dcb5b5271849b337bbc2c"
+    },
+    {
+      "module": "shortlink-redirect",
+      "path": "/actuator/prometheus",
+      "httpStatus": 200,
+      "ownerPid": 3816,
+      "bytes": 39896,
+      "bodySha256": "7a149d2a6de86797e699830c44b6c18f05d4ec9699a325e31c4d16674cdfa5aa"
+    }
+  ],
+  "serviceResults": [
+    {
+      "module": "gateway",
+      "liveness": {
+        "status": "UP"
+      },
+      "healthHttpStatus": 200,
+      "health": {
+        "status": "UP",
+        "components": {
+          "diskSpace": {
+            "status": "UP",
+            "details": {
+              "total": 808120741888,
+              "free": 163239391232,
+              "threshold": 10485760,
+              "path": "D:\\学习\\Project\\马哥Project\\shortlink\\.",
+              "exists": true
+            }
+          },
+          "livenessState": {
+            "status": "UP"
+          },
+          "ping": {
+            "status": "UP"
+          },
+          "readinessState": {
+            "status": "UP"
+          },
+          "redis": {
+            "status": "UP",
+            "details": {
+              "version": "7.2.5"
+            }
+          },
+          "refreshScope": {
+            "status": "UP"
+          }
+        },
+        "groups": [
+          "liveness",
+          "readiness"
+        ]
+      },
+      "metricsHttpStatus": 200,
+      "metrics": "gateway-prometheus-20260910T075156Z.txt",
+      "log": "gateway-production-20260910T075156Z.log"
+    },
+    {
+      "module": "shortlink-redirect",
+      "liveness": {
+        "status": "UP"
+      },
+      "healthHttpStatus": 200,
+      "health": {
+        "status": "UP",
+        "components": {
+          "db": {
+            "status": "UP",
+            "details": {
+              "database": "MySQL",
+              "validationQuery": "isValid()"
+            }
+          },
+          "diskSpace": {
+            "status": "UP",
+            "details": {
+              "total": 808120741888,
+              "free": 163239342080,
+              "threshold": 10485760,
+              "path": "D:\\学习\\Project\\马哥Project\\shortlink\\.",
+              "exists": true
+            }
+          },
+          "livenessState": {
+            "status": "UP"
+          },
+          "ping": {
+            "status": "UP"
+          },
+          "readinessState": {
+            "status": "UP"
+          },
+          "redirectAuthorityHealth": {
+            "status": "UP"
+          },
+          "redis": {
+            "status": "UP",
+            "details": {
+              "version": "7.2.5"
+            }
+          }
+        },
+        "groups": [
+          "liveness",
+          "readiness"
+        ]
+      },
+      "metricsHttpStatus": 200,
+      "metrics": "shortlink-redirect-prometheus-20260910T075156Z.txt",
+      "log": "shortlink-redirect-production-20260910T075156Z.log"
+    }
+  ],
+  "sourceUnchanged": true,
+  "jarsUnchanged": true,
+  "sourceSha256": {
+    "scripts/integration/production_jar_components.py": "a4d757330ca2fafc3acf83037078213081e1da41088172ee3d8aa192e78eb7c8",
+    "scripts/integration/component_adapters.py": "09853c2c8a946e7fb037bd328edfc8a1d65d319d62145e40782372ad0c801b00",
+    "scripts/performance/supervisor.py": "f06937f9c42f65511b59c51b912a732246d8d40ef79a5ddc1bc266388adf639b",
+    "deploy/test/compose.integration.yaml": "9046ae3332e6ad7a5de07625bea2fdd10fb14cf4ce040f35af77d6c776e4adda",
+    "services/shortlink-command/src/main/resources/application-production.properties": "0d1c2cc3f256d6983d7c92b8d46dda3b82e6d873f010dc2ebfea0db201e175c0",
+    "services/gateway/src/main/resources/application-production.properties": "7415f637cdd7a168dad4392d8d5f19cbe05987222859a479ed2d3bc4cfbd02aa",
+    "services/shortlink-redirect/src/main/resources/application-production.properties": "3569ad9c0a8e80bc3d51822dcb0842cb855e77c95513a5b7bdbfbc48a88a636b"
+  },
+  "candidateInputManifestSha256": "ce1516c0bdac2f9941ab07a99b399ee3316edac1af9f04be9077f84b190fd497",
+  "portsReleased": true,
+  "allOwnedProcessesStopped": true,
+  "fixtures": {
+    "project": "shortlink-layout-20260910",
+    "ids": [
+      "8979727f0a9b",
+      "6c79ab6d386d",
+      "1fba9083f7f7",
+      "a38f60a8e698"
+    ],
+    "images": {
+      "mysql:8.0.36": "sha256:a532724022429812ec797c285c1b540a644c15e248579c6bfdf12a8fbaab4964",
+      "redis:7.2.5-alpine": "sha256:6aaf3f5e6bc8a592fbfe2cccf19eb36d27c39d12dab4f4b01556b7449e7b1f44",
+      "apache/kafka:3.9.0": "sha256:fbc7d7c428e3755cf36518d4976596002477e4c052d1f80b5b9eafd06d0fff2f",
+      "minio/minio:RELEASE.2025-04-22T22-12-26Z": "sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
+    }
+  },
+  "network": {
+    "subnet": "10.241.250.0/24",
+    "existingNetworks": 52,
+    "overlapChecked": true,
+    "reason": "Default Docker address pools exhausted; no historical networks removed."
+  },
+  "cleanup": {
+    "passed": true,
+    "ownedContainersStopped": 4,
+    "ownedEngineStopped": true,
+    "historicalContainersStarted": false,
+    "dataDeleted": false,
+    "project": "shortlink-layout-20260910"
+  },
+  "initializationWrites": "Fresh Command may reserve IDs; Redirect may advance the fresh generation and write its Redis marker; Kafka consumers may create this run's groups",
+  "minioScope": "Real endpoint configured; no object import, bucket or data path acceptance",
+  "initialNotReadyResponsesRetained": true,
+  "logs": [
+    {
+      "path": "candidate/.work/component-results/windows-layout-20260910T075146Z-dc9f9d28/result.json",
+      "sha256": "94444791ee22e83991f7897c3681a2e931dc185f4e38241cbe9294f9ac380dc0"
+    },
+    {
+      "path": "candidate/.work/component-results/production-jars-20260910T075156Z.json",
+      "sha256": "2928c2383b758d7d2f5efb5a3df22efe2bee903d062c93f7b8eb0a6342e399ba"
+    },
+    {
+      "path": "component-compose-up-initial-failure.log",
+      "sha256": "483298df8f245ce017dcb948e371e88d9f207d5d48b256bb4a5fe3308e959e7d"
+    },
+    {
+      "path": "component-compose-up.log",
+      "sha256": "414f276d1842390cca591dc6df3f185057c4c289e6028ac0afa8d1ca42168752"
+    },
+    {
+      "path": "component-dockerd.log",
+      "sha256": "ad72eb076be0f4670fbea2f8df8089b16cca7d5becd69643d77c77b4ad3cd31d"
+    }
+  ],
+  "limits": "Fresh isolated database/containers only. No business requests, MinIO objects, Agent/LLM, full statistics pipeline, or load test. All three Java processes, four containers and this run's Docker daemon stopped; historical containers/data retained."
+}
