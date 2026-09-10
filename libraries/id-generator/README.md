@@ -20,7 +20,7 @@ The fixed namespace is `shortlink_global`; there is no user/tenant/domain namesp
 
 ## Database and resource contract
 
-The integrator owns `deploy/mysql/001-business-schema.sql`. Required table shape:
+The integrator owns the repository-root [business schema](../../deploy/mysql/001-business-schema.sql). Required table shape:
 
 ```sql
 CREATE TABLE t_id_alloc (
@@ -61,6 +61,6 @@ Independent fixed vectors for key bytes `00 01 ... 1f`:
 
 ## Validation
 
-Run with Java 17: `mvn -pl id-generator -am test`. Unit tests use deterministic barriers and a bounded fake store to verify mixed allocation, initialization, slow refill, interruption, rejection recovery, partial discard, close, fixed vectors and dynamic feedback. These are not load benchmarks.
+From the repository root, run with Java 17: `mvn -pl :id-generator -am test`. The module is located at `libraries/id-generator`; its artifactId remains `id-generator`. Unit tests use deterministic barriers and a bounded fake store to verify mixed allocation, initialization, slow refill, interruption, rejection recovery, partial discard, close, fixed vectors and dynamic feedback. These are not load benchmarks.
 
-`JdbcSegmentStoreIntegrationTest` requires a newly created, dedicated MySQL catalog beginning `shortlink_id_test` and explicit reset permission. It resets only that catalog's `t_id_alloc`; do not point it at a development database. Set `SHORTLINK_ID_TEST_JDBC_URL`, `SHORTLINK_ID_TEST_CATALOG`, `SHORTLINK_ID_TEST_USER`, `SHORTLINK_ID_TEST_PASSWORD`, and `SHORTLINK_ID_TEST_ALLOW_RESET=true`, then run `mvn -pl id-generator -am -Pintegration verify`. Missing environment skips real-DB tests and must be reported as unverified. Tests inject both sides of commit-ACK loss through a JDBC proxy while using actual MySQL transactions, plus concurrent reservations, tail exhaustion, lock timeout and independent business rollback.
+`JdbcSegmentStoreIntegrationTest` requires a newly created, dedicated MySQL catalog beginning `shortlink_id_test` and explicit reset permission. It resets only that catalog's `t_id_alloc`; do not point it at a development database. Set `SHORTLINK_ID_TEST_JDBC_URL`, `SHORTLINK_ID_TEST_CATALOG`, `SHORTLINK_ID_TEST_USER`, `SHORTLINK_ID_TEST_PASSWORD`, and `SHORTLINK_ID_TEST_ALLOW_RESET=true`, then run `mvn -pl :id-generator -am -Pintegration verify` from the repository root. Missing environment skips real-DB tests and must be reported as unverified. Tests inject both sides of commit-ACK loss through a JDBC proxy while using actual MySQL transactions, plus concurrent reservations, tail exhaustion, lock timeout and independent business rollback.

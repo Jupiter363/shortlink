@@ -9,17 +9,17 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>event-contract</module>
-        <module>id-generator</module>
-        <module>risk-core</module>
-        <module>shortlink-command</module>
-        <module>shortlink-redirect</module>
-        <module>analytics-flink</module>
-        <module>analytics-worker</module>
-        <module>shortlink-analytics-api</module>
-        <module>admin</module>
-        <module>gateway</module>
-        <module>agent-service</module>
+        <module>libraries/event-contract</module>
+        <module>libraries/id-generator</module>
+        <module>libraries/risk-core</module>
+        <module>services/shortlink-command</module>
+        <module>services/shortlink-redirect</module>
+        <module>jobs/analytics-flink</module>
+        <module>services/analytics-worker</module>
+        <module>services/shortlink-analytics-api</module>
+        <module>services/admin</module>
+        <module>services/gateway</module>
+        <module>services/agent-service</module>
     </modules>
 
     <properties>

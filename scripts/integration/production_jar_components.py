@@ -3,8 +3,12 @@ import argparse, datetime, json, os, pathlib, subprocess, sys, time
 sys.dont_write_bytecode=True
 from component_adapters import ROOT, http
 
-java=pathlib.Path(os.getenv("SHORTLINK_IT_JAVA_HOME","D:/develop/javaJDK/17"))/"bin/java.exe"
 parser=argparse.ArgumentParser();parser.add_argument("--module",choices=["all","gateway","shortlink-redirect"],default="all");args=parser.parse_args()
+if sys.platform != "win32":raise SystemExit("Run this component entry on Windows with a Java 17 JDK.")
+java_home=os.getenv("SHORTLINK_IT_JAVA_HOME") or os.getenv("JAVA_HOME")
+if not java_home or not java_home.strip():raise SystemExit("Set SHORTLINK_IT_JAVA_HOME or JAVA_HOME to a Windows Java 17 JDK.")
+java=pathlib.Path(java_home)/"bin/java.exe"
+if not java.is_file():raise SystemExit("The selected Java home must contain bin/java.exe; Java 17 is required.")
 output=ROOT/".work/component-results";output.mkdir(parents=True,exist_ok=True)
 stamp=datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 env=dict(os.environ,REDIS_HOST="127.0.0.1",REDIS_PORT="16379",REDIS_PASSWORD="",APISIX_CIDRS="127.0.0.0/8",ADMIN_ALLOWED_HOSTS="admin.it.test",
@@ -16,7 +20,7 @@ for module,artifact,port,management in (("gateway","shortlink-gateway",18000,181
     if args.module not in ("all",module):continue
     log=output/(module+"-production-"+stamp+".log")
     with log.open("wb") as stream:
-        command=[str(java),"-Dfile.encoding=UTF-8","-jar",str(ROOT/module/"target"/(artifact+"-1.0-SNAPSHOT.jar")),
+        command=[str(java),"-Dfile.encoding=UTF-8","-jar",str(ROOT/"services"/module/"target"/(artifact+"-1.0-SNAPSHOT.jar")),
             "--spring.profiles.active=production","--spring.config.location=classpath:application-production.properties",
             "--server.port="+str(port),"--management.server.port="+str(management),"--spring.data.redis.password=",
             "--management.endpoint.health.probes.enabled=true","--management.endpoint.health.show-details=always"]

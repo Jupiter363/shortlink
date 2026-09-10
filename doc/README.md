@@ -15,4 +15,6 @@
 
 合并验收：[2026-09-09 main 合并前检查](integration/main-merge-2026-09-09/README.md)（Issue #2 / PR #3）。
 
+仓库整理：[2026-09-10 分阶段验收](integration/repository-layout-2026-09-10/README.md)（Issue #6）。
+
 后续开发计划放入 `doc/plan/`，压测执行与分析报告放入 `doc/压测报告/过程报告/`，正式留档按日期或批次创建子目录。部署文件及其使用说明仍可从[部署入口](../deploy/README.md)查阅。

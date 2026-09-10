@@ -1,14 +1,14 @@
 # 脚本导航
 
-这里按用途保留现有脚本位置。Java 模块目录整理不改变脚本入口；三个 Maven 集成入口使用 `:artifactId` 和 `-am` 从仓库根的当前 reactor 构建依赖，不依赖模块是否位于根目录。
+这里按用途保留现有脚本位置。三个 Maven 集成入口使用 `:artifactId` 和 `-am` 从仓库根的当前 reactor 构建依赖；生产 JAR 组件、E2E 和压测启动器从 `services/<模块>/target/` 读取制品，保留原服务名与 JAR 文件名。
 
-本目录现有 **53 个脚本文件**：根目录 2、`integration` 12、`e2e` 5、`performance` 34；本导航不计入这 53 个文件。测试、夹具和被其他脚本加载的模块也计入，不能把它们全部当作独立执行入口。
+本目录现有 **54 个脚本文件**：根目录 2、`integration` 12、`e2e` 5、`performance` 35；本导航不计入这 54 个文件。测试、夹具和被其他脚本加载的模块也计入，不能把它们全部当作独立执行入口。
 
 | 分类 | 内容 | 主要输出 |
 | --- | --- | --- |
 | [integration/](integration/) | 3 个 Java 集成入口、监控检查、生产 JAR 组件检查、适配器工具、6 个 APISIX 组件工具 | `.work/verification/`、`.work/component-results/` 或工具专属目录 |
 | [e2e/](e2e/) | 真实创建 / 跳转监督进程、业务用例、网关校验、网关用例、HEAD 事件核对 | `.work/e2e/<runId>/`；私有凭据另存于受限目录 |
-| [performance/](performance/) | 12 个准备 / 观测 / 执行工具与辅助模块，22 个 `test_*` 文件 | `.work/performance/<runId>/`；原始私有 fixture 不作为公开报告 |
+| [performance/](performance/) | 12 个准备 / 观测 / 执行工具与辅助模块，23 个 `test_*` 文件 | `.work/performance/<runId>/`；原始私有 fixture 不作为公开报告 |
 | 根目录历史脚本 | 已停用的旧启动器，以及仍能请求旧接口的策略联调脚本 | 不作为当前拓扑验收依据 |
 
 项目部署前提见[部署说明](../deploy/README.md)，验收范围与历史结果见[项目 README](../README.md)和[压测报告目录](../doc/压测报告/README.md)。以下资源说明用于选择正确入口，不意味着运行这些脚本已获授权。
@@ -42,7 +42,7 @@
 | 入口 | 环境、前提和资源影响 |
 | --- | --- |
 | [component_adapters.py](integration/component_adapters.py) | Windows Python，通过已有 WSL 测试环境调用 Docker；`init/topics/apisix/connect` 各有不同副作用，包括建表、建主题、发事件、配置适配器及 HTTP 请求；结果在 `.work/component-results/` |
-| [production_jar_components.py](integration/production_jar_components.py) | Windows Python、已构建的真实 Gateway / Redirect JAR、显式数据库凭据及隔离依赖；会启动 Java、轮询健康 / 指标并停止自己启动的进程；默认 JDK 位置仍由该工具自身或 `SHORTLINK_IT_JAVA_HOME` 决定；输出 `.work/component-results/` |
+| [production_jar_components.py](integration/production_jar_components.py) | Windows Python、已构建的真实 Gateway / Redirect JAR、显式数据库凭据及隔离依赖；JDK 优先 `SHORTLINK_IT_JAVA_HOME`，未设置或为空时回退 `JAVA_HOME`，提前拒绝非 Windows、缺少 JDK 配置或 `bin/java.exe`。需 Java 17，路径检查不执行版本探测；会启动 Java、轮询健康 / 指标并停止自己启动的进程；输出 `.work/component-results/` |
 | [validate-monitoring.ps1](integration/validate-monitoring.ps1) | Windows PowerShell + 既有 `shortlink-refactor-it` WSL / Docker；启动一次 promtool 容器读取 `deploy/monitoring`；镜像须按环境约束预先准备；输出 `.work/component-results/promtool-<时间>.log` |
 | [apisix_tls_component.py](integration/apisix_tls_component.py)、[apisix_etcd_component.py](integration/apisix_etcd_component.py) | Windows Python / WSL 组件路径，依赖专用拓扑及 TLS / etcd 测试前提；会生成私有配置、启动或调整组件并发请求；输出 `.work/apisix-tls-*`、`.work/apisix-etcd-*` 及组件结果 |
 | [apisix_limiter_component.py](integration/apisix_limiter_component.py) | `--static-only` 为配置校验；`--run-component` 需要可用 Linux Docker 及已缓存镜像，会创建专属网络 / 容器并发限流请求；输出 `.work/apisix-limiter-*` |
@@ -79,7 +79,7 @@ E2E 证据按 runId 保存于 `.work/e2e/`。当前入口不包含完整 Agent /
 | [run_stage.py](performance/run_stage.py)、[run_wave.py](performance/run_wave.py)、[workload.js](performance/workload.js) | 使用既有运行状态与 k6 执行单档 / 有界波次；创建类场景会写业务数据，跳转也产生 Kafka 事件；正式窗、排空、错误和资源门禁分别验收 |
 | [summarize.py](performance/summarize.py) | 后处理已有阶段文件形成汇总，不通过修改原 FAIL 生成通过结论 |
 
-另外 22 个 `test_*` 文件包含 Python 单元测试、Node 工作负载测试，以及生成 / 执行 Lua 用例的工具。`test_` 文件名不等于无资源副作用：先确认具体入口及参数；LuaJIT 或容器执行应有独立环境与资源授权。不要无差别执行所有 Python 文件或把冻结的历史原生发生器替换成当前 k6 工具。
+另外 23 个 `test_*` 文件包含 Python 单元测试、Node 工作负载测试，以及生成 / 执行 Lua 用例的工具。[test_repository_jar_paths.py](performance/test_repository_jar_paths.py) 在独立目录运行真实入口逻辑、捕获 JAR 命令和状态哈希，全部进程 / SQL / HTTP / Docker 适配器均替换为离线假实现。其他 `test_` 文件名不等于无资源副作用：先确认具体入口及参数；LuaJIT 或容器执行应有独立环境与资源授权。不要无差别执行所有 Python 文件或把冻结的历史原生发生器替换成当前 k6 工具。
 
 脚本内部使用同目录导入、`parents[2]` 根定位和相对 source SHA 清单。此轮不再拆分 `performance` 子层级；运行时需保留整棵仓库及相应脚本，而非只复制 Java 服务目录。
 
