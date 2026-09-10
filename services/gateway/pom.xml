@@ -7,6 +7,7 @@
         <groupId>com.jupiter.shortlink</groupId>
         <artifactId>shortlink-all</artifactId>
         <version>1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
     <artifactId>shortlink-gateway</artifactId>
 

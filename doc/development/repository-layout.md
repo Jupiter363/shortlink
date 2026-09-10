@@ -1,24 +1,24 @@
 # 开发入口与仓库布局
 
-当前状态：**11 个 Maven 模块仍平铺在仓库根目录**。本指南记录现行开发入口；`services/`、`libraries/`、`jobs/` 是后续迁移目标，尚未实施。目录整理不改变服务边界、Maven 坐标或性能配置，决策与验收要求见[仓库结构整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md)。
+当前状态：**11 个 Maven 模块已按运行角色归入 `services/`、`libraries/`、`jobs/`**。本指南记录现行开发入口；目录归类不改变服务边界、Maven 坐标或性能配置，决策与验收要求见[仓库结构整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md)。
 
 ## 当前模块与职责
 
-根 `pom.xml` 是统一父 POM 和 reactor 入口。模块内部沿用 `src/main`、`src/test`、`src/main/resources` 和 `target`。
+根 `pom.xml` 是统一父 POM 和 reactor 入口，直接聚合 11 个叶子模块；三个分类目录不另设 POM。模块内部沿用 `src/main`、`src/test`、`src/main/resources` 和 `target`。
 
 | 类型 | 当前目录 | 稳定 artifactId | 职责 |
 | --- | --- | --- | --- |
-| Spring 服务 | `admin/` | `shortlink-admin` | 账号、管理 API、Agent 入口与统计适配 |
-| Spring 服务 | `gateway/` | `shortlink-gateway` | 管理会话、可信身份与请求预算 |
-| Spring 服务 | `agent-service/` | `shortlink-agent-service` | Harness、Graph、Tool、风险画像与审核 |
-| Spring 服务 | `shortlink-command/` | `shortlink-command` | 短链写入、任务、策略事实与 Outbox |
-| Spring 服务 | `shortlink-redirect/` | `shortlink-redirect` | 跳转、路由缓存、策略执行与事件生产 |
-| Spring 服务 | `shortlink-analytics-api/` | `shortlink-analytics-api` | 统计查询、快照与持久化查询任务 |
-| Spring 服务 | `analytics-worker/` | `analytics-worker` | 常驻归档、补算、发布与恢复协调 |
-| 公共库 | `event-contract/` | `event-contract` | 共享事件与 sourceCut 契约 |
-| 公共库 | `id-generator/` | `id-generator` | Command 进程内使用的 Leaf Segment 来源适配 |
-| 公共库 | `risk-core/` | `risk-core` | 共享的确定性风控语义 |
-| Flink 作业 | `analytics-flink/` | `analytics-flink` | Kafka / Flink / RocksDB 流式统计作业 |
+| Spring 服务 | `services/admin/` | `shortlink-admin` | 账号、管理 API、Agent 入口与统计适配 |
+| Spring 服务 | `services/gateway/` | `shortlink-gateway` | 管理会话、可信身份与请求预算 |
+| Spring 服务 | `services/agent-service/` | `shortlink-agent-service` | Harness、Graph、Tool、风险画像与审核 |
+| Spring 服务 | `services/shortlink-command/` | `shortlink-command` | 短链写入、任务、策略事实与 Outbox |
+| Spring 服务 | `services/shortlink-redirect/` | `shortlink-redirect` | 跳转、路由缓存、策略执行与事件生产 |
+| Spring 服务 | `services/shortlink-analytics-api/` | `shortlink-analytics-api` | 统计查询、快照与持久化查询任务 |
+| Spring 服务 | `services/analytics-worker/` | `analytics-worker` | 常驻归档、补算、发布与恢复协调 |
+| 公共库 | `libraries/event-contract/` | `event-contract` | 共享事件与 sourceCut 契约 |
+| 公共库 | `libraries/id-generator/` | `id-generator` | Command 进程内使用的 Leaf Segment 来源适配 |
+| 公共库 | `libraries/risk-core/` | `risk-core` | 共享的确定性风控语义 |
+| Flink 作业 | `jobs/analytics-flink/` | `analytics-flink` | Kafka / Flink / RocksDB 流式统计作业 |
 
 这是 **7 个 Spring 常驻服务、3 个公共库、1 个 Flink 作业**。APISIX 配置与插件属于 `deploy/apisix/`，不是 Java 模块；发号库不会单独启动 Leaf Server。旧 `project`、`aggregation` 不在当前 reactor 中，本机残留目录不代表仍有对应部署入口。
 
@@ -75,7 +75,7 @@ E2E 的 READY 后步骤、结果核对和 STOP 协议见[创建与跳转验收�
 
 历史验收只证明对应版本与拓扑，目录整理的构建、路径和文档检查应生成独立记录；不能把原有 7k 压测或 main 合并测试直接改写成本次布局已通过。
 
-## 下一阶段目标（尚未迁移）
+## 现行层级与迁移约定
 
 ```text
 shortlink/
@@ -89,6 +89,6 @@ shortlink/
 └── README.md
 ```
 
-该目标需要在同一候选中联动根与子 POM、JAR 启动器、文件定位和当前文档，验收后再合入。模块坐标、依赖图、Java 包、JAR 文件名、服务参数和历史资料字节保持其既有约定；完整映射与门禁见[整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md#4-推荐目标结构)。
+当前模块位置与根 / 子 POM、JAR 启动器、文件定位和使用文档配套维护。模块坐标、依赖图、Java 包、JAR 文件名、服务参数和历史资料字节保持其既有约定；完整映射与门禁见[整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md#4-推荐目标结构)。历史报告中的旧根模块路径只对应当时版本，不提供旧目录软链接或空壳模块来兼容新构建。
 
 [返回文档总目录](../README.md) · [项目 README](../../README.md) · [首次部署](../../deploy/README.md)

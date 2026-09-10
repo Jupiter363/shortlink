@@ -153,7 +153,7 @@ def serve(args):
         write_json(folder / "observer-secret.json", {"internalToken": token})
         os.chmod(folder / "observer-secret.json", 0o600)
         for module, (filename, port, management) in JARS.items():
-            artifact = ROOT / module / "target" / filename
+            artifact = ROOT / "services" / module / "target" / filename
             stream = (folder / (module + ".log")).open("wb")
             logs.append(stream)
             proc = subprocess.Popen(["java", "-Xms64m", "-Xmx384m", "-XX:ActiveProcessorCount=2",

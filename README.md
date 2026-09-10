@@ -1079,8 +1079,8 @@ mvn package -DskipTests
 按模块连同依赖一起构建，例如：
 
 ```bash
-mvn -pl shortlink-command,shortlink-redirect -am package -DskipTests
-mvn -pl agent-service -am test
+mvn -pl :shortlink-command,:shortlink-redirect -am package -DskipTests
+mvn -pl :shortlink-agent-service -am test
 ```
 
 默认 `mvn test` 排除 `*IT`、`*IntegrationTest`、E2E 名称与 `e2e,performance` 标签。需要隔离中间件的集成验收显式使用 `-Pintegration verify`，不能以 `-Dtest=*` 绕过范围控制。
@@ -1103,12 +1103,12 @@ mvn -pl agent-service -am test
 准备好对应依赖及配置后，以 Command 为例启动：
 
 ```powershell
-java -jar shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar `
+java -jar services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar `
   --spring.profiles.active=production `
   --spring.config.location=classpath:application-production.properties
 ```
 
-其他 Spring 服务同样显式选择受版本管理的 production properties，避免读取被忽略的旧本机 YAML。Admin 制品为 `admin/target/shortlink-admin.jar`，其他制品名以模块 `target/` 为准。Flink 的提交命令、checkpoint 和恢复身份配置见[部署说明](deploy/README.md)。
+其他 Spring 服务同样显式选择受版本管理的 production properties，避免读取被忽略的旧本机 YAML。Admin 制品为 `services/admin/target/shortlink-admin.jar`，其他制品名以模块 `target/` 为准。Flink 的提交命令、checkpoint 和恢复身份配置见[部署说明](deploy/README.md)。
 
 ### 4. 单独执行集成验收
 
@@ -1118,7 +1118,7 @@ java -jar shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar `
 |---|---|
 | Command / 号段 / 批量导入 | [`run-business-it.ps1`](scripts/integration/run-business-it.ps1)；显式测试数据库、MinIO 凭据及 `-AllowReset` |
 | Admin / Agent | [`run-account-agent-it.ps1`](scripts/integration/run-account-agent-it.ps1)；专用测试库、非默认 Redis 端口及 `-AllowReset` |
-| Gateway / Redirect | [`run-gateway-redirect-it.ps1`](scripts/integration/run-gateway-redirect-it.ps1)；匹配脚本的隔离 Redis / MySQL / Kafka 端口与本地 Maven 依赖 |
+| Gateway / Redirect | [`run-gateway-redirect-it.ps1`](scripts/integration/run-gateway-redirect-it.ps1)；匹配脚本的隔离 Redis / MySQL / Kafka 端口，使用 `-am` 构建 reactor 依赖 |
 | APISIX / 外部适配 | [`component-adapters.md`](doc/integration/component-adapters.md) 中的实际组件入口 |
 | Flink / 统计恢复 | [`统计运行与恢复`](doc/analytics/runtime.md)及对应模块 `integration` 用例；RocksDB 在 Linux 执行 |
 
@@ -1171,21 +1171,24 @@ APISIX 使用 `limit-req` 漏桶和 `limit-conn` 并发控制；Java Gateway 通
 
 ## 目录结构
 
-下列为当前源码与文档的主要层级，11 个 Maven 模块仍直接位于仓库根目录：
+下列为当前源码与文档的主要层级：11 个 Maven 模块按 7 个常驻服务、3 个公共库和 1 个 Flink 作业归类，仍由根 POM 统一聚合：
 
 ```text
 shortlink/
-├── event-contract/           # 公共事件、原始接收与 sourceCut 契约
-├── id-generator/             # Leaf Segment 来源适配、固定短码映射
-├── risk-core/                # 确定性策略语义与共享安全能力
-├── shortlink-command/        # 创建、分组、生命周期、任务、策略事实、Outbox
-├── shortlink-redirect/       # 独立跳转、缓存、策略执行、有界事件生产
-├── analytics-flink/          # Kafka / Flink / RocksDB 作业
-├── analytics-worker/         # 原始归档、补算、规范发布与恢复协议
-├── shortlink-analytics-api/  # 统计快照、查询任务、结果分页与授权复核
-├── admin/                   # 账号、管理 API、Agent 入口与统计适配
-├── gateway/                 # 管理入口、会话校验与资源预算
-├── agent-service/           # Harness、Graph、Tool、风险画像与审核
+├── services/                # 7 个 Spring 常驻服务
+│   ├── shortlink-command/   # 创建、分组、生命周期、任务、策略事实、Outbox
+│   ├── shortlink-redirect/  # 独立跳转、缓存、策略执行、有界事件生产
+│   ├── analytics-worker/   # 原始归档、补算、规范发布与恢复协议
+│   ├── shortlink-analytics-api/ # 统计快照、查询任务、分页与授权复核
+│   ├── admin/              # 账号、管理 API、Agent 入口与统计适配
+│   ├── gateway/            # 管理入口、会话校验与资源预算
+│   └── agent-service/      # Harness、Graph、Tool、风险画像与审核
+├── libraries/               # 3 个进程内公共库
+│   ├── event-contract/     # 公共事件、原始接收与 sourceCut 契约
+│   ├── id-generator/       # Leaf Segment 来源适配、固定短码映射
+│   └── risk-core/          # 确定性策略语义与共享安全能力
+├── jobs/
+│   └── analytics-flink/    # Kafka / Flink / RocksDB 作业
 ├── deploy/                  # 受控部署输入
 │   ├── apisix/              # 网关配置、插件、TLS 与 etcd
 │   ├── mysql/               # 业务、统计控制、Agent 建表脚本
@@ -1198,6 +1201,7 @@ shortlink/
 │   ├── e2e/                 # 创建、跳转、网关 E2E
 │   └── performance/         # 压测监督、发生器、指标与核账
 ├── doc/                     # 文档统一入口
+│   ├── development/         # 当前开发入口与仓库布局
 │   ├── plan/                # 重构、投放分析、风控与 Agent 计划
 │   ├── 压测报告/            # 过程记录、原始结果、配置和归档索引
 │   ├── integration/         # 组件及合并验收
@@ -1207,7 +1211,7 @@ shortlink/
 └── README.md
 ```
 
-本地可能仍保留被忽略的旧模块配置、`target/` 或 `.work/` 运行证据；它们不属于新的模块构建和生产启动入口。目录整理尚未实施，以上层级描述当前仓库。
+目录归类不改变模块坐标、服务身份和 JAR 文件名，构建选择器优先使用 `:artifactId`。现行位置与入口见[开发与布局指南](doc/development/repository-layout.md)和[脚本导航](scripts/README.md)。本地可能仍保留被忽略的旧模块配置、`target/` 或 `.work/` 运行证据；它们不属于新的模块构建和生产启动入口。
 
 ---
 
@@ -1223,7 +1227,7 @@ shortlink/
 
 ### 已有验收记录
 
-2026-09-09 合并验收记录覆盖 **11 个 Java 模块、830 项测试**（包含 Agent 271 项）、**Python 154 项**与 **Node 64 组**。这些是前一轮实际验收结果，本次 README 更新没有重跑测试。集成证据与来源限制见[main 合并验收](doc/integration/main-merge-2026-09-09/README.md)。
+2026-09-09 合并验收记录覆盖 **11 个 Java 模块、830 项测试**（包含 Agent 271 项）、**Python 154 项**与 **Node 64 组**。这些是前一轮实际验收结果；当时的 README 内容更新未重跑测试。集成证据与来源限制见[main 合并验收](doc/integration/main-merge-2026-09-09/README.md)。2026-09-10 目录迁移的独立构建、脚本与路径验证见[仓库整理验收](doc/integration/repository-layout-2026-09-10/README.md)，不与前轮结果重复累计。
 
 独立创建 / 跳转 E2E 曾完成 16 个业务用例、14 个网关用例与 HEAD 原始消息核对；它没有运行 Agent、LLM、Flink、Analytics 或完整 ClickHouse 消费链路。
 
@@ -1258,4 +1262,4 @@ APISIX 使用独立派生的 **4 worker × 每 worker 2 sender**，节点队列 
 
 ## License
 
-仓库根目录目前没有项目级 `LICENSE`。`id-generator` 中保留的 Leaf 上游参考源码单独附带 Apache-2.0 [许可证](id-generator/LICENSE)、[固定来源与来源校验记录](id-generator/UPSTREAM.md)，以及[项目适配边界](id-generator/patches/0001-project-adaptation.md)；该第三方许可不等于整个仓库采用相同许可证。
+仓库根目录目前没有项目级 `LICENSE`。`libraries/id-generator` 中保留的 Leaf 上游参考源码单独附带 Apache-2.0 [许可证](libraries/id-generator/LICENSE)、[固定来源与来源校验记录](libraries/id-generator/UPSTREAM.md)，以及[项目适配边界](libraries/id-generator/patches/0001-project-adaptation.md)；该第三方许可不等于整个仓库采用相同许可证。

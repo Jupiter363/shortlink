@@ -4,16 +4,16 @@
 
 ## 固定制品
 
-Java 17；Kafka 3.9.0；Flink 1.20.3 / Kafka connector 3.4.0-1.20；官方 ClickHouse Kafka Connect 1.4.0；APISIX 3.11.0。Maven 使用各模块 POM 冻结依赖。Leaf 固定提交和许可证见 `../id-generator/UPSTREAM.md`。
+Java 17；Kafka 3.9.0；Flink 1.20.3 / Kafka connector 3.4.0-1.20；官方 ClickHouse Kafka Connect 1.4.0；APISIX 3.11.0。Maven 使用各模块 POM 冻结依赖。Leaf 固定提交和许可证见[来源说明](../libraries/id-generator/UPSTREAM.md)。
 
 ```sh
 mvn clean package -DskipTests
-java -jar shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar \
+java -jar services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar \
   --spring.profiles.active=production \
   --spring.config.location=classpath:application-production.properties
 ```
 
-所有 Spring 进程均使用上述两个配置参数，避免误合并本机被忽略的旧 YAML。Admin 制品名为 `admin/target/shortlink-admin.jar`，其余制品名从各模块 `target/` 读取。禁止把 `test/` 口令或本地 root 账号作为生产凭据。
+上述命令从仓库根目录执行。所有 Spring 进程均使用上述两个配置参数，避免误合并本机被忽略的旧 YAML。Admin 构建产物为 `services/admin/target/shortlink-admin.jar`，其余制品名从 `services/` 下各模块 `target/` 读取；服务器交付目录可以另行选择，JAR 文件名不随仓库归类改变。禁止把 `test/` 口令或本地 root 账号作为生产凭据。
 
 本版固定使用配置中的内网服务地址（由运维提供稳定 DNS/LB 名称），不同时启用第二套服务目录。旧模块保留的 Nacos 依赖默认关闭；Nacos 不是新服务启动前提。这是 M0-04 对已有发现模式的收敛决策，不代表已经验收 Nacos 集群。APISIX 正式配置存储模式见其 etcd 部署说明；文件 standalone 模式用于组件测试。
 
@@ -64,7 +64,7 @@ Kafka 的 `KAFKA_SECURITY_PROPERTIES` 指向权限受控、UTF-8 且最多 64 Ki
 
 ## Flink 启动
 
-在 Flink 1.20.3 的 Linux 集群安装对应 S3 文件系统插件，配置受限 checkpoint bucket 凭据。`analytics-flink` 的 shaded JAR 包含应用、Kafka connector 和事件依赖；Flink core/runtime 由集群提供。
+在 Flink 1.20.3 的 Linux 集群安装对应 S3 文件系统插件，配置受限 checkpoint bucket 凭据。仓库构建产物为 `jobs/analytics-flink/target/analytics-flink-1.0-SNAPSHOT.jar`；该 shaded JAR 包含应用、Kafka connector 和事件依赖，Flink core/runtime 由集群提供。下面示例使用交付到提交目录的 JAR 文件名。
 
 ```sh
 bin/flink run -d -c com.jupiter.shortlink.analytics.flink.AnalyticsFlinkJob \

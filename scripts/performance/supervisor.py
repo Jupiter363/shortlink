@@ -511,7 +511,7 @@ def serve(args):
         (folder / "metadata-start-offsets.log").write_text(cut.stdout + cut.stderr, encoding="utf-8")
         state["metadataConsumerGroup"] = group
         for module, (filename, port, management) in JARS.items():
-            artifact = ROOT / module / "target" / filename
+            artifact = ROOT / "services" / module / "target" / filename
             stream = (folder / (module + ".log")).open("wb")
             logs.append(stream)
             proc = subprocess.Popen(["taskset", "-c", edge_profile["javaCpuSet"], "java", "-Xms64m", "-Xmx384m", "-XX:ActiveProcessorCount=2",

@@ -1,0 +1,105 @@
+{
+  "status": "PASS",
+  "baselineCommit": "896e2ceffab926b7986ebbd986738fde12a98b71",
+  "preparationMergeCommit": "cf47759e4adad70eae5d14025956bd494d26d430",
+  "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+  "sourceTree": "69e62a7c5761d26273aae89b824053fcc6750fa5",
+  "candidateInputManifestSha256": "ce1516c0bdac2f9941ab07a99b399ee3316edac1af9f04be9077f84b190fd497",
+  "sourceFiles": 1048,
+  "sourceExport": "git -c core.autocrlf=false archive; every exported file verified against Git blob identity; no .git or target present before clean build",
+  "gates": {
+    "G1": {
+      "status": "PASS",
+      "summary": {
+        "beforeTrackedFiles": 1038,
+        "afterCandidateFiles": 1048,
+        "retainedFiles": 1038,
+        "missingFiles": 0,
+        "addedFiles": 10,
+        "movedBaselineFiles": 678,
+        "unchangedBaselineContents": 1012,
+        "protectedFilesUnchanged": 279,
+        "productionJavaUnchanged": 450
+      },
+      "receipt": "migration-manifest.json"
+    },
+    "G2": {
+      "status": "PASS",
+      "modules": 11,
+      "receipt": "path-validation.json"
+    },
+    "G3": {
+      "status": "PASS",
+      "java": {
+        "tests": 856,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pythonTests": 164,
+      "nodeGroups": 64,
+      "artifacts": 11
+    },
+    "G4": {
+      "status": "PASS",
+      "compiledJavaFileResolutions": 6,
+      "newPythonPathTests": 10,
+      "powerShellPreparationChecks": 17
+    },
+    "G5": {
+      "status": "PASS",
+      "receipt": "component-validation.json",
+      "scope": "Real Windows Command/Gateway/Redirect production JAR startup, real dependency health and metrics; no business E2E or load"
+    },
+    "G6": {
+      "status": "PASS",
+      "localFileLinks": 146,
+      "protectedFiles": 279,
+      "receipt": "source-audit.json"
+    }
+  },
+  "localArchive": {
+    "path": ".work/repository-layout-execution-20260910/local-archive",
+    "entries": 8,
+    "files": 207,
+    "bytes": 26482277,
+    "allHashesMatch": true,
+    "deleted": false,
+    "published": false
+  },
+  "notRun": [
+    "capacity load test",
+    "business E2E",
+    "complete Agent/LLM integration",
+    "complete statistics consumer pipeline"
+  ],
+  "diagnosticsRetained": [
+    "Initial Windows Python attempt: 162 passed, 2 errors because signal.getitimer is unavailable; supported Linux execution passed all 164 without test changes or skips.",
+    "Initial raw worktree comparison found line-ending differences; final candidate uses exact Git blob bytes.",
+    "An originally tracked ignored Gateway YAML was retained in the final source commit before candidate acceptance; no new private config was added.",
+    "One WSL Maven command was rejected because PowerShell split an unquoted -D argument; correctly quoted actual validation succeeded."
+  ],
+  "evidenceBoundary": "The frozen 1048-file source candidate excludes acceptance documents added afterward. Subsequent changes are limited to documentation and receipts; code/build/launch inputs stay at the tested commit.",
+  "localRawEvidence": ".work/repository-layout-execution-20260910/; local logs and XML files are not remote URLs. Published receipts retain their hashes.",
+  "finalSourceBinding": {
+    "passed": true,
+    "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+    "candidateSourcesUnchanged": 1048,
+    "afterSourceFreezeChanges": [
+      "README.md",
+      "doc/integration/repository-layout-2026-09-10/README.md",
+      "doc/integration/repository-layout-2026-09-10/artifacts.json",
+      "doc/integration/repository-layout-2026-09-10/component-validation.json",
+      "doc/integration/repository-layout-2026-09-10/documentation-validation.json",
+      "doc/integration/repository-layout-2026-09-10/java-validation.json",
+      "doc/integration/repository-layout-2026-09-10/migration-manifest.json",
+      "doc/integration/repository-layout-2026-09-10/migration-validation.json",
+      "doc/integration/repository-layout-2026-09-10/path-validation.json",
+      "doc/integration/repository-layout-2026-09-10/script-validation.json",
+      "doc/integration/repository-layout-2026-09-10/source-audit.json",
+      "doc/plan/仓库结构整理/01-现状分析与整理计划.md"
+    ],
+    "codeBuildAndLaunchInputsUnchanged": true,
+    "note": "Candidate is exact Git source input; post-freeze changes are documentation and receipts only."
+  }
+}

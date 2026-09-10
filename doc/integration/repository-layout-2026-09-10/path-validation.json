@@ -1,0 +1,62 @@
+{
+  "compiledJavaFileResolutions": {
+    "passed": true,
+    "checks": 6,
+    "scriptSha256": "ef3477211e2910fb0d66debb20582be2a32340aa108a14ff7cd87674b8af9dda",
+    "schemaSha256": "d1bbef44d0cd9df2f2f7d1f3a88e3919ddaf25dbad6aca8896ddaf0307fb35c5",
+    "command": [
+      "/usr/bin/java",
+      "--class-path",
+      "/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/candidate/services/agent-service/target/test-classes:/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/candidate/services/shortlink-analytics-api/target/test-classes",
+      "/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/PathProbe.java",
+      "/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/candidate"
+    ],
+    "exitCode": 0,
+    "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9"
+  },
+  "maven": {
+    "passed": true,
+    "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+    "checks": [
+      {
+        "name": "root-coordinates",
+        "cwd": "/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/candidate",
+        "command": [
+          "/usr/bin/mvn",
+          "-o",
+          "-B",
+          "-ntp",
+          "-Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository",
+          "-pl",
+          ":shortlink-command,:shortlink-redirect,:shortlink-gateway,:shortlink-admin,:shortlink-agent-service",
+          "-am",
+          "validate"
+        ],
+        "exitCode": 0,
+        "log": "root-coordinates-validate.log",
+        "logSha256": "1bac5a898f95f55b8a5d8ab8ea2d29a80e15e7f90b52e86bfcb234a3eb26a67a"
+      },
+      {
+        "name": "leaf-parent",
+        "cwd": "/mnt/d/学习/Project/马哥Project/shortlink/.work/repository-layout-execution-20260910/candidate/services/agent-service",
+        "command": [
+          "/usr/bin/mvn",
+          "-o",
+          "-B",
+          "-ntp",
+          "-Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository",
+          "validate"
+        ],
+        "exitCode": 0,
+        "log": "leaf-parent-validate.log",
+        "logSha256": "805680e2af8c8063e7b5f869bc135553c0cc0464abe1e8ef24bb6142799b2bda"
+      }
+    ],
+    "scope": "Actual Maven coordinate selection and leaf validation; parent targets also statically resolved inside candidate."
+  },
+  "powerShell": {
+    "receipt": "prep-validation.json",
+    "checks": 17,
+    "scope": "Three integration scripts parsed and their Maven commands captured using fake Maven in R1; final source identities unchanged after R1."
+  }
+}

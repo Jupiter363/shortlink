@@ -1,0 +1,223 @@
+{
+  "sourceCommit": "30eebff331ff9a9cf3ab750db9c1ccc5d4ffbfc9",
+  "passed": true,
+  "artifacts": [
+    {
+      "module": "libraries/event-contract",
+      "artifactId": "event-contract",
+      "kind": "library",
+      "path": "libraries/event-contract/target/event-contract-1.0-SNAPSHOT.jar",
+      "bytes": 33256,
+      "sha256": "d3f8b4b85617c4678c69bc35979374ab930a9a008ddd16cc81f04b49c9b0fd03",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20"
+      }
+    },
+    {
+      "module": "libraries/id-generator",
+      "artifactId": "id-generator",
+      "kind": "library",
+      "path": "libraries/id-generator/target/id-generator-1.0-SNAPSHOT.jar",
+      "bytes": 33653,
+      "sha256": "8f653163ab5e9aef377ca7c8d6220d1d24f5da544ba3ac8b28c56151d3f2414f",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20"
+      }
+    },
+    {
+      "module": "libraries/risk-core",
+      "artifactId": "risk-core",
+      "kind": "library",
+      "path": "libraries/risk-core/target/risk-core-1.0-SNAPSHOT.jar",
+      "bytes": 19841,
+      "sha256": "10cd3672c3bfe062df40febf5a390d76a44713c1607a71dc53a85ac4587d2ff0",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20"
+      }
+    },
+    {
+      "module": "services/shortlink-command",
+      "artifactId": "shortlink-command",
+      "kind": "spring-boot",
+      "path": "services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar",
+      "bytes": 142548868,
+      "sha256": "75d277c83ec8e33b4c0e7ee8e3d0a11b8e6e4958f13d8a89bd65d05ea76fc149",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "org.springframework.boot.loader.JarLauncher",
+        "Start-Class": "com.jupiter.shortlink.command.CommandApplication",
+        "Spring-Boot-Version": "3.0.7",
+        "Spring-Boot-Classes": "BOOT-INF/classes/",
+        "Spring-Boot-Lib": "BOOT-INF/lib/",
+        "Spring-Boot-Classpath-Index": "BOOT-INF/classpath.idx",
+        "Spring-Boot-Layers-Index": "BOOT-INF/layers.idx"
+      }
+    },
+    {
+      "module": "services/shortlink-redirect",
+      "artifactId": "shortlink-redirect",
+      "kind": "spring-boot",
+      "path": "services/shortlink-redirect/target/shortlink-redirect-1.0-SNAPSHOT.jar",
+      "bytes": 53199307,
+      "sha256": "a4e3b93b408d575f8e56e6e8c0c383291b3735e92a7168f1c6bb65c86eb72bff",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "org.springframework.boot.loader.JarLauncher",
+        "Start-Class": "com.jupiter.shortlink.redirect.RedirectApplication",
+        "Spring-Boot-Version": "3.0.7",
+        "Spring-Boot-Classes": "BOOT-INF/classes/",
+        "Spring-Boot-Lib": "BOOT-INF/lib/",
+        "Spring-Boot-Classpath-Index": "BOOT-INF/classpath.idx",
+        "Spring-Boot-Layers-Index": "BOOT-INF/layers.idx"
+      }
+    },
+    {
+      "module": "jobs/analytics-flink",
+      "artifactId": "analytics-flink",
+      "kind": "flink-shaded",
+      "path": "jobs/analytics-flink/target/analytics-flink-1.0-SNAPSHOT.jar",
+      "bytes": 21752787,
+      "sha256": "b4902d0ca819a9256b9e3350b0c809677087493c54118d22dc880123e46924cb",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "com.jupiter.shortlink.analytics.flink.AnalyticsFlinkJob"
+      }
+    },
+    {
+      "module": "services/analytics-worker",
+      "artifactId": "analytics-worker",
+      "kind": "spring-boot",
+      "path": "services/analytics-worker/target/analytics-worker-1.0-SNAPSHOT.jar",
+      "bytes": 61243521,
+      "sha256": "6d5165ef9ed74a4c7f6c4ed26a5e66ffb0ad78c6d5531e6c0ca1fb098a4dd933",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "org.springframework.boot.loader.JarLauncher",
+        "Start-Class": "com.jupiter.shortlink.analytics.worker.AnalyticsWorkerApplication",
+        "Spring-Boot-Version": "3.0.7",
+        "Spring-Boot-Classes": "BOOT-INF/classes/",
+        "Spring-Boot-Lib": "BOOT-INF/lib/",
+        "Spring-Boot-Classpath-Index": "BOOT-INF/classpath.idx",
+        "Spring-Boot-Layers-Index": "BOOT-INF/layers.idx"
+      }
+    },
+    {
+      "module": "services/shortlink-analytics-api",
+      "artifactId": "shortlink-analytics-api",
+      "kind": "spring-boot",
+      "path": "services/shortlink-analytics-api/target/shortlink-analytics-api-1.0-SNAPSHOT.jar",
+      "bytes": 24608808,
+      "sha256": "a18d0729ce0e0776dc697d8bb9b3b7ddebaef15027bd0543f1f50ea42806226c",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "org.springframework.boot.loader.JarLauncher",
+        "Start-Class": "com.jupiter.shortlink.analytics.api.AnalyticsApiApplication",
+        "Spring-Boot-Version": "3.0.7",
+        "Spring-Boot-Classes": "BOOT-INF/classes/",
+        "Spring-Boot-Lib": "BOOT-INF/lib/",
+        "Spring-Boot-Classpath-Index": "BOOT-INF/classpath.idx",
+        "Spring-Boot-Layers-Index": "BOOT-INF/layers.idx"
+      }
+    },
+    {
+      "module": "services/admin",
+      "artifactId": "shortlink-admin",
+      "kind": "spring-boot",
+      "path": "services/admin/target/shortlink-admin.jar",
+      "bytes": 160809016,
+      "sha256": "847c19b24fcc97e6cdc0737b2776ed6971368a2b1b23ba2d38a4a5b5358f3930",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "org.springframework.boot.loader.JarLauncher",
+        "Start-Class": "com.jupiter.shortlink.admin.ShortLinkAdminApplication",
+        "Spring-Boot-Version": "3.0.7",
+        "Spring-Boot-Classes": "BOOT-INF/classes/",
+        "Spring-Boot-Lib": "BOOT-INF/lib/",
+        "Spring-Boot-Classpath-Index": "BOOT-INF/classpath.idx",
+        "Spring-Boot-Layers-Index": "BOOT-INF/layers.idx"
+      }
+    },
+    {
+      "module": "services/gateway",
+      "artifactId": "shortlink-gateway",
+      "kind": "spring-boot",
+      "path": "services/gateway/target/shortlink-gateway-1.0-SNAPSHOT.jar",
+      "bytes": 54757044,
+      "sha256": "bb299793e536e505a110bae05056e9fc1082c5a839cc3e1308d6b6a99f17139c",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "org.springframework.boot.loader.JarLauncher",
+        "Start-Class": "com.jupiter.shortlink.gateway.GatewayServiceApplication",
+        "Spring-Boot-Version": "3.0.7",
+        "Spring-Boot-Classes": "BOOT-INF/classes/",
+        "Spring-Boot-Lib": "BOOT-INF/lib/",
+        "Spring-Boot-Classpath-Index": "BOOT-INF/classpath.idx",
+        "Spring-Boot-Layers-Index": "BOOT-INF/layers.idx"
+      }
+    },
+    {
+      "module": "services/agent-service",
+      "artifactId": "shortlink-agent-service",
+      "kind": "spring-boot",
+      "path": "services/agent-service/target/shortlink-agent-service.jar",
+      "bytes": 51822362,
+      "sha256": "8ec9aed0710b895976075a44a1782253fea9261d148f573df653d03f8c72324a",
+      "manifest": {
+        "Manifest-Version": "1.0",
+        "Archiver-Version": "Plexus Archiver",
+        "Created-By": "Apache Maven 3.8.7",
+        "Built-By": "root",
+        "Build-Jdk": "17.0.20",
+        "Main-Class": "org.springframework.boot.loader.JarLauncher",
+        "Start-Class": "com.jupiter.shortlink.agent.ShortLinkAgentApplication",
+        "Spring-Boot-Version": "3.0.7",
+        "Spring-Boot-Classes": "BOOT-INF/classes/",
+        "Spring-Boot-Lib": "BOOT-INF/lib/",
+        "Spring-Boot-Classpath-Index": "BOOT-INF/classpath.idx",
+        "Spring-Boot-Layers-Index": "BOOT-INF/layers.idx"
+      }
+    }
+  ],
+  "count": 11,
+  "note": "JAR content and manifest checks only; no production service startup."
+}
