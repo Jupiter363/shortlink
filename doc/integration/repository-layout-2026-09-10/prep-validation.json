@@ -1,0 +1,411 @@
+{
+  "phase": "R1 entrypoint preparation",
+  "validatedCommit": "2ea9415af1abee61a668904cac9290b6fdc7389a",
+  "java": {
+    "command": [
+      "/usr/bin/mvn",
+      "-o",
+      "-B",
+      "-ntp",
+      "-Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository",
+      "-pl",
+      ":shortlink-agent-service,:shortlink-analytics-api",
+      "-am",
+      "-Dtest=RepositoryFilesTest",
+      "-Dsurefire.failIfNoSpecifiedTests=false",
+      "-Dsurefire.reportNameSuffix=java-prep",
+      "test"
+    ],
+    "java": {
+      "exitCode": 0,
+      "output": "openjdk version \"17.0.20\" 2026-07-21\nOpenJDK Runtime Environment (build 17.0.20+8-1-24.04-Ubuntu)\nOpenJDK 64-Bit Server VM (build 17.0.20+8-1-24.04-Ubuntu, mixed mode, sharing)\n"
+    },
+    "maven": {
+      "exitCode": 0,
+      "output": "\u001b[1mApache Maven 3.8.7\u001b[m\nMaven home: /usr/share/maven\nJava version: 17.0.20, vendor: Ubuntu, runtime: /usr/lib/jvm/java-17-openjdk-amd64\nDefault locale: en, platform encoding: UTF-8\nOS name: \"linux\", version: \"6.6.87.2-microsoft-standard-wsl2\", arch: \"amd64\", family: \"unix\"\n"
+    },
+    "exitCode": 0,
+    "elapsedSeconds": 133.716,
+    "totals": {
+      "tests": 26,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "sourceUnchangedDuringTest": true,
+    "postTestFormatting": {
+      "change": "Only remove redundant EOF blank lines; retain one LF",
+      "paths": [
+        "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFiles.java",
+        "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFilesTest.java",
+        "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFiles.java",
+        "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFilesTest.java"
+      ],
+      "sha256Before": {
+        "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFiles.java": "b1de22dbf27113c260a1ccc97c35c6ebfba02667b78567dc1d8a43503e489648",
+        "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFilesTest.java": "a39448c00f143727d38460f4b00441a87480393865a08be43f6240c31264797f",
+        "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFiles.java": "31a7b7cf6fae3a71234b7bf0bb3523ba9ff521d996ae18ca6f29e7ac0a5909e1",
+        "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFilesTest.java": "a31d548fd31239490ec75daeac9c8f6f530f51b2638adaaf92cefe9d7097c541"
+      },
+      "sha256After": {
+        "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFiles.java": "925f70111bc944a401c167348c62a2b27310143b1238eabb3035b68b91aa115a",
+        "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFilesTest.java": "75df89d97ae1c65b9f5422dfdca38bf73ff453e2be7641e995371e16940a04ab",
+        "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFiles.java": "65ac1dd05e5e6b9b22919a7715fa24f9c26110963641bf17a1b905c6affdc7dd",
+        "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFilesTest.java": "f52a8a76ae3704b39aaea22ea26d92596701988162a2d281513e37df61b55bca"
+      },
+      "equalIgnoringTrailingNewlines": true,
+      "testsRepeated": false
+    },
+    "finalSources": {
+      "agent-service/src/test/java/com/jupiter/shortlink/agent/e2e/RiskProfileE2eScriptContractTest.java": "7d2b5e39bafbe4772b2299ff189352272c2d01aa92d332698796b6fc9852ad82",
+      "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFiles.java": "925f70111bc944a401c167348c62a2b27310143b1238eabb3035b68b91aa115a",
+      "agent-service/src/test/java/com/jupiter/shortlink/agent/support/RepositoryFilesTest.java": "75df89d97ae1c65b9f5422dfdca38bf73ff453e2be7641e995371e16940a04ab",
+      "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/job/QueryJobMySqlIntegrationTest.java": "b4e2990377cad848bdd460e878af8c5b778adb66a7a0a57c9a8d9545c278abeb",
+      "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFiles.java": "65ac1dd05e5e6b9b22919a7715fa24f9c26110963641bf17a1b905c6affdc7dd",
+      "shortlink-analytics-api/src/test/java/com/jupiter/shortlink/analytics/api/support/RepositoryFilesTest.java": "f52a8a76ae3704b39aaea22ea26d92596701988162a2d281513e37df61b55bca"
+    }
+  },
+  "powershell": {
+    "passed": true,
+    "testCount": 17,
+    "cases": [
+      {
+        "name": "syntax-run-business-it.ps1",
+        "passed": true,
+        "errors": []
+      },
+      {
+        "name": "syntax-run-account-agent-it.ps1",
+        "passed": true,
+        "errors": []
+      },
+      {
+        "name": "syntax-run-gateway-redirect-it.ps1",
+        "passed": true,
+        "errors": []
+      },
+      {
+        "name": "business-success",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-command",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\business-success",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\business-success\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": null,
+            "shardUrl": null,
+            "redis": null,
+            "kafka": null,
+            "mysql": null
+          }
+        ]
+      },
+      {
+        "name": "account-success-custom-maven",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-agent-service",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-success-custom-maven",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-success-custom-maven\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": null,
+            "kafka": null,
+            "mysql": null
+          },
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-admin",
+              "-am",
+              "-Pintegration",
+              "verify",
+              "-Daccount.it.jdbc-url=jdbc:mysql://127.0.0.1:13306/shortlink_account_it",
+              "-Daccount.it.user=shortlink_refactor_it",
+              "-Daccount.it.password=fixture-password",
+              "-Daccount.it.redis-port=16379"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-success-custom-maven",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-success-custom-maven\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": null,
+            "kafka": null,
+            "mysql": null
+          }
+        ]
+      },
+      {
+        "name": "gateway-success-java-home-environment",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-gateway,:shortlink-redirect",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\gateway-success-java-home-environment",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\gateway-success-java-home-environment\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": "16379",
+            "kafka": "localhost:19092",
+            "mysql": "13306"
+          }
+        ]
+      },
+      {
+        "name": "gateway-explicit-java-home-overrides-environment",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-gateway,:shortlink-redirect",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\gateway-explicit-java-home-overrides-environment",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\gateway-explicit-java-home-overrides-environment\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": "16379",
+            "kafka": "localhost:19092",
+            "mysql": "13306"
+          }
+        ]
+      },
+      {
+        "name": "business-requires-reset",
+        "passed": true,
+        "calls": []
+      },
+      {
+        "name": "business-requires-credentials",
+        "passed": true,
+        "calls": []
+      },
+      {
+        "name": "account-requires-reset",
+        "passed": true,
+        "calls": []
+      },
+      {
+        "name": "account-rejects-default-redis",
+        "passed": true,
+        "calls": []
+      },
+      {
+        "name": "gateway-requires-java-home",
+        "passed": true,
+        "calls": []
+      },
+      {
+        "name": "gateway-rejects-missing-java-executable",
+        "passed": true,
+        "calls": []
+      },
+      {
+        "name": "business-failure-propagates",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-command",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\business-failure-propagates",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\business-failure-propagates\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": "16379",
+            "kafka": "localhost:19092",
+            "mysql": "13306"
+          }
+        ]
+      },
+      {
+        "name": "account-first-failure-stops-second",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-agent-service",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-first-failure-stops-second",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-first-failure-stops-second\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": "16379",
+            "kafka": "localhost:19092",
+            "mysql": "13306"
+          }
+        ]
+      },
+      {
+        "name": "account-second-failure-propagates",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-agent-service",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-second-failure-propagates",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-second-failure-propagates\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": "16379",
+            "kafka": "localhost:19092",
+            "mysql": "13306"
+          },
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-admin",
+              "-am",
+              "-Pintegration",
+              "verify",
+              "-Daccount.it.jdbc-url=jdbc:mysql://127.0.0.1:3306/shortlink_account_it",
+              "-Daccount.it.user=shortlink_refactor_it",
+              "-Daccount.it.password=fixture-password",
+              "-Daccount.it.redis-port=16379"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-second-failure-propagates",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\account-second-failure-propagates\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": "16379",
+            "kafka": "localhost:19092",
+            "mysql": "13306"
+          }
+        ]
+      },
+      {
+        "name": "gateway-failure-propagates",
+        "passed": true,
+        "calls": [
+          {
+            "argv": [
+              "-pl",
+              ":shortlink-gateway,:shortlink-redirect",
+              "-am",
+              "-Pintegration",
+              "verify"
+            ],
+            "cwd": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\gateway-failure-propagates",
+            "javaHome": "D:\\学习\\Project\\马哥Project\\shortlink\\.work\\repository-layout-execution-20260910\\scripts-prep-run-20260910T070842Z-8d271222\\gateway-failure-propagates\\fake-jdk",
+            "javaOptions": "-Dfile.encoding=UTF-8",
+            "businessUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_business_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "batchUrl": "jdbc:mysql://127.0.0.1:13306/shortlink_batch_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "idCatalog": "shortlink_id_test_v07",
+            "agentUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_agent_it",
+            "shardUrl": "jdbc:mysql://127.0.0.1:3306/shortlink_admin_sharding_it?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC",
+            "redis": "16379",
+            "kafka": "localhost:19092",
+            "mysql": "13306"
+          }
+        ]
+      }
+    ],
+    "sourceSha256": {
+      "scripts/integration/run-gateway-redirect-it.ps1": "f15349b6d3cfce1c67a1d7675e9416fbc5f8f46ba67f5a124be865389dedb4db",
+      "scripts/integration/run-business-it.ps1": "fdd028bbf36899209a49ccfdeca32ccf170e9f1c32a7e33bfbb6da2f8861b473",
+      "scripts/integration/run-account-agent-it.ps1": "4eee95db53e8300d363ae7017f733daa1e99d0f517ee6efe28ae1e7711852167",
+      "scripts/README.md": "013fd4543ee386b10bd56d66f69b80e4a9f193548921bfc8dcee766e87520080"
+    },
+    "powershell": "7.6.5",
+    "realMavenExecuted": false,
+    "javaExecuted": false,
+    "networkRequests": false,
+    "resourceMutation": false,
+    "scope": "AST syntax and exact source copies in owned sandbox, fake Maven command capture only"
+  },
+  "links": {
+    "files": [
+      "doc/README.md",
+      "doc/plan/README.md",
+      "doc/development/repository-layout.md",
+      "scripts/README.md",
+      "doc/plan/仓库结构整理/01-现状分析与整理计划.md"
+    ],
+    "localLinks": 79,
+    "missing": []
+  },
+  "reactor": {
+    "passed": true,
+    "logSha256": "62fd07fc301ac284f65f61f66a49b411c42dec25d36a52b415e3c8fc0e70a606",
+    "selectedArtifacts": [
+      "shortlink-command",
+      "shortlink-redirect",
+      "shortlink-gateway",
+      "shortlink-admin",
+      "shortlink-agent-service"
+    ],
+    "alsoMake": true
+  },
+  "scope": "Pure path and command checks. No real database, component startup, E2E, or load test."
+}

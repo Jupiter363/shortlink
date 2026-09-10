@@ -36,7 +36,7 @@ $env:SHORTLINK_ID_TEST_USER = $DatabaseUser
 $env:SHORTLINK_ID_TEST_PASSWORD = $DatabasePassword
 New-Item -ItemType Directory -Path '.work/verification' -Force | Out-Null
 $log = Join-Path $workspace ('.work/verification/business-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '.log')
-& mvn -pl shortlink-command -am -Pintegration verify *> $log
+& mvn -pl :shortlink-command -am -Pintegration verify *> $log
 $result = $LASTEXITCODE
 Get-Content -LiteralPath $log -Tail 25
 if ($result -ne 0) { throw "Business/ID integration verification failed; see $log" }
