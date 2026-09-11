@@ -1,6 +1,11 @@
 package com.jupiter.shortlink.admin.account;
 
 import com.alibaba.fastjson2.JSON;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +25,9 @@ public final class RedisAccountSessionStore implements AccountSessionStore {
     public static final Duration SESSION_LIFETIME = Duration.ofMinutes(30);
     public static final int MAX_SESSIONS = 16;
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final ObjectMapper SESSION_JSON = new ObjectMapper(JsonFactory.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final DefaultRedisScript<Long> ISSUE =
             new DefaultRedisScript<>(
                     """
@@ -89,19 +97,31 @@ return removed
 
     @Override
     public AccountSession find(String username, String token) {
-        if (username == null || token == null || token.length() > 128) return null;
+        if (username == null || !username.matches("[A-Za-z0-9_-]{3,64}")
+                || token == null || !token.matches("[A-Za-z0-9_-]{20,256}")) return null;
         Object value = redis.opsForHash().get(SESSION_KEY_PREFIX + username, token);
         if (value == null) return null;
         try {
-            AccountSession session = JSON.parseObject(value.toString(), AccountSession.class);
-            if (session != null
-                    && username.equals(session.username())
-                    && session.expiresAt() > clock.millis()) return session;
-        } catch (RuntimeException malformed) {
+            String payload = value.toString();
+            if (payload.length() > 2048) return null;
+            JsonNode node = SESSION_JSON.readTree(payload);
+            if (node == null || !node.isObject() || node.size() != 4
+                    || !integral(node.get("tenantId")) || !integral(node.get("authVersion"))
+                    || !integral(node.get("expiresAt")) || !node.path("username").isTextual())
+                return null;
+            AccountSession session = new AccountSession(node.get("tenantId").longValue(),
+                    node.get("username").textValue(), node.get("authVersion").longValue(),
+                    node.get("expiresAt").longValue());
+            if (username.equals(session.username()) && session.expiresAt() > clock.millis()) return session;
+        } catch (java.io.IOException | RuntimeException malformed) {
             /* Fail closed for malformed/legacy sessions. */
         }
         revoke(username, token);
         return null;
+    }
+
+    private static boolean integral(JsonNode value) {
+        return value != null && value.isIntegralNumber() && value.canConvertToLong();
     }
 
     @Override

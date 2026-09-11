@@ -27,16 +27,21 @@ _KAFKA_BIN = "/opt/kafka/bin/"
 _MAX_RECORDS = 20_000
 
 
-def verify(run_dir: Path, kafka_container: str, bootstrap: str, budget_seconds: float = 30) -> dict:
+def verify(run_dir: Path, kafka_container: str | None = None, bootstrap: str | None = None,
+           budget_seconds: float = 30) -> dict:
     """Verify fixed Kafka offset ranges and return/write credential-free evidence."""
     if os.environ.get("WSL_DISTRO_NAME") != "shortlink-refactor-it":
         raise AssertionError("head-events: Run inside the existing shortlink-refactor-it WSL distribution")
     if not 0 < budget_seconds <= 30:
         raise AssertionError("head-events: The complete observation budget must be at most 30 seconds")
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+", kafka_container):
-        raise AssertionError("head-events: Invalid Kafka container name")
     run_dir = run_dir.resolve(strict=True)
     state = json.loads((run_dir / "state.json").read_text(encoding="utf-8-sig"))
+    kafka_container = kafka_container or state.get("kafkaContainer")
+    bootstrap = bootstrap or state.get("kafkaContainerBootstrap")
+    if not isinstance(kafka_container, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", kafka_container):
+        raise AssertionError("head-events: State or explicit arguments must name the actual Kafka container")
+    if not isinstance(bootstrap, str) or not bootstrap:
+        raise AssertionError("head-events: State or explicit arguments must specify the in-container bootstrap")
     business = json.loads((run_dir / "business.json").read_text(encoding="utf-8-sig"))
     observer = json.loads((run_dir / "observer-secret.json").read_text(encoding="utf-8-sig"))
     secret = observer.get("internalToken")
@@ -249,8 +254,8 @@ def verify(run_dir: Path, kafka_container: str, bootstrap: str, budget_seconds: 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_dir", type=Path)
-    parser.add_argument("--kafka-container", default="shortlink-refactor-it-kafka-1")
-    parser.add_argument("--bootstrap", default="localhost:9092")
+    parser.add_argument("--kafka-container", help="Override the actual container recorded in state.json")
+    parser.add_argument("--bootstrap", help="Override state.json's in-container bootstrap address")
     arguments = parser.parse_args()
     result = verify(arguments.run_dir, arguments.kafka_container, arguments.bootstrap)
     print(json.dumps({key: result[key] for key in (

@@ -16,7 +16,7 @@ subprocess.run([sys.executable,str(ROOT/"deploy/apisix/render-tls-config.py"),"-
 container="shortlink-refactor-it-apisix-tls-"+run
 docker("run","--detach","--rm","--name",container,"--network","shortlink-refactor-it_default","-p","127.0.0.1:19443:9443",
     "-e","KAFKA_HOST=kafka","-e","APISIX_INSTANCE_ID="+container,"-e","MANAGEMENT_HOST=admin.it.test","-e","SHORTLINK_HOST=s.it.test",
-    "-e","GATEWAY_UPSTREAM_HOST=apisix-stubs","-e","REDIRECT_UPSTREAM_HOST=apisix-stubs",
+    "-e","ADMIN_UPSTREAM_HOST=apisix-stubs","-e","REDIRECT_UPSTREAM_HOST=apisix-stubs",
     "-v",linux(rendered/"config.yaml")+":/usr/local/apisix/conf/config.yaml:ro","-v",linux(rendered/"apisix.yaml")+":/usr/local/apisix/conf/apisix.yaml:ro",
     "-v",linux(ROOT/"deploy/apisix/plugins")+":/opt/shortlink:ro","apache/apisix:3.11.0-debian")
 context=ssl.create_default_context(cafile=str(cert))

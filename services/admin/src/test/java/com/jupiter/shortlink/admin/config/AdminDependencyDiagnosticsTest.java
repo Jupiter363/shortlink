@@ -3,6 +3,9 @@ package com.jupiter.shortlink.admin.config;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.jupiter.shortlink.admin.account.AccountSession;
+import com.jupiter.shortlink.admin.account.AccountSessionStore;
+import com.jupiter.shortlink.admin.common.biz.user.AdminIngressProperties;
 import com.jupiter.shortlink.admin.common.biz.user.TrustedManagementIdentity;
 import com.jupiter.shortlink.admin.common.biz.user.UserTransmitFilter;
 import com.jupiter.shortlink.admin.common.convention.web.GlobalExceptionHandler;
@@ -74,16 +77,29 @@ class AdminDependencyDiagnosticsTest {
     @Test void identityDatabaseFailureIsDistinguishableWithoutLeakingPrincipal() throws Exception {
         var verifier = mock(TrustedManagementIdentity.class);
         when(verifier.verify("1", secret, "1")).thenThrow(new IllegalStateException(secret));
-        var request = new MockHttpServletRequest("POST", "/" + secret);
+        var sessions = mock(AccountSessionStore.class);
+        String sessionToken = secret + "-session";
+        when(sessions.find(secret, sessionToken))
+                .thenReturn(new AccountSession(1L, secret, 1L, Long.MAX_VALUE));
+        var ingress = new AdminIngressProperties();
+        ingress.setAllowedHosts(List.of("admin.example"));
+        ingress.setTrustedProxyCidrs(List.of("127.0.0.0/8"));
+        var request = new MockHttpServletRequest("POST", "/api/short-link/admin/v1/" + secret);
+        request.setRemoteAddr("127.0.0.1");
+        request.addHeader("Host", "admin.example");
+        request.addHeader("username", secret);
+        request.addHeader("token", sessionToken);
         request.addHeader("X-Internal-Token", secret + "-32bytes");
-        request.addHeader("x-shortlink-tenant-id", "1");
-        request.addHeader("x-shortlink-username", secret);
-        request.addHeader("x-shortlink-auth-version", "1");
+        request.addHeader("x-shortlink-tenant-id", "9999");
+        request.addHeader("x-shortlink-username", "spoof");
+        request.addHeader("x-shortlink-auth-version", "999");
         var response = new MockHttpServletResponse();
         var chain = new MockFilterChain();
-        new UserTransmitFilter(verifier, secret + "-32bytes").doFilter(request, response, chain);
+        new UserTransmitFilter(verifier, sessions, ingress, 8102).doFilter(request, response, chain);
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(chain.getRequest()).isNull();
+        verify(sessions).find(secret, sessionToken);
+        verify(verifier).verify("1", secret, "1");
         assertSanitized("stage=identity exception=IllegalStateException cause=IllegalStateException mapped_status=503");
     }
 

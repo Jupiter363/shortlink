@@ -192,6 +192,33 @@ class AgentInternalToolApiFilterTest {
     }
 
     @Test
+    void duplicateInternalCredentialsAreRejectedBeforeAuthority() throws Exception {
+        var r = request();
+        r.addHeader("X-Agent-Internal-Token", TOKEN);
+        assertThat(denied(r).getStatus()).isEqualTo(400);
+        verifyNoInteractions(accounts);
+    }
+
+    @Test
+    void authenticatedBodyRedispatchRestoresPrincipalWithoutSecondDatabaseQuery() throws Exception {
+        var r = request();
+        var f = filter();
+        f.doFilter(r, new MockHttpServletResponse(), (raw, response) -> {
+            assertThat(UserContext.getUserId()).isEqualTo("1001");
+        });
+        r.setDispatcherType(jakarta.servlet.DispatcherType.ASYNC);
+        f.doFilter(r, new MockHttpServletResponse(), (raw, response) -> {
+            assertThat(UserContext.getUserId()).isEqualTo("1001");
+            assertThat(UserContext.getAuthVersion()).isEqualTo(7L);
+        });
+        verify(accounts, times(1)).selectOne(any(Wrapper.class));
+        assertThat(UserContext.getUserId()).isNull();
+        var missing = request();
+        missing.setDispatcherType(jakarta.servlet.DispatcherType.ASYNC);
+        assertThat(denied(missing).getStatus()).isEqualTo(401);
+    }
+
+    @Test
     void contextPathDoesNotBypassInternalAuthentication() throws Exception {
         var r = request();
         r.setContextPath("/management");

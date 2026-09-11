@@ -128,7 +128,7 @@ def static_checks():
                        "APISIX_TLS_SNIS": MANAGEMENT + "," + REDIRECT,
                        "MANAGEMENT_HOST": MANAGEMENT, "SHORTLINK_HOST": REDIRECT,
                        "KAFKA_HOST": "unused", "APISIX_INSTANCE_ID": "limiter-static",
-                       "GATEWAY_UPSTREAM_HOST": "stub", "REDIRECT_UPSTREAM_HOST": "stub"}
+                       "ADMIN_UPSTREAM_HOST": "stub", "REDIRECT_UPSTREAM_HOST": "stub"}
 
         def render():
             with patch.dict(os.environ, environment), patch.object(sys, "argv", ["render-tls-config.py", "--output", str(output)]), \
@@ -203,7 +203,7 @@ class Component:
         value = copy.deepcopy(self.base)
         environment = {"MANAGEMENT_HOST": MANAGEMENT, "SHORTLINK_HOST": REDIRECT,
                        "KAFKA_HOST": "unused", "APISIX_INSTANCE_ID": "limiter-component",
-                       "GATEWAY_UPSTREAM_HOST": "limiter-stub", "REDIRECT_UPSTREAM_HOST": "limiter-stub"}
+                       "ADMIN_UPSTREAM_HOST": "limiter-stub", "REDIRECT_UPSTREAM_HOST": "limiter-stub"}
         with patch.dict(os.environ, environment):
             value = bootstrap_module().resolve(value)
         # No Kafka service is part of this isolated limiter component. Replace the
@@ -247,7 +247,7 @@ class Component:
         config["nginx_config"]["http"]["client_body_timeout"] = "5s"
         (self.folder / "config.yaml").write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
         (self.folder / "nginx.conf").write_text('events { worker_connections 128; }\nhttp {\n'
-            'server { listen 8000; location / { return 200 "management"; } }\n'
+            'server { listen 8002; location / { return 200 "management"; } }\n'
             'server { listen 8003; location / { return 302 https://destination.limiter.it/; } }\n}\n', encoding="utf-8")
         self.write_profile("legacy-req", True, "req")
         stub = self.docker("run", "--detach", "--name", "limiter-stub-" + self.run_id,

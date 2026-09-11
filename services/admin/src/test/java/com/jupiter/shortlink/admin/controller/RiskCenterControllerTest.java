@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.jupiter.shortlink.admin.account.AccountSession;
+import com.jupiter.shortlink.admin.account.AccountSessionStore;
 import com.jupiter.shortlink.admin.common.biz.user.*;
 import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
 import com.jupiter.shortlink.admin.common.convention.result.Results;
@@ -23,12 +25,14 @@ import feign.Response;
 
 import org.junit.jupiter.api.*;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.*;
 
 class RiskCenterControllerTest {
     private static final String TOKEN = "risk-center-component-internal-token-32";
+    private static final String SESSION_TOKEN = "risk-center-session-token-00000001";
     private final GroupService groups = mock(GroupService.class);
     private final AgentRiskRemoteService agent = mock(AgentRiskRemoteService.class);
     private final CommandRiskRemoteService command = mock(CommandRiskRemoteService.class);
@@ -198,9 +202,15 @@ class RiskCenterControllerTest {
         var identity = mock(TrustedManagementIdentity.class);
         when(identity.verify("1001", "trusted-user", "1"))
                 .thenReturn(new UserInfoDTO("1001", "trusted-user", "Trusted Name", 1L));
+        var sessions = mock(AccountSessionStore.class);
+        when(sessions.find("trusted-user", SESSION_TOKEN))
+                .thenReturn(new AccountSession(1001L, "trusted-user", 1L, Long.MAX_VALUE));
+        var ingress = new AdminIngressProperties();
+        ingress.setAllowedHosts(List.of("admin.example"));
+        ingress.setTrustedProxyCidrs(List.of("127.0.0.0/8"));
         var mvc =
                 MockMvcBuilders.standaloneSetup(controller)
-                        .addFilters(new UserTransmitFilter(identity, TOKEN))
+                        .addFilters(new UserTransmitFilter(identity, sessions, ingress, 8102))
                         .build();
         when(command.revoke(any()))
                 .thenReturn(
@@ -210,24 +220,44 @@ class RiskCenterControllerTest {
         String body =
                 "{\"gid\":\"g1\",\"linkId\":7,\"commandId\":\"manual-0001\",\"reviewer\":\"spoof\"}";
         mvc.perform(
-                        post(path)
+                        ingressPost(path)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .header("username", "spoof")
                                 .content(body))
                 .andExpect(status().isUnauthorized());
         mvc.perform(
-                        post(path)
+                        ingressPost(path)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .header("X-Internal-Token", TOKEN)
                                 .header("x-shortlink-tenant-id", "1001")
                                 .header("x-shortlink-username", "trusted-user")
                                 .header("x-shortlink-auth-version", "1")
-                                .header("username", "spoof")
+                                .content(body))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(sessions, identity, agent, command);
+        mvc.perform(
+                        ingressPost(path)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("username", "trusted-user")
+                                .header("token", SESSION_TOKEN)
+                                .header("x-shortlink-tenant-id", "2002")
+                                .header("x-shortlink-username", "spoof")
+                                .header("x-shortlink-auth-version", "99")
                                 .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.commandState").value("COMMITTED"))
                 .andExpect(jsonPath("$.data.disabled").doesNotExist());
+        verify(sessions).find("trusted-user", SESSION_TOKEN);
+        verify(identity).verify("1001", "trusted-user", "1");
+        verify(command).revoke(new CommandRiskRemoteService.Revoke("manual-0001", 7, "policy-1"));
         assertThat(UserContext.getUserId()).isNull();
+    }
+
+    private MockHttpServletRequestBuilder ingressPost(String path) {
+        return post(path).header("Host", "admin.example")
+                .with(request -> {
+                    request.setRemoteAddr("127.0.0.1");
+                    return request;
+                });
     }
 
     private RiskPolicyDisableReqDTO revoke() {

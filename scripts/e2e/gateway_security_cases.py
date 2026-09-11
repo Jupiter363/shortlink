@@ -302,19 +302,19 @@ def probe_restored_configuration(base_url, management_host, redirect_host) -> di
     return _report("restored_configuration", started, [row], requests, maximum)
 
 
-def probe_gateway_admission(address, management_host) -> dict:
+def probe_admin_admission(address, management_host) -> dict:
     """Run from APISIX's network namespace so the real socket peer is trusted."""
     return _admission("http://" + address, management_host, 64, True,
-                      "GL03_gateway_64_slot_admission_recovers", "gateway_admission")
+                      "GL03_admin_64_slot_admission_recovers", "admin_admission")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--gateway-admission", metavar="HOST:8000", required=True,
-                        help="Reachable Gateway address from the APISIX network namespace")
+    parser.add_argument("--admin-admission", metavar="HOST:8002", required=True,
+                        help="Reachable Admin business address from the APISIX network namespace")
     parser.add_argument("--management-host", required=True)
     args = parser.parse_args()
-    result = probe_gateway_admission(args.gateway_admission, args.management_host)
+    result = probe_admin_admission(args.admin_admission, args.management_host)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["passed"] else 1
 

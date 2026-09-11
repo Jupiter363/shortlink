@@ -4,7 +4,8 @@ local _M = { version = 0.1, priority = 10000, name = "shortlink-boundary",
 function _M.check_schema(conf) return core.schema.check(_M.schema, conf) end
 local identity = { ["userid"]=true, ["realname"]=true, ["tenantid"]=true, ["accountid"]=true,
   ["authversion"]=true, ["authorization"]=true, ["x-internal-token"]=true,
-  ["forwarded"]=true, ["x-real-ip"]=true, ["x-forwarded-host"]=true }
+  ["forwarded"]=true, ["x-real-ip"]=true, ["x-forwarded-host"]=true,
+  ["x-forwarded-for"]=true, ["x-forwarded-proto"]=true, ["x-forwarded-port"]=true }
 function _M.rewrite(conf, ctx)
   -- Freeze once: a later nginx phase may evaluate request_id again.
   ctx.shortlink_request_id=ctx.shortlink_request_id or ngx.var.request_id
@@ -27,9 +28,8 @@ function _M.rewrite(conf, ctx)
     if identity[lower] or lower:sub(1,12)=="x-shortlink-" or lower:sub(1,8)=="x-agent-"
        or (conf.mode=="redirect" and (lower=="username" or lower=="token")) then ngx.req.clear_header(name) end
   end
-  -- APISIX is the internet-facing trust boundary. Inbound forwarding claims never survive.
-  ngx.req.set_header("X-Forwarded-For", ngx.var.remote_addr)
-  ngx.req.set_header("X-Forwarded-Proto", ngx.var.scheme)
+  -- APISIX 3.11 generates upstream XFF/proto/host/port in its native proxy directives.
+  -- Clear inbound claims above; pre-setting XFF here would append the same client twice.
   ngx.req.set_header("X-Request-ID", ctx.shortlink_request_id)
 end
 function _M.header_filter(conf, ctx)

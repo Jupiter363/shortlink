@@ -8,6 +8,7 @@ deployment:
   role_data_plane:
     config_provider: yaml
 plugins:
+  - proxy-control
   - shortlink-boundary
   - shortlink-request-logger
   - limit-req

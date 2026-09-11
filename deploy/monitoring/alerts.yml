@@ -2,14 +2,14 @@ groups:
   - name: shortlink-runtime
     rules:
       - alert: ShortlinkMetricsUnavailable
-        expr: up{job=~"shortlink-gateway|shortlink-redirect"} == 0
+        expr: up{job=~"shortlink-admin|shortlink-redirect"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: 'Metrics target {{ $labels.instance }} is unreachable'
       - alert: ShortlinkHeapPressure
-        expr: sum by (job, instance) (jvm_memory_used_bytes{job=~"shortlink-gateway|shortlink-redirect",area="heap"}) / sum by (job, instance) (jvm_memory_max_bytes{job=~"shortlink-gateway|shortlink-redirect",area="heap"} > 0) > 0.85
+        expr: sum by (job, instance) (jvm_memory_used_bytes{job=~"shortlink-admin|shortlink-redirect",area="heap"}) / sum by (job, instance) (jvm_memory_max_bytes{job=~"shortlink-admin|shortlink-redirect",area="heap"} > 0) > 0.85
         for: 5m
         labels:
           severity: warning

@@ -194,7 +194,7 @@ class ExplicitRedisDatabaseTests(unittest.TestCase):
                 self.assertEqual(states[-1]["phase"], "STOPPED")
                 probes = [argv for argv in commands if argv[-1] == "DBSIZE"]
                 self.assertEqual(probes, [["docker", "exec", DEDICATED, "redis-cli", "-n", str(selected), "DBSIZE"]])
-                self.assertEqual(len(launches), 4)
+                self.assertEqual(len(launches), 3)
                 for argv, env in launches:
                     self.assertIn("--spring.data.redis.database=" + str(selected), argv)
                     self.assertEqual(env["REDIS_PORT"], "16381")

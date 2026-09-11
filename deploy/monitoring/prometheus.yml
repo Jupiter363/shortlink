@@ -4,11 +4,11 @@ global:
 rule_files:
   - alerts.yml
 scrape_configs:
-  - job_name: shortlink-gateway
+  - job_name: shortlink-admin
     metrics_path: /actuator/prometheus
     scrape_timeout: 5s
     static_configs:
-      - targets: ['127.0.0.1:8100']
+      - targets: ['127.0.0.1:8102']
   - job_name: shortlink-redirect
     metrics_path: /actuator/prometheus
     scrape_timeout: 5s

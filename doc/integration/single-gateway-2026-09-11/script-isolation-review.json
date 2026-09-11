@@ -1,0 +1,44 @@
+{
+  "checkedAtUtc": "2026-09-11T08:08:41.6343147Z",
+  "scope": "Offline only; no Docker components, Maven or services started",
+  "tests": [
+    {
+      "passed": 14,
+      "addedMethods": 5,
+      "exitCode": 0,
+      "total": 14,
+      "suite": "test_single_gateway_topology.py",
+      "previousMethods": 9
+    },
+    {
+      "passed": 10,
+      "suite": "test_explicit_redis_database.py",
+      "addedMethods": 0,
+      "exitCode": 0,
+      "total": 10
+    },
+    {
+      "passed": 12,
+      "suite": "test_repository_jar_paths.py",
+      "addedMethods": 0,
+      "exitCode": 0,
+      "total": 12
+    }
+  ],
+  "methodCountNote": "36 passing invocations across these suites; only 5 new distinct test methods. Existing union 167 becomes 172 if its base includes the original 9 topology methods.",
+  "pythonInvocation": "wsl -d shortlink-refactor-it --exec env PYTHONPATH=/mnt/d/学习/Project/马哥Project/shortlink/.work/apisix-bootstrap-deps python3 -B <suite>",
+  "powershellAstSyntax": "PASS",
+  "changes": [
+    "MySQL and Redis named running container must expose requested port only on 127.0.0.1 before DB selection or SQL writes",
+    "Persist verified dependency IDs and port bindings in state",
+    "Validate APISIX absence after cleanup; errors produce CLEANUP_FAILED and servicesStopped=false",
+    "IT wrapper accepts high MySQL port and loopback KafkaBootstrap; requires AllowReset/test credentials and restores environment in finally"
+  ],
+  "sha256": {
+    "scripts/performance/test_single_gateway_topology.py": "e6b0b64fdeed887b5c16ba5cea2252151c7ba45d382f8fabe251b70a76a2a689",
+    "scripts/performance/test_explicit_redis_database.py": "2ae4d20fa12996e6ba09368a7eb3aa85869fc559643f8a0313c50e4c9961c01f",
+    "scripts/integration/run-admin-redirect-it.ps1": "995016741497bf036b4c133b4b61b10d8094953753f012de7d36ddd79e47e356",
+    "scripts/e2e/run_create_redirect_e2e.py": "b227d5b767640ba61613c3ddf16faad5bb7b29d0bc78131a14b39b79a3eeecba",
+    "scripts/performance/test_repository_jar_paths.py": "d04fde9ff62c3ac96bf83d98211d74a46e3dbacbf848590325a7a36aae2a7ea3"
+  }
+}

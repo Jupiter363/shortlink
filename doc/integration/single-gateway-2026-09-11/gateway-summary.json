@@ -1,0 +1,264 @@
+{
+  "suite": "gateway-real-http",
+  "passed": true,
+  "case_count": 14,
+  "reports": [
+    {
+      "suite": "edge_security",
+      "passed": true,
+      "case_count": 7,
+      "request_count": 7,
+      "max_open_connections": 1,
+      "elapsed_ms": 23.8,
+      "budget_seconds": 5.0,
+      "cases": [
+        {
+          "id": "GS01_unknown_host",
+          "passed": true,
+          "elapsed_ms": 4.4,
+          "details": {
+            "method": "GET",
+            "path": "/5evCtf4kr",
+            "expected_status": 404,
+            "actual_status": 404
+          }
+        },
+        {
+          "id": "GS02_public_internal_path",
+          "passed": true,
+          "elapsed_ms": 1.2,
+          "details": {
+            "method": "GET",
+            "path": "/internal/command/risk/current",
+            "expected_status": 404,
+            "actual_status": 404
+          }
+        },
+        {
+          "id": "GS03_management_internal_path",
+          "passed": true,
+          "elapsed_ms": 0.9,
+          "details": {
+            "method": "GET",
+            "path": "/internal/command/risk/current",
+            "expected_status": 404,
+            "actual_status": 404
+          }
+        },
+        {
+          "id": "GS04_public_post",
+          "passed": true,
+          "elapsed_ms": 1.2,
+          "details": {
+            "method": "POST",
+            "path": "/5evCtf4kr",
+            "expected_status": 405,
+            "actual_status": 405
+          }
+        },
+        {
+          "id": "GS05_encoded_slash",
+          "passed": true,
+          "elapsed_ms": 1.0,
+          "details": {
+            "method": "GET",
+            "path": "/5evCtf4kr%2Fextra",
+            "expected_status": 400,
+            "actual_status": 400
+          }
+        },
+        {
+          "id": "GS06_create_requires_login",
+          "passed": true,
+          "elapsed_ms": 2.6,
+          "details": {
+            "method": "POST",
+            "path": "/api/short-link/admin/v1/create",
+            "expected_status": 401,
+            "actual_status": 401
+          }
+        },
+        {
+          "id": "GS07_forged_identity_is_not_a_session",
+          "passed": true,
+          "elapsed_ms": 12.3,
+          "details": {
+            "method": "POST",
+            "path": "/api/short-link/admin/v1/create",
+            "expected_status": 401,
+            "actual_status": 401
+          }
+        }
+      ]
+    },
+    {
+      "suite": "untrusted_socket_peer",
+      "passed": true,
+      "case_count": 2,
+      "cases": [
+        {
+          "id": "GS08_direct_admin_peer_rejected",
+          "passed": true,
+          "actual_status": 403,
+          "expected_status": 403
+        },
+        {
+          "id": "GS09_direct_redirect_peer_rejected",
+          "passed": true,
+          "actual_status": 403,
+          "expected_status": 403
+        }
+      ]
+    },
+    {
+      "suite": "request_rate_limit",
+      "passed": true,
+      "case_count": 1,
+      "request_count": 3,
+      "max_open_connections": 1,
+      "elapsed_ms": 1418.9,
+      "budget_seconds": 5.0,
+      "cases": [
+        {
+          "id": "GL01_request_rate_allow_reject_recover",
+          "passed": true,
+          "elapsed_ms": 1418.8,
+          "details": {
+            "statuses": [
+              200,
+              429,
+              200
+            ],
+            "required_isolated_config": {
+              "rate": 2,
+              "burst": 0
+            },
+            "recovery_wait_seconds": 0.7
+          }
+        }
+      ]
+    },
+    {
+      "suite": "request_rate_limit",
+      "passed": true,
+      "case_count": 1,
+      "request_count": 3,
+      "max_open_connections": 1,
+      "elapsed_ms": 1433.6,
+      "budget_seconds": 5.0,
+      "cases": [
+        {
+          "id": "GL01_request_rate_allow_reject_recover",
+          "passed": true,
+          "elapsed_ms": 1433.6,
+          "details": {
+            "statuses": [
+              404,
+              429,
+              404
+            ],
+            "required_isolated_config": {
+              "rate": 2,
+              "burst": 0
+            },
+            "recovery_wait_seconds": 0.7
+          }
+        }
+      ]
+    },
+    {
+      "suite": "edge_connection_limit",
+      "passed": true,
+      "case_count": 1,
+      "request_count": 4,
+      "max_open_connections": 3,
+      "elapsed_ms": 314.4,
+      "budget_seconds": 5.0,
+      "cases": [
+        {
+          "id": "GL02_edge_connection_allow_reject_recover",
+          "passed": true,
+          "elapsed_ms": 314.3,
+          "details": {
+            "held_incomplete_bodies": 2,
+            "rejected_status": 429,
+            "recovered_status": 200,
+            "all_held_connections_closed": true,
+            "trusted_namespace_required": false
+          }
+        }
+      ]
+    },
+    {
+      "suite": "restored_configuration",
+      "passed": true,
+      "case_count": 1,
+      "request_count": 9,
+      "max_open_connections": 4,
+      "elapsed_ms": 1060.3,
+      "budget_seconds": 5.0,
+      "cases": [
+        {
+          "id": "GL04_original_configuration_restored",
+          "passed": true,
+          "elapsed_ms": 1060.3,
+          "details": {
+            "management_pair": {
+              "statuses": [
+                200,
+                200
+              ],
+              "start_gap_ms": 8.0,
+              "pair_elapsed_ms": 18.5
+            },
+            "redirect_pair": {
+              "statuses": [
+                404,
+                404
+              ],
+              "start_gap_ms": 19.4,
+              "pair_elapsed_ms": 23.9
+            },
+            "quiet_seconds": 0.7,
+            "held_incomplete_bodies": 3,
+            "held_early_responses": 0,
+            "fourth_status": 200,
+            "recovered_status": 200,
+            "all_held_connections_closed": true
+          }
+        }
+      ],
+      "production_manifest_matches": true
+    },
+    {
+      "suite": "admin_admission",
+      "passed": true,
+      "case_count": 1,
+      "request_count": 66,
+      "max_open_connections": 65,
+      "elapsed_ms": 326.0,
+      "budget_seconds": 5.0,
+      "cases": [
+        {
+          "id": "GL03_admin_64_slot_admission_recovers",
+          "passed": true,
+          "elapsed_ms": 326.0,
+          "details": {
+            "held_incomplete_bodies": 64,
+            "rejected_status": 429,
+            "recovered_status": 200,
+            "all_held_connections_closed": true,
+            "trusted_namespace_required": true
+          }
+        }
+      ],
+      "process_exit_code": 0
+    }
+  ],
+  "productionManifestRestored": true,
+  "scope": {
+    "agent": false,
+    "loadTest": false,
+    "lowThresholdFunctionalChecks": true
+  }
+}

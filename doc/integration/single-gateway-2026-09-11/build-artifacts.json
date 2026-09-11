@@ -1,0 +1,29 @@
+{
+  "status": "PASSED",
+  "artifacts": {
+    "shortlink-command": {
+      "path": "services\\shortlink-command\\target\\shortlink-command-1.0-SNAPSHOT.jar",
+      "sha256": "c66f334b10001542b3691f73073a3b85bae31d98c6432f3d6203fa74ca525945",
+      "sizeBytes": 142548722,
+      "productionConfigurationOnly": true,
+      "gatewayAndDeletedFlowClassesAbsent": true
+    },
+    "admin": {
+      "path": "services\\admin\\target\\shortlink-admin.jar",
+      "sha256": "8f4262656f5329ba0509fe8c642886371012bdb097d01057d8999fbb544ac5f8",
+      "sizeBytes": 160858909,
+      "productionConfigurationOnly": true,
+      "gatewayAndDeletedFlowClassesAbsent": true
+    },
+    "shortlink-redirect": {
+      "path": "services\\shortlink-redirect\\target\\shortlink-redirect-1.0-SNAPSHOT.jar",
+      "sha256": "a1ed4bc74546d3581106432be9da9fad5c8644fb5b7654252a0ba627a659cbff",
+      "sizeBytes": 53199186,
+      "productionConfigurationOnly": true,
+      "gatewayAndDeletedFlowClassesAbsent": true
+    }
+  },
+  "adminBuild": "Maven clean for Admin, then -pl :shortlink-admin -am package with default unit tests",
+  "otherBuild": "Command and Redirect package steps completed before intentionally stopping obsolete incremental Admin build",
+  "initialIncrementalAdminArtifactAccepted": false
+}

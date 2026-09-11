@@ -59,12 +59,15 @@ def apisix():
     def spoofed():
         status, _, body = request("GET", "/api/short-link/admin/v1/group", "admin.it.test", 200,
             {"x-shortlink-tenant-id":"forged", "x-agent-username":"forged", "userId":"999", "realName":"forged",
-             "X-Internal-Token":"forged", "username":"credential-user", "X-Forwarded-For":"1.2.3.4", "X-Forwarded-Proto":"https", "X-Request-ID":"forged"})
+             "X-Internal-Token":"forged", "username":"credential-user", "X-Forwarded-For":"1.2.3.4", "X-Forwarded-Proto":"https",
+             "X-Forwarded-Port":"443", "X-Real-IP":"1.2.3.4", "X-Request-ID":"forged"})
         echoed=json.loads(body)
         for key in ("spoofedTenant", "spoofedAgent", "legacyUserId", "legacyRealName", "internalToken"):
             require(echoed[key] == "", key + " survived boundary")
         require(echoed["username"] == "credential-user", "Management credential was discarded")
         require(echoed["forwardedFor"] != "1.2.3.4" and echoed["forwardedProto"] == "http", "Forwarding claims survived")
+        require(echoed["forwardedFor"] and "," not in echoed["forwardedFor"], "Forwarded client address was duplicated")
+        require(echoed["host"] == "admin.it.test" and str(echoed["serverPort"]) == "8002", "Management did not reach Admin's upstream")
         require(echoed["requestId"] and echoed["requestId"] != "forged", "Request ID not regenerated")
         return dict(status=status, echoed=echoed)
     case("AP01-public-get", redirect)

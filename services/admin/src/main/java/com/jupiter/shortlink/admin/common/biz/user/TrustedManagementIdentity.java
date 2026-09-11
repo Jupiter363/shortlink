@@ -29,7 +29,7 @@ public class TrustedManagementIdentity {
                                 .eq(UserDO::getId, id));
         if (user == null
                 || !Long.valueOf(v).equals(user.getAuthVersion())
-                || Boolean.TRUE.equals(user.getDisabled())
+                || !Boolean.FALSE.equals(user.getDisabled())
                 || !Integer.valueOf(0).equals(user.getDelFlag()))
             throw new IllegalArgumentException("Principal revoked");
         return new UserInfoDTO(Long.toString(id), username, null, v);

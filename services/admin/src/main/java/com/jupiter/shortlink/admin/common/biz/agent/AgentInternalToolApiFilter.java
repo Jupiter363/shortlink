@@ -8,6 +8,7 @@ import com.jupiter.shortlink.admin.dao.entity.UserDO;
 import com.jupiter.shortlink.admin.dao.mapper.UserMapper;
 
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,6 +21,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Collections;
+import java.util.Set;
 
 public class AgentInternalToolApiFilter extends OncePerRequestFilter {
 
@@ -35,6 +38,9 @@ public class AgentInternalToolApiFilter extends OncePerRequestFilter {
 
     private static final String INTERNAL_TOOL_API_PREFIX =
             "/internal/short-link-admin/v1/agent-tools/";
+    private static final String VERIFIED = AgentInternalToolApiFilter.class.getName() + ".verified";
+    private static final Set<String> SINGLE_HEADERS = Set.of(INTERNAL_TOKEN_HEADER, USERNAME_HEADER,
+            USER_ID_HEADER, REAL_NAME_HEADER, AUTH_VERSION_HEADER, PRINCIPAL_MODE_HEADER);
 
     private final AgentAdminConfiguration agentAdminConfiguration;
     private final UserMapper userMapper;
@@ -54,12 +60,33 @@ public class AgentInternalToolApiFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilterAsyncDispatch() { return false; }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         if (!isInternalToolApi(request)) {
             filterChain.doFilter(request, response);
             return;
+        }
+        if (request.getDispatcherType() == DispatcherType.ASYNC) {
+            Object saved = request.getAttribute(VERIFIED);
+            if (!(saved instanceof Verified verified) || !verified.path().equals(request.getRequestURI())
+                    || !verified.method().equals(request.getMethod())) {
+                writeError(response, HttpStatus.UNAUTHORIZED, "Missing authenticated async principal");
+                return;
+            }
+            UserContext.setUser(verified.principal());
+            try { filterChain.doFilter(request, response); }
+            finally { UserContext.removeUser(); }
+            return;
+        }
+        for (String header : SINGLE_HEADERS) {
+            if (Collections.list(request.getHeaders(header)).size() > 1) {
+                writeError(response, HttpStatus.BAD_REQUEST, "Duplicate internal authentication header");
+                return;
+            }
         }
         String internalToken = agentAdminConfiguration.getInternalToken();
         if (!StringUtils.hasText(internalToken) || internalToken.length() < 24) {
@@ -119,18 +146,21 @@ public class AgentInternalToolApiFilter extends OncePerRequestFilter {
             writeError(response, HttpStatus.UNAUTHORIZED, "Delegated account session has expired");
             return;
         }
-        UserContext.setUser(
-                new UserInfoDTO(
+        UserInfoDTO principal = new UserInfoDTO(
                         account.getId().toString(),
                         username,
                         account.getRealName(),
-                        account.getAuthVersion()));
+                        account.getAuthVersion());
+        request.setAttribute(VERIFIED, new Verified(request.getRequestURI(), request.getMethod(), principal));
+        UserContext.setUser(principal);
         try {
             filterChain.doFilter(request, response);
         } finally {
             UserContext.removeUser();
         }
     }
+
+    private record Verified(String path, String method, UserInfoDTO principal) {}
 
     private boolean isInternalToolApi(HttpServletRequest request) {
         String requestPath = request.getRequestURI();

@@ -1,0 +1,34 @@
+{
+  "pass": true,
+  "size": [
+    5600,
+    6120
+  ],
+  "changedPixelBounds": [
+    1104,
+    3732,
+    3109,
+    4035
+  ],
+  "allowedManagementRegion": [
+    96,
+    3454,
+    3376,
+    5834
+  ],
+  "layout": {
+    "textCount": 144,
+    "uniqueCharacters": 345,
+    "minimumFontSize": 24,
+    "missingGlyphs": 0,
+    "iconCount": 39,
+    "outputPixels": [
+      5600,
+      6120
+    ],
+    "issues": []
+  },
+  "visualReview": "Management lane is now caller -> APISIX -> Admin; icon/labels readable. All pixels outside management lane match prior published figure.",
+  "svgSha256": "317ed3abdc5358137aa285b5539d269617b52fd9cce9753ff5faadb666dc1c85",
+  "pngSha256": "0d6b88387d7f31919b5d895852cf54b2c37475dab427507fcf58bc0f859677a7"
+}

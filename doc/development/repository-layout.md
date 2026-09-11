@@ -1,15 +1,14 @@
 # 开发入口与仓库布局
 
-当前状态：**11 个 Maven 模块已按运行角色归入 `services/`、`libraries/`、`jobs/`**。本指南记录现行开发入口；目录归类不改变服务边界、Maven 坐标或性能配置，决策与验收要求见[仓库结构整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md)。
+当前状态：**10 个 Maven 模块已按运行角色归入 `services/`、`libraries/`、`jobs/`**。本指南记录现行开发入口；Java Gateway 已移除，APISIX 直接路由到 Admin / Redirect，职责见[单网关说明](single-gateway.md)。此前目录整理决策与验收要求见[仓库结构整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md)。
 
 ## 当前模块与职责
 
-根 `pom.xml` 是统一父 POM 和 reactor 入口，直接聚合 11 个叶子模块；三个分类目录不另设 POM。模块内部沿用 `src/main`、`src/test`、`src/main/resources` 和 `target`。
+根 `pom.xml` 是统一父 POM 和 reactor 入口，直接聚合 10 个叶子模块；三个分类目录不另设 POM。模块内部沿用 `src/main`、`src/test`、`src/main/resources` 和 `target`。
 
 | 类型 | 当前目录 | 稳定 artifactId | 职责 |
 | --- | --- | --- | --- |
-| Spring 服务 | `services/admin/` | `shortlink-admin` | 账号、管理 API、Agent 入口与统计适配 |
-| Spring 服务 | `services/gateway/` | `shortlink-gateway` | 管理会话、可信身份与请求预算 |
+| Spring 服务 | `services/admin/` | `shortlink-admin` | 会话与当前账号鉴权、请求预算、管理 API、Agent 入口与统计适配 |
 | Spring 服务 | `services/agent-service/` | `shortlink-agent-service` | Harness、Graph、Tool、风险画像与审核 |
 | Spring 服务 | `services/shortlink-command/` | `shortlink-command` | 短链写入、任务、策略事实与 Outbox |
 | Spring 服务 | `services/shortlink-redirect/` | `shortlink-redirect` | 跳转、路由缓存、策略执行与事件生产 |
@@ -20,7 +19,7 @@
 | 公共库 | `libraries/risk-core/` | `risk-core` | 共享的确定性风控语义 |
 | Flink 作业 | `jobs/analytics-flink/` | `analytics-flink` | Kafka / Flink / RocksDB 流式统计作业 |
 
-这是 **7 个 Spring 常驻服务、3 个公共库、1 个 Flink 作业**。APISIX 配置与插件属于 `deploy/apisix/`，不是 Java 模块；发号库不会单独启动 Leaf Server。旧 `project`、`aggregation` 不在当前 reactor 中，本机残留目录不代表仍有对应部署入口。
+这是 **6 个 Spring 常驻服务、3 个公共库、1 个 Flink 作业**。APISIX 配置与插件属于 `deploy/apisix/`，不是 Java 模块；发号库不会单独启动 Leaf Server。旧 `project`、`aggregation` 不在当前 reactor 中，本机残留目录不代表仍有对应部署入口。
 
 ## 根目录构建
 
@@ -30,7 +29,7 @@
 mvn -B -ntp clean test
 mvn -B -ntp package -DskipTests
 mvn -B -ntp -pl :shortlink-command,:shortlink-redirect -am test
-mvn -B -ntp -pl :shortlink-admin,:shortlink-gateway,:shortlink-agent-service -am test
+mvn -B -ntp -pl :shortlink-admin,:shortlink-agent-service -am test
 ```
 
 `-am` 会同时构建所选模块的 reactor 依赖。`package` 不会将公共库安装到本地 Maven 仓库，后续选择相关服务时仍应保留 `-am`。Admin 和 Agent 的目录名、artifactId 与 JAR 命名存在区别，制品路径以实际模块 `target/` 及[部署说明](../../deploy/README.md)为准。
@@ -45,9 +44,9 @@ mvn -B -ntp -pl :shortlink-admin,:shortlink-gateway,:shortlink-agent-service -am
 | --- | --- | --- |
 | Command / 发号 / 批量集成 | [run-business-it.ps1](../../scripts/integration/run-business-it.ps1) | Java 17、隔离 MySQL / MinIO、明确测试凭据；重置限定测试表须显式 `-AllowReset` |
 | Admin / Agent 集成 | [run-account-agent-it.ps1](../../scripts/integration/run-account-agent-it.ps1) | 专用测试库、隔离 Redis、Java 17 与显式重置授权 |
-| Gateway / Redirect 集成 | [run-gateway-redirect-it.ps1](../../scripts/integration/run-gateway-redirect-it.ps1) | 匹配脚本约定的隔离 Redis / MySQL / Kafka；Java 路径来自参数或 `JAVA_HOME` |
+| Admin 入口 / Redirect 集成 | [run-admin-redirect-it.ps1](../../scripts/integration/run-admin-redirect-it.ps1) | 匹配脚本约定的隔离 Redis / MySQL / Kafka；Java 路径来自参数或 `JAVA_HOME` |
 | 生产 JAR 与组件适配 | [组件指南](../integration/component-adapters.md) | 按具体组件准备环境；部分脚本会启动真实进程或容器 |
-| 创建、跳转与网关 E2E | [run_create_redirect_e2e.py](../../scripts/e2e/run_create_redirect_e2e.py) | 专用 Linux、已构建 JAR 和固定隔离容器；会启动四个 Java 服务与 APISIX，不运行 Agent / Analytics |
+| 创建、跳转与网关 E2E | [run_create_redirect_e2e.py](../../scripts/e2e/run_create_redirect_e2e.py) | 专用 Linux、已构建 JAR 和固定隔离容器；会启动三个 Java 服务与 APISIX，不运行 Agent / Analytics |
 | 压测准备与监督 | [supervisor.py](../../scripts/performance/supervisor.py) | 独立 Linux 测试环境和资源预算；会准备或启动运行资源，不能当作只读查询命令 |
 
 E2E 的 READY 后步骤、结果核对和 STOP 协议见[创建与跳转验收记录](../plan/生产级重构增强/05-创建跳转E2E验收.md#复现入口)。压测先阅读[计划和归档索引](../压测报告/README.md)，每次运行使用新批次与独立候选，不能覆盖旧 `.work` 证据。
@@ -79,13 +78,13 @@ E2E 的 READY 后步骤、结果核对和 STOP 协议见[创建与跳转验收�
 
 ```text
 shortlink/
-├── services/       # 上表 7 个 Spring 服务，叶子目录名保持
+├── services/       # 上表 6 个 Spring 服务，叶子目录名保持
 ├── libraries/      # event-contract、id-generator、risk-core
 ├── jobs/           # analytics-flink
 ├── deploy/         # 保持现有组件分区
 ├── scripts/        # 保持 integration / e2e / performance 层级
 ├── doc/            # 文档总层级
-├── pom.xml         # 仍为统一父 POM，直接聚合 11 个叶子模块
+├── pom.xml         # 仍为统一父 POM，直接聚合 10 个叶子模块
 └── README.md
 ```
 

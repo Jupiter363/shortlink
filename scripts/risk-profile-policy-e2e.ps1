@@ -1,6 +1,6 @@
 param(
     [string] $AgentUrl = "http://127.0.0.1:8010",
-    [string] $GatewayUrl = "http://127.0.0.1:8000",
+    [string] $GatewayUrl,
     [string] $Gid = "default",
     [string] $Domain = "nurl.ink",
     [string] $ShortUri = "abc123",
@@ -9,6 +9,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+throw 'Historical Agent policy E2E is retired: its identity/API contract predates APISIX -> Admin. Use the current scripts/e2e creation/redirect entry; do not run the legacy requests below.'
 
 function New-AgentHeaders {
     $headers = @{

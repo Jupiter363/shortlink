@@ -16,7 +16,7 @@ import re
 from collections import Counter
 
 ROOT = Path(__file__).resolve().parents[2]
-SERVICES = ("gateway", "shortlink-command", "admin", "shortlink-redirect")
+SERVICES = ("shortlink-command", "admin", "shortlink-redirect")
 SAFE = re.compile(r"[A-Za-z0-9_-]{1,100}\Z")
 MAX_JSON = 8 * 1024 * 1024
 MAX_LINE = 2 * 1024 * 1024
@@ -110,7 +110,11 @@ def compact(raw):
     for queue in ("outbox", "metadata"):
         item["queues"][queue] = {key: num(at(data, queue, key)) for key in
             ("pending", "oldestPendingAgeMs", "terminalFailed", "terminalFailedFirstAttempt", "terminalFailedRetryExhausted")}
-    for service in SERVICES:
+    # Preserve old four-JVM evidence when summarizing an existing run. This is
+    # historical record handling, not a dependency of the current runtime.
+    recorded_services = SERVICES + (("gateway",) if "gateway" in raw.get("services", {})
+                                   or "gateway" in raw.get("processes", {}) else ())
+    for service in recorded_services:
         proc = at(raw, "processes", service) or {}
         p = proc.get("data", {}) if proc.get("status") == "AVAILABLE" else {}
         item["jvms"][service] = {key: num(p.get(key)) for key in
@@ -343,7 +347,9 @@ def load_stage(directory, state):
                   "observedSeconds": drain_seconds, "timingMeaning": "FIRST_AFTER_SAMPLE_TO_FIRST_DRAINED_SAMPLE_5S_RESOLUTION_NOT_EXACT_EXIT_TO_DRAIN"},
         "k6Process": {**{key: num(k6.get(key)) for key in ("samples", "cpuPercentMean", "cpuPercentPeak", "rssBytesPeak", "rssBytesSampleMean")},
                       "scope": "PROCESS_LIFETIME_SAMPLED_BY_STAGE_RUNNER"},
-        "jvms": {service: jvm_summary(service, before, after, all_samples) for service in SERVICES},
+        "jvms": {service: jvm_summary(service, before, after, all_samples)
+                 for service in dict.fromkeys(name for sample in [before, after, *all_samples]
+                                              for name in sample.get("jvms", {}))},
         "kafka": {"status": "UNAVAILABLE", "reason": "NO_STAGE_OFFSET_EVIDENCE_IN_THIS_SCHEMA"},
         "availability": {"files": availability, "metrics": metrics_availability}}
 

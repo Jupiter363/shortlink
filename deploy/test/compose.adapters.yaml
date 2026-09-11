@@ -22,7 +22,7 @@ services:
       APISIX_INSTANCE_ID: shortlink-adapter-it
       MANAGEMENT_HOST: admin.it.test
       SHORTLINK_HOST: s.it.test
-      GATEWAY_UPSTREAM_HOST: apisix-stubs
+      ADMIN_UPSTREAM_HOST: apisix-stubs
       REDIRECT_UPSTREAM_HOST: apisix-stubs
     volumes:
       - ../apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro

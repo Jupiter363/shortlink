@@ -1,15 +1,16 @@
-# Gateway / Redirect 监控
+# Admin / Redirect 监控
 
-`prometheus.yml` 使用生产配置的本机管理端口 8100/8103，每 15 秒采集一次。
+`prometheus.yml` 使用生产配置的本机管理端口 8102/8103，每 15 秒采集一次。
 管理服务绑定 127.0.0.1，因此本模板要求 Prometheus 运行于同一主机网络命名空间；
 多机器部署应在各主机部署采集进程或使用受控管理网络，并修改显式 target。
 不要为了容器 localhost 的差异把 Actuator 暴露到公网。
 
-本轮完整 production profile jar 已实际启动并采集以下指标，规则未引用虚构业务指标：
+Java Gateway 删除后，管理入口的采集目标改为 Admin，避免持续抓取已经撤除的 8100 端口。
+Admin 与 Redirect 通过 Spring Boot Actuator 暴露以下指标；生产启动后应再核对实际输出：
 
 | 服务 | 实际指标 |
 |---|---|
-| Gateway、Redirect | `jvm_memory_used_bytes`、`jvm_memory_max_bytes`、`process_cpu_usage`、`http_server_requests_seconds_count` |
+| Admin、Redirect | `jvm_memory_used_bytes`、`jvm_memory_max_bytes`、`process_cpu_usage`、`http_server_requests_seconds_count` |
 | Redirect | `hikaricp_connections_pending`、`hikaricp_connections_active`、`hikaricp_connections_timeout_total` |
 | Redirect 事件发送 | `shortlink_events_failed_total`、`shortlink_events_rejected_total`、`shortlink_events_delivered_total`、`shortlink_events_pending_bytes`，均带 click/result lane |
 | Prometheus 自身 | `up` 表示 scrape 成功，不代表业务依赖 Ready |
@@ -27,5 +28,6 @@ docker run --rm --entrypoint /bin/promtool \
   prom/prometheus:v3.2.1 check config /etc/prometheus/prometheus.yml
 ```
 
-本次验证包含真实 `/actuator/prometheus` 输出和 promtool 语法检查；没有声称完成告警通知通道、
-生产流量 SLO 或完整数据库/Kafka lag 监控。其它依赖观测由部署总文档统一说明。
+历史组件验证包含真实 `/actuator/prometheus` 输出和 promtool 语法检查；切换为 Admin 后，
+需要重新核对目标可达性与输出。告警通知通道、生产流量 SLO 及完整数据库/Kafka lag 监控
+另行验证。其它依赖观测由部署总文档统一说明。

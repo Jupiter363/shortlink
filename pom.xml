@@ -18,7 +18,6 @@
         <module>services/analytics-worker</module>
         <module>services/shortlink-analytics-api</module>
         <module>services/admin</module>
-        <module>services/gateway</module>
         <module>services/agent-service</module>
     </modules>
 

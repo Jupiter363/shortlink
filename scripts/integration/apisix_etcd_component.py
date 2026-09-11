@@ -40,7 +40,7 @@ subprocess.run(["wsl", "-d", os.getenv("SHORTLINK_IT_WSL", "shortlink-refactor-i
     "-keyout", linux(key), "-out", linux(cert)], check=True, capture_output=True)
 environment = dict(os.environ, APISIX_TLS_CERT_FILE=str(cert), APISIX_TLS_KEY_FILE=str(key),
     APISIX_TLS_SNIS="s.it.test,admin.it.test", MANAGEMENT_HOST="admin.it.test", SHORTLINK_HOST="s.it.test",
-    KAFKA_HOST="kafka", APISIX_INSTANCE_ID="etcd-adapter-it", GATEWAY_UPSTREAM_HOST="apisix-stubs", REDIRECT_UPSTREAM_HOST="apisix-stubs",
+    KAFKA_HOST="kafka", APISIX_INSTANCE_ID="etcd-adapter-it", ADMIN_UPSTREAM_HOST="apisix-stubs", REDIRECT_UPSTREAM_HOST="apisix-stubs",
     APISIX_ADMIN_BIND_IP="0.0.0.0", APISIX_ADMIN_ALLOWED_CIDRS="127.0.0.1/32,172.16.0.0/12",
     APISIX_ADMIN_KEY_FILE=str(admin_key), APISIX_ENCRYPTION_KEY_FILE=str(encryption_key),
     APISIX_ADMIN_CERT_FILE="/run/secrets/cert.pem", APISIX_ADMIN_TLS_KEY_FILE="/run/secrets/key.pem",

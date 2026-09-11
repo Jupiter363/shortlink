@@ -80,7 +80,7 @@ Command 业务事实 + Analytics 统计证据
 ### 高并发与数据能力
 
 - APISIX 公开入口：Host / 路径边界、可信头重写、请求速率及连接并发限制
-- Java Gateway 管理入口：响应式 Session 校验、当前身份与请求预算
+- Admin 管理入口：Redis Session 校验、当前账号权限与请求预算
 - Redirect 本地 L1、Redis L2、负缓存、缓存世代与权威刷新期限
 - 回源并发限制、集群回源预算及请求超时
 - 业务事实与同库 Outbox 事务提交，Kafka 变更通知驱动缓存失效
@@ -128,7 +128,7 @@ Command 业务事实 + Analytics 统计证据
 | 层级 | 组成 | 职责 |
 | --- | --- | --- |
 | 客户端与入口 | Browser、管理调用方、Agent 调用方 | 短链访问、业务管理与自然语言分析入口 |
-| 接入与跳转层 | APISIX、Java Gateway、Redirect | 公网边界、管理会话验证、缓存解析、策略执行与 302 响应 |
+| 接入与跳转层 | APISIX、Redirect | 统一公网边界、缓存解析、策略执行与 302 响应 |
 | 业务与智能服务层 | Command、Admin、Agent Service | 业务事实、账号与授权、管理适配、Graph、画像与审核 |
 | 统计服务层 | Flink、Analytics Worker、Analytics API、官方 Kafka Connect | 在线聚合、归档补算、质量与恢复、查询快照和持久任务 |
 | 数据与外部能力 | 业务/统计控制/Agent MySQL、Redis、Kafka、ClickHouse、对象存储、LLM | 独立数据职责、事件传输、查询存储与模型推理 |
@@ -143,8 +143,7 @@ Spring AI Alibaba Graph 运行在 Agent Service 内部。MySQL 的业务、统�
 | --- | --- | --- |
 | `shortlink-command` | `shortlink-command` | 分组、创建、生命周期、批量任务、元数据、策略事实、授权与 Outbox |
 | `shortlink-redirect` | `shortlink-redirect` | 独立跳转、缓存、策略执行与有界异步事件生产 |
-| `admin` | `shortlink-admin` | 账号、管理 API、共享统计适配、Agent / Risk Center 入口 |
-| `gateway` | `shortlink-gateway` | 管理入口的响应式 Session 校验、可信身份与请求预算 |
+| `admin` | `shortlink-admin` | 会话与当前账号鉴权、请求预算、管理 API、统计与 Agent 入口 |
 | `agent-service` | `shortlink-agent-service` | Harness、两条 Graph、Tools、画像、审核与 Checkpoint |
 | `event-contract` | `event-contract` | 原始接收记录、事件、结果与 sourceCut 公共契约 |
 | `id-generator` | `id-generator` | 受控 Leaf Segment 适配、连续区间预留与固定短码映射 |
@@ -156,7 +155,7 @@ Spring AI Alibaba Graph 运行在 Agent Service 内部。MySQL 的业务、统�
 | `scripts` | Python / PowerShell / JavaScript | 组件集成、有限 E2E、压测编排、诊断与证据核对 |
 | `doc` | 项目文档 | 项目计划、统计说明、验收记录、压测归档与图片 |
 
-旧 `project`、`aggregation` 已退出 Maven 构建。旧目录中可能保留本机被忽略的配置或构建产物，它们不是当前部署入口。当前构建包含 11 个 Java 模块，公共库随所属服务打包使用。
+旧 `project`、`aggregation` 已退出 Maven 构建。旧目录中可能保留本机被忽略的配置或构建产物，它们不是当前部署入口。当前构建包含 10 个 Java 模块，公共库随所属服务打包使用。
 
 ### 服务边界
 
@@ -198,11 +197,11 @@ Agent Service 是独立 Java 智能服务，负责：
 
 Agent 持久化自己的画像、运行状态和审计，不直接查询业务表或 ClickHouse，也没有逐点击 Kafka 消费者。
 
-#### APISIX 与 Java Gateway
+#### APISIX 单网关与 Admin
 
-APISIX 是公网接入层，公开短链流量直接转发到 Redirect，管理流量转发到 Java Gateway。入口重写可信代理信息，执行请求/连接限流，并独立生产 EDGE 请求结果事件。
+APISIX 是唯一公网网关，公开短链流量直接转发到 Redirect，管理流量直接转发到 Admin。入口重写可信代理信息，执行请求/连接限流，并独立生产 EDGE 请求结果事件。
 
-Java Gateway 负责管理会话校验与 Admin 路由。跳转策略由 Redirect 执行；规则真值和更新由 Command 负责。
+Admin 在同一请求内读取 Redis Session、复核当前账号与租户权限，并执行请求预算，不再单独部署 Spring Cloud Gateway，也不增加远程鉴权调用。跳转策略由 Redirect 执行；规则真值和更新由 Command 负责。详见[单网关边界](doc/development/single-gateway.md)。
 
 #### Analytics
 
@@ -219,7 +218,7 @@ Java Gateway 负责管理会话校验与 Admin 路由。跳转策略由 Redirect
 
 ### 短码生成
 
-创建请求经 APISIX、管理 Gateway 和 Admin 进入 Command，由 `id-generator` 分配全局编号，再编码为短码。
+创建请求经 APISIX 和 Admin 进入 Command，由 `id-generator` 分配全局编号，再编码为短码。
 
 发号器基于固定来源的 Leaf Segment 思路作受控适配，维护当前号段与下一号段；MySQL 负责区间分配，进程内从已领取的区间取号。
 
@@ -293,7 +292,7 @@ Command 在同库事务中锁定相关分组和路由，并检查调用方提供
 
 ## 2. 高并发跳转链路
 
-公开短链由 APISIX 直接转发到独立 Redirect；管理 Java Gateway 负责后台入口，不承担这条跳转路径。
+公开短链由 APISIX 直接转发到独立 Redirect；管理请求由 APISIX 直接转发到 Admin，两类流量分别路由。
 
 APISIX 检查请求路径、方法、Host 和入口预算，重建可信转发信息与请求 ID。Redirect 继续校验代理来源、路由状态、有效期和风险策略。
 
@@ -841,14 +840,14 @@ Redirect click / BUSINESS ┼→ 原始 Kafka → Flink → 派生 Kafka → Con
 ### B. Agent 分析链路
 
 ```text
-管理调用方 → APISIX → Java Gateway → Admin → Agent Service
-                                                └→ Harness / StateGraph
-                                                   → Tools → Admin Internal Tool API
-                                                             ├→ Command 业务事实与授权
-                                                             └→ Analytics API 统计 / 查询 Job
-                                                   → 确定性卡片与规则
-                                                   → LLM 解释
-                                                   → 响应 / Trace / Checkpoint
+管理调用方 → APISIX → Admin → Agent Service
+                              └→ Harness / StateGraph
+                                 → Tools → Admin Internal Tool API
+                                           ├→ Command 业务事实与授权
+                                           └→ Analytics API 统计 / 查询 Job
+                                 → 确定性卡片与规则
+                                 → LLM 解释
+                                 → 响应 / Trace / Checkpoint
 ```
 
 统计 Tools 和普通后台共用 Analytics 查询，保留相同的范围、快照、近似算法、缺失维度与质量说明。长任务按 Job 查询状态和读取结果，不在 Agent 内另建一套统计消费者。
@@ -925,12 +924,11 @@ Agent 通过 Admin Internal Tool API 获取业务事实，复用当前用户身�
 | 分类 | 技术 | 版本 / 当前用途 |
 |---|---|---|
 | Java Runtime | Java | 17，统一 UTF-8 编译 |
-| Web Framework | Spring Boot | 3.0.7；Redirect 与 Gateway 使用响应式 Web 栈 |
-| Microservices | Spring Cloud | 2022.0.3，Gateway / OpenFeign 与受控内部 HTTP |
+| Web Framework | Spring Boot | 3.0.7；Redirect 使用响应式 Web 栈，Admin 使用 Servlet 栈 |
+| Microservices | Spring Cloud | 2022.0.3，OpenFeign 与受控内部 HTTP |
 | Agent Graph | Spring AI Alibaba / Spring AI | 1.1.2.3 / 1.1.2；显式 Graph、ChatModel、Tool |
 | LLM | DeepSeek 适配 | 生产通过 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 显式配置 |
-| Public Gateway | Apache APISIX | 3.11.0；TLS、可信入口、漏桶限流、并发限制、边缘事件 |
-| Management Gateway | Spring Cloud Gateway | 会话校验、可信身份、请求体与在途请求预算 |
+| API Gateway | Apache APISIX | 3.11.0；TLS、可信入口、漏桶限流、并发限制、边缘事件 |
 | ID Allocation | Leaf Segment 来源适配 | 固定上游版本、双号段预取、连续区间预留、固定短码映射 |
 | Database | MySQL | 8.x；业务、统计控制、Agent 分库，业务库内 16 分表 |
 | Persistence | JDBC / MyBatis-Plus / ShardingSphere-JDBC | 按模块使用；MyBatis-Plus 3.5.3.1、ShardingSphere 5.3.2 |
@@ -942,7 +940,7 @@ Agent 通过 Admin Internal Tool API 获取业务事实，复用当前用户身�
 | Observability | Actuator / Micrometer / Prometheus | 队列、事件质量、任务、连接池和运行资源指标 |
 | Test | JUnit / Spring Boot Test / H2 / 隔离中间件 | 单元、组件集成、独立 E2E 与性能脚本 |
 
-版本以各模块 POM 与部署清单为准。当前服务通过配置中的稳定内网 DNS / LB 地址协作，Nacos 默认关闭；入口流控由 APISIX 与 Java Gateway 的显式预算承担。
+版本以各模块 POM 与部署清单为准。当前服务通过配置中的稳定内网 DNS / LB 地址协作，Nacos 默认关闭；入口速率与连接限流由 APISIX 承担，Admin 保留本服务的在途请求与读体预算。
 
 ---
 
@@ -950,7 +948,7 @@ Agent 通过 Admin Internal Tool API 获取业务事实，复用当前用户身�
 
 ### 短链与管理 API
 
-公开跳转使用短链域名；管理 API 使用管理域名，经 APISIX → Gateway → Admin 校验会话后进入对应服务。
+公开跳转使用短链域名；管理 API 使用管理域名，经 APISIX → Admin 校验会话后进入对应服务。
 
 | Method | Path | 说明 |
 |---|---|---|
@@ -1022,7 +1020,7 @@ Command 保留 `/api/short-link/v1/create` 等内部兼容地址，由 Admin 携
 
 ```text
 短链访客 ─→ APISIX ─→ Redirect ─→ L1 / Redis / 受限业务库读取
-管理用户 ─→ APISIX ─→ Gateway ─→ Admin ─→ Command / Analytics API / Agent
+管理用户 ─→ APISIX ─→ Admin ─→ Command / Analytics API / Agent
 
 Command ─→ MySQL + Outbox ─→ Kafka
 APISIX / Redirect ─→ Kafka ─→ Flink / Analytics Worker
@@ -1034,7 +1032,6 @@ Agent Tools ─→ Admin ─→ Analytics API / Command
 
 | 进程 | 业务端口 | 管理端口 |
 |---|---:|---:|
-| Gateway | 8000 | 8100 |
 | Command | 8001 | 8101 |
 | Admin | 8002 | 8102 |
 | Redirect | 8003 | 8103 |
@@ -1099,6 +1096,7 @@ mvn -pl :shortlink-agent-service -am test
 | 域名与短码 | `SHORTLINK_DEFAULT_DOMAIN`、`SHORTLINK_ALLOWED_DOMAINS`、`SHORTCODE_FIXED_KEY_HEX` |
 | 服务身份与账号 | `INTERNAL_TOKEN`、`AGENT_INTERNAL_TOKEN`、`ACCOUNT_PII_KEY` |
 | Redis / Kafka | `REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD`、`KAFKA_BOOTSTRAP_SERVERS`、`KAFKA_SECURITY_PROPERTIES` |
+| 管理入口 | `ADMIN_ALLOWED_HOSTS`、`APISIX_CIDRS`、`ADMIN_UPSTREAM_HOST` |
 | Redirect 边界 | `REDIRECT_DB_USERNAME`、`REDIRECT_DB_PASSWORD`、`REDIRECT_INSTANCE_ID`、`APISIX_CIDRS` |
 | 统计 | `ANALYTICS_CONTROL_DB_*`、`ANALYTICS_HASH_KEY`、`REDIRECT_QUALITY_URLS`、`CLICKHOUSE_*` |
 | 对象存储 | `OBJECT_ENDPOINT`、各服务独立的 `IMPORT_*` / `ARCHIVE_*` 配置 |
@@ -1122,7 +1120,7 @@ java -jar services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar `
 |---|---|
 | Command / 号段 / 批量导入 | [`run-business-it.ps1`](scripts/integration/run-business-it.ps1)；显式测试数据库、MinIO 凭据及 `-AllowReset` |
 | Admin / Agent | [`run-account-agent-it.ps1`](scripts/integration/run-account-agent-it.ps1)；专用测试库、非默认 Redis 端口及 `-AllowReset` |
-| Gateway / Redirect | [`run-gateway-redirect-it.ps1`](scripts/integration/run-gateway-redirect-it.ps1)；匹配脚本的隔离 Redis / MySQL / Kafka 端口，使用 `-am` 构建 reactor 依赖 |
+| Admin 入口 / Redirect | [`run-admin-redirect-it.ps1`](scripts/integration/run-admin-redirect-it.ps1)；隔离 Redis / MySQL / Kafka、显式测试库凭据及 `-AllowReset`，使用 `-am` 构建 reactor 依赖 |
 | APISIX / 外部适配 | [`component-adapters.md`](doc/integration/component-adapters.md) 中的实际组件入口 |
 | Flink / 统计恢复 | [`统计运行与恢复`](doc/analytics/runtime.md)及对应模块 `integration` 用例；RocksDB 在 Linux 执行 |
 
@@ -1130,7 +1128,7 @@ java -jar services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar `
 
 ### 5. 创建、跳转与网关 E2E
 
-当前入口为 [`scripts/e2e/`](scripts/e2e/)，执行真实 Command、Admin、Gateway、Redirect JAR 和 APISIX。在专用 Linux 测试环境准备好 JAR 及隔离 MySQL / Redis / Kafka / MinIO 后，从仓库根目录启动监督进程：
+当前入口为 [`scripts/e2e/`](scripts/e2e/)，执行真实 Command、Admin、Redirect JAR 和 APISIX。在专用 Linux 测试环境准备好 JAR 及隔离 MySQL / Redis / Kafka / MinIO 后，从仓库根目录启动监督进程：
 
 ```bash
 python3 -B scripts/e2e/run_create_redirect_e2e.py --allow-test-database
@@ -1158,11 +1156,11 @@ Agent 与 Admin Tool 通过 `X-Agent-Internal-Token` 验证服务身份，并携
 
 Command / Analytics 等服务使用 `X-Internal-Token` 与相应可信主体协议。读取、执行任务、结果发布、分页与策略变更均按所属边界复核当前授权；持有旧快照或 jobId 不等于永久拥有资源访问权。
 
-### Gateway 可信代理与资源预算
+### APISIX 可信入口与 Admin 资源预算
 
-APISIX 清理外部身份头，重写转发来源、协议和 request-id；Gateway / Redirect 仅信任已配置的真实 APISIX socket peer。自定义域名需同时加入入口路由与服务允许列表。
+APISIX 清理外部身份头，重写转发来源、协议和 request-id；Admin 管理入口 / Redirect 仅信任已配置的真实 APISIX socket peer。自定义域名需同时加入入口路由与服务允许列表。
 
-APISIX 使用 `limit-req` 漏桶和 `limit-conn` 并发控制；Java Gateway 通过零等待的在途请求槽位控制会话、请求体与上游负载。限流按节点、路由与来源 IP 生效，不能将本地额度当作全局分布式配额。具体默认值与验证见[E2E 网关记录](doc/plan/生产级重构增强/05-创建跳转E2E验收.md#当前限流配置及算法)。
+APISIX 使用 `limit-req` 漏桶和 `limit-conn` 并发控制；Admin 通过零等待的在途请求槽位控制会话、请求体与本服务负载。限流按节点、路由与来源 IP 生效，不能将本地额度当作全局分布式配额。当前职责、默认预算与验收范围见[单网关说明](doc/development/single-gateway.md)。
 
 ### LLM 与统计故障边界
 
@@ -1175,17 +1173,16 @@ APISIX 使用 `limit-req` 漏桶和 `limit-conn` 并发控制；Java Gateway 通
 
 ## 目录结构
 
-下列为当前源码与文档的主要层级：11 个 Maven 模块按 7 个常驻服务、3 个公共库和 1 个 Flink 作业归类，仍由根 POM 统一聚合：
+下列为当前源码与文档的主要层级：10 个 Maven 模块按 6 个常驻服务、3 个公共库和 1 个 Flink 作业归类，仍由根 POM 统一聚合：
 
 ```text
 shortlink/
-├── services/                # 7 个 Spring 常驻服务
+├── services/                # 6 个 Spring 常驻服务
 │   ├── shortlink-command/   # 创建、分组、生命周期、任务、策略事实、Outbox
 │   ├── shortlink-redirect/  # 独立跳转、缓存、策略执行、有界事件生产
 │   ├── analytics-worker/   # 原始归档、补算、规范发布与恢复协议
 │   ├── shortlink-analytics-api/ # 统计快照、查询任务、分页与授权复核
 │   ├── admin/              # 账号、管理 API、Agent 入口与统计适配
-│   ├── gateway/            # 管理入口、会话校验与资源预算
 │   └── agent-service/      # Harness、Graph、Tool、风险画像与审核
 ├── libraries/               # 3 个进程内公共库
 │   ├── event-contract/     # 公共事件、原始接收与 sourceCut 契约

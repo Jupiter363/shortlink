@@ -291,7 +291,7 @@ class ApplicationCpuProfileTests(unittest.TestCase):
                 updates = [argv for argv in commands if argv[:2] == ["docker", "update"]]
                 self.assertEqual(len(updates), 4)
                 self.assertTrue(all(argv[argv.index("--cpuset-cpus") + 1] == "8-11" for argv in updates))
-                self.assertEqual(len(launches), 4)
+                self.assertEqual(len(launches), 3)
                 for argv in launches:
                     self.assertEqual(argv[:4], ["taskset", "-c", java_cpu, "java"])
                     self.assertIn("-Xmx384m", argv)
