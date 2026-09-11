@@ -19,7 +19,6 @@ java -jar services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar \
 
 | 进程 | 业务端口 | 管理端口 | 依赖 |
 | --- | ---: | ---: | --- |
-| Gateway | 8000 | 8100 | Redis、Admin 当前会话身份校验 |
 | Command | 8001 | 8101 | 业务 MySQL、Kafka、导入对象存储 |
 | Admin | 8002 | 8102 | 业务 MySQL、Redis、Command、Analytics、Agent |
 | Redirect | 8003 | 8103 | 业务库受限账号（路由读取、缓存世代更新）、Redis、Kafka、Command 策略权威 |
@@ -28,6 +27,20 @@ java -jar services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar \
 | Analytics Worker | 8012 | 8112 | 统计控制库、Kafka、CH、对象存储、Command |
 
 管理端口只绑定 `127.0.0.1`，公开 health/info/prometheus；用本机采集器或受控隧道读取。只有 APISIX 面向公网；服务端口和数据库端口使用网络策略限制。APISIX TLS 和 SNI 的文件配置见 [apisix/TLS.md](apisix/TLS.md)。内部令牌仍须配合私网/TLS，不替代网络隔离。
+
+APISIX 是唯一网关：管理流量直接转发给 Admin:8002，短链流量直接转发给 Redirect:8003。Admin 的 `shortlink.admin.ingress.*` 配置核验 APISIX socket 对端、管理 Host、Redis 会话及当前账号权限，并提供有界并发和请求体预算。公开管理入口不接受伪造内部身份；Agent 内部工具继续使用专用内部鉴权链路。APISIX upstream 环境变量使用 `ADMIN_UPSTREAM_HOST`，旧 `GATEWAY_UPSTREAM_HOST`、8000/8100 监听和 Java Gateway 制品均已撤除。
+
+Admin 管理入口的默认资源预算如下，完整配置以 `services/admin/src/main/resources/application-production.properties` 为准。并发与字节预算贯穿异步请求体读取和业务处理，耗尽返回 429；这些上限不代表进程 RSS 或已验证 QPS。
+
+| `shortlink.admin.ingress.*` 配置 | 默认值 |
+| --- | --- |
+| `max-in-flight` | 64 个在途请求 |
+| `ordinary-body-bytes` / `batch-body-bytes` | 256 KiB / 8 MiB |
+| `total-body-bytes` | 64 MiB 请求体预留预算 |
+| `body-read-timeout` | 5s 请求体绝对读取时限 |
+| `session-timeout` / `redis-connect-timeout` | 150ms / 1s |
+
+APISIX 管理路由使用 `proxy-control.request_buffering: false`，直接将请求体交给 Admin 的有界读取器，避免边缘与业务服务各自完整暂存一遍。APISIX 的全局 8 MiB 体积限制仍然有效；管理上游读取空闲超时为 10s，为 Admin 的有界处理和下游 5s 调用留出余量，它不等于请求总截止时间。边界只接受 `Content-Encoding: identity` 或未压缩请求，请求大小应在上述预算内。
 
 ## 必填环境
 
@@ -40,6 +53,7 @@ java -jar services/shortlink-command/target/shortlink-command-1.0-SNAPSHOT.jar \
 | 创建身份 | `SHORTLINK_DEFAULT_DOMAIN`、`SHORTLINK_ALLOWED_DOMAINS`、`SHORTCODE_FIXED_KEY_HEX`（固定 32 字节十六进制密钥） |
 | 账号加密 | `ACCOUNT_PII_KEY`（固定 AES 密钥，至少 32 字符） |
 | Redis | `REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD` |
+| 管理入口 | `ADMIN_ALLOWED_HOSTS`、`APISIX_CIDRS`；APISIX 的 `MANAGEMENT_HOST`、`ADMIN_UPSTREAM_HOST` |
 | Redirect | `REDIRECT_DB_USERNAME`、`REDIRECT_DB_PASSWORD`、`REDIRECT_INSTANCE_ID`、`APISIX_CIDRS` |
 | Kafka | `KAFKA_BOOTSTRAP_SERVERS`、`KAFKA_SECURITY_PROPERTIES` |
 | 统计身份 | `ANALYTICS_HASH_KEY`（Redirect/Flink/Worker 一致且固定）、`REDIRECT_QUALITY_URLS`（完整实例清单） |
@@ -58,7 +72,7 @@ Kafka 的 `KAFKA_SECURITY_PROPERTIES` 指向权限受控、UTF-8 且最多 64 Ki
 5. 创建 Kafka Topic：`kafka/topics.yaml`、`kafka/create-topics.sh`。生产 RF=3、minISR=2；raw 两条流使用 LogAppendTime；关闭自动建 Topic。为各生产者/消费者提供最小 Topic、consumer-group 和 transactional-id 权限，避免共用超级用户。
 6. 配置 CH/Keeper。单机开发用 `clickhouse/001-analytics.sql` 和 `002-connect-landing.sql`；副本环境用 `003-replicated.sql.template` 填入实际集群名/宏。连接器依照 `clickhouse/connect-config.json` 安装，不启用跳过坏记录继续成功的容错模式。
 7. 启动 Command、Worker，执行恢复 begin/reconcile/activate 协议。Command 初态自动动作关闭；完成真实覆盖和世代证明后才解除恢复门禁，Agent 仍逐次核验当前授权和统计证据。`collectionQuality=UNKNOWN` 会阻止自动动作；近似 UV 只阻止依赖精确 UV 的规则，不能以其他精确指标代替该证据。Flink 从固定 checkpoint/savepoint 启动，参数见下节。开始归档、派生投递和规范窗口发布后启动 Analytics API。
-8. 启动 Admin、Gateway、Redirect、Agent，再配置 APISIX TLS。注册/初始化分开显示状态：默认组未就绪不能伪报 READY。Agent 必须使用当前账号 authVersion，不能把旧开发 userId 复制为可信身份。
+8. 启动 Admin、Redirect、Agent，再配置 APISIX TLS。注册/初始化分开显示状态：默认组未就绪不能伪报 READY。Agent 必须使用当前账号 authVersion，不能把旧开发 userId 复制为可信身份。
 
 当前是新环境首次部署方案，不包含生产流量切换，也不修改原有开发 schema。任何恢复、备份或保留期变更都按 [统计恢复协议](../doc/analytics/runtime.md) 核对外部存储覆盖。
 

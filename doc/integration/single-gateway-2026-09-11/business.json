@@ -1,0 +1,535 @@
+{
+  "suite": "shortlink-public-create-redirect",
+  "runId": "c16b1faf308f4c6a87d5afec852defb0",
+  "status": "PASSED",
+  "startedAt": "2026-09-11T08:10:32.527962+00:00",
+  "finishedAt": "2026-09-11T08:10:53.083086+00:00",
+  "caseCount": 16,
+  "httpRequestCount": 42,
+  "scope": {
+    "agent": false,
+    "analytics": false,
+    "internalApi": false,
+    "databaseAccess": false,
+    "loadTest": false,
+    "followsRedirects": false
+  },
+  "observations": {
+    "headOnlyLinkId": 4,
+    "headOnlyShortUri": "5evCtf4kr",
+    "headOnlyHost": "s.e2e.test",
+    "headOnlyHttpStatus": 302,
+    "headOnlyHeadRequests": 1,
+    "headOnlyGetRequests": 0,
+    "headOnlyExpectedClickEvents": 0,
+    "headOnlyExpectedRequestEvents": 1,
+    "headOnlyTarget": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/head-only"
+  },
+  "cases": [
+    {
+      "name": "01_public_account_a_and_default_group",
+      "status": "PASSED",
+      "elapsedSeconds": 4.36,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/user",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 71,
+          "resultCode": "0"
+        },
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/user/login",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 122,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/api/short-link/admin/v1/user/initialization",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 143,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/api/short-link/admin/v1/user/initialization",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 143,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/api/short-link/admin/v1/user/initialization",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 162,
+          "resultCode": "0"
+        }
+      ],
+      "facts": {
+        "defaultGroupReady": true
+      }
+    },
+    {
+      "name": "02_public_account_b_and_default_group",
+      "status": "PASSED",
+      "elapsedSeconds": 1.593,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/user",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 71,
+          "resultCode": "0"
+        },
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/user/login",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 122,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/api/short-link/admin/v1/user/initialization",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 143,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/api/short-link/admin/v1/user/initialization",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 162,
+          "resultCode": "0"
+        }
+      ],
+      "facts": {
+        "defaultGroupReady": true,
+        "distinctGroups": true
+      }
+    },
+    {
+      "name": "03_unauthenticated_create_is_rejected",
+      "status": "PASSED",
+      "elapsedSeconds": 0.008,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 401,
+          "bodyBytes": 55,
+          "resultCode": "INVALID_SESSION"
+        }
+      ],
+      "facts": {}
+    },
+    {
+      "name": "04_invalid_target_is_rejected",
+      "status": "PASSED",
+      "elapsedSeconds": 0.349,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 400,
+          "bodyBytes": 117,
+          "resultCode": "REMOTE_400"
+        }
+      ],
+      "facts": {}
+    },
+    {
+      "name": "05_create_nine_character_short_link",
+      "status": "PASSED",
+      "elapsedSeconds": 0.187,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 305,
+          "resultCode": "0"
+        }
+      ],
+      "facts": {
+        "linkId": 1,
+        "shortUri": "3XaCRjvEz",
+        "routeVersion": 1,
+        "targetRevision": 1
+      }
+    },
+    {
+      "name": "06_identical_request_is_idempotent",
+      "status": "PASSED",
+      "elapsedSeconds": 0.036,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 305,
+          "resultCode": "0"
+        }
+      ],
+      "facts": {
+        "sameCommittedResult": true
+      }
+    },
+    {
+      "name": "07_changed_payload_conflicts_with_request_id",
+      "status": "PASSED",
+      "elapsedSeconds": 0.059,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 409,
+          "bodyBytes": 117,
+          "resultCode": "REMOTE_409"
+        }
+      ],
+      "facts": {}
+    },
+    {
+      "name": "08_get_redirects_without_following_location",
+      "status": "PASSED",
+      "elapsedSeconds": 0.287,
+      "evidence": [
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/original"
+        }
+      ],
+      "facts": {
+        "followedLocation": false
+      }
+    },
+    {
+      "name": "09_head_redirects_without_a_body",
+      "status": "PASSED",
+      "elapsedSeconds": 0.014,
+      "evidence": [
+        {
+          "method": "HEAD",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/original"
+        }
+      ],
+      "facts": {
+        "bodyBytes": 0,
+        "followedLocation": false
+      }
+    },
+    {
+      "name": "10_repeated_real_gets_preserve_target",
+      "status": "PASSED",
+      "elapsedSeconds": 0.03,
+      "evidence": [
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/original"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/original"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/original"
+        }
+      ],
+      "facts": {
+        "visits": 3,
+        "sameTarget": true
+      }
+    },
+    {
+      "name": "11_cross_account_mutations_are_rejected",
+      "status": "PASSED",
+      "elapsedSeconds": 0.132,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 404,
+          "bodyBytes": 117,
+          "resultCode": "REMOTE_404"
+        },
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/update",
+          "host": "admin.e2e.test",
+          "httpStatus": 404,
+          "bodyBytes": 117,
+          "resultCode": "REMOTE_404"
+        },
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/recycle-bin/save",
+          "host": "admin.e2e.test",
+          "httpStatus": 404,
+          "bodyBytes": 117,
+          "resultCode": "REMOTE_404"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/original"
+        }
+      ],
+      "facts": {
+        "existenceNotDisclosed": true,
+        "ownerTargetUnchanged": true
+      }
+    },
+    {
+      "name": "12_update_invalidates_warmed_route_cache",
+      "status": "PASSED",
+      "elapsedSeconds": 0.324,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/update",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 71,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/original"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/updated"
+        },
+        {
+          "method": "HEAD",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/updated"
+        }
+      ],
+      "facts": {
+        "expectedRouteVersion": 2,
+        "newTargetObserved": true,
+        "cacheConvergenceSeconds": 0.239
+      }
+    },
+    {
+      "name": "13_stale_update_version_is_rejected",
+      "status": "PASSED",
+      "elapsedSeconds": 0.042,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/update",
+          "host": "admin.e2e.test",
+          "httpStatus": 409,
+          "bodyBytes": 117,
+          "resultCode": "REMOTE_409"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/updated"
+        }
+      ],
+      "facts": {
+        "newTargetPreserved": true
+      }
+    },
+    {
+      "name": "14_recycle_and_restore_invalidate_cache",
+      "status": "PASSED",
+      "elapsedSeconds": 0.543,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/recycle-bin/save",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 71,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/updated"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 404,
+          "bodyBytes": 0
+        },
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/recycle-bin/recover",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 71,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 404,
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/updated"
+        },
+        {
+          "method": "GET",
+          "path": "/3XaCRjvEz",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/updated"
+        }
+      ],
+      "facts": {
+        "recycledHttpStatus": 404,
+        "restoredHttpStatus": 302,
+        "expectedRouteVersion": 4,
+        "recycleConvergenceSeconds": 0.222,
+        "restoreConvergenceSeconds": 0.232
+      }
+    },
+    {
+      "name": "15_expiration_stops_a_previously_working_redirect",
+      "status": "PASSED",
+      "elapsedSeconds": 12.523,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 304,
+          "resultCode": "0"
+        },
+        {
+          "method": "GET",
+          "path": "/0s2WUbmWi",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/expires"
+        },
+        {
+          "method": "GET",
+          "path": "/0s2WUbmWi",
+          "host": "s.e2e.test",
+          "httpStatus": 404,
+          "bodyBytes": 0
+        },
+        {
+          "method": "GET",
+          "path": "/0s2WUbmWi",
+          "host": "s.e2e.test",
+          "httpStatus": 404,
+          "bodyBytes": 0
+        }
+      ],
+      "facts": {
+        "expiredHttpStatus": 404,
+        "followedLocation": false
+      }
+    },
+    {
+      "name": "16_independent_head_only_link",
+      "status": "PASSED",
+      "elapsedSeconds": 0.068,
+      "evidence": [
+        {
+          "method": "POST",
+          "path": "/api/short-link/admin/v1/create",
+          "host": "admin.e2e.test",
+          "httpStatus": 200,
+          "bodyBytes": 306,
+          "resultCode": "0"
+        },
+        {
+          "method": "HEAD",
+          "path": "/5evCtf4kr",
+          "host": "s.e2e.test",
+          "httpStatus": 302,
+          "bodyBytes": 0,
+          "location": "https://example.com/e2e/c16b1faf308f4c6a87d5afec852defb0/head-only"
+        }
+      ],
+      "facts": {
+        "linkId": 4,
+        "shortUri": "5evCtf4kr",
+        "headRequests": 1,
+        "getRequests": 0,
+        "bodyBytes": 0,
+        "followedLocation": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,284 @@
+{
+  "status": "PASSED",
+  "adminOutputCleanedBy": "mvn -o -B -ntp -pl :shortlink-admin -Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository clean",
+  "command": "mvn -o -B -ntp -pl :shortlink-admin -am -Dmaven.repo.local=/mnt/c/Users/Jupiter/.m2/repository -Dsurefire.reportNameSuffix=single-gateway-clean package",
+  "exitCode": 0,
+  "modules": {
+    "services/admin": {
+      "totals": {
+        "tests": 153,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "reports": [
+        {
+          "name": "com.jupiter.shortlink.admin.account.AccountPasswordServiceTest(single-gateway-clean)",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "df8160c784f9ab8800ed3b405b760d7420c659eae877fcb51cc05df9d35eaa50"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.account.AccountRecoveryWorkerTest(single-gateway-clean)",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "122251fed8c77e6d4c77dd454d44d76885ba47707ff0ccb51bc0144a7ed646b8"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.account.AccountServiceTest(single-gateway-clean)",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "8420c45349975d9b2c254bac9304487abd179299e6de93e17424d5e643d197ed"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.common.biz.agent.AgentInternalToolApiFilterTest(single-gateway-clean)",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "8d2bcfe25e7f3fdb30fb269c7023aab2809dfe7dd3aac410ecd80185c28840a5"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.common.biz.user.AdminAdmissionBudgetTest(single-gateway-clean)",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "98d65e8029580a9f083835fa5d3454a78106a65dae16ab9ce9c86c084b12d7cf"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.common.biz.user.ManagementIdentityTest(single-gateway-clean)",
+          "tests": 29,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "391e6eda01ed0eaf760363f2be379fd7a97383b14b310df879d456671b7aaf8c"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.common.biz.user.RequestBudgetFilterTest(single-gateway-clean)",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "adf6fa00a7b8256d213a8a72fd421c7cb770e7f955d1efe83a26dfff1e7cd3ff"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.config.AdminDependencyDiagnosticsTest(single-gateway-clean)",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "89b074245189c2849558908c308d78051741e5e43f290b74f07eba1f95792702"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.config.AdminFeignTransportConfigurationTest(single-gateway-clean)",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "b87c0d14f502a39aabe2f1c9043f4c29f7bee215eb3b2e75934a03a4ebcf3950"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.config.AdminIngressConfigurationTest(single-gateway-clean)",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "f4e20191a571de5dfcb887265e0ae83a4afc093c98b73ee2f51229ae0c636e23"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.AgentAdminPageStaticResourceTest(single-gateway-clean)",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "61c2a13d2eee82d1428fb5f8c629d3e234d7bc6f728e5c9c21782cdb34c5e803"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.AgentAnalyticsJobTest(single-gateway-clean)",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "a45bbed9312e2406c56e86be4fca3c186f4f44ad8008799064afe736b414bd29"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.AgentControllerMvcTest(single-gateway-clean)",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "34d2a86ca46b978883659620efa55bcf15f49d8ae3129d1c20f908da9f53342c"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.AgentControllerTest(single-gateway-clean)",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "897dcdb8a34423c8306caa39553585f0f8b02abdc9e44a40fe863ed9bfaee082"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.AgentRiskInternalToolControllerTest(single-gateway-clean)",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "7409082d051ccd9a5031bad04be2b06ab349c8e00f4538ff1247fc4c4dbfa076"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.AgentToolInternalControllerTest(single-gateway-clean)",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "8700358a95ad137cd9f555a69409e0e025e9d15930e04f0582c83d78733257ac"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.AgentToolInternalMvcTest(single-gateway-clean)",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "18fb4161c53f4a1ec8734d5568439a75e5dc7867d36a5a56291dbb54f2e759ac"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.BatchExportControllerTest(single-gateway-clean)",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "99ef4d8f5946603d477361b76b4a2cf5e1c02f9a6ec2babbf0533820544cd1f2"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.ErrorStatusContractTest(single-gateway-clean)",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "bc1eec7226d89471fa4bb9402aab2a40277d106fa038c29526c04894bf69e6e1"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.RiskCenterControllerTest(single-gateway-clean)",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "1dedcfdf2fbdaaa335acbf772662b315ddce1cc904dc6f1b467fb761e4e60c9f"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.controller.ShortLinkStatsControllerTest(single-gateway-clean)",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "ffcc756d4cea09c4bc408b7ebe41b066350ae407ae08627c211b78974c9e0adb"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.remote.AgentRemoteServiceFeignTest(single-gateway-clean)",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "36f3ac12a82c3cde9aaa5fbd1367c08252ca755573302d6c12688b3f1782f7da"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.remote.AgentRiskRemoteServiceTest(single-gateway-clean)",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "a91078a683fb9225fb8f44a06c8ef09355bfd360657daf5ec848756eff8dc7f3"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.remote.CommandResponseDecodingTest(single-gateway-clean)",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "e81fab353bb843cabfc818a6a1e59e7531d6fc691b134a9ca2d75dba83f206af"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.remote.CommandRiskRemoteServiceTest(single-gateway-clean)",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "0a32ced50d353c51b334efc19c14fbb0c3f54c4094ef689214df6b7603b7a5b2"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.remote.LinkPageAnalyticsServiceTest(single-gateway-clean)",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "e29ae29735fc5ab9d93862171c4e14b7545af6a18b464720fa9068b632d74cd2"
+        },
+        {
+          "name": "com.jupiter.shortlink.admin.service.GroupServiceImplTest(single-gateway-clean)",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "1c2f637407b01fc815cb55fc4c4e64a2a18da26b99216c1b011ea77b104bcd0f"
+        }
+      ]
+    },
+    "libraries/risk-core": {
+      "totals": {
+        "tests": 101,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "reports": [
+        {
+          "name": "com.jupiter.shortlink.risk.IpAddressesTest(single-gateway-clean)",
+          "tests": 54,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "4f0bd76d4f3f71db8729b81f2f8a671ba10a09519314607b6170e569d34221e5"
+        },
+        {
+          "name": "com.jupiter.shortlink.risk.RequestContextTest(single-gateway-clean)",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "c11057a6a98afa12525be20675ed1ea9dd61bd87d518164c707461bb2566b85b"
+        },
+        {
+          "name": "com.jupiter.shortlink.risk.RiskEvaluatorTest(single-gateway-clean)",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "ef55683984b4c510deaf34667e8629f3d282e4720a821b458388eb03d5338760"
+        },
+        {
+          "name": "com.jupiter.shortlink.risk.RiskHashTest(single-gateway-clean)",
+          "tests": 33,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "c14014a37ef4e7433ddb0f26e1a40bb4d33a1314fb785cd8a8301abf3866858c"
+        },
+        {
+          "name": "com.jupiter.shortlink.risk.TrustedProxyResolverTest(single-gateway-clean)",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "sha256": "c75dbfc917a286ce45278503a8f9486b58321714ee88b8769f57ff043ded2ab9"
+        }
+      ]
+    }
+  }
+}

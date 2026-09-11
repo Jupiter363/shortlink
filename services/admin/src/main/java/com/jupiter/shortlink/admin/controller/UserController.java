@@ -1,6 +1,8 @@
 package com.jupiter.shortlink.admin.controller;
 
 import com.jupiter.shortlink.admin.account.AccountInitializationStatus;
+import com.jupiter.shortlink.admin.common.biz.user.UserTransmitFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import com.jupiter.shortlink.admin.common.convention.result.Result;
 import com.jupiter.shortlink.admin.common.convention.result.Results;
 import com.jupiter.shortlink.admin.common.enums.UserErrorCodeEnum;
@@ -80,7 +82,9 @@ public class UserController {
     /** 检查用户是否登录 */
     @GetMapping("/api/short-link/v1/user/check-login")
     public Result<Boolean> checkLogin(
-            @RequestParam("username") String username, @RequestParam("token") String token) {
-        return Results.success(userService.checkLogin(username, token));
+            @RequestParam("username") String username, @RequestParam("token") String token,
+            HttpServletRequest request) {
+        // The ingress already checked this exact session and the current MySQL account generation.
+        return Results.success(UserTransmitFilter.verifiedSessionMatches(request, username, token));
     }
 }

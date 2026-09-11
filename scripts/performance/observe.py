@@ -24,7 +24,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 MAX_BYTES = 2 * 1024 * 1024
-SERVICES = {"gateway": 8100, "shortlink-command": 8101, "admin": 8102,
+SERVICES = {"shortlink-command": 8101, "admin": 8102,
             "shortlink-redirect": 8103}
 SAFE_NAME = re.compile(r"[A-Za-z0-9_.-]{1,128}\Z")
 PROM_LINE = re.compile(r'^([A-Za-z_:][A-Za-z0-9_:]*)(\{[^\n]*\})?\s+([^\s]+)(?:\s+\d+)?$')

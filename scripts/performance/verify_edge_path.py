@@ -330,8 +330,8 @@ def _inside(context):
 def verify(state_path, fixture=None):
     context = _load(state_path, fixture)
     rows = []
-    _case(rows, "EP01_untrusted_direct_gateway", lambda: _status(_http(
-        "127.0.0.1", 8000, RECOVERY, _headers(context, context["apisixIp"], forged=True, management=True),
+    _case(rows, "EP01_untrusted_direct_admin", lambda: _status(_http(
+        "127.0.0.1", 8002, RECOVERY, _headers(context, context["apisixIp"], forged=True, management=True),
         expected_source="127.0.0.1"), 403))
     _case(rows, "EP02_untrusted_direct_redirect", lambda: _status(_http(
         "127.0.0.1", 8003, "/" + context["shortUri"], _headers(context, context["apisixIp"], forged=True),

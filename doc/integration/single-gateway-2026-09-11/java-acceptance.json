@@ -1,0 +1,427 @@
+{
+  "status": "SCOPED_ACCEPTANCE_PASSED",
+  "runtime": {
+    "os.name": "Linux",
+    "java.home": "/usr/lib/jvm/java-17-openjdk-amd64",
+    "java.version": "17.0.20",
+    "os.arch": "amd64",
+    "java.vendor": "Ubuntu"
+  },
+  "admin_default_unit": {
+    "totals": {
+      "tests": 153,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "classes": [
+      {
+        "class": "com.jupiter.shortlink.admin.account.AccountPasswordServiceTest(single-gateway-final)",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.account.AccountPasswordServiceTest-single-gateway-final.xml",
+        "sha256": "91a3da716c6801c29dd72015243a2414cbbcede7d2729c21b56ba30e3646cbeb"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.account.AccountRecoveryWorkerTest(single-gateway-final)",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.account.AccountRecoveryWorkerTest-single-gateway-final.xml",
+        "sha256": "8c1e3de7b461ba56b5ea8ea94a440a727aaa667b85f5b3cf34e6ee7c0b91a201"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.account.AccountServiceTest(single-gateway-final)",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.account.AccountServiceTest-single-gateway-final.xml",
+        "sha256": "2b29c3095cb65645b4a5713f910971f986820dc63ff9370e598c646dbb9c949c"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.common.biz.agent.AgentInternalToolApiFilterTest(single-gateway-final)",
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.common.biz.agent.AgentInternalToolApiFilterTest-single-gateway-final.xml",
+        "sha256": "eb6dc85506d0287a86082f1ff2fa0d4bcc5d2d2182e734fc0edca44f59601cf8"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.common.biz.user.AdminAdmissionBudgetTest(single-gateway-final)",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.common.biz.user.AdminAdmissionBudgetTest-single-gateway-final.xml",
+        "sha256": "92ba451fb1b576449cbf39d195672641b23e2acb4a26f7b7b8944c2b635c2181"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.common.biz.user.ManagementIdentityTest(single-gateway-final)",
+        "tests": 29,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.common.biz.user.ManagementIdentityTest-single-gateway-final.xml",
+        "sha256": "6698db0835b14954d758a25589889620578a3337e674fecc433c13c9f92b000d"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.common.biz.user.RequestBudgetFilterTest(single-gateway-final)",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.common.biz.user.RequestBudgetFilterTest-single-gateway-final.xml",
+        "sha256": "3a3b957addb3c73bb6641f82138196ef2a6d193d36055b2ae582c7826a329fb4"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.config.AdminDependencyDiagnosticsTest(single-gateway-final)",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.config.AdminDependencyDiagnosticsTest-single-gateway-final.xml",
+        "sha256": "23f767295ad6ec4b7102b6c302cc79ab230dba63dfd474da0cf8ef4249e3b74d"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.config.AdminFeignTransportConfigurationTest(single-gateway-final)",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.config.AdminFeignTransportConfigurationTest-single-gateway-final.xml",
+        "sha256": "450cd53751797f4df7e21e13d406a9238c0ce688e11f5d7ec63c0feb55df0ac2"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.config.AdminIngressConfigurationTest(single-gateway-final)",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.config.AdminIngressConfigurationTest-single-gateway-final.xml",
+        "sha256": "6c128da943d2a1974b0a349f8ad2c402ade0b922b037e62f411b87465082518c"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.AgentAdminPageStaticResourceTest(single-gateway-final)",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.AgentAdminPageStaticResourceTest-single-gateway-final.xml",
+        "sha256": "10016abaf763e30881afcab29a453b4546bdbe596b62e7a6730d2e815d8930ec"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.AgentAnalyticsJobTest(single-gateway-final)",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.AgentAnalyticsJobTest-single-gateway-final.xml",
+        "sha256": "d111611982ce643cb5a460e3f6decb8bcec4026737980bdd5664f100d0acafc1"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.AgentControllerMvcTest(single-gateway-final)",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.AgentControllerMvcTest-single-gateway-final.xml",
+        "sha256": "4706b61c945c1382da4e6c6fb4ba620ce05ddcafc330a9f836158b47cb6b8010"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.AgentControllerTest(single-gateway-final)",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.AgentControllerTest-single-gateway-final.xml",
+        "sha256": "6bb372d94be42bbb38400ca0b0e00a6456d5ffa4b94784e911e6dcbde59c1976"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.AgentRiskInternalToolControllerTest(single-gateway-final)",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.AgentRiskInternalToolControllerTest-single-gateway-final.xml",
+        "sha256": "0404848fbbbd23505134378256a194f80cc61f647aa6e194a329978a7596b4f1"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.AgentToolInternalControllerTest(single-gateway-final)",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.AgentToolInternalControllerTest-single-gateway-final.xml",
+        "sha256": "30ae8e7b2d1d12d63c93d3e16c3fe77fabeac15d44105fcce6441e46b6848bee"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.AgentToolInternalMvcTest(single-gateway-final)",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.AgentToolInternalMvcTest-single-gateway-final.xml",
+        "sha256": "615e475b7824de782b88dec007f79ff5a28b399521e8e9ba65ffe2130dc811ab"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.BatchExportControllerTest(single-gateway-final)",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.BatchExportControllerTest-single-gateway-final.xml",
+        "sha256": "448eb6e553787dbe45c1b90ae1bc38888dd585585a548f1ec35dab65512da837"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.ErrorStatusContractTest(single-gateway-final)",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.ErrorStatusContractTest-single-gateway-final.xml",
+        "sha256": "7c96650f1f51f31610b0d9eb318108238f98dccab6b830c3735c07754cf20b8e"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.RiskCenterControllerTest(single-gateway-final)",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.RiskCenterControllerTest-single-gateway-final.xml",
+        "sha256": "fa9d8716975cb55a8a37f313062a9117c842d82da56afd40488ed77da99ccd02"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.controller.ShortLinkStatsControllerTest(single-gateway-final)",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.controller.ShortLinkStatsControllerTest-single-gateway-final.xml",
+        "sha256": "10c9d185d53c76744e0d8cdfd1acce55a64ef5a08517939cedbd2348afdcd737"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.remote.AgentRemoteServiceFeignTest(single-gateway-final)",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.remote.AgentRemoteServiceFeignTest-single-gateway-final.xml",
+        "sha256": "25d8bd6cb66e3c21d23684396a0dbe40cae1821cf9514c422c518d6b7b7df44c"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.remote.AgentRiskRemoteServiceTest(single-gateway-final)",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.remote.AgentRiskRemoteServiceTest-single-gateway-final.xml",
+        "sha256": "989980ded3ca907a21cfd5bd0491b23d3f5b6e4f96bc6cf75c2486ce73b3f27b"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.remote.CommandResponseDecodingTest(single-gateway-final)",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.remote.CommandResponseDecodingTest-single-gateway-final.xml",
+        "sha256": "887dd66bb825a3c6a528a3b9d0c3a9d706db070ae2ffff635bbf22cf89a302e5"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.remote.CommandRiskRemoteServiceTest(single-gateway-final)",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.remote.CommandRiskRemoteServiceTest-single-gateway-final.xml",
+        "sha256": "80988f225fca836b4c18e02bea299fc150e04240c35e0c7311856899ecadb636"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.remote.LinkPageAnalyticsServiceTest(single-gateway-final)",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.remote.LinkPageAnalyticsServiceTest-single-gateway-final.xml",
+        "sha256": "633778cd5060686c53871d1d19ed2e827b4ac990fc429995de6f8c3144571967"
+      },
+      {
+        "class": "com.jupiter.shortlink.admin.service.GroupServiceImplTest(single-gateway-final)",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/surefire-reports/TEST-com.jupiter.shortlink.admin.service.GroupServiceImplTest-single-gateway-final.xml",
+        "sha256": "8650c0fe23d7001b43e6608174eb1918dfce2dbf5f6fdf16f4763cc5e80311c3"
+      }
+    ]
+  },
+  "risk_core_unit": {
+    "totals": {
+      "tests": 101,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "classes": [
+      {
+        "class": "com.jupiter.shortlink.risk.IpAddressesTest(single-gateway-final)",
+        "tests": 54,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "libraries/risk-core/target/surefire-reports/TEST-com.jupiter.shortlink.risk.IpAddressesTest-single-gateway-final.xml",
+        "sha256": "797cc0dfd7995eb85dccbe1ed6c30836bbb96ed6bae2fe6d87dadb6e1a228442"
+      },
+      {
+        "class": "com.jupiter.shortlink.risk.RequestContextTest(single-gateway-final)",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "libraries/risk-core/target/surefire-reports/TEST-com.jupiter.shortlink.risk.RequestContextTest-single-gateway-final.xml",
+        "sha256": "51357a6dedfd4e7b6e64ff23313265fd7ab8cc79dfea8f193769e9e3273725f5"
+      },
+      {
+        "class": "com.jupiter.shortlink.risk.RiskEvaluatorTest(single-gateway-final)",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "libraries/risk-core/target/surefire-reports/TEST-com.jupiter.shortlink.risk.RiskEvaluatorTest-single-gateway-final.xml",
+        "sha256": "49d0c76b46012307c246e318fb21c7e6ab5ac6ab960f775f4dda31b9bb62cf89"
+      },
+      {
+        "class": "com.jupiter.shortlink.risk.RiskHashTest(single-gateway-final)",
+        "tests": 33,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "libraries/risk-core/target/surefire-reports/TEST-com.jupiter.shortlink.risk.RiskHashTest-single-gateway-final.xml",
+        "sha256": "0d01daf8386b299c1f4ecf47d8e36ded00ce5dbe4feed6bc5f7cd3531bd4aa81"
+      },
+      {
+        "class": "com.jupiter.shortlink.risk.TrustedProxyResolverTest(single-gateway-final)",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "libraries/risk-core/target/surefire-reports/TEST-com.jupiter.shortlink.risk.TrustedProxyResolverTest-single-gateway-final.xml",
+        "sha256": "19b3f48f8ce5cb6d688847fb796e8a39290b29abb8741770173f18cdfff71b52"
+      }
+    ]
+  },
+  "real_servlet_budget_integration": {
+    "totals": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "classes": [
+      {
+        "class": "com.jupiter.shortlink.admin.common.biz.user.AdminServletBudgetIntegrationTest(single-gateway-final)",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/failsafe-reports/TEST-com.jupiter.shortlink.admin.common.biz.user.AdminServletBudgetIntegrationTest-single-gateway-final.xml",
+        "sha256": "2889f6c0660aea50fbd2ba3bc5d56c5436149db956dacbe7af888896fb7bdfff"
+      }
+    ]
+  },
+  "real_redis_session_integration": {
+    "totals": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "classes": [
+      {
+        "class": "com.jupiter.shortlink.admin.common.biz.user.AdminSessionRedisIT(single-gateway-redis-ready)",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "report": "services/admin/target/failsafe-reports/TEST-com.jupiter.shortlink.admin.common.biz.user.AdminSessionRedisIT-single-gateway-redis-ready.xml",
+        "sha256": "f772e2a89ae0bce3fd20577a8d38b903c214b90a1ae2eec79632021d9d973998"
+      }
+    ]
+  },
+  "source_sha256": {
+    "services/admin/pom.xml": "5b040cbc50419eca38e3b19457c80280c7ae59f51dad763777870f01689d287d",
+    "services/admin/src/main/resources/application-production.properties": "9d47aeed69491dc780f5398659b92f6571f6cdcc5e8bc1e3a9b727c919ad3027",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/config/UserConfiguration.java": "fff4ffc3f3d1119606591352d3122d3d01a0339a7f569bbb720c87c2a00e11f1",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/AdminIngressProperties.java": "b67cfd58ddc11ddddba6207593afa7a456cfb6606f7952671037b6b6217911ad",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/UserTransmitFilter.java": "b6ce4f67181a840b17620279775bb77614a79c3f5daf0fc0c10e4b9d4fab200d",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/TrustedManagementIdentity.java": "f5b910e7a3eaec68a8fcb1b302b90e93ed2dd9208769374304f54c5489a96719",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/AdminAdmissionFilter.java": "5aaba821a96498fe422228381de5386e9c2f36037e9e13d58592c0c114c0dc7e",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/AsyncBudgetLease.java": "40c4d5964de1e2524706817ebcdfe15fbf2a8381b905c508ab415389c44cd423",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/RequestBudgetProperties.java": "3fe7fca71977ebc53b1c879c59727be5d20edd4d399f74820c3aebf4d5db2fe5",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/RequestBudgetFilter.java": "f4cc92a8ec16e33cd18afd4db64f4c5f77a1736e173681864b199af1d4d93ec8",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/account/RedisAccountSessionStore.java": "1b717e7d9468c07c0a15428e8d1d9e2321bb9b4bb195cbac9b35ca51dcbc1c92",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/controller/UserController.java": "e3691bb90f697d16890b1746fb2c37957972e20d83973874c563fc7ca99e345e",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/agent/AgentInternalToolApiFilter.java": "75509638d4650831a9f721df4f7e5938e8fc5491ab8928a789cec2418118b8e3",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/common/biz/user/ManagementIdentityTest.java": "c04085cb0c277d40424b27640f5ef003e00a445dd7c192aeada6cff9108e89ae",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/common/biz/user/AdminSessionRedisIT.java": "5750dce2b17b1ce81ba292ab9d8cf6190954b7bf8769c77c3bb64a22bb2066c7",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/common/biz/user/AdminAdmissionBudgetTest.java": "f14874edb262366e4115fe3fbf4679f8d9c4ee67e4f3699debe25a976863f5db",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/common/biz/user/RequestBudgetFilterTest.java": "48a035b1630eca2469c2df0c21becc305c09e39150fcac2d3542fe680a1dd0fe",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/common/biz/user/AdminServletBudgetIntegrationTest.java": "0e8a8c039be496585b9c3c6b59919000eb6c5b305c2c64f8b1b6837238d0fa87",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/common/biz/agent/AgentInternalToolApiFilterTest.java": "cd9686e6919d931c944e5953f0412682325049b59889c773cb35042a3ca78ed0",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/controller/AgentControllerMvcTest.java": "d73d70c9d2d9c947ce73a39209f1d4c68e30d6094734dd51eff179729f692d90",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/controller/RiskCenterControllerTest.java": "8ec4fa7c6fcacfffcde0c6f8a483b8e3f9616c65bbc052f692802ae3814e932e",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/config/AdminDependencyDiagnosticsTest.java": "a56178868dea571366eb43c706fdec0d218a8ac9d5501654d113b203c1214c15",
+    "services/admin/src/test/java/com/jupiter/shortlink/admin/config/AdminIngressConfigurationTest.java": "288fced227e06dfe4bd5af20bba46b715db723da6d6c1df1c4de9e23c6d6a903"
+  },
+  "deleted_files": [
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/common/biz/user/UserFlowRiskControlFilter.java",
+    "services/admin/src/main/java/com/jupiter/shortlink/admin/config/UserFlowRiskControlConfiguration.java",
+    "services/admin/src/main/resources/lua/user_flow_risk_control.lua"
+  ],
+  "commands": [
+    {
+      "script": "services/admin/target/single-gateway-final-test.sh",
+      "script_sha256": "ce5e98368ed5324d51b8b9b4615c6e5076d8f9eff09fd09191f5a13eb4e87e88",
+      "exit_code": 1,
+      "log": "services/admin/target/single-gateway-final.log",
+      "outcome": "Admin 153 + risk-core 101 unit and Servlet 6 passed; Redis 5 initially failed setup because Mockito cannot spy final classes."
+    },
+    {
+      "script": "services/admin/target/single-gateway-redis-test.sh",
+      "script_sha256": "c51f78f3e29a3c5b7fa574536f030f516f6f8d8cfff8e36dfb57233ac4c72a9a",
+      "exit_code": 1,
+      "log": "services/admin/target/single-gateway-redis-final.log",
+      "outcome": "Real Redis 4/5 passed; first fixture seed failed before authentication on the first cold Lettuce connection (ClosedChannelException). Subsequent connections and actual disconnect/recovery test passed."
+    },
+    {
+      "script": "services/admin/target/single-gateway-redis-ready-test.sh",
+      "script_sha256": "ae010fffc579419307e0989e95857af57913e000432b4e66074e0f3e8af3f1fc",
+      "exit_code": 0,
+      "log": "services/admin/target/single-gateway-redis-ready.log",
+      "outcome": "Only fixture preparation adds bounded PING readiness before seeding/testing. Production 150ms/1s timeouts and disconnect/recovery assertions remain unchanged."
+    }
+  ],
+  "earlier_attempts": [
+    {
+      "log": "services/admin/target/single-gateway-unit.log",
+      "outcome": "Windows offline repository-origin mismatch; failed before compilation."
+    },
+    {
+      "log": "services/admin/target/single-gateway-unit-wsl.log",
+      "outcome": "Initial two new unit fixture errors; fixed before accepted complete unit run. Outer WSL command did not reliably retain Maven exit; log says BUILD FAILURE."
+    }
+  ],
+  "limits": [
+    "No old Account/MySQL integration suites, E2E, pressure or business service startup run by this lane.",
+    "Servlet IT uses real Tomcat and a controlled identity fixture; production ingress/Agent identity async restoration is unit-tested separately.",
+    "Read deadline is absolute application time, not hard real time; Servlet cannot inspect bytes outside container HTTP framing.",
+    "Redis disruption uses only fixture-owned loopback TCP relay sockets; dedicated Redis server is not paused/stopped.",
+    "Untracked private local application.yaml retains an unused old flow-limit block and was not edited.",
+    "No Git operations, package/install, deployed JAR changes or external source edits were performed."
+  ]
+}

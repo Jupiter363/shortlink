@@ -1,0 +1,114 @@
+{
+  "status": "PASSED",
+  "scope": "producer-to-Kafka raw events only",
+  "doesNotProve": "Analytics aggregation, statistics storage, or delivery outside captured offsets",
+  "runId": "20260911T080908Z-63b1c29f",
+  "producerInstanceId": "e2e-20260911T080908Z-63b1c29f",
+  "headOnlyLinkId": 4,
+  "headOnlyShortUri": "5evCtf4kr",
+  "matchingClickEvents": 0,
+  "matchingRequestEvents": 1,
+  "matchingRedirectHead302Events": 1,
+  "elapsedSeconds": 26.759,
+  "qualityBefore": {
+    "producerInstanceId": "e2e-20260911T080908Z-63b1c29f",
+    "lanes": {
+      "click": {
+        "attempted": 12,
+        "delivered": 12,
+        "failed": 0,
+        "rejected": 0,
+        "pending": 0
+      },
+      "result": {
+        "attempted": 19,
+        "delivered": 19,
+        "failed": 0,
+        "rejected": 0,
+        "pending": 0
+      }
+    },
+    "startedAt": 1789114215393,
+    "observedAt": 1789114253367
+  },
+  "qualityAfter": {
+    "producerInstanceId": "e2e-20260911T080908Z-63b1c29f",
+    "lanes": {
+      "click": {
+        "attempted": 12,
+        "delivered": 12,
+        "failed": 0,
+        "rejected": 0,
+        "pending": 0
+      },
+      "result": {
+        "attempted": 19,
+        "delivered": 19,
+        "failed": 0,
+        "rejected": 0,
+        "pending": 0
+      }
+    },
+    "startedAt": 1789114215393,
+    "observedAt": 1789114280116
+  },
+  "partitions": [
+    {
+      "topic": "shortlink.click.raw.v1",
+      "partition": 0,
+      "startOffset": 0,
+      "endOffsetExclusive": 9,
+      "recordsScanned": 9,
+      "sameLinkOtherProducer": 0,
+      "matchingEvents": [],
+      "unrelatedMalformedRecords": 0
+    },
+    {
+      "topic": "shortlink.click.raw.v1",
+      "partition": 1,
+      "startOffset": 0,
+      "endOffsetExclusive": 3,
+      "recordsScanned": 3,
+      "sameLinkOtherProducer": 0,
+      "matchingEvents": [],
+      "unrelatedMalformedRecords": 0
+    },
+    {
+      "topic": "shortlink.gateway.request.v1",
+      "partition": 0,
+      "startOffset": 0,
+      "endOffsetExclusive": 26,
+      "recordsScanned": 26,
+      "sameLinkOtherProducer": 0,
+      "matchingEvents": [
+        {
+          "producerInstanceId": "e2e-20260911T080908Z-63b1c29f",
+          "linkId": 4,
+          "schemaVersion": 1,
+          "occurredAt": 1789114253081,
+          "source": "REDIRECT",
+          "stage": "BUSINESS",
+          "method": "HEAD",
+          "status": 302,
+          "domainNorm": "s.e2e.test",
+          "shortUri": "5evCtf4kr",
+          "decisionId": "v1:1789114253081:2eec762f-2077-45b4-8365-590e64634998",
+          "partition": 0,
+          "offset": 25
+        }
+      ],
+      "unrelatedMalformedRecords": 0
+    },
+    {
+      "topic": "shortlink.gateway.request.v1",
+      "partition": 1,
+      "startOffset": 0,
+      "endOffsetExclusive": 35,
+      "recordsScanned": 35,
+      "sameLinkOtherProducer": 0,
+      "matchingEvents": [],
+      "unrelatedMalformedRecords": 0
+    }
+  ],
+  "consumerOffsetsCommitted": false
+}

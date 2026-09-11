@@ -20,6 +20,9 @@ routes:
     hosts: ["${{MANAGEMENT_HOST}}"]
     uris: ["/api/short-link/admin/v1/*", "/api/short-link/v1/user", "/api/short-link/v1/user/*"]
     plugins:
+      # Stream to Admin's bounded reader; do not stage the complete body twice.
+      proxy-control:
+        request_buffering: false
       shortlink-boundary:
         mode: management
       limit-req:
@@ -39,10 +42,11 @@ routes:
       type: roundrobin
       pass_host: pass
       retries: 0
-      timeout: {connect: 1, send: 3, read: 5}
+      # Read is an inactivity timeout, with room for Admin's bounded 5s downstream calls.
+      timeout: {connect: 1, send: 3, read: 10}
       nodes:
-        - host: "${{GATEWAY_UPSTREAM_HOST}}"
-          port: 8000
+        - host: "${{ADMIN_UPSTREAM_HOST}}"
+          port: 8002
           weight: 1
   - id: shortlink-redirect
     priority: 10

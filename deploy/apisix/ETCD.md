@@ -49,7 +49,7 @@ export KAFKA_HOST=kafka.internal
 export APISIX_INSTANCE_ID=shortlink-edge-prod
 export MANAGEMENT_HOST=admin.example.com
 export SHORTLINK_HOST=s.example.com
-export GATEWAY_UPSTREAM_HOST=shortlink-gateway.internal
+export ADMIN_UPSTREAM_HOST=shortlink-admin.internal
 export REDIRECT_UPSTREAM_HOST=shortlink-redirect.internal
 python3 deploy/apisix/bootstrap-etcd.py \
   --manifest /run/shortlink-apisix/public/apisix.yaml \
@@ -81,7 +81,8 @@ etcd 快照、APISIX 加密 key、管理秘密和证书恢复材料需共同纳�
 ## 服务发现决策
 
 本次可执行生产配置采用受控内网 DNS 服务名，APISIX upstream 使用固定服务端口
-Gateway 8000、Redirect 8003。Nacos 属于旧应用服务发现模式；首版新链路不同时维护
+Admin 8002、Redirect 8003。管理请求由 APISIX 直接转发给 Admin，不再部署 Java Gateway。
+Nacos 属于旧应用服务发现模式；首版新链路不同时维护
 Nacos 和 APISIX 两套服务实例目录。DNS/LB 负责服务节点变更，etcd 管理路由/插件/证书；
 两者职责分开。当前决定必须同步到总部署文档，不能宣称未接线的 Nacos 已完成生产验收。
 

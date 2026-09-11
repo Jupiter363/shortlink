@@ -1,0 +1,40 @@
+[
+  {
+    "suite": "business",
+    "command": [
+      "scripts/e2e/shortlink_create_redirect_cases.py",
+      "http://127.0.0.1:19080",
+      "admin.e2e.test",
+      "s.e2e.test"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 20.781
+  },
+  {
+    "suite": "head-events",
+    "command": [
+      "scripts/e2e/verify_head_events.py",
+      "/mnt/d/学习/Project/马哥Project/shortlink/.work/e2e/20260911T080908Z-63b1c29f"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 27.048
+  },
+  {
+    "suite": "admin-ingress",
+    "command": [
+      "scripts/e2e/admin_ingress_cases.py",
+      "/mnt/d/学习/Project/马哥Project/shortlink/.work/e2e/20260911T080908Z-63b1c29f/state.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 6.487
+  },
+  {
+    "suite": "gateway",
+    "command": [
+      "scripts/e2e/verify_gateway_e2e.py",
+      "/mnt/d/学习/Project/马哥Project/shortlink/.work/e2e/20260911T080908Z-63b1c29f/state.json"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 19.224
+  }
+]

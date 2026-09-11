@@ -1,5 +1,7 @@
 # 开发计划
 
+当前网关拓扑已收口为 APISIX → Admin / Redirect；Java Gateway 的会话与资源保护迁入 Admin。旧阶段计划用于追溯，现行边界与迁移验收见[单网关说明](../development/single-gateway.md)。
+
 | 计划 | 入口 |
 | --- | --- |
 | 仓库结构整理 | [现状分析与整理计划](仓库结构整理/01-现状分析与整理计划.md) · [实施与验收](../integration/repository-layout-2026-09-10/README.md) |

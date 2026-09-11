@@ -1,0 +1,110 @@
+{
+  "suite": "admin-public-ingress",
+  "passed": true,
+  "case_count": 9,
+  "cases": [
+    {
+      "id": "AI01_register_and_login_two_accounts",
+      "passed": true,
+      "deadlineSeconds": 20,
+      "registeredAccounts": 2,
+      "loginStatuses": [
+        200,
+        200
+      ],
+      "elapsedSeconds": 1.055
+    },
+    {
+      "id": "AI02_matching_header_and_query_session",
+      "passed": true,
+      "deadlineSeconds": 10,
+      "httpStatus": 200,
+      "verifiedSession": true,
+      "elapsedSeconds": 0.028
+    },
+    {
+      "id": "AI03_cross_username_logout_rejected",
+      "passed": true,
+      "deadlineSeconds": 10,
+      "httpStatus": 401,
+      "bothSessionsStillValid": true,
+      "elapsedSeconds": 0.032
+    },
+    {
+      "id": "AI04_cross_token_logout_rejected",
+      "passed": true,
+      "deadlineSeconds": 10,
+      "httpStatus": 401,
+      "bothSessionsStillValid": true,
+      "elapsedSeconds": 0.029
+    },
+    {
+      "id": "AI05_logout_revokes_original_token",
+      "passed": true,
+      "deadlineSeconds": 10,
+      "logoutStatus": 200,
+      "revokedTokenStatus": 401,
+      "elapsedSeconds": 0.019
+    },
+    {
+      "id": "AI06_active_slow_upload_body_deadline",
+      "passed": true,
+      "deadlineSeconds": 11,
+      "probe": {
+        "httpStatus": 408,
+        "elapsedSeconds": 5.01,
+        "declaredBodyBytes": 1024,
+        "sentBodyBytes": 13,
+        "bodyIncompleteAtResponse": true,
+        "dripIntervalSeconds": 0.4
+      },
+      "recoveryStatus": 200,
+      "elapsedSeconds": 5.019
+    },
+    {
+      "id": "AI07_oversized_body_rejected_before_upload",
+      "passed": true,
+      "deadlineSeconds": 6,
+      "probe": {
+        "httpStatus": 413,
+        "elapsedSeconds": 0.004,
+        "declaredBodyBytes": 262145,
+        "sentBodyBytes": 1,
+        "bodyIncompleteAtResponse": true,
+        "dripIntervalSeconds": null
+      },
+      "recoveryStatus": 200,
+      "elapsedSeconds": 0.019
+    },
+    {
+      "id": "AI08_gzip_rejected_before_upload",
+      "passed": true,
+      "deadlineSeconds": 6,
+      "probe": {
+        "httpStatus": 415,
+        "elapsedSeconds": 0.004,
+        "declaredBodyBytes": 1024,
+        "sentBodyBytes": 1,
+        "bodyIncompleteAtResponse": true,
+        "dripIntervalSeconds": null
+      },
+      "recoveryStatus": 200,
+      "elapsedSeconds": 0.02
+    },
+    {
+      "id": "AI09_remaining_session_logout",
+      "passed": true,
+      "deadlineSeconds": 10,
+      "logoutStatus": 200,
+      "revokedTokenStatus": 401,
+      "elapsedSeconds": 0.017
+    }
+  ],
+  "scope": {
+    "publicApisixOnly": true,
+    "newAccounts": true,
+    "loadTest": false,
+    "agent": false,
+    "credentialsInEvidence": false
+  }
+}

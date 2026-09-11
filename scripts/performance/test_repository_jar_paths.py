@@ -2,6 +2,7 @@
 import contextlib
 import copy
 import hashlib
+import http.server as http_server
 import importlib.util
 import io
 import json
@@ -13,6 +14,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
@@ -22,7 +24,6 @@ ROOT = Path(__file__).resolve().parents[2]
 JARS = {
     "shortlink-command": ("shortlink-command-1.0-SNAPSHOT.jar", 8001, 8101),
     "admin": ("shortlink-admin.jar", 8002, 8102),
-    "gateway": ("shortlink-gateway-1.0-SNAPSHOT.jar", 8000, 8100),
     "shortlink-redirect": ("shortlink-redirect-1.0-SNAPSHOT.jar", 8003, 8103),
 }
 
@@ -77,7 +78,7 @@ class RepositoryJarPathsTests(unittest.TestCase):
             self.bodies[module] = (self.candidate.name + ":" + module).encode()
             target.write_bytes(self.bodies[module])
             self.assertFalse((self.candidate / module / "target").exists())
-        self.launches, self.processes, self.states, self.jar_reads = [], [], [], []
+        self.launches, self.processes, self.states, self.jar_reads, self.commands = [], [], [], [], []
 
     def tearDown(self):
         # TemporaryDirectory cleanup is confined to this newly created test root.
@@ -91,7 +92,7 @@ class RepositoryJarPathsTests(unittest.TestCase):
         self.processes.append(process)
         return process
 
-    def four_service_entry(self, performance, legacy_only=False):
+    def three_service_entry(self, performance, legacy_only=False, extra_args=()):
         relative = "scripts/performance/supervisor.py" if performance else "scripts/e2e/run_create_redirect_e2e.py"
         with patch.object(sys, "path", [str(self.candidate / "scripts/performance"), *sys.path]):
             module = load(self.candidate / relative, "migrated_supervisor" if performance else "migrated_e2e")
@@ -104,7 +105,7 @@ class RepositoryJarPathsTests(unittest.TestCase):
                 old.write_bytes(b"legacy artifact must not be used")
                 (self.candidate / "services" / name / "target" / filename).unlink()
         args = (module.parse_args(["--allow-test-database", "--max-runtime-seconds", "0"])
-                if performance else SimpleNamespace(allow_test_database=True, max_runtime_seconds=0))
+                if performance else module.parse_args(["--allow-test-database", "--max-runtime-seconds", "0", *extra_args]))
         original_mkdir, original_bytes, original_write = Path.mkdir, Path.read_bytes, module.write_json
 
         def mkdir(path, *args, **kwargs):
@@ -127,7 +128,21 @@ class RepositoryJarPathsTests(unittest.TestCase):
             return original_write(path, value)
 
         def command(argv, **kwargs):
-            if argv[:2] == ["docker", "inspect"]:
+            self.commands.append(list(argv))
+            if argv[:2] == ["docker", "run"]:
+                self.assertIn("ADMIN_UPSTREAM_HOST=host.docker.internal", argv)
+                self.assertFalse(any("GATEWAY_UPSTREAM_HOST" in value for value in argv))
+            if argv[:4] == ["docker", "inspect", "--type", "container"]:
+                name = argv[-1]
+                if name == args.mysql_container:
+                    internal_port, published_port = 3306, args.mysql_port
+                else:
+                    self.assertEqual(name, args.redis_container)
+                    internal_port, published_port = 6379, args.redis_port
+                stdout = json.dumps([{"Id": "fixture-" + name, "Name": "/" + name,
+                    "State": {"Running": True}, "NetworkSettings": {"Ports": {
+                        str(internal_port) + "/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(published_port)}]}}}])
+            elif argv[:2] == ["docker", "inspect"]:
                 stdout = json.dumps([{"State": {"Pid": 12345}, "NetworkSettings": {"Networks": {
                     module.NETWORK: {"IPAddress": "172.31.0.7", "Gateway": "172.31.0.1"}}}}])
             else:
@@ -159,13 +174,21 @@ class RepositoryJarPathsTests(unittest.TestCase):
             else:
                 module.serve(args)
 
-    def assert_four_service_identity(self, performance):
+    def assert_three_service_identity(self, performance):
         ready = [state for state in self.states if state["phase"] == "READY"]
         self.assertEqual(len(ready), 1)
         state = ready[0]
         self.assertEqual(set(state["jvmArtifacts"]), set(JARS))
-        self.assertEqual(len(self.launches), 4)
-        self.assertEqual(len(self.jar_reads), 4)
+        self.assertEqual(len(self.launches), 3)
+        self.assertEqual(len(self.jar_reads), 3)
+        if not performance:
+            for service, internal_port in (("mysql", 3306), ("redis", 6379)):
+                binding = state["dependencyBindings"][service]
+                self.assertEqual(binding["container"], state[service + "Container"])
+                self.assertEqual(binding["containerId"], "fixture-" + state[service + "Container"])
+                self.assertEqual(binding["hostIp"], "127.0.0.1")
+                self.assertEqual(binding["hostPort"], state[service + "Port"])
+                self.assertEqual(binding["containerPort"], internal_port)
         for i, (name, (filename, port, management)) in enumerate(JARS.items()):
             expected = self.candidate / "services" / name / "target" / filename
             argv, env = self.launches[i]
@@ -179,6 +202,8 @@ class RepositoryJarPathsTests(unittest.TestCase):
                 self.assertIn(flag, argv)
             self.assertEqual(env["REDIS_PORT"], "16379")
             self.assertEqual(env["KAFKA_BOOTSTRAP_SERVERS"], "localhost:19092")
+            self.assertEqual(env["ADMIN_ALLOWED_HOSTS"], state["managementHost"])
+            self.assertEqual(env["APISIX_CIDRS"], "172.31.0.7/32")
             artifact = state["jvmArtifacts"][name]
             self.assertEqual(set(artifact), {"pid", "businessPort", "healthPort", "sha256"})
             self.assertEqual(artifact, {"pid": 20001+i, "businessPort": port, "healthPort": management,
@@ -192,21 +217,47 @@ class RepositoryJarPathsTests(unittest.TestCase):
             self.assertEqual(state["resourceProfile"]["loadGeneratorCpuSet"], "12-15")
 
     def test_performance_entry_launches_and_hashes_new_root_artifacts(self):
-        self.four_service_entry(True)
-        self.assert_four_service_identity(True)
+        self.three_service_entry(True)
+        self.assert_three_service_identity(True)
 
     def test_e2e_entry_launches_and_hashes_new_root_artifacts(self):
-        self.four_service_entry(False)
-        self.assert_four_service_identity(False)
+        self.three_service_entry(False)
+        self.assert_three_service_identity(False)
+
+    def test_e2e_explicit_resources_are_used_and_recorded_without_old_container_fallback(self):
+        self.three_service_entry(False, extra_args=[
+            "--mysql-container", "owned-mysql", "--redis-container", "owned-redis",
+            "--kafka-container", "owned-kafka", "--network", "owned-network",
+            "--mysql-port", "23306", "--redis-port", "26379",
+            "--kafka-bootstrap", "localhost:29092", "--kafka-host", "owned-broker",
+            "--object-endpoint", "http://127.0.0.1:29000"])
+        state = next(value for value in self.states if value["phase"] == "READY")
+        self.assertEqual(state["mysqlContainer"], "owned-mysql")
+        self.assertEqual(state["redisContainer"], "owned-redis")
+        self.assertEqual(state["kafkaContainer"], "owned-kafka")
+        self.assertEqual(state["kafkaContainerBootstrap"], "localhost:9092")
+        self.assertEqual(state["network"], "owned-network")
+        for _, env in self.launches:
+            self.assertIn("127.0.0.1:23306/shortlink_cr_e2e_", env["BUSINESS_DB_URL"])
+            self.assertEqual(env["REDIS_PORT"], "26379")
+            self.assertEqual(env["KAFKA_BOOTSTRAP_SERVERS"], "localhost:29092")
+            self.assertEqual(env["OBJECT_ENDPOINT"], "http://127.0.0.1:29000")
+        docker_run = next(argv for argv in self.commands if argv[:2] == ["docker", "run"])
+        self.assertEqual(docker_run[docker_run.index("--network") + 1], "owned-network")
+        self.assertIn("KAFKA_HOST=owned-broker", docker_run)
+        redis_calls = [argv for argv in self.commands if "redis-cli" in argv]
+        self.assertTrue(redis_calls)
+        self.assertTrue(all(argv[2] == "owned-redis" for argv in redis_calls))
+        self.assertFalse(any("FLUSHDB" in argv or "FLUSHALL" in argv for argv in self.commands))
 
     def test_performance_does_not_fall_back_to_legacy_target(self):
-        self.four_service_entry(True, legacy_only=True)
+        self.three_service_entry(True, legacy_only=True)
         self.assertFalse(any(state["phase"] == "READY" for state in self.states))
         self.assertEqual(self.states[-1]["phase"], "FAILED")
         self.assertTrue(all(process.stopped for process in self.processes))
 
     def test_e2e_does_not_fall_back_to_legacy_target(self):
-        self.four_service_entry(False, legacy_only=True)
+        self.three_service_entry(False, legacy_only=True)
         self.assertFalse(any(state["phase"] == "READY" for state in self.states))
         self.assertEqual(self.states[-1]["phase"], "FAILED")
         self.assertTrue(all(process.stopped for process in self.processes))
@@ -224,7 +275,7 @@ class RepositoryJarPathsTests(unittest.TestCase):
                        "SHORTLINK_IT_DB_USERNAME": "fixture", "SHORTLINK_IT_DB_PASSWORD": "fixture", **environment}
         code = self.candidate / "scripts/integration/production_jar_components.py"
         def http(port, method, path):
-            self.assertIn(port, (18100, 18103))
+            self.assertIn(port, (18102, 18103))
             self.assertEqual(method, "GET")
             return 200, {}, b"metric 1\n" if path == "/actuator/prometheus" else b'{"status":"UP"}'
         with contextlib.ExitStack() as stack:
@@ -237,6 +288,10 @@ class RepositoryJarPathsTests(unittest.TestCase):
             stack.enter_context(patch.object(subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True))
             stack.enter_context(patch.object(subprocess, "run", side_effect=AssertionError("Unexpected command")))
             stack.enter_context(patch.object(socket, "socket", side_effect=AssertionError("Unexpected socket")))
+            stub = MagicMock(server_address=("127.0.0.1", 28001))
+            server_factory = stack.enter_context(patch.object(http_server, "ThreadingHTTPServer", return_value=stub))
+            worker = MagicMock()
+            stack.enter_context(patch.object(threading, "Thread", return_value=worker))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             with self.assertRaises(SystemExit) as exited:
                 runpy.run_path(str(code), run_name="__main__")
@@ -246,26 +301,42 @@ class RepositoryJarPathsTests(unittest.TestCase):
             self.assertFalse((self.candidate / ".work/component-results").exists())
         else:
             self.assertEqual(exited.exception.code, 0)
-            expected_names = ["gateway", "shortlink-redirect"] if selection == "all" else [selection]
+            expected_names = ["admin", "shortlink-redirect"] if selection == "all" else [selection]
             self.assertEqual(len(self.launches), len(expected_names))
             for name, (argv, env) in zip(expected_names, self.launches):
                 filename = JARS[name][0]
                 expected = self.candidate / "services" / name / "target" / filename
                 self.assertEqual(Path(argv[3]), expected)
                 self.assertTrue(expected.is_file())
-                port, management = (18000, 18100) if name == "gateway" else (18003, 18103)
+                port, management = (18002, 18102) if name == "admin" else (18003, 18103)
                 self.assertEqual(argv[1:], ["-Dfile.encoding=UTF-8", "-jar", str(expected),
                     "--spring.profiles.active=production", "--spring.config.location=classpath:application-production.properties",
                     "--server.port=" + str(port), "--management.server.port=" + str(management), "--spring.data.redis.password=",
                     "--management.endpoint.health.probes.enabled=true", "--management.endpoint.health.show-details=always"])
                 self.assertEqual(env["KAFKA_BOOTSTRAP_SERVERS"], "localhost:19092")
                 self.assertEqual(env["REDIS_PORT"], "16379")
+                self.assertEqual(env["BUSINESS_DB_USERNAME"], "fixture")
+                self.assertEqual(env["BUSINESS_DB_PASSWORD"], "fixture")
+                self.assertEqual(env["ADMIN_ALLOWED_HOSTS"], "admin.it.test")
+                self.assertEqual(env["APISIX_CIDRS"], "127.0.0.0/8")
+                self.assertEqual(env["COMMAND_URL"], environment.get("SHORTLINK_IT_COMMAND_URL", "http://127.0.0.1:28001"))
+                self.assertIn("ACCOUNT_PII_KEY", env)
+                self.assertIn("AGENT_INTERNAL_TOKEN", env)
             self.assertTrue(all(process.stopped for process in self.processes))
             reports = list((self.candidate / ".work/component-results").glob("production-jars-*.json"))
             self.assertEqual(len(reports), 1)
             rows = json.loads(reports[0].read_text(encoding="utf-8"))
             self.assertEqual([row["module"] for row in rows], expected_names)
             self.assertTrue(all(row["healthHttpStatus"] == 200 and row["metricsHttpStatus"] == 200 for row in rows))
+            for row in rows:
+                self.assertEqual(row["jarSha256"], hashlib.sha256(self.bodies[row["module"]]).hexdigest())
+            if environment.get("SHORTLINK_IT_COMMAND_URL"):
+                server_factory.assert_not_called()
+            else:
+                server_factory.assert_called_once()
+                stub.shutdown.assert_called_once()
+                stub.server_close.assert_called_once()
+                worker.join.assert_called_once_with(timeout=5)
 
     def test_component_explicit_jdk_wins_and_both_jars_use_new_root(self):
         selected, fallback = self.fake_jdk("explicit-jdk"), self.fake_jdk("fallback-jdk")
@@ -274,13 +345,17 @@ class RepositoryJarPathsTests(unittest.TestCase):
 
     def test_component_java_home_fallback_and_single_module(self):
         selected = self.fake_jdk("fallback-jdk")
-        self.component_entry({"JAVA_HOME": str(selected)}, selection="gateway")
+        self.component_entry({"JAVA_HOME": str(selected)}, selection="admin")
         self.assertEqual(Path(self.launches[0][0][0]), selected / "bin/java.exe")
 
     def test_component_empty_explicit_home_uses_java_home(self):
         selected = self.fake_jdk("fallback-jdk")
         self.component_entry({"SHORTLINK_IT_JAVA_HOME": "", "JAVA_HOME": str(selected)}, selection="shortlink-redirect")
         self.assertEqual(Path(self.launches[0][0][0]), selected / "bin/java.exe")
+
+    def test_component_explicit_command_does_not_start_a_stub(self):
+        selected = self.fake_jdk("explicit-command-jdk")
+        self.component_entry({"JAVA_HOME": str(selected), "SHORTLINK_IT_COMMAND_URL": "http://127.0.0.1:28011"})
 
     def test_component_missing_java_home_fails_before_output_or_process(self):
         self.component_entry({}, rejection="SHORTLINK_IT_JAVA_HOME or JAVA_HOME")

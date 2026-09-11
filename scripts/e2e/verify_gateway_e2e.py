@@ -8,10 +8,25 @@ import json
 import pathlib
 import time
 
+import yaml
+
 from gateway_security_cases import (RECOVERY, probe_connection_limit,
                                     probe_rate_limit, probe_restored_configuration,
                                     run_edge_security)
 from run_create_redirect_e2e import ROOT, command, request_http, write_json
+
+
+def limit_fixture(original, route_id, plugin, **limits):
+    """Change one owned route's limiter without depending on YAML whitespace/order."""
+    allowed = {"limit-req": {"rate", "burst"}, "limit-conn": {"conn", "burst"}}
+    if plugin not in allowed or set(limits) != allowed[plugin]:
+        raise ValueError("Only bounded rate/connection fixture limits may be changed")
+    manifest = yaml.safe_load(original)
+    routes = [route for route in manifest.get("routes", []) if route.get("id") == route_id]
+    if len(routes) != 1 or plugin not in routes[0].get("plugins", {}):
+        raise ValueError("Expected one production route and its limiter: " + route_id)
+    routes[0]["plugins"][plugin].update(limits)
+    return yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True) + "#END\n"
 
 
 def verify(state_path):
@@ -49,7 +64,7 @@ def verify(state_path):
                                                    state["redirectHost"], short_uri))
     rows = []
     for name, port, host, path in (
-            ("GS08_direct_gateway_peer_rejected", 8000, state["managementHost"], RECOVERY),
+            ("GS08_direct_admin_peer_rejected", 8002, state["managementHost"], RECOVERY),
             ("GS09_direct_redirect_peer_rejected", 8003, state["redirectHost"], "/" + short_uri)):
         # Real TCP peer is loopback; forwarded strings cannot grant trust.
         status, _, _ = request_http(port, path, {"Host": host, "X-Forwarded-For": state["apisixIp"],
@@ -59,20 +74,12 @@ def verify(state_path):
     record("gateway-peer-boundary", {"suite": "untrusted_socket_peer", "passed": all(r["passed"] for r in rows),
                                       "case_count": len(rows), "cases": rows})
     try:
-        management_rate = "      limit-req:\n        rate: 100\n        burst: 100\n"
-        redirect_rate = "      limit-req:\n        rate: 1000\n        burst: 200\n"
-        if original.count(management_rate) != 1 or original.count(redirect_rate) != 1:
-            raise ValueError("Production limit layout changed; review probe configuration")
-        low_rate = "      limit-req:\n        rate: 2\n        burst: 0\n"
-        install(original.replace(management_rate, low_rate))
+        install(limit_fixture(original, "shortlink-management", "limit-req", rate=2, burst=0))
         record("gateway-management-rate", probe_rate_limit(state["baseUrl"], state["managementHost"], RECOVERY, 200))
-        install(original.replace(redirect_rate, low_rate))
+        install(limit_fixture(original, "shortlink-redirect", "limit-req", rate=2, burst=0))
         # A valid-shaped missing alias exercises the redirect route without clicking HEAD-only.
         record("gateway-redirect-rate", probe_rate_limit(state["baseUrl"], state["redirectHost"], "/000000000", 404))
-        connection = "      limit-conn:\n        conn: 200\n        burst: 100\n"
-        if original.count(connection) != 2:
-            raise ValueError("Production connection layout changed; review probe configuration")
-        install(original.replace(connection, "      limit-conn:\n        conn: 2\n        burst: 0\n", 1))
+        install(limit_fixture(original, "shortlink-management", "limit-conn", conn=2, burst=0))
         record("gateway-edge-connections", probe_connection_limit(state["baseUrl"], state["managementHost"]))
     finally:
         install(original)
@@ -82,14 +89,14 @@ def verify(state_path):
     record("gateway-config-restored", restored)
     pid = command(["docker", "inspect", "-f", "{{.State.Pid}}", state["apisix"]]).stdout.strip()
     invocation = ["nsenter", "--target", pid, "--net", "/usr/bin/python3", "-B",
-                  str(ROOT / "scripts/e2e/gateway_security_cases.py"), "--gateway-admission",
-                  state["networkGateway"] + ":8000", "--management-host", state["managementHost"]]
+                  str(ROOT / "scripts/e2e/gateway_security_cases.py"), "--admin-admission",
+                  state["networkGateway"] + ":8002", "--management-host", state["managementHost"]]
     result = command(invocation, timeout=15, check=False)
-    (folder / "gateway-admission-error.log").write_text(result.stderr, encoding="utf-8")
+    (folder / "admin-admission-error.log").write_text(result.stderr, encoding="utf-8")
     admission = json.loads(result.stdout)
     admission["process_exit_code"] = result.returncode
     admission["passed"] = admission["passed"] and result.returncode == 0
-    record("gateway-admission", admission)
+    record("admin-admission", admission)
     summary = {"suite": "gateway-real-http", "passed": all(r["passed"] for r in reports),
                "case_count": sum(r["case_count"] for r in reports), "reports": reports,
                "productionManifestRestored": manifest.read_text(encoding="utf-8") == production,

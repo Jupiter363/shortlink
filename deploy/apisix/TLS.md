@@ -25,9 +25,9 @@ python3 deploy/apisix/render-tls-config.py --output /run/shortlink-apisix/public
 隔离 standalone TLS 组件测试才挂载这里生成的 config.yaml 和 apisix.yaml 两个文件到
 `/usr/local/apisix/conf/`，并挂载 `deploy/apisix/plugins` 到 `/opt/shortlink`。
 Standalone 容器或正式导入环境设置 `KAFKA_HOST`、`APISIX_INSTANCE_ID`、两个 Host，以及
-`GATEWAY_UPSTREAM_HOST`、`REDIRECT_UPSTREAM_HOST`；上游端口固定 8000/8003。每节点 hostname 唯一。
+`ADMIN_UPSTREAM_HOST`、`REDIRECT_UPSTREAM_HOST`；上游端口固定 8002/8003。每节点 hostname 唯一。
 使用已验证的 `apache/apisix:3.11.0-debian` 制品，仅发布 `443:9443`。
-Java 内部服务保持服务网络可达，不能绕过 APISIX/Gateway 直接公开。
+Admin、Redirect 等 Java 内部服务保持服务网络可达，不能绕过 APISIX 直接公开。
 
 轮换证书时重新生成受保护清单，正式模式通过 HTTPS Admin API 更新对应 ssls，并验证新证书链、
 到期时间、SNI、GET/HEAD 和 Host 拒绝行为。文件生成不代表执行部署，本文件也不新增审批步骤。

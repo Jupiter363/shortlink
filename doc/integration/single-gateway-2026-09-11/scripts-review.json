@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-09-11T07:55:30.311273+00:00",
+  "owner": "readme_ops",
+  "status": "OFFLINE_VALIDATION_PASSED",
+  "scope": "Current scripts only: APISIX -> Admin:8002 / Redirect:8003; Command remains 8001. No real component, E2E, Agent or load run by this lane.",
+  "files": [
+    {
+      "path": "scripts/README.md",
+      "sha256": "e7fb948e34028424de4738aa746f3c22eb6550a6ec909cfc29d96000749387bf"
+    },
+    {
+      "path": "scripts/e2e/admin_ingress_cases.py",
+      "sha256": "87333c7a4ba4a71f93172c685278759b3bee0ccee477fec6fc748ef0c167f2e5"
+    },
+    {
+      "path": "scripts/e2e/gateway_security_cases.py",
+      "sha256": "daab02b5bdb75aa499f9152e96503881a5620bc6ae4ebc798b90e9e80e16787c"
+    },
+    {
+      "path": "scripts/e2e/run_create_redirect_e2e.py",
+      "sha256": "4fb1a24f459232943ae7bd0ede32ea2701b93cd9353b058cdcba266f8e6f53eb"
+    },
+    {
+      "path": "scripts/e2e/verify_gateway_e2e.py",
+      "sha256": "69f60788f41176874f0e17dab8a10fbf8833e8fcd857ef3408af5330992cd7fa"
+    },
+    {
+      "path": "scripts/e2e/verify_head_events.py",
+      "sha256": "267c76c61aa1152d8047d02aab31cbafd3b424ca38d6d98346588dd386e4e635"
+    },
+    {
+      "path": "scripts/integration/apisix_etcd_component.py",
+      "sha256": "1e20399e4a0c4701d79a7358907caed81c635563d5f151b9ce9edeff3d010e24"
+    },
+    {
+      "path": "scripts/integration/apisix_limiter_component.py",
+      "sha256": "0600eba282f26459d0e1f32c9bcd9314f8785b12b721e7803d4a348c3a178c88"
+    },
+    {
+      "path": "scripts/integration/apisix_tls_component.py",
+      "sha256": "c61a1136d11b166b76aa4219b91eb0d0d298189375bc64d477e874a496fe98cd"
+    },
+    {
+      "path": "scripts/integration/component_adapters.py",
+      "sha256": "321628c2ed99edea57c1be49a81077642b2786c4a9775232e1fbfe5db80c92e4"
+    },
+    {
+      "path": "scripts/integration/production_jar_components.py",
+      "sha256": "cbf0708bc253619ba36728be022f15ff8fb1f7200b845c9743074d721e5fea5e"
+    },
+    {
+      "path": "scripts/integration/run-admin-redirect-it.ps1",
+      "sha256": "ec8e1fea67da776dc96fa7c188aa53737527c314d38c0bb522b0ab8231dd0f23"
+    },
+    {
+      "path": "scripts/performance/observe.py",
+      "sha256": "fa389cf7e996e6c4b3edb31de9166e7a7f2ae322d643d90f8874f08786f20e85"
+    },
+    {
+      "path": "scripts/performance/run_stage.py",
+      "sha256": "e08983c965d96e58a672f6cc1c92c2e6658d90684a3a718a541057910434bf60"
+    },
+    {
+      "path": "scripts/performance/summarize.py",
+      "sha256": "c817ad1f14b7eca53b9de7b328d2cbf2feeaf074bd2ff1dfc5cb18eb2c289850"
+    },
+    {
+      "path": "scripts/performance/supervisor.py",
+      "sha256": "1b6e3d4da06cab7401c89ae8169f49ac95aa86f11227aaf4deefdcf1ebae4a6a"
+    },
+    {
+      "path": "scripts/performance/test_admin_ingress_cases.py",
+      "sha256": "9e7ad110d7a394dfe189d4614335b87de0281877ac20da1bf6af2abca799d7b4"
+    },
+    {
+      "path": "scripts/performance/test_application_cpu_profile.py",
+      "sha256": "0c1d2db2fe97be7fe35b7c5e1e766480f362a92ad2df15e2036167f0b7dfd5e6"
+    },
+    {
+      "path": "scripts/performance/test_explicit_redis_database.py",
+      "sha256": "2ae4d20fa12996e6ba09368a7eb3aa85869fc559643f8a0313c50e4c9961c01f"
+    },
+    {
+      "path": "scripts/performance/test_repository_jar_paths.py",
+      "sha256": "d56f33f567b7bc1ffa547ffc1c1a1140e7fbbc75a79e170eb6a786e87fcf76ae"
+    },
+    {
+      "path": "scripts/performance/test_single_gateway_topology.py",
+      "sha256": "fc39360ddd2c8395b28662d05e134b2797ac7e1a2b9edc911ee5a91cf813f295"
+    },
+    {
+      "path": "scripts/performance/verify_edge_path.py",
+      "sha256": "a90d017aef7c9addb6a36f5c671fc1e962089b216d059b6ddb6fd1c1f7d047e7"
+    },
+    {
+      "path": "scripts/risk-profile-policy-e2e.ps1",
+      "sha256": "a01396bc87b0121a3d24c82b6dc951f55c5b379b4022d9291468dd4dbb334f5f"
+    }
+  ],
+  "deleted": [
+    "scripts/integration/run-gateway-redirect-it.ps1"
+  ],
+  "behaviorChanges": [
+    "Current Java rosters, artifact lookup, health collection and startup states contain Command/Admin/Redirect only; APISIX management upstream uses ADMIN_UPSTREAM_HOST:8002.",
+    "Current performance executor rejects old four-JVM state; summarizer preserves historical Gateway measurements when present.",
+    "E2E accepts explicit existing dependency containers/network/ports and records actual Kafka identity for HEAD-event verification; new random schema/users and empty Redis DB only, no shared schema reset or Redis FLUSH.",
+    "Direct peer and 64-slot trusted admission probes target Admin; limiter work-copy changes select route/plugin structurally and preserve proxy-control streaming.",
+    "Production-JAR component uses actual Admin/Redirect artifacts; optional local Command adapter is authenticated readiness only, rejects business paths and is cleaned after failures.",
+    "New nine-case public Admin suite uses unique API accounts, rejects cross-parameter logout, verifies revocation and incomplete-body 408/413/415 with bounded sockets, active slow drip and recovery; no credentials in evidence.",
+    "Old risk-profile Agent policy script is explicitly disabled at entry; historical body is retained as non-runnable reference."
+  ],
+  "testCountsByFile": {
+    "scripts/performance/test_admin_ingress_cases.py": 7,
+    "scripts/performance/test_single_gateway_topology.py": 9,
+    "scripts/performance/test_repository_jar_paths.py": 12,
+    "scripts/performance/test_application_cpu_profile.py": 14,
+    "scripts/performance/test_explicit_redis_database.py": 10,
+    "scripts/performance/test_run_stage_diagnostics.py": 18,
+    "scripts/performance/test_edge_worker_profile.py": 29,
+    "scripts/performance/test_execution_configuration.py": 3,
+    "scripts/performance/test_publisher_diagnostic_metrics.py": 15,
+    "scripts/performance/test_edge_snapshot_metrics.py": 10,
+    "scripts/performance/test_http_timing_metrics.py": 9,
+    "scripts/performance/test_kafka_probe_profile.py": 15,
+    "scripts/performance/test_edge_path_observation.py": 16
+  },
+  "testRuns": [
+    {
+      "runtime": "Windows D:/miniconda/python.exe 3.12.3; PyYAML 6.0.2",
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "test_admin_ingress_cases",
+        "test_single_gateway_topology",
+        "test_repository_jar_paths",
+        "test_application_cpu_profile",
+        "test_explicit_redis_database",
+        "test_run_stage_diagnostics"
+      ],
+      "testCount": 70,
+      "failures": 0,
+      "errors": 0,
+      "exitCode": 0
+    },
+    {
+      "runtime": "Windows Python 3.12.3",
+      "command": [
+        "python",
+        "-B",
+        "-m",
+        "unittest",
+        "test_edge_worker_profile",
+        "test_execution_configuration",
+        "test_publisher_diagnostic_metrics",
+        "test_edge_snapshot_metrics",
+        "test_http_timing_metrics",
+        "test_kafka_probe_profile",
+        "test_edge_path_observation"
+      ],
+      "testCount": 97,
+      "failures": 0,
+      "errors": 2,
+      "exitCode": 1,
+      "limitation": "Two pre-existing POSIX timer tests require signal.getitimer, unavailable on Windows; both passed on WSL in the clean run below."
+    },
+    {
+      "runtime": "Existing WSL shortlink-refactor-it Python 3.12",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "test_admin_ingress_cases",
+        "test_single_gateway_topology",
+        "test_repository_jar_paths",
+        "test_application_cpu_profile",
+        "test_explicit_redis_database",
+        "test_run_stage_diagnostics",
+        "test_edge_worker_profile",
+        "test_execution_configuration",
+        "test_publisher_diagnostic_metrics",
+        "test_edge_snapshot_metrics",
+        "test_http_timing_metrics",
+        "test_kafka_probe_profile",
+        "test_edge_path_observation"
+      ],
+      "testCountIncludingFailedImport": 159,
+      "failures": 0,
+      "errors": 1,
+      "exitCode": 1,
+      "limitation": "WSL lacks PyYAML; test_single_gateway_topology import failed. The 9 topology tests passed on Windows; all other tests passed."
+    },
+    {
+      "runtime": "Existing WSL shortlink-refactor-it Python 3.12",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "test_admin_ingress_cases",
+        "test_repository_jar_paths",
+        "test_application_cpu_profile",
+        "test_explicit_redis_database",
+        "test_run_stage_diagnostics",
+        "test_edge_worker_profile",
+        "test_execution_configuration",
+        "test_publisher_diagnostic_metrics",
+        "test_edge_snapshot_metrics",
+        "test_http_timing_metrics",
+        "test_kafka_probe_profile",
+        "test_edge_path_observation"
+      ],
+      "testCount": 158,
+      "failures": 0,
+      "errors": 0,
+      "exitCode": 0
+    }
+  ],
+  "uniqueOfflineTestsPassingAcrossSupportedRuntimes": 167,
+  "staticChecks": {
+    "pythonAst": {
+      "files": 49,
+      "scope": "all scripts/**/*.py parsed with ast.parse; no arbitrary module imports",
+      "exitCode": 0
+    },
+    "powershellSyntax": {
+      "files": 5,
+      "scope": "all scripts/**/*.ps1 parsed with System.Management.Automation.Language.Parser; not executed",
+      "exitCode": 0
+    },
+    "scriptsReadmeLocalLinks": {
+      "count": 41,
+      "missing": [],
+      "exitCode": 0
+    },
+    "gitDiffCheck": {
+      "scope": "scripts/** read-only diff --check",
+      "exitCode": 0
+    },
+    "obsoleteRuntimeSearch": {
+      "patterns": [
+        "GATEWAY_UPSTREAM_HOST",
+        "services/gateway",
+        "shortlink-gateway",
+        "gateway.jar",
+        ":8000",
+        ":8100",
+        "run-gateway-redirect"
+      ],
+      "remaining": "Only GATEWAY_UPSTREAM_HOST in a negative assertion; legacy disabled script and historic summary name are intentional."
+    }
+  },
+  "runtimeHandoff": {
+    "publicAdminCommand": "python3 -B scripts/e2e/admin_ingress_cases.py .work/e2e/<runId>/state.json",
+    "publicAdminOutput": ".work/e2e/<runId>/admin-ingress.json",
+    "publicAdminCaseCount": 9,
+    "slowUpload": {
+      "intervalSeconds": 0.4,
+      "declaredBytes": 1024,
+      "responseExpected": 408,
+      "responseWindowSeconds": [
+        4,
+        8
+      ],
+      "caseDeadlineSeconds": 11,
+      "recoveryIncluded": true
+    },
+    "headerOnlyBudgets": {
+      "oversizeDeclaredBytes": 262145,
+      "oversizeExpected": 413,
+      "gzipExpected": 415,
+      "bodyBytesSent": 1,
+      "maxResponseSeconds": 3,
+      "caseDeadlineSeconds": 6
+    },
+    "requires": "READY owned E2E state, real Admin ingress migration, management proxy-control.request_buffering=false; all real runs coordinated by root.",
+    "wslDependencyBeforeGatewayLimiterVerification": "RESOLVED: reuse existing PyYAML 6.0.2 with PYTHONPATH=/mnt/d/学习/Project/马哥Project/shortlink/.work/apisix-bootstrap-deps; root verified import yaml and safe_load. No dependency download or installation required. admin_ingress_cases.py remains standard-library-only."
+  },
+  "notCovered": [
+    "Real JAR startup/health (root owns)",
+    "Real public Admin/creation/redirect/security execution (root owns)",
+    "Agent/LLM end-to-end",
+    "Load, peak QPS or performance baseline"
+  ],
+  "resourceActionsByThisLane": {
+    "startedServices": false,
+    "startedContainers": false,
+    "businessOrDatabaseRequests": false,
+    "gitWrites": false,
+    "dependencyDownloads": false
+  },
+  "environmentResolution": {
+    "updatedAtUtc": "2026-09-11T07:58:36.268890+00:00",
+    "reportedBy": "root",
+    "runtime": "Existing WSL shortlink-refactor-it Python 3.12",
+    "dependency": "PyYAML 6.0.2",
+    "environment": {
+      "PYTHONPATH": "/mnt/d/学习/Project/马哥Project/shortlink/.work/apisix-bootstrap-deps"
+    },
+    "verification": "Root verified import yaml and safe_load against this existing dependency path.",
+    "testDisposition": "No rerun: all 167 distinct offline cases already passed across supported runtimes; the 9 topology cases had passed on Windows with PyYAML 6.0.2. Earlier failed invocations remain unchanged as historical evidence.",
+    "testsExecutedThisUpdate": 0
+  }
+}

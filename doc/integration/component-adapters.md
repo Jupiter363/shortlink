@@ -1,5 +1,7 @@
 # 隔离组件验收记录
 
+> 本文记录 2026-09-06 的旧拓扑验收。当前已移除 Java Gateway，运行入口改为 `run-admin-redirect-it.ps1`，生产制品检查改为 Admin / Redirect；不要把下面旧 Gateway 的通过记录当作单网关迁移验证。现行说明见[单网关边界](../development/single-gateway.md)。
+
 环境：2026-09-06，新建 WSL `shortlink-refactor-it`，Ubuntu 24.04.4、原生 Docker Engine 29.1.3。
 使用 `deploy/test/compose.integration.yaml`、`compose.adapters.yaml`、`compose.replicas.yaml`。
 本节适配器测试仅访问隔离容器；没有使用旧 Docker Desktop 数据，也没有完整业务 E2E 或压测。
@@ -20,7 +22,7 @@ python scripts/integration/component_adapters.py topics
 python scripts/integration/component_adapters.py apisix
 python scripts/integration/component_adapters.py connect
 python scripts/integration/apisix_tls_component.py
-./scripts/integration/run-gateway-redirect-it.ps1 -JavaHome D:/develop/javaJDK/17
+./scripts/integration/run-admin-redirect-it.ps1 -JavaHome D:/develop/javaJDK/17
 ```
 
 `init` 仅以 `IF NOT EXISTS` 应用最新 `001-analytics.sql`、`002-connect-landing.sql`，将库名

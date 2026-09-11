@@ -1,0 +1,123 @@
+{
+  "run": "ffe799822c",
+  "scope": "finite HTTP/TLS direct Admin-port stub, redirect stub, renderers and promtool; no Kafka delivery or Java session acceptance",
+  "results": [
+    {
+      "name": "TLS-render-preserves-common-routes-and-plugin-budgets",
+      "pass_": true
+    },
+    {
+      "name": "direct-Admin-and-Redirect-upstream-contract",
+      "pass_": true
+    },
+    {
+      "name": "streaming-only-management-route",
+      "pass_": true
+    },
+    {
+      "name": "etcd-render-retains-common-worker-budget-and-plugin-list",
+      "pass_": true
+    },
+    {
+      "name": "etcd-bootstrap-resolves-direct-Admin-env",
+      "pass_": true
+    },
+    {
+      "name": "promtool-Admin-8102-rules",
+      "pass_": true,
+      "output": "Checking /etc/prometheus/prometheus.yml\n  SUCCESS: 1 rule files found\n SUCCESS: /etc/prometheus/prometheus.yml is valid prometheus config file syntax\n\nChecking /etc/prometheus/alerts.yml\n  SUCCESS: 4 rules found"
+    },
+    {
+      "name": "management-direct-port-and-Host",
+      "pass_": true
+    },
+    {
+      "name": "management-spoofed-identities-cleared-session-username-retained",
+      "pass_": true
+    },
+    {
+      "name": "HTTP-forwarding-and-request-id-canonical",
+      "pass_": true,
+      "forwardedFor": "10.242.91.1"
+    },
+    {
+      "name": "no-double-client-hop-in-XFF",
+      "pass_": true,
+      "forwardedFor": "10.242.91.1"
+    },
+    {
+      "name": "closed-management-path:/actuator/prometheus",
+      "pass_": true,
+      "status": 404
+    },
+    {
+      "name": "closed-management-path:/internal/short-link-admin/v1/agent-tools/stats",
+      "pass_": true,
+      "status": 404
+    },
+    {
+      "name": "closed-management-path:/internal/short-link/v1/recovery/begin",
+      "pass_": true,
+      "status": 404
+    },
+    {
+      "name": "closed-management-path:/api/short-link/admin/v1/group/../group",
+      "pass_": true,
+      "status": 400
+    },
+    {
+      "name": "unknown-Host-rejected",
+      "pass_": true
+    },
+    {
+      "name": "redirect-302-and-real-Location-contract",
+      "pass_": true
+    },
+    {
+      "name": "redirect-method-guard",
+      "pass_": true
+    },
+    {
+      "name": "management-reaches-Admin-before-body-completes",
+      "pass_": true,
+      "status": 200,
+      "declaredBytes": 1024,
+      "sentBodyBytes": 1,
+      "seconds": 0.01600000000325963
+    },
+    {
+      "name": "edge-8MiB-cap-remains-under-streaming",
+      "pass_": true,
+      "status": 413,
+      "declaredBytes": 8388609,
+      "sentBodyBytes": 1,
+      "seconds": 0.0
+    },
+    {
+      "name": "TLS-management-SNI-Host-and-trusted-scheme",
+      "pass_": true,
+      "tls": "TLSv1.3"
+    },
+    {
+      "name": "TLS-redirect-HEAD",
+      "pass_": true
+    }
+  ],
+  "cleanup": [
+    {
+      "kind": "container",
+      "name": "shortlink-single-edge-ffe799822c-apisix",
+      "removed": true
+    },
+    {
+      "kind": "container",
+      "name": "shortlink-single-edge-ffe799822c-stub",
+      "removed": true
+    },
+    {
+      "kind": "network",
+      "name": "shortlink-single-edge-ffe799822c-net",
+      "removed": true
+    }
+  ]
+}

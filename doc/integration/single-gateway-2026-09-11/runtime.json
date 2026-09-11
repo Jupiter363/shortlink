@@ -1,0 +1,74 @@
+{
+  "runId": "20260911T080908Z-63b1c29f",
+  "phase": "STOPPED",
+  "topology": "APISIX -> Admin / Redirect + Command; three real production JARs",
+  "database": "shortlink_cr_e2e_6e7d5cf76a",
+  "redisDatabase": 8,
+  "dependencyBindings": {
+    "mysql": {
+      "container": "shortlink-single-gateway-mysql-20260911",
+      "containerId": "6e39489d0e5e9808f45d1163684368d4b5ba2bb95a63fde317f8fae6814191d1",
+      "hostIp": "127.0.0.1",
+      "hostPort": 23306,
+      "containerPort": 3306
+    },
+    "redis": {
+      "container": "shortlink-single-gateway-redis-20260911",
+      "containerId": "b6c54a69e5f30783e45af4469a78d57ae643e4a876b1063590d5715725928349",
+      "hostIp": "127.0.0.1",
+      "hostPort": 26379,
+      "containerPort": 6379
+    }
+  },
+  "mysqlPort": 23306,
+  "redisPort": 26379,
+  "kafkaBootstrap": "localhost:29092",
+  "kafkaContainerBootstrap": "localhost:9092",
+  "objectEndpoint": "http://127.0.0.1:29000",
+  "managementHost": "admin.e2e.test",
+  "redirectHost": "s.e2e.test",
+  "baseUrl": "http://127.0.0.1:19080",
+  "jvmArtifacts": {
+    "shortlink-command": {
+      "pid": 13458,
+      "businessPort": 8001,
+      "healthPort": 8101,
+      "sha256": "c66f334b10001542b3691f73073a3b85bae31d98c6432f3d6203fa74ca525945"
+    },
+    "admin": {
+      "pid": 13526,
+      "businessPort": 8002,
+      "healthPort": 8102,
+      "sha256": "8f4262656f5329ba0509fe8c642886371012bdb097d01057d8999fbb544ac5f8"
+    },
+    "shortlink-redirect": {
+      "pid": 13610,
+      "businessPort": 8003,
+      "healthPort": 8103,
+      "sha256": "a1ed4bc74546d3581106432be9da9fad5c8644fb5b7654252a0ba627a659cbff"
+    }
+  },
+  "apisix": "shortlink-e2e-apisix-552a5de1",
+  "apisixIp": "10.242.92.6",
+  "agentsStarted": false,
+  "analyticsStarted": false,
+  "apisixCleanup": {
+    "container": "shortlink-e2e-apisix-552a5de1",
+    "removeExitCode": 0,
+    "absenceVerified": true
+  },
+  "servicesStopped": true,
+  "javaVersion": "17.0.20",
+  "jvmOptions": [
+    "-Xms64m",
+    "-Xmx384m",
+    "-XX:ActiveProcessorCount=2"
+  ],
+  "apisixVersion": "3.11.0",
+  "apisixWorkers": 2,
+  "kafkaVersion": "3.9.0",
+  "kafkaTopicPartitions": 2,
+  "kafkaReplicationFactor": 1,
+  "supervisorExitCode": 0,
+  "loadTest": false
+}

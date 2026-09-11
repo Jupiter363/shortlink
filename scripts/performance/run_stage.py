@@ -29,7 +29,7 @@ MODES = ('create', 'idempotent', 'batch', 'update', 'recycle', 'restore',
          'redirect', 'head', 'unknown_fixed', 'unknown_random')
 REDIRECT_MODES = frozenset(('redirect', 'head', 'unknown_fixed', 'unknown_random'))
 METADATA_INTENT_MODES = frozenset(('create', 'batch', 'idempotent')) | REDIRECT_MODES
-SERVICES = ('gateway', 'shortlink-command', 'admin', 'shortlink-redirect')
+SERVICES = ('shortlink-command', 'admin', 'shortlink-redirect')
 INTERVAL = 5.0
 DRAIN_TIMEOUT = 300.0
 LOG_BYTES = 4 * 1024 * 1024
@@ -181,7 +181,7 @@ def load_state(path):
     minimum_disk = state.get('budgets', {}).get('minimumFreeDiskBytes')
     require(type(maximum) is int and maximum > 0 and type(minimum_disk) is int and minimum_disk > 0,
             'EXPLICIT_RESOURCE_BUDGETS_REQUIRED')
-    require(set(SERVICES).issubset(state.get('jvmArtifacts', {})), 'SERVICE_PID_ROSTER_INCOMPLETE')
+    require(set(SERVICES) == set(state.get('jvmArtifacts', {})), 'SERVICE_PID_ROSTER_MUST_MATCH_CURRENT_TOPOLOGY')
     return path, state, folder
 
 

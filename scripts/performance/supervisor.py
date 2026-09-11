@@ -31,7 +31,6 @@ REDIRECT_HOST = "s.perf.test"
 JARS = {
     "shortlink-command": ("shortlink-command-1.0-SNAPSHOT.jar", 8001, 8101),
     "admin": ("shortlink-admin.jar", 8002, 8102),
-    "gateway": ("shortlink-gateway-1.0-SNAPSHOT.jar", 8000, 8100),
     "shortlink-redirect": ("shortlink-redirect-1.0-SNAPSHOT.jar", 8003, 8103),
 }
 
@@ -390,7 +389,7 @@ def serve(args):
                SHORTCODE_FIXED_KEY_HEX="23" * 32, SHORTLINK_DEFAULT_DOMAIN=REDIRECT_HOST,
                SHORTLINK_ALLOWED_DOMAINS=REDIRECT_HOST, ADMIN_ALLOWED_HOSTS=MANAGEMENT_HOST,
                REDIS_HOST="127.0.0.1", REDIS_PORT=str(redis_port), REDIS_PASSWORD="",
-               COMMAND_URL="http://127.0.0.1:8001", ADMIN_URL="http://127.0.0.1:8002",
+               COMMAND_URL="http://127.0.0.1:8001",
                KAFKA_BOOTSTRAP_SERVERS="localhost:19092", ANALYTICS_HASH_KEY="4b" * 32,
                REDIRECT_INSTANCE_ID="perf-" + run_id, OBJECT_ENDPOINT="http://127.0.0.1:19000",
                IMPORT_ACCESS_KEY="shortlink-it", IMPORT_SECRET_KEY="shortlink-it-only",
@@ -410,7 +409,7 @@ def serve(args):
                  redisDatabaseSelection="explicit-empty" if requested_redis_database is not None else "automatic-empty-8-15",
                  apisix=container, managementHost=MANAGEMENT_HOST, redirectHost=REDIRECT_HOST,
                  baseUrl="http://127.0.0.1:19080", producerInstanceId=env["REDIRECT_INSTANCE_ID"],
-                 phase="STARTING", topology="APISIX standalone + four real production JARs",
+                 phase="STARTING", topology="APISIX -> Admin / Redirect + Command; three real production JARs",
                  agentsStarted=False, analyticsStarted=False, jvmArtifacts={},
                  mysqlContainer=MYSQL, redisContainer=redis_container, redisPort=redis_port,
                  kafkaContainer=KAFKA,
@@ -492,7 +491,7 @@ def serve(args):
                  "--add-host", "host.docker.internal:host-gateway", "-p", "127.0.0.1:19080:9080",
                  "-e", "KAFKA_HOST=kafka", "-e", "APISIX_INSTANCE_ID=e2e-edge-" + suffix,
                  "-e", "MANAGEMENT_HOST=" + MANAGEMENT_HOST, "-e", "SHORTLINK_HOST=" + REDIRECT_HOST,
-                 "-e", "GATEWAY_UPSTREAM_HOST=host.docker.internal", "-e", "REDIRECT_UPSTREAM_HOST=host.docker.internal",
+                 "-e", "ADMIN_UPSTREAM_HOST=host.docker.internal", "-e", "REDIRECT_UPSTREAM_HOST=host.docker.internal",
                  "-v", str(edge_config_path) + ":/usr/local/apisix/conf/config.yaml:ro",
                  "-v", str(manifest_path) + ":/usr/local/apisix/conf/apisix.yaml:ro",
                  "-v", str(ROOT / "deploy/apisix/plugins") + ":/opt/shortlink:ro", "apache/apisix:3.11.0-debian"])

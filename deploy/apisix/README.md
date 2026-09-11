@@ -1,10 +1,12 @@
 # APISIX 3.11.0 入口
 
-正式部署按 [ETCD.md](ETCD.md) 使用 traditional + etcd 保存配置，通过管理网 HTTPS Admin API 鉴权导入。仓库 `config.yaml` 的 standalone 模式仅用于组件验收：挂载 config.yaml→/usr/local/apisix/conf/config.yaml、apisix.yaml→/usr/local/apisix/conf/apisix.yaml、plugins→/opt/shortlink。使用 Apache APISIX 3.11.0 官方镜像。公网只发布 APISIX，Java Gateway/Redirect、Command、Redis、Kafka 只在服务网络内可达。
+正式部署按 [ETCD.md](ETCD.md) 使用 traditional + etcd 保存配置，通过管理网 HTTPS Admin API 鉴权导入。仓库 `config.yaml` 的 standalone 模式仅用于组件验收：挂载 config.yaml→/usr/local/apisix/conf/config.yaml、apisix.yaml→/usr/local/apisix/conf/apisix.yaml、plugins→/opt/shortlink。使用 Apache APISIX 3.11.0 官方镜像。APISIX 是唯一网关；Admin、Redirect、Command、Redis、Kafka 只在服务网络内可达。
 
-Standalone 容器或正式 bootstrap 环境必须设置 KAFKA_HOST、APISIX_INSTANCE_ID（部署标签）、MANAGEMENT_HOST、SHORTLINK_HOST、GATEWAY_UPSTREAM_HOST、REDIRECT_UPSTREAM_HOST。每个 APISIX 节点需固定唯一 hostname，事件身份再追加节点和 boot UUID，避免共享 etcd 配置混淆节点。自定义域名需同步加入对应 route.hosts 和 Redirect allowed-hosts，禁止 wildcard Host fallback。生产 TLS 使用 [TLS.md](TLS.md) 的秘密文件输入，按 ETCD.md 导入同一 TLS 清单；此 HTTP 文件用于隔离开发环境，Java 的 secure cookie 随 APISIX 实际 scheme 决定。
+Standalone 容器或正式 bootstrap 环境必须设置 KAFKA_HOST、APISIX_INSTANCE_ID（部署标签）、MANAGEMENT_HOST、SHORTLINK_HOST、ADMIN_UPSTREAM_HOST、REDIRECT_UPSTREAM_HOST。每个 APISIX 节点需固定唯一 hostname，事件身份再追加节点和 boot UUID，避免共享 etcd 配置混淆节点。自定义域名需同步加入对应 route.hosts 和服务 allowed-hosts（管理域名为 ADMIN_ALLOWED_HOSTS，短链域名为 Redirect 的 allowed-hosts），禁止 wildcard Host fallback。生产 TLS 使用 [TLS.md](TLS.md) 的秘密文件输入，按 ETCD.md 导入同一 TLS 清单；此 HTTP 文件用于隔离开发环境，Java 的 secure cookie 随 APISIX 实际 scheme 决定。
 
-公开短链只接受单段 Base62 GET/HEAD，管理请求只进 Java Gateway。入口重写 XFF/proto/request-id，清理身份伪造头；用户名/token 仅管理会话边界保留。禁用 upstream retries，不配置 302 缓存。limit-req/limit-conn 是可调开发样例，最终预算来自 M6。
+公开短链只接受单段 Base62 GET/HEAD，直接进入 Redirect:8003；管理请求直接进入 Admin:8002。外部路由仍仅开放现有管理 API 前缀与单段短码，内部 Agent tools、恢复接口、Actuator 不属于公网路由。入口保留原始 Host，按实际客户端和接入协议重写 XFF/proto/request-id，清理全部 x-shortlink-*、x-agent-* 和旧身份伪造头；用户名/token 仅在管理路由保留。Admin 根据真实 socket 对端核验 APISIX_CIDRS 和 ADMIN_ALLOWED_HOSTS，随后校验 Redis 会话及数据库中的当前账号权限；不再要求客户端请求携带内部令牌，也不通过额外的 forward-auth 请求鉴权。禁止把任意客户端的转发头当作可信来源。
+
+入口流量整形只在 APISIX 的 limit-req/limit-conn 执行，现有限值保持不变；Admin 的并发槽和请求体字节预算是服务自身的资源保护。全局请求体上限仍为 8 MiB；普通请求 256 KiB、批量请求 8 MiB、压缩体拒绝与读取时限由 Admin 统一处理。管理路由通过官方 `proxy-control.request_buffering: false` 流式转发，请求体不会先在 APISIX 完整暂存再由 Admin 重新聚合；Admin 接纳后以 5s 绝对时限读取，避免持续滴流仅靠空闲超时无限续期。短链路由不启用这个插件。管理上游连接/发送/读取空闲超时为 1s/3s/10s，读取预算为 Admin 下游 5s 调用留出处理余量；这不是整条请求的总截止时间，长任务仍由各自业务时限管理。客户端 body 空闲超时仍为 10s。禁用 upstream retries，不配置 302 缓存。limit-req/limit-conn 是可调开发样例，最终预算来自 M6。
 
 仓库共享源配置默认固定为 **2 worker、每 worker 1 个 sender、linger 5ms**。`config.yaml` 显式声明 `nginx_config.worker_processes: 2`，正式 etcd 和 TLS 生成器继承该源配置。每 worker 1000 条/8 MiB，对应节点总计 2000 条/16 MiB、2 个发送槽；插件 schema 的 sender 缺省 2 保持不变。部署时需核对 `APISIX_WORKER_PROCESSES` 环境覆盖、最终生成的 Nginx 配置和实际普通 worker 数，不能仅凭 YAML 推算节点预算。下面保留的旧实验按各自清单解释，不代表新默认已完成容量验收。同一 etcd 全局配置下，各节点采用相同 worker profile。上述额度是单活动世代的 key+JSON 保留预算，不是进程 RSS 上限；reload 的旧世代 pending 单独统计。
 
@@ -42,10 +44,10 @@ Kafka send 和 ACK 仅在 background timer 中执行，确认要求保持 `acks=
 Both management and redirect routes enforce local connection and request limits. The example
 limits are bounded protective defaults, not measured QPS capacity or an acceptance target.
 Freeze production values from the final hardware and reliability measurements. Batch bodies
-are capped at 8MB at the edge; Java Gateway applies the stricter ordinary 256KB budget after
-session authorization. Environment substitution belongs in upstream node values; node map
+are capped at 8 MiB at the edge; Admin applies the stricter ordinary 256 KiB budget and the
+bounded aggregate memory budget. Environment substitution belongs in upstream node values; node map
 keys are not a supported template mechanism in the verified APISIX 3.11 runtime. Production
-Gateway and Redirect ports are 8000 and 8003 respectively.
+Admin and Redirect ports are 8002 and 8003 respectively; no Java Gateway process is deployed.
 
 Reproducible isolated HTTP cases and actual results are documented in
 [`doc/integration/component-adapters.md`](../../doc/integration/component-adapters.md).

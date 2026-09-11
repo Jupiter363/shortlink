@@ -1,0 +1,64 @@
+{
+  "status": "PASSED",
+  "verifiedAtUtc": "2026-09-11T08:13:18.142281+00:00",
+  "runId": "20260911T080908Z-63b1c29f",
+  "ownedResources": [
+    {
+      "name": "shortlink-single-gateway-mysql-20260911",
+      "id": "6e39489d0e5e9808f45d1163684368d4b5ba2bb95a63fde317f8fae6814191d1",
+      "image": "mysql:8.0.36",
+      "memoryLimitBytes": 805306368,
+      "nanoCpus": 1000000000
+    },
+    {
+      "name": "shortlink-single-gateway-kafka-20260911",
+      "id": "8c405751c93cb1bb650d9d6c844ff661f0fac7b0729a7dba693a5962203da1d3",
+      "image": "apache/kafka:3.9.0",
+      "memoryLimitBytes": 805306368,
+      "nanoCpus": 1000000000
+    },
+    {
+      "name": "shortlink-single-gateway-minio-20260911",
+      "id": "c1d78e3c97035c4868efb68a2d400ee7315fa8f1dbbf670e269f1a170092df67",
+      "image": "minio/minio:RELEASE.2025-04-22T22-12-26Z",
+      "memoryLimitBytes": 268435456,
+      "nanoCpus": 500000000
+    },
+    {
+      "name": "shortlink-single-gateway-redis-20260911",
+      "id": "b6c54a69e5f30783e45af4469a78d57ae643e4a876b1063590d5715725928349",
+      "image": "redis:7.2.5-alpine",
+      "memoryLimitBytes": 134217728,
+      "nanoCpus": 500000000
+    }
+  ],
+  "ownedApisixRemoved": {
+    "container": "shortlink-e2e-apisix-552a5de1",
+    "removeExitCode": 0,
+    "absenceVerified": true
+  },
+  "ownedJavaPidsGone": true,
+  "ownedDependenciesAbsent": true,
+  "ownedNetworkAbsent": true,
+  "closedHostPorts": [
+    8001,
+    8002,
+    8003,
+    8101,
+    8102,
+    8103,
+    19080,
+    23306,
+    26379,
+    29092,
+    29000
+  ],
+  "remainingRunningContainers": [],
+  "historicalContainersNotStartedOrRemoved": true,
+  "dockerPruneUsed": false,
+  "ownedDockerDaemonStopped": true,
+  "ownedDockerDaemonExitCode": 0,
+  "testWslDistribution": "shortlink-refactor-it",
+  "testWslDistributionStopped": true,
+  "wslRunningListEmptyAfterStop": true
+}
