@@ -29,6 +29,22 @@ class RiskPolicyServiceTest {
     }
 
     @Test
+    void authorityReadReturningAfterCancellationCannotDispatchANewCommand() {
+        var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+        when(commands.current(StatsTestFixtures.PRINCIPAL, List.of(99L))).thenAnswer(invocation -> {
+            cancelled.set(true);
+            return List.of(Map.of("resourceKey", "1001:99", "state", "KNOWN_ALLOWED", "policyRevision", 7L,
+                    "evaluatedAt", StatsTestFixtures.NOW, "validUntil", StatsTestFixtures.NOW + 1000));
+        });
+        assertThatThrownBy(() -> service.autoLimitRate(StatsTestFixtures.PRINCIPAL, StatsTestFixtures.profile(),
+                "late-cmd", "late-policy", () -> {
+                    if (cancelled.get()) throw new IllegalStateException("execution cancelled");
+                })).hasMessage("execution cancelled");
+        verify(commands).current(StatsTestFixtures.PRINCIPAL, List.of(99L));
+        verify(commands, never()).activate(any(), any());
+    }
+
+    @Test
     void committedCommandIsReadBeforeExpiredEvidenceAndDoesNotWriteAgain() {
         var receipt =
                 Map.<String, Object>of(

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-09-13T21:26:04+08:00",
+  "llmConnectivityStatus": "PASS",
+  "overallAgentBusinessUat": "CONDITIONAL_PASS",
+  "provider": "deepseek",
+  "baseUrl": "https://api.deepseek.com",
+  "configuredModel": "deepseek-flash",
+  "keyConfigured": true,
+  "secretFileIgnoredByGit": true,
+  "sourceAndArtifactsSha256": {
+    "deploy/apisix/apisix.yaml": "7f5ea8adad8f960f44010eb68087827618d72ff59c27229d9a071d37c7a9eef2",
+    "deploy/apisix/bootstrap-etcd.py": "e8c1f7bc6a29f855eb3b6d16f89e56630f100fd5b6b3d1a2d82e10a56e3c25b2",
+    "services/admin/src/main/resources/application-production.properties": "f50f4e2ddab599f0f34d3bbc5976f16d506a69ed13836d9f2352bda157333095",
+    "services/admin/target/shortlink-admin.jar": "8f4262656f5329ba0509fe8c642886371012bdb097d01057d8999fbb544ac5f8",
+    "services/agent-service/target/shortlink-agent-service.jar": "c0d5bb9b91f1d96a4a0a2385bac3ebb265ac22bb2c604e7683f4da3345c4106b"
+  },
+  "runtimeAdminConfigMechanism": "SPRING_APPLICATION_JSON override matching source properties; running JAR not repackaged",
+  "cases": [
+    {"name":"campaign-short-summary","httpStatus":200,"gatewaySeconds":2.028,"llmNodeMs":1489,"checkpoint":"FINISHED","traceId":"2045e104-b2b2-4242-b589-31169cb61e1e"},
+    {"name":"security-evidence-summary","httpStatus":200,"gatewaySeconds":2.492,"llmNodeMs":2077,"model":"deepseek-flash","finishReason":"stop","warnings":[],"checkpoint":"FINISHED","traceId":"6c38603c-59a2-4e51-b337-b2a4a4fb1e9c"},
+    {"name":"campaign-preset-before-timeout-fix","httpStatus":503,"gatewaySeconds":5.064,"failure":"Admin Feign SocketTimeoutException","agentLaterCheckpoint":"FINISHED","traceId":"55090bac-35d0-41ad-b864-b069fb433557"},
+    {"name":"controlled-agent-delay-after-timeout-fix","httpStatus":200,"gatewaySeconds":13.740,"stillRunningAfter11Seconds":true,"restoredContainerHealthy":true,"checkpoint":"FINISHED","traceId":"d6c912f2-1c9f-4402-9e39-a78d2081cb1f"},
+    {"name":"campaign-preset-after-timeout-fix","httpStatus":200,"gatewaySeconds":6.959,"llmNodeMs":6763,"model":"deepseek-flash","finishReason":"stop","warnings":[],"checkpoint":"FINISHED","traceId":"84a94068-c45c-463d-a407-49acd4658170"}
+  ],
+  "readTimeoutSeconds": {"deepseek":30,"adminAgentChat":45,"apisixAgentChat":50,"adminDefault":5,"apisixManagement":10,"apisixRedirect":1},
+  "checks": {"AgentRemoteServiceFeignTest":3,"gatewayTopologyTests":17,"gatewayStaticChecks":4,"allPassed":true},
+  "finalSmokeChecks": {"agentChatUnauthenticatedHttpStatus":401,"existingShortLinkHeadStatus":302,"existingShortLinkLocationCorrect":true,"adminHealthy":true,"agentHealthy":true,"apisixRunning":true,"frontendRunning":true},
+  "remainingLimitations": ["analytics_services_absent","risk_profile_authorization_conflict","campaign_preset_only_reads_group_list","model_native_multiturn_tools_not_accepted"],
+  "containsCredentials": false
+}

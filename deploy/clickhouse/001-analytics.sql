@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS shortlink_analytics.event_receipts (
  device LowCardinality(String), country LowCardinality(String), referer_domain String,
  request_source LowCardinality(String), decision_stage LowCardinality(String), status UInt16,
  reason String, validation_version String, validation_result String,
- dataset_version String, parser_version String, hash_version String
+ dataset_version String, parser_version String, hash_version String,
+ province String DEFAULT 'UNKNOWN', city String DEFAULT 'UNKNOWN', network String DEFAULT 'UNKNOWN',
+ geo_status String DEFAULT 'UNKNOWN', geo_version String DEFAULT ''
 ) ENGINE=MergeTree PARTITION BY toYYYYMM(toDateTime(received_at/1000))
 ORDER BY (source_topic,source_partition,source_offset,cluster_id,topic_id)
 TTL toDateTime(received_at/1000) + INTERVAL 180 DAY;
@@ -16,7 +18,9 @@ CREATE TABLE IF NOT EXISTS shortlink_analytics.rebuild_input (
  event_id String, payload_hash FixedString(64), occurred_at Int64, received_at Int64,
  visitor_hash String, ip_hash String, browser String, os String, device String, country String, referer_domain String,
  request_source String, decision_stage String, status UInt16, validation_result String,
- receipt_id String
+ receipt_id String,
+ province String DEFAULT 'UNKNOWN', city String DEFAULT 'UNKNOWN', network String DEFAULT 'UNKNOWN',
+ geo_status String DEFAULT 'UNKNOWN', geo_version String DEFAULT ''
 ) ENGINE=MergeTree PARTITION BY toYYYYMM(toDateTime(window_start/1000))
 ORDER BY (build_id,tenant_id,event_id,receipt_id);
 CREATE TABLE IF NOT EXISTS shortlink_analytics.window_results (

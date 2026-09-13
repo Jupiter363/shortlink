@@ -350,9 +350,10 @@ public class ControlLedger {
     }
 
     public void verifyArchiveCut(SourceCut.Range range) {
+        if (range.start() == range.end()) return;
         var summary =
                 jdbc.queryForMap(
-                        "SELECT COALESCE(SUM(CASE WHEN previous_end IS NOT NULL AND"
+                        "SELECT COUNT(*) segment_count,COALESCE(SUM(CASE WHEN previous_end IS NOT NULL AND"
                             + " previous_end<>start_offset THEN 1 ELSE 0 END),0)"
                             + " gaps,COALESCE(MIN(start_offset),?)"
                             + " first_offset,COALESCE(MAX(end_offset),?) last_offset FROM (SELECT"
@@ -367,7 +368,8 @@ public class ControlLedger {
                         range.partition(),
                         range.start(),
                         range.end());
-        if (((Number) summary.get("gaps")).longValue() != 0
+        if (((Number) summary.get("segment_count")).longValue() == 0
+                || ((Number) summary.get("gaps")).longValue() != 0
                 || ((Number) summary.get("first_offset")).longValue() > range.start()
                 || ((Number) summary.get("last_offset")).longValue() < range.end())
             throw new IllegalStateException("ARCHIVE_COVERAGE_GAP");
@@ -705,17 +707,84 @@ public class ControlLedger {
 
     public void verifyRecoveryPublications(String epoch) {
         assertEpoch(epoch);
+        // This timestamp is initialized when reconciliation is first requested. Recovery phase,
+        // lease and retry updates deliberately leave it unchanged, so retries keep the same cut.
+        Timestamp started =
+                jdbc.queryForObject(
+                        "SELECT updated_at FROM analytics_recovery_run WHERE recovery_epoch=?"
+                                + " AND status='VERIFIED'",
+                        Timestamp.class,
+                        epoch);
+        if (started == null)
+            throw new IllegalStateException("Recovery catalog/raw verification is incomplete");
+        // Canonical admission closes eight minutes after a five-minute window ends, matching
+        // planRequestedRepair / RebuildExecutor. Live windows remain durable repair requests;
+        // requiring that global queue to empty would prevent activation under continuous traffic.
+        long closedWindowEnd = Math.floorDiv(started.getTime() - 480000, 300000) * 300000;
         Long old =
                 dbCount("SELECT count(*) FROM analytics_manifest WHERE recovery_epoch<>?", epoch);
         Long pending =
-                dbCount(
+                jdbc.queryForObject(
                         "SELECT count(*) FROM analytics_rebuild_job WHERE recovery_epoch=? AND"
-                                + " status IN ('PENDING','RUNNING','FAILED')",
-                        epoch);
+                                + " start_ms<? AND status IN ('PENDING','RUNNING')",
+                        Long.class,
+                        epoch,
+                        closedWindowEnd);
+        // Do not filter by request time: a late arrival for an old window must still block until
+        // its required archive cut has been rebuilt. Only windows outside the fixed cut defer.
         Long requests =
-                jdbc.queryForObject("SELECT count(*) FROM analytics_repair_request", Long.class);
-        if (old != 0 || pending != 0 || requests != 0)
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM analytics_repair_request WHERE window_start<?",
+                        Long.class,
+                        closedWindowEnd);
+        if (old != 0
+                || pending != 0
+                || requests != 0
+                || hasUncoveredFailedRecoveryBuilds(epoch, closedWindowEnd))
             throw new IllegalStateException("Recovery rebuild/publication is incomplete");
+    }
+
+    private boolean hasUncoveredFailedRecoveryBuilds(String epoch, long closedWindowEnd) {
+        String after = "";
+        while (true) {
+            var failed =
+                    jdbc.queryForList(
+                            "SELECT job_id,start_ms,end_ms,source_cut FROM analytics_rebuild_job"
+                                    + " WHERE recovery_epoch=? AND start_ms<? AND status='FAILED'"
+                                    + " AND job_id>? ORDER BY job_id LIMIT 100",
+                            epoch,
+                            closedWindowEnd,
+                            after);
+            for (var job : failed) {
+                long start = ((Number) job.get("start_ms")).longValue();
+                long end = ((Number) job.get("end_ms")).longValue();
+                if (start < 0
+                        || end <= start
+                        || end - start > 86_400_000L
+                        || start % 300000 != 0
+                        || end % 300000 != 0) return true;
+                SourceCut required =
+                        EventJson.read((String) job.get("source_cut"), SourceCut.class);
+                if (required.ranges().isEmpty()) return true;
+                // A terminal failed attempt is retained as evidence. A different successful
+                // attempt can satisfy it only through authoritative per-window publications,
+                // not a PUBLISHED job status or a later creation time. publish() atomically
+                // records these manifests after archive and replica-content verification.
+                var published =
+                        jdbc.queryForList(
+                                "SELECT source_cut FROM analytics_manifest WHERE recovery_epoch=?"
+                                        + " AND window_start>=? AND window_start<?",
+                                epoch,
+                                start,
+                                end);
+                if (published.size() != (end - start) / 300000) return true;
+                for (var manifest : published)
+                    if (!EventJson.read((String) manifest.get("source_cut"), SourceCut.class)
+                            .covers(required)) return true;
+            }
+            if (failed.size() < 100) return false;
+            after = (String) failed.get(failed.size() - 1).get("job_id");
+        }
     }
 
     public List<Map<String, Object>> pendingPublications() {

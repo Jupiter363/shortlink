@@ -1,0 +1,201 @@
+{
+  "capturedAt": "2026-09-13T22:37:06.681801+08:00",
+  "loadTestRun": false,
+  "runtime": [
+    {
+      "name": "shortlink-local-dev-agent-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 402653184
+    },
+    {
+      "name": "shortlink-local-dev-clickhouse-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 1610612736
+    },
+    {
+      "name": "shortlink-local-dev-flink-jobmanager-1",
+      "status": "running",
+      "health": null,
+      "memoryLimitBytes": 1073741824
+    },
+    {
+      "name": "shortlink-local-dev-flink-taskmanager-1",
+      "status": "running",
+      "health": null,
+      "memoryLimitBytes": 1610612736
+    },
+    {
+      "name": "shortlink-local-dev-analytics-api-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 536870912
+    },
+    {
+      "name": "shortlink-local-dev-analytics-worker-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 536870912
+    },
+    {
+      "name": "shortlink-local-dev-connect-1",
+      "status": "running",
+      "health": null,
+      "memoryLimitBytes": 671088640
+    },
+    {
+      "name": "shortlink-local-dev-admin-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 402653184
+    },
+    {
+      "name": "shortlink-local-dev-frontend-1",
+      "status": "running",
+      "health": null,
+      "memoryLimitBytes": 67108864
+    },
+    {
+      "name": "shortlink-local-dev-apisix-1",
+      "status": "running",
+      "health": null,
+      "memoryLimitBytes": 671088640
+    },
+    {
+      "name": "shortlink-local-dev-redirect-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 402653184
+    },
+    {
+      "name": "shortlink-local-dev-command-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 402653184
+    },
+    {
+      "name": "shortlink-local-dev-redis-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 201326592
+    },
+    {
+      "name": "shortlink-local-dev-mysql-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 671088640
+    },
+    {
+      "name": "shortlink-local-dev-kafka-1",
+      "status": "running",
+      "health": "healthy",
+      "memoryLimitBytes": 671088640
+    },
+    {
+      "name": "shortlink-local-dev-minio-1",
+      "status": "running",
+      "health": null,
+      "memoryLimitBytes": 268435456
+    }
+  ],
+  "analyticsReadiness": {
+    "ready": true,
+    "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+    "mode": "ACTIVE"
+  },
+  "flink": {
+    "jobId": "a4655272f70e80e85345a2cc4e3ba0eb",
+    "state": "RUNNING",
+    "checkpoints": {
+      "restored": 0,
+      "total": 107,
+      "in_progress": 0,
+      "completed": 107,
+      "failed": 0
+    }
+  },
+  "connect": {
+    "name": "shortlink-clickhouse-derived-v1",
+    "connector": {
+      "state": "RUNNING",
+      "worker_id": "connect:8083"
+    },
+    "tasks": [
+      {
+        "id": 0,
+        "state": "RUNNING",
+        "worker_id": "connect:8083"
+      }
+    ],
+    "type": "sink"
+  },
+  "clickReceipts": [
+    {
+      "kind": "CLICK",
+      "status": 302,
+      "validation_result": "VALID",
+      "uniqueEvents": "11"
+    }
+  ],
+  "riskProfileBatch": {
+    "failed": 0,
+    "status": "SUCCEEDED",
+    "batchId": "risk-profile:1789308000",
+    "scanned": 2,
+    "generated": 2,
+    "windowEnd": "2026-09-13 22:00:00.000000",
+    "windowStart": "2026-09-13 20:00:00.000000",
+    "analysisJobs": 1
+  },
+  "riskAnalysisJob": {
+    "gid": "1ff4df996bf244bdb86865533a92b12c",
+    "jobId": "risk-job-568dadc9-ecb6-39a2-80e2-bc9f99254ebc",
+    "status": "SUCCEEDED",
+    "batchId": "risk-profile:1789308000",
+    "traceId": "risk-trace-85261f3e-0809-4356-bd59-a747d3ddf564",
+    "createTime": "2026-09-13 22:00:11.000000",
+    "updateTime": "2026-09-13 22:35:16.000000",
+    "attemptCount": 5,
+    "errorSummary": ""
+  },
+  "riskEvents": [
+    {
+      "linkId": 20001,
+      "source": "SECURITY_RISK_AGENT",
+      "eventId": "risk-event-396293a9-a197-3b67-bb71-133d44c69707",
+      "traceId": "032d6cad-fa1b-41f9-9378-f08e9098212c",
+      "tenantId": "2",
+      "riskLevel": "HIGH",
+      "summaryCharacters": 2048
+    },
+    {
+      "linkId": 20002,
+      "source": "SECURITY_RISK_AGENT",
+      "eventId": "risk-event-fe3b6af9-22da-3b54-98d1-a24ac86ccbf9",
+      "traceId": "032d6cad-fa1b-41f9-9378-f08e9098212c",
+      "tenantId": "2",
+      "riskLevel": "HIGH",
+      "summaryCharacters": 2048
+    },
+    {
+      "linkId": 20001,
+      "source": "SECURITY_RISK_AGENT",
+      "eventId": "risk-event-141c1c49-b49b-3aad-80c0-6dfb698f4adf",
+      "traceId": "risk-trace-85261f3e-0809-4356-bd59-a747d3ddf564",
+      "tenantId": "2",
+      "riskLevel": "HIGH",
+      "summaryCharacters": 2048
+    },
+    {
+      "linkId": 20002,
+      "source": "SECURITY_RISK_AGENT",
+      "eventId": "risk-event-b50551c4-4e3f-37ab-9c97-ebf7363dc5ca",
+      "traceId": "risk-trace-85261f3e-0809-4356-bd59-a747d3ddf564",
+      "tenantId": "2",
+      "riskLevel": "HIGH",
+      "summaryCharacters": 2048
+    }
+  ],
+  "agentCommand": null
+}

@@ -1,0 +1,1183 @@
+[
+  {
+    "status": "FINISHED",
+    "traceId": "429d2519-2848-49bc-b1b4-99104a4e882b",
+    "graphName": "campaign-analysis-graph",
+    "updatedAt": "2026-09-13 14:37:40.000000",
+    "checkpointKeys": [
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions"
+    ],
+    "answerCharacters": 1174,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      },
+      {
+        "name": "get_group_stats",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c",
+          "endDate": "2026-09-13",
+          "startDate": "2026-09-07"
+        },
+        "metrics": {
+          "requested": {
+            "pv": 11,
+            "uv": 11,
+            "uip": 1,
+            "daily": [
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-07"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-08"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-09"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-10"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-11"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-12"
+              },
+              {
+                "pv": 11,
+                "uv": 11,
+                "uip": 1,
+                "date": "2026-09-13"
+              }
+            ],
+            "denied": 0,
+            "osStats": [
+              {
+                "os": "Windows",
+                "cnt": 1,
+                "ratio": 0.09090909090909093
+              }
+            ],
+            "hourStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              5,
+              6,
+              0,
+              0
+            ],
+            "topIpShare": 1.0,
+            "topIpStats": [
+              {
+                "cnt": 11,
+                "error": 0,
+                "ratio": 1.0,
+                "ipHash": "[REDACTED]",
+                "approximate": true
+              }
+            ],
+            "deviceStats": [
+              {
+                "cnt": 11,
+                "ratio": 1.0,
+                "device": "Desktop"
+              }
+            ],
+            "uvTypeStats": [],
+            "browserStats": [
+              {
+                "cnt": 1,
+                "ratio": 0.09090909090909093,
+                "browser": "Chrome"
+              }
+            ],
+            "networkStats": [],
+            "weekdayStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              11
+            ],
+            "localeCnStats": [],
+            "peakHourShare": 0.5454545454545454,
+            "topDeviceShare": 1.0,
+            "topBrowserShare": 0.09090909090909093,
+            "topVisitorShare": 0.09090909090909093,
+            "topVisitorStats": [
+              {
+                "cnt": 1,
+                "error": 0,
+                "ratio": 0.09090909090909093,
+                "approximate": true,
+                "visitorHash": "[REDACTED]"
+              }
+            ],
+            "repeatVisitRatio": 0.0
+          }
+        },
+        "meta": {
+          "tenantId": "2",
+          "snapshotId": "429c9989-9bae-44cf-a27e-b098fb973566",
+          "requestedStart": 1788710400000,
+          "requestedEnd": 1789315200000,
+          "effectiveEnd": 1789315200000,
+          "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+          "availability": "AVAILABLE",
+          "freshness": "FRESH",
+          "completeness": "PARTIAL",
+          "provisional": true,
+          "collectionQuality": {
+            "status": "UNKNOWN",
+            "reasons": [
+              "PRODUCER_SAMPLE_STALE"
+            ]
+          },
+          "missingMetrics": [
+            "country",
+            "localeCnStats",
+            "topRegionShare",
+            "networkStats",
+            "uvTypeStats"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "2598848d-4a8b-4bf7-b000-01b78bd8ed98",
+    "graphName": "campaign-analysis-graph",
+    "updatedAt": "2026-09-13 14:37:05.000000",
+    "checkpointKeys": [
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions"
+    ],
+    "answerCharacters": 1084,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      },
+      {
+        "name": "get_group_stats",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c",
+          "endDate": "2026-09-13",
+          "startDate": "2026-09-07"
+        },
+        "metrics": {
+          "requested": {
+            "pv": 11,
+            "uv": 11,
+            "uip": 1,
+            "daily": [
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-07"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-08"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-09"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-10"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-11"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-12"
+              },
+              {
+                "pv": 11,
+                "uv": 11,
+                "uip": 1,
+                "date": "2026-09-13"
+              }
+            ],
+            "denied": 0,
+            "osStats": [
+              {
+                "os": "Windows",
+                "cnt": 1,
+                "ratio": 0.09090909090909093
+              }
+            ],
+            "hourStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              5,
+              6,
+              0,
+              0
+            ],
+            "topIpShare": 1.0,
+            "topIpStats": [
+              {
+                "cnt": 11,
+                "error": 0,
+                "ratio": 1.0,
+                "ipHash": "[REDACTED]",
+                "approximate": true
+              }
+            ],
+            "deviceStats": [
+              {
+                "cnt": 11,
+                "ratio": 1.0,
+                "device": "Desktop"
+              }
+            ],
+            "uvTypeStats": [],
+            "browserStats": [
+              {
+                "cnt": 1,
+                "ratio": 0.09090909090909093,
+                "browser": "Chrome"
+              }
+            ],
+            "networkStats": [],
+            "weekdayStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              11
+            ],
+            "localeCnStats": [],
+            "peakHourShare": 0.5454545454545454,
+            "topDeviceShare": 1.0,
+            "topBrowserShare": 0.09090909090909093,
+            "topVisitorShare": 0.09090909090909093,
+            "topVisitorStats": [
+              {
+                "cnt": 1,
+                "error": 0,
+                "ratio": 0.09090909090909093,
+                "approximate": true,
+                "visitorHash": "[REDACTED]"
+              }
+            ],
+            "repeatVisitRatio": 0.0
+          }
+        },
+        "meta": {
+          "tenantId": "2",
+          "snapshotId": "2cb6b031-3d7f-46e6-b341-6e43a0861889",
+          "requestedStart": 1788710400000,
+          "requestedEnd": 1789315200000,
+          "effectiveEnd": 1789315200000,
+          "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+          "availability": "AVAILABLE",
+          "freshness": "FRESH",
+          "completeness": "PARTIAL",
+          "provisional": true,
+          "collectionQuality": {
+            "status": "UNKNOWN",
+            "reasons": [
+              "PRODUCER_SAMPLE_STALE"
+            ]
+          },
+          "missingMetrics": [
+            "country",
+            "localeCnStats",
+            "topRegionShare",
+            "networkStats",
+            "uvTypeStats"
+          ]
+        }
+      },
+      {
+        "name": "get_group_access_records",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c",
+          "endDate": "2026-09-13",
+          "startDate": "2026-09-07"
+        },
+        "metrics": {},
+        "meta": {
+          "tenantId": "2",
+          "snapshotId": "3b03c118-f53b-4dc2-ba5c-4fc7eb97e454",
+          "requestedStart": 1788710400000,
+          "requestedEnd": 1789315200000,
+          "effectiveEnd": 1789315200000,
+          "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+          "availability": "AVAILABLE",
+          "freshness": "FRESH",
+          "completeness": "PARTIAL",
+          "provisional": true,
+          "collectionQuality": {
+            "status": "UNKNOWN",
+            "reasons": [
+              "PRODUCER_SAMPLE_STALE"
+            ]
+          },
+          "missingMetrics": [
+            "country",
+            "localeCnStats",
+            "topRegionShare",
+            "networkStats",
+            "uvTypeStats"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "risk-trace-85261f3e-0809-4356-bd59-a747d3ddf564",
+    "graphName": "security-risk-graph",
+    "updatedAt": "2026-09-13 14:35:15.000000",
+    "checkpointKeys": [
+      "cards",
+      "answer",
+      "batchId",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions",
+      "activatedPolicies",
+      "persistedRiskEvents",
+      "profileRiskDataSource"
+    ],
+    "answerCharacters": 2444,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "risk_profile_context",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c"
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "032d6cad-fa1b-41f9-9378-f08e9098212c",
+    "graphName": "security-risk-graph",
+    "updatedAt": "2026-09-13 14:34:44.000000",
+    "checkpointKeys": [
+      "cards",
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions",
+      "activatedPolicies",
+      "persistedRiskEvents",
+      "profileRiskDataSource"
+    ],
+    "answerCharacters": 2752,
+    "warnings": [
+      "本轮诊断范围仅为当前用户的已授权分组 gid=1ff4df996bf244bdb86865533a92b12c。仅依据已读取的风险画像及其记录的策略快照；未调用实时策略查询工具，不代表已检查当前全部策略。"
+    ],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      },
+      {
+        "name": "risk_profile_context",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c"
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "71d3d760-6e28-46f8-bf29-b662ba95066d",
+    "graphName": "campaign-analysis-graph",
+    "updatedAt": "2026-09-13 14:29:34.000000",
+    "checkpointKeys": [
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions"
+    ],
+    "answerCharacters": 2508,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      },
+      {
+        "name": "get_group_access_records",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c",
+          "endDate": "2026-09-13",
+          "startDate": "2026-09-07"
+        },
+        "metrics": {},
+        "meta": {
+          "tenantId": "2",
+          "snapshotId": "075df9ca-814f-4fdb-9ea9-893363d11617",
+          "requestedStart": 1788710400000,
+          "requestedEnd": 1789315200000,
+          "effectiveEnd": 1789315200000,
+          "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+          "availability": "AVAILABLE",
+          "freshness": "FRESH",
+          "completeness": "PARTIAL",
+          "provisional": true,
+          "collectionQuality": {
+            "status": "UNKNOWN",
+            "reasons": [
+              "PRODUCER_SAMPLE_STALE"
+            ]
+          },
+          "missingMetrics": [
+            "country",
+            "localeCnStats",
+            "topRegionShare",
+            "networkStats",
+            "uvTypeStats"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "f274ff39-053f-4211-b935-00ef81e25de9",
+    "graphName": "campaign-analysis-graph",
+    "updatedAt": "2026-09-13 14:28:09.000000",
+    "checkpointKeys": [
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions"
+    ],
+    "answerCharacters": 2662,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      },
+      {
+        "name": "get_group_stats",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c",
+          "endDate": "2026-09-13",
+          "startDate": "2026-09-07"
+        },
+        "metrics": {
+          "requested": {
+            "pv": 11,
+            "uv": 11,
+            "uip": 1,
+            "daily": [
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-07"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-08"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-09"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-10"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-11"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-12"
+              },
+              {
+                "pv": 11,
+                "uv": 11,
+                "uip": 1,
+                "date": "2026-09-13"
+              }
+            ],
+            "denied": 0,
+            "osStats": [
+              {
+                "os": "Windows",
+                "cnt": 1,
+                "ratio": 0.09090909090909093
+              }
+            ],
+            "hourStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              5,
+              6,
+              0,
+              0
+            ],
+            "topIpShare": 1.0,
+            "topIpStats": [
+              {
+                "cnt": 11,
+                "error": 0,
+                "ratio": 1.0,
+                "ipHash": "[REDACTED]",
+                "approximate": true
+              }
+            ],
+            "deviceStats": [
+              {
+                "cnt": 11,
+                "ratio": 1.0,
+                "device": "Desktop"
+              }
+            ],
+            "uvTypeStats": [],
+            "browserStats": [
+              {
+                "cnt": 1,
+                "ratio": 0.09090909090909093,
+                "browser": "Chrome"
+              }
+            ],
+            "networkStats": [],
+            "weekdayStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              11
+            ],
+            "localeCnStats": [],
+            "peakHourShare": 0.5454545454545454,
+            "topDeviceShare": 1.0,
+            "topBrowserShare": 0.09090909090909093,
+            "topVisitorShare": 0.09090909090909093,
+            "topVisitorStats": [
+              {
+                "cnt": 1,
+                "error": 0,
+                "ratio": 0.09090909090909093,
+                "approximate": true,
+                "visitorHash": "[REDACTED]"
+              }
+            ],
+            "repeatVisitRatio": 0.0
+          }
+        },
+        "meta": {
+          "tenantId": "2",
+          "snapshotId": "73c7e897-a7d1-4d2e-8364-f7acbb452e06",
+          "requestedStart": 1788710400000,
+          "requestedEnd": 1789315200000,
+          "effectiveEnd": 1789315200000,
+          "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+          "availability": "AVAILABLE",
+          "freshness": "FRESH",
+          "completeness": "PARTIAL",
+          "provisional": true,
+          "collectionQuality": {
+            "status": "UNKNOWN",
+            "reasons": [
+              "PRODUCER_SAMPLE_STALE"
+            ]
+          },
+          "missingMetrics": [
+            "country",
+            "localeCnStats",
+            "topRegionShare",
+            "networkStats",
+            "uvTypeStats"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "fc3a9ed7-d0be-4f36-8271-46b635a4a7b8",
+    "graphName": "campaign-analysis-graph",
+    "updatedAt": "2026-09-13 14:00:44.000000",
+    "checkpointKeys": [
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions"
+    ],
+    "answerCharacters": 2250,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      },
+      {
+        "name": "get_group_stats",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c",
+          "endDate": "2026-09-13",
+          "startDate": "2026-09-07"
+        },
+        "metrics": {
+          "requested": {
+            "pv": 11,
+            "uv": 11,
+            "uip": 1,
+            "daily": [
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-07"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-08"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-09"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-10"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-11"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-12"
+              },
+              {
+                "pv": 11,
+                "uv": 11,
+                "uip": 1,
+                "date": "2026-09-13"
+              }
+            ],
+            "denied": 0,
+            "osStats": [
+              {
+                "os": "Windows",
+                "cnt": 1,
+                "ratio": 0.09090909090909093
+              }
+            ],
+            "hourStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              5,
+              6,
+              0,
+              0
+            ],
+            "topIpShare": 1.0,
+            "topIpStats": [
+              {
+                "cnt": 11,
+                "error": 0,
+                "ratio": 1.0,
+                "ipHash": "[REDACTED]",
+                "approximate": true
+              }
+            ],
+            "deviceStats": [
+              {
+                "cnt": 11,
+                "ratio": 1.0,
+                "device": "Desktop"
+              }
+            ],
+            "uvTypeStats": [],
+            "browserStats": [
+              {
+                "cnt": 1,
+                "ratio": 0.09090909090909093,
+                "browser": "Chrome"
+              }
+            ],
+            "networkStats": [],
+            "weekdayStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              11
+            ],
+            "localeCnStats": [],
+            "peakHourShare": 0.5454545454545454,
+            "topDeviceShare": 1.0,
+            "topBrowserShare": 0.09090909090909093,
+            "topVisitorShare": 0.09090909090909093,
+            "topVisitorStats": [
+              {
+                "cnt": 1,
+                "error": 0,
+                "ratio": 0.09090909090909093,
+                "approximate": true,
+                "visitorHash": "[REDACTED]"
+              }
+            ],
+            "repeatVisitRatio": 0.0
+          }
+        },
+        "meta": {
+          "tenantId": "2",
+          "snapshotId": "1609f56c-27b0-41b7-8315-e3d12baa3ae3",
+          "requestedStart": 1788710400000,
+          "requestedEnd": 1789315200000,
+          "effectiveEnd": 1789315200000,
+          "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+          "availability": "AVAILABLE",
+          "freshness": "FRESH",
+          "completeness": "PARTIAL",
+          "provisional": true,
+          "collectionQuality": {
+            "status": "UNKNOWN",
+            "reasons": [
+              "PRODUCER_SAMPLE_STALE"
+            ]
+          },
+          "missingMetrics": [
+            "country",
+            "localeCnStats",
+            "topRegionShare",
+            "networkStats",
+            "uvTypeStats"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "a53cbec5-c76f-4c99-8420-ffc63d68e926",
+    "graphName": "campaign-analysis-graph",
+    "updatedAt": "2026-09-13 13:53:03.000000",
+    "checkpointKeys": [
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions"
+    ],
+    "answerCharacters": 0,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      },
+      {
+        "name": "get_group_stats",
+        "success": true,
+        "arguments": {
+          "gid": "1ff4df996bf244bdb86865533a92b12c",
+          "endDate": "2026-09-13",
+          "startDate": "2026-09-07"
+        },
+        "metrics": {
+          "requested": {
+            "pv": 10,
+            "uv": 10,
+            "uip": 1,
+            "daily": [
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-07"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-08"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-09"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-10"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-11"
+              },
+              {
+                "pv": 0,
+                "uv": 0,
+                "uip": 0,
+                "date": "2026-09-12"
+              },
+              {
+                "pv": 10,
+                "uv": 10,
+                "uip": 1,
+                "date": "2026-09-13"
+              }
+            ],
+            "denied": 0,
+            "osStats": [],
+            "hourStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              5,
+              5,
+              0,
+              0
+            ],
+            "topIpShare": 1.0,
+            "topIpStats": [
+              {
+                "cnt": 10,
+                "error": 0,
+                "ratio": 1.0,
+                "ipHash": "[REDACTED]",
+                "approximate": true
+              }
+            ],
+            "deviceStats": [
+              {
+                "cnt": 10,
+                "ratio": 1.0,
+                "device": "Desktop"
+              }
+            ],
+            "uvTypeStats": [],
+            "browserStats": [],
+            "networkStats": [],
+            "weekdayStats": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              10
+            ],
+            "localeCnStats": [],
+            "peakHourShare": 0.5,
+            "topDeviceShare": 1.0,
+            "topBrowserShare": null,
+            "topVisitorShare": 0.1,
+            "topVisitorStats": [
+              {
+                "cnt": 1,
+                "error": 0,
+                "ratio": 0.1,
+                "approximate": true,
+                "visitorHash": "[REDACTED]"
+              }
+            ],
+            "repeatVisitRatio": 0.0
+          }
+        },
+        "meta": {
+          "tenantId": "2",
+          "snapshotId": "74f0cc1d-0ce4-4da6-90a2-9b2fb3706376",
+          "requestedStart": 1788710400000,
+          "requestedEnd": 1789315200000,
+          "effectiveEnd": 1789315200000,
+          "recoveryEpoch": "d353ea96-8064-464a-9a29-006ef152289b",
+          "availability": "AVAILABLE",
+          "freshness": "FRESH",
+          "completeness": "PARTIAL",
+          "provisional": true,
+          "collectionQuality": {
+            "status": "UNKNOWN",
+            "reasons": [
+              "PRODUCER_SAMPLE_STALE"
+            ]
+          },
+          "missingMetrics": [
+            "country",
+            "localeCnStats",
+            "topRegionShare",
+            "networkStats",
+            "uvTypeStats"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "0b9e53e2-7467-4473-9cc7-2b12fa2364ab",
+    "graphName": "security-risk-graph",
+    "updatedAt": "2026-09-13 13:37:43.000000",
+    "checkpointKeys": [
+      "cards",
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions",
+      "activatedPolicies",
+      "persistedRiskEvents",
+      "profileRiskDataSource"
+    ],
+    "answerCharacters": 788,
+    "warnings": [],
+    "tools": []
+  },
+  {
+    "status": "FINISHED",
+    "traceId": "1d2f7c4c-65ed-4710-95ad-439fbf68d0db",
+    "graphName": "campaign-analysis-graph",
+    "updatedAt": "2026-09-13 13:37:21.000000",
+    "checkpointKeys": [
+      "answer",
+      "traceId",
+      "warnings",
+      "graphName",
+      "sessionId",
+      "traceEvents",
+      "graphVersion",
+      "visitedNodes",
+      "toolExecutions"
+    ],
+    "answerCharacters": 395,
+    "warnings": [],
+    "tools": [
+      {
+        "name": "list_groups",
+        "success": true,
+        "arguments": {}
+      }
+    ]
+  }
+]

@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.riskprofile.source;
 
 import com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence;
+import com.jupiter.shortlink.agent.riskprofile.model.RiskWindowDimensions;
 
 import java.time.Instant;
 import java.util.Map;
@@ -24,7 +25,17 @@ public record ShortLinkStatsWindow(
         Double repeatVisitRatio,
         String tenantId,
         Long linkId,
-        Map<String, Object> meta) {
+        Map<String, Object> meta,
+        RiskWindowDimensions dimensions) {
+    public ShortLinkStatsWindow(String gid, String domain, String shortUri, String fullShortUrl,
+            Instant startTime, Instant endTime, Long pv, Long uv, Long uip, Double topIpShare,
+            Double topVisitorShare, Double topRegionShare, Double topDeviceShare, Double topBrowserShare,
+            Double peakHourShare, Double repeatVisitRatio, String tenantId, Long linkId, Map<String, Object> meta) {
+        this(gid, domain, shortUri, fullShortUrl, startTime, endTime, pv, uv, uip, topIpShare,
+                topVisitorShare, topRegionShare, topDeviceShare, topBrowserShare, peakHourShare,
+                repeatVisitRatio, tenantId, linkId, meta, null);
+    }
+
     public ShortLinkStatsWindow(
             String gid,
             String domain,

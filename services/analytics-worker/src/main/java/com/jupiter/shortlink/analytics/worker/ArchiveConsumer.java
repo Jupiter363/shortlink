@@ -31,7 +31,7 @@ public final class ArchiveConsumer implements DisposableBean {
         this.settings = settings;
         this.ledger = ledger;
         this.archive = archive;
-        this.enricher = new EventEnricher(settings.hashKey(), 5000);
+        this.enricher = EventEnricher.fromEnvironment(settings.hashKey(), 5000);
     }
 
     @Scheduled(fixedDelayString = "${analytics.archive.poll-delay:100}")
@@ -271,6 +271,10 @@ public final class ArchiveConsumer implements DisposableBean {
     }
 
     public synchronized void destroy() {
-        if (consumer != null) consumer.close(Duration.ofSeconds(10));
+        try {
+            if (consumer != null) consumer.close(Duration.ofSeconds(10));
+        } finally {
+            enricher.close();
+        }
     }
 }

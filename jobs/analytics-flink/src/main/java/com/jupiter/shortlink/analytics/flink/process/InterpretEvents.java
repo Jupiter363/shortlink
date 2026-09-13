@@ -19,7 +19,12 @@ public final class InterpretEvents extends ProcessFunction<String, String> {
 
     @Override
     public void open(org.apache.flink.configuration.Configuration c) {
-        enricher = new EventEnricher(hashKey, 5000);
+        enricher = EventEnricher.fromEnvironment(hashKey, 5000);
+    }
+
+    @Override
+    public void close() {
+        if (enricher != null) enricher.close();
     }
 
     public void processElement(String input, Context ctx, Collector<String> out) {

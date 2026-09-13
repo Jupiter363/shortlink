@@ -1,5 +1,7 @@
 package com.jupiter.shortlink.agent.securityriskagent.node;
 
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.jupiter.shortlink.agent.infrastructure.persistence.AgentStateSerializerFactory;
 import com.jupiter.shortlink.agent.riskcenter.repository.JdbcRiskEventRepository;
 import com.jupiter.shortlink.agent.riskcenter.repository.JdbcRiskReviewRepository;
 import com.jupiter.shortlink.agent.riskcenter.repository.JdbcRiskSnapshotRepository;
@@ -8,6 +10,7 @@ import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskWatchStatus;
+import com.jupiter.shortlink.agent.riskcommon.safety.RiskSummaryText;
 import com.jupiter.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.jupiter.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.jupiter.shortlink.agent.riskprofile.model.RiskTrendPoint;
@@ -29,10 +32,108 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static com.jupiter.shortlink.agent.riskprofile.RiskProfileTestFixture.saveGroupProfile;
 import static org.mockito.Mockito.mock;
 
 class RiskEventPersistNodeTest {
+
+    @Test
+    void firstEventReturningAfterCancellationCannotStartSnapshotOrOtherWrites() {
+        var service = mock(RiskCenterService.class);
+        var groups = mock(JdbcGroupRiskProfileRepository.class);
+        var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+        var event = completedEvent();
+        org.mockito.Mockito.when(service.recordSecurityRiskAgentEvent(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> { cancelled.set(true); return event; });
+        var end = LocalDateTime.of(2026, 9, 14, 0, 0);
+        var profile = profile("g1", "a", 92, end);
+        var state = new OverAllState(Map.of("profileRiskContext", new ProfileRiskAnalysisContext("g1",
+                groupProfile("g1", end), List.of(profile, profile)), "answer", "summary"));
+        assertThatThrownBy(() -> new RiskEventPersistNode(service, groups).apply(state, () -> {
+            if (cancelled.get()) throw new IllegalStateException("execution cancelled");
+        })).hasMessage("execution cancelled");
+        org.mockito.Mockito.verify(service, org.mockito.Mockito.times(1)).recordSecurityRiskAgentEvent(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.verify(service, org.mockito.Mockito.never()).upsertSnapshotFromProfile(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verifyNoInteractions(groups);
+    }
+
+    @Test
+    void snapshotReturningAfterCancellationCannotWriteGroupSummary() {
+        var service = mock(RiskCenterService.class);
+        var groups = mock(JdbcGroupRiskProfileRepository.class);
+        var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+        var event = completedEvent();
+        org.mockito.Mockito.when(service.recordSecurityRiskAgentEvent(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).thenReturn(event);
+        org.mockito.Mockito.doAnswer(invocation -> { cancelled.set(true); return null; }).when(service).upsertSnapshotFromProfile(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        var end = LocalDateTime.of(2026, 9, 14, 0, 0);
+        var state = new OverAllState(Map.of("profileRiskContext", new ProfileRiskAnalysisContext("g1",
+                groupProfile("g1", end), List.of(profile("g1", "a", 92, end))), "answer", "summary"));
+        assertThatThrownBy(() -> new RiskEventPersistNode(service, groups).apply(state, () -> {
+            if (cancelled.get()) throw new IllegalStateException("execution cancelled");
+        })).hasMessage("execution cancelled");
+        org.mockito.Mockito.verifyNoInteractions(groups);
+    }
+
+    private static com.jupiter.shortlink.agent.riskcenter.model.RiskEvent completedEvent() {
+        return new com.jupiter.shortlink.agent.riskcenter.model.RiskEvent("event", RiskTargetType.SHORT_LINK,
+                "g1", "example.com", "a", "https://example.com/a", 92, RiskLevel.HIGH,
+                List.of(), Map.of(), List.of(), "summary", "trace", "session",
+                com.jupiter.shortlink.agent.riskcommon.model.RiskEventSource.PROFILE_BATCH,
+                LocalDateTime.of(2026, 9, 14, 0, 0));
+    }
+
+    @Test
+    void longAnalysisPersistsBothEventAndGroupSummariesWithoutChangingAnswerOrCheckpoint() throws Exception {
+        JdbcTemplate jdbc = jdbcTemplate("risk_long_analysis_summary");
+        var events = new JdbcRiskEventRepository(jdbc);
+        var groups = new JdbcGroupRiskProfileRepository(jdbc);
+        var endTime = LocalDateTime.of(2026, 7, 10, 2, 0);
+        var group = groupProfile("gid-long", endTime);
+        saveGroupProfile(jdbc, groups, group);
+        var service = new RiskCenterService(events, new JdbcRiskSnapshotRepository(jdbc),
+                new JdbcRiskReviewRepository(jdbc), new JdbcShortLinkRiskProfileRepository(jdbc),
+                groups, mock(RiskPolicyService.class));
+        var node = new RiskEventPersistNode(service, groups);
+        var context = new ProfileRiskAnalysisContext("gid-long", group,
+                List.of(profile("gid-long", "high-long", 92, endTime),
+                        profile("gid-long", "medium-long", 55, endTime)));
+        String answer = "## 默认分组风险分析\n"
+                + "当前批次出现流量突增及来源集中，建议复核业务投放和访问证据，不自动修改短链接策略。\n".repeat(100)
+                + "完整结论：需要管理员确认后再执行策略。";
+        assertThat(answer.length()).isGreaterThan(2048);
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE t_agent_group_risk_profile SET agent_summary = ? WHERE gid = ?", answer, "gid-long"))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+        var state = new OverAllState(Map.of("profileRiskContext", context, "traceId", "trace-long",
+                "sessionId", "session-long", "answer", answer));
+        var output = node.apply(state);
+        String expected = RiskSummaryText.forPersistence(answer);
+
+        assertThat(events.listEvents("gid-long", RiskTargetType.SHORT_LINK, 1, 10)).hasSize(2)
+                .allSatisfy(event -> assertThat(event.agentSummary()).isEqualTo(expected));
+        assertThat(groups.findByBatchIdAndGid(group.batchId(), "gid-long").orElseThrow().agentSummary())
+                .isEqualTo(expected).hasSize(2048).endsWith(RiskSummaryText.OMISSION_MARKER);
+        assertThat(output).doesNotContainKey("answer");
+        assertThat(state.data().get("answer")).isEqualTo(answer);
+        var checkpoint = AgentStateSerializerFactory.create().cloneObject(state.data());
+        assertThat(checkpoint.data().get("answer")).isEqualTo(answer);
+
+        // A retry must update both summaries without duplicating either risk event.
+        String revised = "复核结果：" + answer;
+        node.persist(context, "trace-long", "session-long", revised);
+        assertThat(events.listEvents("gid-long", RiskTargetType.SHORT_LINK, 1, 10)).hasSize(2)
+                .allSatisfy(event -> assertThat(event.agentSummary())
+                        .isEqualTo(RiskSummaryText.forPersistence(revised)));
+        assertThat(groups.findByBatchIdAndGid(group.batchId(), "gid-long").orElseThrow().agentSummary())
+                .isEqualTo(RiskSummaryText.forPersistence(revised));
+    }
 
     @Test
     void persistsEventsSnapshotsAndGroupSummaryForHighAndMediumProfiles() {

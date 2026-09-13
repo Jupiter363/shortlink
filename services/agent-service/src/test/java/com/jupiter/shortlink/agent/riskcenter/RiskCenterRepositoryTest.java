@@ -14,6 +14,7 @@ import com.jupiter.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskReviewAction;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskWatchStatus;
+import com.jupiter.shortlink.agent.riskcommon.safety.RiskSummaryText;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -28,6 +29,27 @@ import java.util.Map;
 import javax.sql.DataSource;
 
 class RiskCenterRepositoryTest {
+
+    @Test
+    void boundsSummariesOnDirectEventInsertAndUpdate() {
+        JdbcTemplate jdbc = jdbcTemplate("risk_direct_long_summary");
+        var repository = new JdbcRiskEventRepository(jdbc);
+        String original = "风险事件分析：需要复核访问来源和当前批次证据。".repeat(150);
+        var source = event("bounded-summary", 91, LocalDateTime.of(2026, 7, 10, 2, 0));
+
+        for (String text : List.of(original, "更新后的分析结论：" + original)) {
+            var event = new RiskEvent(source.eventId(), source.targetType(), source.gid(), source.domain(),
+                    source.shortUri(), source.fullShortUrl(), source.riskScore(), source.riskLevel(),
+                    source.reasonCodes(), source.evidence(), source.recommendedActions(), text,
+                    source.traceId(), source.sessionId(), source.source(), source.eventTime());
+            repository.saveEvent(event);
+            assertThat(repository.findByEventId(source.eventId()).orElseThrow().agentSummary())
+                    .isEqualTo(RiskSummaryText.forPersistence(text)).hasSize(2048)
+                    .endsWith(RiskSummaryText.OMISSION_MARKER);
+            assertThat(event.agentSummary()).isEqualTo(text);
+        }
+        assertThat(repository.listEvents("gid-001", RiskTargetType.SHORT_LINK, 1, 10)).hasSize(1);
+    }
 
     @Test
     void authorizedQueriesFilterTenantAndStableLinkBeforeDecodingEvidence() {

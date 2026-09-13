@@ -127,15 +127,18 @@ class JobClickHouseIntegrationTest {
                         10,
                         deadline,
                         result::add);
-                assertEquals(1, result.size());
                 if (kind.equals("METRICS")) {
-                    assertEquals("2026-09-02", result.get(0).get("day"));
-                    assertEquals("1", result.get(0).get("pv").toString());
-                    assertEquals("1", result.get(0).get("denied").toString());
-                } else
+                    assertEquals(3, result.size());
+                    var detail = result.stream().filter(row -> "0".equals(row.get("group_row").toString())).findFirst().orElseThrow();
+                    assertEquals("2026-09-02", detail.get("day"));
+                    assertEquals("1", detail.get("pv").toString());
+                    assertEquals("1", detail.get("denied").toString());
+                } else {
+                    assertEquals(1, result.size());
                     assertEquals(
                             EventIdentity.bind(start + 1, id + "click"),
                             result.get(0).get("eventId"));
+                }
             }
         }
     }

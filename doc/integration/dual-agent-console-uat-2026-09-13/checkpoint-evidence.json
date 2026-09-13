@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-09-13T20:48:00+08:00",
+  "database": "shortlink_agent_it",
+  "graphCheckpoints": [
+    {
+      "graphName": "campaign-analysis-graph",
+      "graphVersion": "v07-tenant-evidence",
+      "status": "FINISHED",
+      "count": 2,
+      "latestUpdateUtc": "2026-09-13T12:47:18Z"
+    },
+    {
+      "graphName": "security-risk-graph",
+      "graphVersion": "v1",
+      "status": "FINISHED",
+      "count": 2,
+      "latestUpdateUtc": "2026-09-13T12:46:21Z"
+    }
+  ],
+  "riskProfilePipeline": {
+    "batchCount": 4,
+    "failedBatchCount": 4,
+    "groupProfileCount": 0,
+    "shortLinkProfileCount": 0,
+    "errorSummary": "Current profile access could not be authorized"
+  },
+  "interpretation": "Graph checkpoints prove persisted run completion only; they do not prove analytics or risk facts.",
+  "containsCredentials": false
+}

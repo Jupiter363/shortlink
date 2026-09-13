@@ -51,6 +51,9 @@ import java.util.Optional;
 @Service
 public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecutor {
 
+    private static final org.slf4j.Logger LOG =
+            org.slf4j.LoggerFactory.getLogger(DefaultSecurityRiskGraphExecutor.class);
+
     private static final String INTAKE_NODE = "intake";
     private static final String PROFILE_CANDIDATE_LOAD_NODE = "profile_candidate_load";
     private static final String RISK_TOOL_PLANNING_NODE = "risk_tool_planning";
@@ -61,6 +64,8 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
     private static final String RESPONSE_COMPOSE_NODE = "response_compose";
     private static final String CHECKPOINT_SAVE_NODE = "checkpoint_save";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String EXECUTION_ID = "riskExecutionId";
+    private final java.util.concurrent.ConcurrentMap<String, ExecutionGuard> executions = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final GraphCheckpointStore checkpointStore;
     private final AgentProperties agentProperties;
@@ -103,7 +108,8 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                         shortLinkRiskProfileRepository,
                         groupRiskProfileRepository,
                         agentProperties.getRisk().getProfile().getTopCandidateSize(),
-                        authority);
+                        authority,
+                        toolRegistry);
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
         this.llmExplanationNode =
@@ -230,7 +236,8 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                         shortLinkRiskProfileRepository,
                         groupRiskProfileRepository,
                         agentProperties.getRisk().getProfile().getTopCandidateSize(),
-                        authority);
+                        authority,
+                        toolRegistry);
         this.toolPlanningNode = new RiskToolPlanningNode(toolRegistry, this.sanitizer);
         this.scoringNode = new RiskScoringNode(new SecurityRiskCardFactory(this.sanitizer));
         this.llmExplanationNode =
@@ -252,11 +259,14 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
 
     @Override
     public AgentRunResult execute(SecurityRiskGraphRequest request) {
+        // Batch retries rebuild from authoritative immutable input, never from a previous attempt's native checkpoint.
+        String nativeSession = scopedSession(request) + (request.isBatchExecution()
+                ? ":attempt:" + java.util.UUID.randomUUID() : "");
         String graphThreadId =
                 AgentGraphThreadKeyFactory.create(
                         SecurityRiskGraphDefinition.GRAPH_NAME,
                         SecurityRiskGraphDefinition.GRAPH_VERSION,
-                        scopedSession(request));
+                        nativeSession);
         try {
             return executionCoordinator.execute(
                     graphThreadId, () -> executeSerialized(request, graphThreadId));
@@ -270,7 +280,19 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
 
     private AgentRunResult executeSerialized(
             SecurityRiskGraphRequest request, String graphThreadId) {
+        var lease = com.jupiter.shortlink.agent.riskanalysis.job.RiskAnalysisJobLeaseManager.currentExecution();
+        long configuredMillis = agentProperties.getRisk().getAnalysis().getExecutionTimeoutMillis();
+        long limitMillis = request.isBatchExecution()
+                ? Math.min(configuredMillis, java.time.Duration.ofMinutes(Math.max(1, agentProperties.getRisk().getAnalysis().getJobLeaseMinutes())).toMillis())
+                : Math.min(configuredMillis, 40000L);
+        java.time.Duration budget = java.time.Duration.ofMillis(limitMillis);
+        if (lease != null && lease.remainingExecutionTime() != null
+                && lease.remainingExecutionTime().compareTo(budget) < 0) budget = lease.remainingExecutionTime();
+        ExecutionGuard guard = new ExecutionGuard(budget, lease);
+        String executionId = java.util.UUID.randomUUID().toString();
+        executions.put(executionId, guard);
         Map<String, Object> input = new LinkedHashMap<>();
+        input.put(EXECUTION_ID, executionId);
         input.put("sessionId", request.sessionId());
         input.put("username", request.username());
         input.put(
@@ -294,9 +316,31 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
             input.put("analysisInput", request.analysisInput().toStateValue());
         }
         try {
-            Optional<OverAllState> state =
-                    graph.invoke(input, RunnableConfig.builder().threadId(graphThreadId).build());
-            if (state.isEmpty()) {
+            guard.assertActive();
+            Optional<AgentRunResult> completed =
+                    reactor.core.publisher.Flux.defer(() -> graph.stream(input,
+                                    RunnableConfig.builder().threadId(graphThreadId).build()))
+                            // Graph's synchronous subscription path includes loading/cloning checkpoints.
+                            // Use Reactor's existing bounded scheduler so even that path is cancellable by the deadline.
+                            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                            .last()
+                            .map(com.alibaba.cloud.ai.graph.NodeOutput::state)
+                            .map(state -> {
+                                guard.assertActive();
+                                AgentRunResult result = toRunResult(request, state);
+                                guard.assertActive();
+                                AgentRunResult saved = saveCheckpointOrWarn(request, state, result);
+                                guard.assertActive();
+                                return saved;
+                            })
+                            // Apply to completion, not each emitted node: intermediate progress cannot reset the deadline.
+                            .timeout(budget, reactor.core.publisher.Mono.defer(() -> {
+                                guard.cancel();
+                                return reactor.core.publisher.Mono.error(new IllegalStateException("Security risk graph execution deadline exceeded"));
+                            }))
+                            .blockOptional();
+            guard.assertActive();
+            if (completed.isEmpty()) {
                 if (request.isBatchExecution()) {
                     throw new IllegalStateException("Security risk graph produced no result");
                 }
@@ -305,19 +349,68 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
                         "Security risk graph produced no result.",
                         "Graph execution returned empty state");
             }
-            AgentRunResult result = toRunResult(request, state.get());
-            return saveCheckpointOrWarn(request, state.get(), result);
+            return completed.get();
         } catch (Exception ex) {
+            logFailureTypes(request.traceId(), ex);
             if (request.isBatchExecution()) {
                 throw new IllegalStateException("Security risk graph execution failed", ex);
             }
             return fallbackResult(request, "Security risk graph failed.", "Graph execution failed");
+        } finally {
+            guard.cancel();
+            executions.remove(executionId, guard);
         }
+    }
+
+    private void assertExecutionActive(OverAllState state) {
+        ExecutionGuard guard = executions.get(state.value(EXECUTION_ID, ""));
+        if (guard == null) throw new IllegalStateException("Security risk execution is no longer active");
+        guard.assertActive();
+    }
+
+    private static final class ExecutionGuard {
+        private final long deadline;
+        private final com.jupiter.shortlink.agent.riskanalysis.job.RiskAnalysisJobLeaseManager.Lease lease;
+        private final java.util.concurrent.atomic.AtomicBoolean cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+
+        private ExecutionGuard(java.time.Duration budget,
+                com.jupiter.shortlink.agent.riskanalysis.job.RiskAnalysisJobLeaseManager.Lease lease) {
+            this.deadline = System.nanoTime() + budget.toNanos();
+            this.lease = lease;
+        }
+
+        private void cancel() { cancelled.set(true); }
+
+        private void assertActive() {
+            if (cancelled.get() || System.nanoTime() >= deadline)
+                throw new IllegalStateException("Security risk graph execution deadline exceeded");
+            if (lease != null) lease.assertExecutionActive();
+        }
+    }
+
+    /** Log code locations only; exception messages may contain model or business payloads. */
+    private static void logFailureTypes(String traceId, Throwable failure) {
+        var causes = new ArrayList<String>();
+        Throwable current = failure;
+        for (int depth = 0; current != null && depth < 8; depth++) {
+            var frames = java.util.Arrays.stream(current.getStackTrace()).filter(frame ->
+                            frame.getClassName().startsWith("com.jupiter.")
+                                    || frame.getClassName().startsWith("com.alibaba.")
+                                    || frame.getClassName().startsWith("com.mysql."))
+                    .limit(10)
+                    .map(StackTraceElement::toString).toList();
+            String sqlCode = current instanceof java.sql.SQLException sql
+                    ? " SQLState=" + sql.getSQLState() + " vendorCode=" + sql.getErrorCode() : "";
+            causes.add(current.getClass().getName() + sqlCode + " at " + frames);
+            current = current.getCause();
+        }
+        LOG.warn("Security graph failed; traceId={}, causeLocations={}", traceId, causes);
     }
 
     private CompiledGraph compileGraph() {
         try {
-            return new StateGraph(SecurityRiskGraphDefinition.GRAPH_NAME, Map::of)
+            return new StateGraph(SecurityRiskGraphDefinition.GRAPH_NAME, Map::of,
+                    com.jupiter.shortlink.agent.infrastructure.persistence.AgentStateSerializerFactory.create())
                     .addNode(
                             INTAKE_NODE,
                             AsyncNodeAction.node_async(
@@ -391,8 +484,10 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
 
     private Map<String, Object> tracedNode(String nodeName, OverAllState state, GraphNode node)
             throws Exception {
+        assertExecutionActive(state);
         long startEpochMs = System.currentTimeMillis();
         Map<String, Object> output = new LinkedHashMap<>(node.apply(state));
+        assertExecutionActive(state);
         output.put(
                 "traceEvents",
                 appendTraceEvent(
@@ -415,7 +510,16 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
     }
 
     private Map<String, Object> planAndExecuteTools(OverAllState state) {
-        return toolPlanningNode.apply(state);
+        Map<String, Object> output = new LinkedHashMap<>(toolPlanningNode.apply(state));
+        List<Map<String, Object>> scopeExecutions = state.value("profileScopeToolExecutions", List.of());
+        List<Map<String, Object>> executions = new ArrayList<>(scopeExecutions);
+        executions.addAll((List<Map<String, Object>>) output.get("toolExecutions"));
+        List<String> warnings = new ArrayList<>(state.value("profileScopeWarnings", List.of()));
+        warnings.addAll((List<String>) output.get("toolWarnings"));
+        output.put("toolExecutions", executions);
+        output.put("toolWarnings", warnings);
+        output.put("evidenceRequested", Boolean.TRUE.equals(output.get("evidenceRequested")) || !scopeExecutions.isEmpty());
+        return output;
     }
 
     private Map<String, Object> scoreRisk(OverAllState state) {
@@ -423,15 +527,32 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
     }
 
     private Map<String, Object> explainWithLlm(OverAllState state) {
+        String scopeStatus = state.value("profileScopeStatus", "EXPLICIT");
+        String statisticsNotice = state.value("statisticsScopeNotice", "");
+        boolean authorizedStatistics = !state.value("authorizedStatisticsGid", "").isBlank()
+                && state.value("statisticsEvidenceRequested", false);
+        if ("MISSING".equals(scopeStatus) || ("NO_PROFILE".equals(scopeStatus) && !authorizedStatistics)) {
+            List<String> warnings = state.value("toolWarnings", List.of());
+            return Map.of("answer", String.join("\n", warnings), "warnings", warnings,
+                    "llmDataSource", Map.of());
+        }
+        if ("RESOLVED".equals(scopeStatus) || authorizedStatistics || !statisticsNotice.isBlank()) {
+            return llmExplanationNode.explain(
+                    state.value("message", "") + "\n\n已执行范围说明：" + state.value("profileScopeNotice", "")
+                            + "\n" + statisticsNotice
+                            + ("NO_PROFILE".equals(scopeStatus) ? "\n该分组当前没有可用风险画像；这不表示没有风险。本轮仅根据统计快照作只读说明。" : ""),
+                    state.value("toolExecutions", List.of()), state.value("riskCards", List.of()),
+                    state.value("toolWarnings", List.of()));
+        }
         return llmExplanationNode.apply(state);
     }
 
     private Map<String, Object> persistRiskEvents(OverAllState state) {
-        return eventPersistNode.apply(state);
+        return eventPersistNode.apply(state, () -> assertExecutionActive(state));
     }
 
     private Map<String, Object> autoAction(OverAllState state) {
-        return autoActionNode.apply(state);
+        return autoActionNode.apply(state, () -> assertExecutionActive(state));
     }
 
     private Map<String, Object> composeResponse(OverAllState state) {
@@ -496,15 +617,17 @@ public class DefaultSecurityRiskGraphExecutor implements SecurityRiskGraphExecut
             return Optional.empty();
         }
         long checkpointVersion = System.currentTimeMillis();
-        checkpointStore.save(
-                new GraphCheckpoint(
+        GraphCheckpoint checkpoint = new GraphCheckpoint(
                         scopedSession(request),
                         request.traceId(),
                         SecurityRiskGraphDefinition.GRAPH_NAME,
                         SecurityRiskGraphDefinition.GRAPH_VERSION,
                         checkpointJson(request, state, result),
                         checkpointVersion,
-                        "FINISHED"));
+                        "FINISHED");
+        // Serialization may itself consume the remaining budget. Never start a new write after cancellation.
+        assertExecutionActive(state);
+        checkpointStore.save(checkpoint);
         return Optional.of(checkpointVersion);
     }
 

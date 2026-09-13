@@ -42,11 +42,15 @@ public class RiskAutoActionNode {
     }
 
     public Map<String, Object> apply(OverAllState state) {
+        return apply(state, () -> {});
+    }
+
+    public Map<String, Object> apply(OverAllState state, Runnable beforeAction) {
         return apply(
                 state.value("profileRiskContext", ProfileRiskAnalysisContext.empty()),
                 state.value("eventIdsByTarget", Map.of()),
                 state.value("traceId", ""),
-                AgentPrincipal.fromState(state.value("principal").orElse(null)));
+                AgentPrincipal.fromState(state.value("principal").orElse(null)), beforeAction);
     }
 
     public Map<String, Object> apply(
@@ -61,6 +65,15 @@ public class RiskAutoActionNode {
             Map<String, String> eventIdsByTarget,
             String traceId,
             AgentPrincipal principal) {
+        return apply(context, eventIdsByTarget, traceId, principal, () -> {});
+    }
+
+    private Map<String, Object> apply(
+            ProfileRiskAnalysisContext context,
+            Map<String, String> eventIdsByTarget,
+            String traceId,
+            AgentPrincipal principal,
+            Runnable beforeAction) {
         if (context == null || context.isEmpty() || riskPolicyService == null) {
             return Map.of(
                     "activatedPolicies", List.of(),
@@ -70,9 +83,10 @@ public class RiskAutoActionNode {
                 context.shortLinkProfiles().stream()
                         .filter(this::canAutoLimitRate)
                         .map(
-                                profile ->
-                                        activateLimitRate(
-                                                profile, eventIdsByTarget, traceId, principal))
+                                profile -> {
+                                    beforeAction.run();
+                                    return activateLimitRate(profile, eventIdsByTarget, traceId, principal, beforeAction);
+                                })
                         .toList();
         return Map.of(
                 "activatedPolicies",
@@ -93,14 +107,15 @@ public class RiskAutoActionNode {
             ShortLinkRiskProfile profile,
             Map<String, String> eventIdsByTarget,
             String traceId,
-            AgentPrincipal principal) {
+            AgentPrincipal principal,
+            Runnable beforeAction) {
         String eventId =
                 eventIdsByTarget == null
                         ? ""
                         : eventIdsByTarget.getOrDefault(targetKey(profile), "");
         String policyId = autoPolicyId(profile, eventId, traceId);
         Map<String, Object> receipt =
-                riskPolicyService.autoLimitRate(principal, profile, policyId, policyId);
+                riskPolicyService.autoLimitRate(principal, profile, policyId, policyId, beforeAction);
         Map<String, Object> activated = new LinkedHashMap<>();
         activated.put("policyId", policyId);
         activated.put("commandId", policyId);

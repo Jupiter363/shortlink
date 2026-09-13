@@ -2,6 +2,8 @@ package com.jupiter.shortlink.agent.securityriskagent.node;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.jupiter.shortlink.agent.StatsTestFixtures;
 import com.jupiter.shortlink.agent.harness.tool.AgentTool;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolDescriptor;
@@ -13,10 +15,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 class RiskToolPlanningNodeTest {
 
@@ -161,6 +167,97 @@ class RiskToolPlanningNodeTest {
                 .doesNotContain("192.168.1.10")
                 .doesNotContain("visitor-001")
                 .doesNotContain("abc");
+    }
+
+    @ParameterizedTest
+    @MethodSource("namedGroupDates")
+    void authorizedNamedGroupWithoutProfileReadsStatisticsAndBoundedFirstRecordPage(
+            String date, String expectedStart, String expectedEnd, boolean rollingDay) {
+        CapturingAgentTool stats = new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of("pv", 3)));
+        CapturingAgentTool records = new CapturingAgentTool("get_group_access_records", ToolResult.success(Map.of("items", List.of())));
+        RiskToolPlanningNode node = new RiskToolPlanningNode(new AgentToolRegistry(List.of(stats, records)),
+                new SecurityRiskSanitizer(), Clock.fixed(Instant.parse("2026-09-14T08:15:00Z"), ZoneOffset.UTC));
+
+        Map<String, Object> output = node.apply(new OverAllState(Map.of(
+                "message", "诊断分组‘UAT统计维度样本’" + date + "的访问明细，只读说明地区和ISP current=2 size=10000",
+                "sessionId", "named-scope", "username", "zhangsan",
+                "principal", StatsTestFixtures.PRINCIPAL.toState(),
+                "profileScopeStatus", "NO_PROFILE", "authorizedStatisticsGid", "uat-group")));
+
+        assertThat(stats.context.arguments()).containsEntry("gid", "uat-group")
+                .containsEntry("startDate", expectedStart).containsEntry("endDate", expectedEnd);
+        assertThat(stats.context.principal()).isEqualTo(StatsTestFixtures.PRINCIPAL);
+        assertThat(records.context.arguments()).containsEntry("current", 1L).containsEntry("size", 10L)
+                .doesNotContainKeys("snapshotId", "cursor");
+        assertThat(output.get("statisticsEvidenceRequested")).isEqualTo(true);
+        assertThat(output.get("evidenceStatus")).isEqualTo("AVAILABLE");
+        assertThat(output.get("statisticsScopeNotice").toString()).contains(expectedStart, expectedEnd);
+        assertThat(output.get("statisticsScopeNotice").toString().contains("并非精确滚动24小时"))
+                .isEqualTo(rollingDay);
+    }
+
+    @Test
+    void unresolvedGroupCannotReuseAStaleResolvedScopeOrQueryExplicitArguments() {
+        CapturingAgentTool stats = new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of("pv", 3)));
+        RiskToolPlanningNode node = new RiskToolPlanningNode(new AgentToolRegistry(List.of(stats)), new SecurityRiskSanitizer());
+        Map<String, Object> output = node.apply(new OverAllState(Map.of(
+                "message", "未知分组 gid=other startDate=2026-09-13 endDate=2026-09-13",
+                "profileScopeStatus", "MISSING", "authorizedStatisticsGid", "stale-group")));
+        assertThat(stats.context).isNull();
+        assertThat(output.get("toolExecutions")).isEqualTo(List.of());
+        assertThat(output.get("statisticsEvidenceRequested")).isEqualTo(false);
+    }
+
+    @Test
+    void structuredBatchNeverAddsAnOnlineStatisticsQuery() {
+        CapturingAgentTool stats = new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of("pv", 3)));
+        RiskToolPlanningNode node = new RiskToolPlanningNode(new AgentToolRegistry(List.of(stats)), new SecurityRiskSanitizer());
+        Map<String, Object> output = node.apply(new OverAllState(Map.of(
+                "message", "gid=g1 startDate=2026-09-13 endDate=2026-09-13",
+                "analysisInput", Map.of("batchId", "risk-profile:fixture"),
+                "authorizedStatisticsGid", "g1", "profileScopeStatus", "EXPLICIT")));
+        assertThat(stats.context).isNull();
+        assertThat(output.get("toolExecutions")).isEqualTo(List.of());
+        assertThat(output.get("statisticsEvidenceRequested")).isEqualTo(false);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidNamedGroupDates")
+    void invalidOrUnboundedDatesDoNotCallStatistics(String date) {
+        CapturingAgentTool stats = new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of("pv", 3)));
+        RiskToolPlanningNode node = new RiskToolPlanningNode(new AgentToolRegistry(List.of(stats)), new SecurityRiskSanitizer());
+        Map<String, Object> output = node.apply(new OverAllState(Map.of(
+                "message", "分组‘样本’" + date, "profileScopeStatus", "NO_PROFILE", "authorizedStatisticsGid", "g1")));
+        assertThat(stats.context).isNull();
+        assertThat(output.get("statisticsEvidenceRequested")).isEqualTo(false);
+        assertThat(output.get("toolWarnings").toString()).contains("统计日期无效");
+    }
+
+    private static Stream<Arguments> namedGroupDates() {
+        return Stream.of(
+                Arguments.of("2026-09-13", "2026-09-13", "2026-09-13", false),
+                Arguments.of("最近24小时", "2026-09-13", "2026-09-14", true),
+                Arguments.of("昨日", "2026-09-13", "2026-09-13", false),
+                Arguments.of("今天", "2026-09-14", "2026-09-14", false));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"截至2026-09-13", "从2026-09-13之后", "2026-09-13以来",
+            "startDate=2026-09-13", "endDate=2026-09-13"})
+    void openOrHalfSpecifiedDatesNeverBecomeSingleDayQueries(String date) {
+        CapturingAgentTool stats = new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of("pv", 3)));
+        RiskToolPlanningNode node = new RiskToolPlanningNode(new AgentToolRegistry(List.of(stats)), new SecurityRiskSanitizer());
+        Map<String, Object> output = node.apply(new OverAllState(Map.of(
+                "message", "分组‘样本’ " + date + " 的访问",
+                "profileScopeStatus", "NO_PROFILE", "authorizedStatisticsGid", "g1")));
+        assertThat(stats.context).isNull();
+        assertThat(output.get("statisticsEvidenceRequested")).isEqualTo(false);
+        assertThat(output.get("toolWarnings").toString()).contains("单边边界");
+    }
+
+    private static Stream<Arguments> invalidNamedGroupDates() {
+        return Stream.of(Arguments.of("2026-02-30"), Arguments.of("2026-09-14至2026-09-13"),
+                Arguments.of("2025-01-01至2026-09-13"));
     }
 
     private static Stream<Arguments> emptyToolData() {

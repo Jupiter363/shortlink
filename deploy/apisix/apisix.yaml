@@ -48,6 +48,39 @@ routes:
         - host: "${{ADMIN_UPSTREAM_HOST}}"
           port: 8002
           weight: 1
+  - id: shortlink-agent-chat
+    priority: 110
+    hosts: ["${{MANAGEMENT_HOST}}"]
+    uri: "/api/short-link/admin/v1/agent/chat"
+    # Keep management protection and budgets identical; static checks prevent drift.
+    plugins:
+      proxy-control:
+        request_buffering: false
+      shortlink-boundary:
+        mode: management
+      limit-req:
+        rate: 100
+        burst: 100
+        rejected_code: 429
+        key_type: var_combination
+        key: "shortlink-management:$remote_addr"
+      limit-conn:
+        conn: 200
+        burst: 100
+        default_conn_delay: 0.1
+        rejected_code: 429
+        key_type: var_combination
+        key: "shortlink-management:$remote_addr"
+    upstream:
+      type: roundrobin
+      pass_host: pass
+      retries: 0
+      # Covers Admin's dedicated 45s chat read budget without widening other APIs.
+      timeout: {connect: 1, send: 3, read: 50}
+      nodes:
+        - host: "${{ADMIN_UPSTREAM_HOST}}"
+          port: 8002
+          weight: 1
   - id: shortlink-redirect
     priority: 10
     hosts: ["${{SHORTLINK_HOST}}"]

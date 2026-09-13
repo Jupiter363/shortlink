@@ -30,6 +30,7 @@ public class AgentToolInternalController {
     private final AgentAnalyticsFacade analytics;
     private CommandRiskRemoteService policies;
     @Autowired private com.jupiter.shortlink.admin.remote.analytics.LinkPageAnalyticsService pages;
+    @Autowired private com.jupiter.shortlink.admin.remote.analytics.ScheduledRiskProfileScopeService scheduledScopes;
 
     public AgentToolInternalController(
             GroupService groupService,
@@ -240,6 +241,23 @@ public class AgentToolInternalController {
                         500,
                         "ACTIVE_LINKS",
                         request.linkIds()));
+    }
+
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/risk/scheduled-scopes")
+    public Result<com.jupiter.shortlink.admin.remote.analytics.ScheduledRiskProfileScopeService.ScopePage> scheduledScopes(
+            @RequestHeader(value = "X-Agent-Principal-Mode", required = false) String mode,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "100") int pageSize) {
+        requirePrincipal();
+        return Results.success(scheduledScopes.discover(mode, cursor, pageSize));
+    }
+
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/risk/scheduled-scope")
+    public Result<com.jupiter.shortlink.admin.remote.analytics.ScheduledRiskProfileScopeService.TenantScope> scheduledScope(
+            @RequestHeader(value = "X-Agent-Principal-Mode", required = false) String mode,
+            @RequestParam String tenantId, @RequestParam String gid) {
+        requirePrincipal();
+        return Results.success(scheduledScopes.resolve(mode, tenantId, gid));
     }
 
     @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs")

@@ -140,10 +140,7 @@ public class WorkerController {
     }
 
     private void verifySourceCoverage() {
-        Properties properties = new Properties();
-        KafkaSecurity.apply(properties);
-        properties.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, settings.bootstrap());
-        properties.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, 10000);
+        Properties properties = sourceAdminProperties(settings.bootstrap());
         try (var admin = AdminClient.create(properties)) {
             String cluster = admin.describeCluster().clusterId().get();
             var topics =
@@ -192,6 +189,19 @@ public class WorkerController {
         } catch (Exception e) {
             throw new IllegalStateException("Source coverage verification unavailable", e);
         }
+    }
+
+    static Properties sourceAdminProperties(String bootstrap) {
+        Properties properties = new Properties();
+        KafkaSecurity.apply(properties);
+        properties.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrap);
+        // Kafka rejects an API deadline below request.timeout.ms at client construction. The
+        // default request timeout is 30 seconds, so both budgets must be explicitly bounded.
+        properties.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
+        properties.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, 10000);
+        properties.put(AdminClientConfig.RETRIES_CONFIG, 1);
+        properties.put(AdminClientConfig.RETRY_BACKOFF_MS_CONFIG, 100);
+        return properties;
     }
 
     private com.fasterxml.jackson.databind.JsonNode command(String path, Object body) {

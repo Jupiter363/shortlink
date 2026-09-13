@@ -4,6 +4,7 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.jupiter.shortlink.agent.riskcenter.model.RiskEvent;
 import com.jupiter.shortlink.agent.riskcenter.service.RiskCenterService;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
+import com.jupiter.shortlink.agent.riskcommon.safety.RiskSummaryText;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.jupiter.shortlink.agent.riskprofile.repository.JdbcGroupRiskProfileRepository;
 import com.jupiter.shortlink.agent.securityriskagent.model.ProfileRiskAnalysisContext;
@@ -29,11 +30,15 @@ public class RiskEventPersistNode {
     }
 
     public Map<String, Object> apply(OverAllState state) {
+        return apply(state, () -> {});
+    }
+
+    public Map<String, Object> apply(OverAllState state, Runnable beforeWrite) {
         return persist(
                 state.value("profileRiskContext", ProfileRiskAnalysisContext.empty()),
                 state.value("traceId", ""),
                 state.value("sessionId", ""),
-                state.value("answer", "")
+                state.value("answer", ""), beforeWrite
         );
     }
 
@@ -43,6 +48,12 @@ public class RiskEventPersistNode {
             String sessionId,
             String agentSummary
     ) {
+        return persist(context, traceId, sessionId, agentSummary, () -> {});
+    }
+
+    private Map<String, Object> persist(
+            ProfileRiskAnalysisContext context, String traceId, String sessionId, String agentSummary,
+            Runnable beforeWrite) {
         if (context == null || context.isEmpty() || riskCenterService == null) {
             return Map.of(
                     "persistedRiskEvents", List.of(),
@@ -50,13 +61,15 @@ public class RiskEventPersistNode {
                     "visitedNodes", List.of(RISK_EVENT_PERSIST_NODE)
             );
         }
+        String persistedSummary = RiskSummaryText.forPersistence(agentSummary);
         Map<String, String> eventIdsByTarget = new LinkedHashMap<>();
         List<Map<String, Object>> persistedEvents = context.shortLinkProfiles().stream()
                 .filter(this::shouldPersist)
-                .map(profile -> persistProfile(profile, traceId, sessionId, agentSummary, eventIdsByTarget))
+                .map(profile -> persistProfile(profile, traceId, sessionId, persistedSummary, eventIdsByTarget, beforeWrite))
                 .toList();
-        if (groupRepository != null && context.groupProfile() != null && agentSummary != null && !agentSummary.isBlank()) {
-            groupRepository.updateAgentSummary(context.groupProfile().batchId(), context.gid(), agentSummary);
+        if (groupRepository != null && context.groupProfile() != null && !persistedSummary.isBlank()) {
+            beforeWrite.run();
+            groupRepository.updateAgentSummary(context.groupProfile().batchId(), context.gid(), persistedSummary);
         }
         return Map.of(
                 "persistedRiskEvents", persistedEvents,
@@ -70,14 +83,17 @@ public class RiskEventPersistNode {
             String traceId,
             String sessionId,
             String agentSummary,
-            Map<String, String> eventIdsByTarget
+            Map<String, String> eventIdsByTarget,
+            Runnable beforeWrite
     ) {
+        beforeWrite.run();
         RiskEvent event = riskCenterService.recordSecurityRiskAgentEvent(
                 profile,
                 traceId,
                 sessionId,
                 agentSummary
         );
+        beforeWrite.run();
         riskCenterService.upsertSnapshotFromProfile(profile, event.eventId(), traceId);
         String targetKey = targetKey(profile);
         eventIdsByTarget.put(targetKey, event.eventId());

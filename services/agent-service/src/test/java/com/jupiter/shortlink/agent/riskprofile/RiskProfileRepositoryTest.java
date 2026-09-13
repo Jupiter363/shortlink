@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskWatchStatus;
+import com.jupiter.shortlink.agent.riskcommon.safety.RiskSummaryText;
 import com.jupiter.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.jupiter.shortlink.agent.riskprofile.model.RiskTrendPoint;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
@@ -32,6 +33,50 @@ import java.util.Set;
 import javax.sql.DataSource;
 
 class RiskProfileRepositoryTest {
+
+    @Test
+    void boundsSummariesOnLeasedGroupInsertUpdateAndDirectSummaryUpdate() {
+        JdbcTemplate jdbc = jdbcTemplate("group_direct_long_summary");
+        var repository = new JdbcGroupRiskProfileRepository(jdbc);
+        var source = groupProfile("summary-group", databaseNow(jdbc), 90, RiskLevel.HIGH);
+        String original = "分组风险分析：本批次访问来源集中，应结合投放和访问证据进行人工复核。".repeat(100);
+
+        for (String text : List.of(original, "复核后更新：" + original)) {
+            var profile = new GroupRiskProfile(source.gid(), source.profileWindowStart(), source.profileWindowEnd(),
+                    source.totalShortLinksScanned(), source.lowRiskCount(), source.mediumRiskCount(),
+                    source.highRiskCount(), source.watchingCount(), source.disabledCount(), source.avgRiskScore(),
+                    source.maxRiskScore(), source.groupRiskScore(), source.groupRiskLevel(), source.groupReasonCodes(),
+                    source.topRiskShortLinks(), source.riskTrend7d(), text, source.batchId());
+            saveGroupProfile(jdbc, repository, profile);
+            assertThat(repository.findByBatchIdAndGid(source.batchId(), source.gid()).orElseThrow().agentSummary())
+                    .isEqualTo(RiskSummaryText.forPersistence(text)).hasSize(2048)
+                    .endsWith(RiskSummaryText.OMISSION_MARKER);
+            assertThat(profile.agentSummary()).isEqualTo(text);
+        }
+
+        repository.updateAgentSummary(source.batchId(), source.gid(), "单独更新：" + original);
+        assertThat(repository.findByBatchIdAndGid(source.batchId(), source.gid()).orElseThrow().agentSummary())
+                .isEqualTo(RiskSummaryText.forPersistence("单独更新：" + original));
+        repository.updateAgentSummary(source.batchId(), source.gid(), "保留 emoji 🔍");
+        assertThat(repository.findByBatchIdAndGid(source.batchId(), source.gid()).orElseThrow().agentSummary())
+                .isEqualTo("保留 emoji 🔍");
+        repository.updateAgentSummary(source.batchId(), source.gid(), null);
+        assertThat(repository.findByBatchIdAndGid(source.batchId(), source.gid()).orElseThrow().agentSummary()).isEmpty();
+    }
+
+    @Test
+    void scheduledJobTenantLookupReadsExactPersistedBatchAndRejectsLegacyMissingIdentity() {
+        JdbcTemplate jdbc = jdbcTemplate("scheduled_job_tenant_identity");
+        var repository = new JdbcGroupRiskProfileRepository(jdbc);
+        var profile = groupProfile("g1", databaseNow(jdbc), 90, RiskLevel.HIGH).withBatchId("tenant-bound-batch");
+        saveGroupProfile(jdbc, repository, profile);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> repository.findBatchTenantId(profile.batchId(), "g1"))
+                .isInstanceOf(SecurityException.class);
+        jdbc.update("UPDATE t_agent_group_risk_profile SET tenant_id = '1001' WHERE batch_id = ? AND gid = 'g1'", profile.batchId());
+        assertThat(repository.findBatchTenantId(profile.batchId(), "g1")).contains("1001");
+        assertThat(repository.findBatchTenantId("other-batch", "g1")).isEmpty();
+        assertThat(repository.findBatchTenantId(profile.batchId(), "other-group")).isEmpty();
+    }
 
     @Test
     void olderStatisticsCannotReplaceNewerShortLinkEvidenceEvenWhileLeaseIsOwned() {

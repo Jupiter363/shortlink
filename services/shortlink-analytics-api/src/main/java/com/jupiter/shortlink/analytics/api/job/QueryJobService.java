@@ -50,7 +50,13 @@ public class QueryJobService {
             QueryRequest query,
             String epoch,
             String ownershipVersion,
-            ManifestPlan plan) {}
+            ManifestPlan plan,
+            long snapshotTime) {
+        public Lease(String jobId, String owner, long token, QueryRequest query, String epoch,
+                String ownershipVersion, ManifestPlan plan) {
+            this(jobId, owner, token, query, epoch, ownershipVersion, plan, query.endExclusive());
+        }
+    }
 
     public QueryJobService(
             JdbcTemplate db,
@@ -211,7 +217,10 @@ public class QueryJobService {
         meta.put("manifestVersion", Map.of("selectionHash", job.get("manifest_hash")));
         meta.put("sourceCut", Map.of("manifestSelectionHash", job.get("manifest_hash")));
         meta.put("metricVersion", "click-v1");
-        meta.put("detailDatasetVersion", "detail-v1");
+        ManifestPlan frozenPlan = read(db.queryForObject("SELECT manifest_json FROM analytics_query_job WHERE job_id=?", String.class, id), ManifestPlan.class);
+        var datasetVersions = frozenPlan.windows().stream().map(ManifestPlan.Window::datasetVersion).distinct().toList();
+        meta.put("detailDatasetVersion", datasetVersions.size() == 1 ? datasetVersions.get(0) : "MIXED");
+        meta.put("detailDatasetVersions", datasetVersions);
         meta.put("ruleVersion", null);
         meta.put("requestedStart", q.startInclusive());
         meta.put("requestedEnd", q.endExclusive());
@@ -225,46 +234,28 @@ public class QueryJobService {
         meta.put("completeness", "COMPLETE");
         meta.put("provisional", false);
         meta.put("collectionQuality", Map.of("status", "UNKNOWN"));
-        meta.put("missingMetrics", List.of("country", "producerCollectionCompleteness"));
-        meta.put(
-                "approximation",
-                Map.of(
-                        "pv",
-                        Map.of(
-                                "type",
-                                "EXACT",
-                                "algorithm",
-                                "eventId-dedup",
-                                "version",
-                                "click-v1"),
-                        "denied",
-                        Map.of(
-                                "type",
-                                "EXACT",
-                                "algorithm",
-                                "eventId-dedup",
-                                "version",
-                                "click-v1"),
-                        "uv",
-                        Map.of(
-                                "type",
-                                "APPROXIMATE",
-                                "algorithm",
-                                "uniqCombined64",
-                                "version",
-                                "click-v1"),
-                        "uip",
-                        Map.of(
-                                "type",
-                                "APPROXIMATE",
-                                "algorithm",
-                                "uniqCombined64",
-                                "version",
-                                "click-v1")));
+        Map<String, Object> metrics = Map.of();
+        Map<String, Object> dimensionQuality;
+        var summaryRows = db.queryForList("SELECT payload_json FROM analytics_query_page WHERE job_id=?"
+                + " AND lease_token=? AND page_index=-1", id, number(job.get("lease_token")).longValue());
+        if (summaryRows.size() == 1) {
+            var summary = readList(summaryRows.get(0).get("payload_json").toString()).get(0);
+            dimensionQuality = (Map<String, Object>) summary.getOrDefault("dimensionQuality", Map.of());
+            if ("METRICS".equals(q.kind())) metrics = Map.of("requested", summary);
+        } else {
+            dimensionQuality = (Map<String, Object>) MetricDimensions.recordDimensions(items).get("dimensionQuality");
+            meta.put("dimensionQualityScope", "RETURNED_PAGE_LEGACY_JOB");
+        }
+        meta.put("dimensionQuality", dimensionQuality);
+        var missing = new ArrayList<>(MetricDimensions.missingMetrics(dimensionQuality));
+        missing.add("producerCollectionCompleteness");
+        meta.put("missingMetrics", missing);
+        meta.put("approximation", MetricDimensions.approximation());
         meta.put("nextPageIndex", index + 1 < count ? index + 1 : null);
         meta.put("pageIndex", index);
         meta.put("totalRows", number(job.get("row_count")).longValue());
-        return Map.of("items", items, "metrics", Map.of(), "meta", meta);
+        authorized(id, identity);
+        return Map.of("items", items, "metrics", metrics, "meta", meta);
     }
 
     public Status cancel(String id, Identity identity) {
@@ -375,7 +366,8 @@ public class QueryJobService {
                                 read(row.get("request_json").toString(), QueryRequest.class),
                                 row.get("recovery_epoch").toString(),
                                 row.get("ownership_version").toString(),
-                                read(manifest, ManifestPlan.class));
+                                read(manifest, ManifestPlan.class),
+                                number(row.get("created_at")).longValue());
                     }
                     return null;
                 });
@@ -386,9 +378,21 @@ public class QueryJobService {
             checkExecution(lease);
             long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(5);
             String replica = clickhouse.verify(lease.plan(), deadline);
-            PageBuffer buffer = new PageBuffer(lease);
-            clickhouse.query(replica, sql(lease), MAX_ROWS, deadline, buffer::add);
+            var visitorHistory = history(lease);
+            if (visitorHistory.available()) {
+                var candidate = visitorHistory;
+                long proofDeadline = Math.min(deadline, System.nanoTime()
+                        + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(VisitorHistory.PROOF_TIMEOUT_MILLIS));
+                visitorHistory = VisitorHistory.optionalProof(candidate, () -> {
+                    List<Map<String, Object>> visible = new ArrayList<>();
+                    clickhouse.query(replica, VisitorHistory.visibilitySql(candidate), 4096, proofDeadline, visible::add);
+                    return visible;
+                }, visible -> VisitorHistory.verifyVisibility(candidate, visible));
+            }
+            PageBuffer buffer = new PageBuffer(lease, visitorHistory);
+            clickhouse.query(replica, sql(lease, visitorHistory), MAX_ROWS, deadline, buffer::add);
             buffer.flush();
+            buffer.publishSummary();
             checkExecution(lease);
             tx.executeWithoutResult(
                     s -> {
@@ -402,6 +406,7 @@ public class QueryJobService {
                                 lease.jobId());
                     });
         } catch (RuntimeException failure) {
+            if (Thread.currentThread().isInterrupted()) throw failure;
             fail(lease, failure);
         }
     }
@@ -418,9 +423,14 @@ public class QueryJobService {
         final Lease lease;
         final List<Map<String, Object>> page = new ArrayList<>();
         int pageBytes = 2;
+        Map<String, Object> summary;
+        final Map<String, Map<String, Object>> summaryDaily = new TreeMap<>();
+        final RecordDimensionSummary recordSummary = new RecordDimensionSummary(MAX_ROWS);
+        final VisitorHistory.Plan visitorHistory;
 
-        PageBuffer(Lease lease) {
+        PageBuffer(Lease lease, VisitorHistory.Plan visitorHistory) {
             this.lease = lease;
+            this.visitorHistory = visitorHistory;
         }
 
         void add(Map<String, Object> row) {
@@ -437,6 +447,34 @@ public class QueryJobService {
                                 "TOO_LARGE",
                                 "Analytics integer exceeds the signed 64-bit contract");
                     }
+            if ("METRICS".equals(lease.query().kind()) && row.containsKey("group_row")) {
+                boolean group = number(row.get("group_row")).longValue() == 1;
+                boolean total = number(row.get("whole_window")).longValue() == 1;
+                long rowStart = lease.query().startInclusive(), rowEnd = lease.query().endExclusive();
+                if (!total) {
+                    rowStart = java.time.LocalDate.parse(row.get("day").toString()).atStartOfDay(java.time.ZoneId.of("Asia/Shanghai"))
+                            .toInstant().toEpochMilli();
+                    rowEnd = rowStart + 86_400_000L;
+                }
+                var rawMetrics = new LinkedHashMap<>(row);
+                if (!total) for (String scope : List.of("scope", "link")) for (String type : List.of("new", "old", "unknown")) {
+                    String key = scope + "_" + type + "_uv";
+                    rawMetrics.put(key, row.get("daily_" + key));
+                }
+                var report = metricReport(rawMetrics, rowStart, rowEnd, visitorHistory, group);
+                VisitorHistory.labelScope(report, group ? lease.query().linkIds().size() : 1);
+                if (total) { summary = report; return; }
+                report.put("daily", List.of(Map.of("date", row.get("day"), "pv", report.get("pv"),
+                        "uv", report.get("uv"), "uip", report.get("uip"))));
+                if (group) {
+                    summaryDaily.put(row.get("day").toString(), Map.of("date", row.get("day"), "pv", report.get("pv"),
+                            "uv", report.get("uv"), "uip", report.get("uip")));
+                    return;
+                }
+                report.put("day", row.get("day"));
+                report.put("linkId", normalized.get("linkId"));
+                normalized = report;
+            } else if ("ACCESS_RECORDS".equals(lease.query().kind())) recordSummary.add(normalized);
             int size = write(normalized).getBytes(StandardCharsets.UTF_8).length + 1;
             if (size > 1_048_576 - 2)
                 throw new QueryFailure("TOO_LARGE", "Result page byte budget exceeded");
@@ -445,6 +483,30 @@ public class QueryJobService {
             page.add(normalized);
             pageBytes += size;
             if (page.size() == PAGE_ROWS) flush();
+        }
+
+        @SuppressWarnings("unchecked")
+        void publishSummary() {
+            if ("ACCESS_RECORDS".equals(lease.query().kind())) summary = recordSummary.materialize(visitorHistory);
+            else if (summary != null) {
+                List<Map<String, Object>> days = new ArrayList<>();
+                for (var day : (List<Map<String, Object>>) summary.get("daily"))
+                    days.add(summaryDaily.getOrDefault(day.get("date").toString(), day));
+                summary.put("daily", days);
+            }
+            if (summary == null) return; // Already-published legacy jobs remain readable.
+            VisitorHistory.labelScope(summary, lease.query().linkIds().size());
+            String payload = write(List.of(summary));
+            int bytes = payload.getBytes(StandardCharsets.UTF_8).length;
+            if (bytes > 1_048_576) throw new QueryFailure("TOO_LARGE", "Summary exceeds page byte budget");
+            tx.executeWithoutResult(s -> {
+                var row = fenced(lease);
+                if (number(row.get("byte_count")).longValue() + bytes > MAX_BYTES)
+                    throw new QueryFailure("TOO_LARGE", "Persistent result budget exceeded");
+                db.update("INSERT INTO analytics_query_page(job_id,lease_token,page_index,payload_json) VALUES(?,?,-1,?)",
+                        lease.jobId(), lease.token(), payload);
+                db.update("UPDATE analytics_query_job SET byte_count=byte_count+? WHERE job_id=?", bytes, lease.jobId());
+            });
         }
 
         void flush() {
@@ -521,48 +583,58 @@ public class QueryJobService {
     }
 
     static String sql(Lease lease) {
+        var candidate = history(lease);
+        return sql(lease, VisitorHistory.verifyVisibility(candidate, List.of()));
+    }
+
+    static String sql(Lease lease, VisitorHistory.Plan visitorHistory) {
         QueryRequest q = lease.query();
-        String ids =
-                q.linkIds().isEmpty()
-                        ? "0"
-                        : q.linkIds().stream()
-                                .map(String::valueOf)
-                                .collect(java.util.stream.Collectors.joining(","));
-        String facts =
-                "SELECT kind,event_id,any(link_id) link_id,any(occurred_at)"
-                        + " occurred_at,any(visitor_hash) visitor_hash,any(ip_hash)"
-                        + " ip_hash,any(browser) browser,any(os) os,any(device) device,any(country)"
-                        + " country,any(request_source) request_source,any(decision_stage)"
-                        + " decision_stage,any(status) status FROM rebuild_input WHERE "
-                        + lease.plan().predicate()
-                        + " AND tenant_id="
-                        + quote(q.tenantId())
-                        + " AND validation_result='VALID' GROUP BY kind,event_id HAVING"
-                        + " uniqExact(payload_hash)=1";
+        String facts = AnalyticsFacts.sql("rebuild_input", lease.plan().predicate(), q.tenantId(), q.linkIds());
+        facts = VisitorHistory.enrich(facts, visitorHistory, q.tenantId(), q.linkIds());
         String filter =
                 " FROM ("
                         + facts
-                        + ") WHERE link_id IN ("
-                        + ids
-                        + ") AND occurred_at>="
+                        + ") WHERE occurred_at>="
                         + q.startInclusive()
                         + " AND occurred_at<"
                         + q.endExclusive();
         if ("ACCESS_RECORDS".equals(q.kind()))
             return "SELECT event_id eventId,link_id linkId,occurred_at occurredAt,visitor_hash"
-                    + " visitorHash,browser,os,device,country"
+                    + " visitorHash,ip_hash ipHash,kind,status,browser,os,device,country,province,city,network,"
+                    + "geo_status geoStatus,geo_version geoVersion,(geo_version_count>1) geoVersionConflict,"
+                    + "referer_domain refererDomain,history_earliest historyEarliestObservedAt,"
+                    + "if(scope_history_known,if(scope_first_seen>=" + q.startInclusive()
+                    + ",'newUser','oldUser'),'UNKNOWN') uvType"
                     + filter
-                    + " AND kind='CLICK' ORDER BY occurred_at,event_id LIMIT "
+                    + " AND kind='CLICK' ORDER BY occurred_at DESC,event_id LIMIT "
                     + (MAX_ROWS + 1);
         return "SELECT toString(toDate(fromUnixTimestamp64Milli(occurred_at),'Asia/Shanghai'))"
-                + " day,link_id linkId,countIf(kind='CLICK')"
+                + " day,link_id linkId,grouping(link_id) group_row,grouping(day) whole_window,countIf(kind='CLICK')"
                 + " pv,uniqCombined64If(visitor_hash,kind='CLICK' AND visitor_hash!='')"
                 + " uv,uniqCombined64If(ip_hash,kind='CLICK' AND ip_hash!='')"
                 + " uip,countIf(kind='REQUEST' AND request_source='REDIRECT' AND"
                 + " decision_stage='BUSINESS' AND status IN (403,429)) denied"
+                + MetricDimensions.sql(q.startInclusive(), q.endExclusive(), false)
+                + VisitorHistory.metricsSql(Long.toString(q.startInclusive()))
+                + VisitorHistory.metricsSql("toUnixTimestamp64Milli(toDateTime64(toStartOfDay(fromUnixTimestamp64Milli(occurred_at,'Asia/Shanghai')),3,'Asia/Shanghai'))", "daily_")
                 + filter
-                + " GROUP BY day,link_id ORDER BY day,link_id LIMIT "
+                + " GROUP BY GROUPING SETS ((day,link_id),(day),()) ORDER BY whole_window DESC,group_row DESC,day,link_id LIMIT "
                 + (MAX_ROWS + 1);
+    }
+
+    private static VisitorHistory.Plan history(Lease lease) {
+        return VisitorHistory.plan(lease.plan().windows().stream().map(ManifestPlan.Window::sourceCut).distinct().toList(),
+                new ObjectMapper(), lease.snapshotTime(), lease.query().endExclusive());
+    }
+
+    private static Map<String, Object> metricReport(Map<String, Object> raw, long start, long end,
+            VisitorHistory.Plan history, boolean group) {
+        Map<String, Object> report = new LinkedHashMap<>();
+        for (String key : List.of("pv", "uv", "uip", "denied"))
+            report.put(key, raw.get(key) == null ? 0L : number(raw.get(key)).longValue());
+        report.putAll(MetricDimensions.materialize(raw, start, end));
+        VisitorHistory.materialize(report, raw, history, group);
+        return report;
     }
 
     public void cleanup() {

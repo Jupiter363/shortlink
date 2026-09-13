@@ -115,14 +115,13 @@ public final class DeepSeekSpringAiChatModel implements ChatModel {
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", textOrDefault(options.getModel(), properties.getModel()));
+        body.put("thinking", Map.of("type", properties.isThinkingEnabled() ? "enabled" : "disabled"));
         body.put("messages", messages(prompt.getInstructions()));
         if (options.getTemperature() != null) {
             body.put("temperature", options.getTemperature());
         }
         Integer maxTokens = options.getMaxTokens();
-        if (maxTokens != null) {
-            body.put("max_tokens", maxTokens);
-        }
+        body.put("max_tokens", maxTokens == null ? properties.getMaxOutputTokens() : maxTokens);
         if (options.getTopP() != null) {
             body.put("top_p", options.getTopP());
         }
@@ -250,10 +249,25 @@ public final class DeepSeekSpringAiChatModel implements ChatModel {
         if (choice == null || choice.message() == null) {
             throw new LlmChatClientException("DeepSeek chat response is empty");
         }
+        // A 200 response can contain only reasoning, a truncated answer, or a
+        // provider-side refusal/failure. None is a completed graph explanation.
+        // Fixed messages deliberately exclude provider content and reasoning.
+        if ("length".equals(choice.finishReason())) {
+            throw new LlmChatClientException("DeepSeek chat response exceeded the output budget");
+        }
+        if (!"stop".equals(choice.finishReason()) && !"tool_calls".equals(choice.finishReason())) {
+            throw new LlmChatClientException("DeepSeek chat response did not complete successfully");
+        }
         DeepSeekMessage message = choice.message();
+        List<AssistantMessage.ToolCall> toolCalls = toolCalls(message.toolCalls());
+        if ("tool_calls".equals(choice.finishReason()) != !toolCalls.isEmpty()) {
+            throw new LlmChatClientException("DeepSeek chat response has inconsistent tool calls");
+        }
+        if (!StringUtils.hasText(message.content()) && toolCalls.isEmpty()) {
+            throw new LlmChatClientException("DeepSeek chat response has no answer content");
+        }
         AssistantMessage.Builder assistant = AssistantMessage.builder()
                 .content(message.content() == null ? "" : message.content());
-        List<AssistantMessage.ToolCall> toolCalls = toolCalls(message.toolCalls());
         if (!toolCalls.isEmpty()) {
             assistant.toolCalls(toolCalls);
         }

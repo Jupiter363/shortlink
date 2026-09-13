@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "browser": "Codex in-app browser / Chrome 152",
+  "baseUrl": "http://127.0.0.1:5174",
+  "cases": [
+    {
+      "id": "route-campaign",
+      "status": "PASS",
+      "route": "/home/agent/campaign-analysis",
+      "observed": "campaign radio selected, campaign presets visible, title is 投放分析 Agent"
+    },
+    {
+      "id": "route-security",
+      "status": "PASS",
+      "route": "/home/agent/security-risk",
+      "observed": "security radio selected, security presets visible, title is 安全风控 Agent"
+    },
+    {
+      "id": "switch-isolation",
+      "status": "PASS",
+      "observed": "campaign result disappeared immediately after switching to security; READY state shown"
+    },
+    {
+      "id": "history-isolation",
+      "status": "PASS",
+      "observed": "back and forward restored the matching Agent route without showing the other Agent answer"
+    },
+    {
+      "id": "refresh",
+      "status": "PASS",
+      "observed": "direct route refresh preserved Agent selection and returned result panel to READY"
+    },
+    {
+      "id": "in-flight-lock",
+      "status": "PASS",
+      "fixture": "Agent container paused for 2.2 seconds and then restored",
+      "observed": {
+        "newSessionEnabled": false,
+        "campaignSelectorEnabled": false,
+        "securitySelectorEnabled": false,
+        "textareaEnabled": false,
+        "requestRecovered": true,
+        "gatewayStatus": 200,
+        "gatewayDurationSeconds": 2.355
+      }
+    },
+    {
+      "id": "campaign-run",
+      "status": "PASS_WITH_LLM_FALLBACK",
+      "observed": {
+        "gatewayStatus": 200,
+        "gatewayDurationSeconds": 0.117,
+        "traceNodes": 6,
+        "groupCount": 1,
+        "shortLinkCount": 1,
+        "resultAgentLabel": "投放分析",
+        "llmConfigured": false
+      }
+    },
+    {
+      "id": "security-run",
+      "status": "PARTIAL_WITH_LLM_FALLBACK",
+      "observed": {
+        "gatewayStatus": 200,
+        "gatewayDurationSeconds": 0.182,
+        "traceNodes": 9,
+        "resultAgentLabel": "安全风控",
+        "riskCards": 0,
+        "toolEvidence": 0,
+        "llmConfigured": false
+      }
+    },
+    {
+      "id": "browser-console",
+      "status": "PASS",
+      "observed": "no console entries after final build verification"
+    }
+  ],
+  "containsCredentials": false
+}

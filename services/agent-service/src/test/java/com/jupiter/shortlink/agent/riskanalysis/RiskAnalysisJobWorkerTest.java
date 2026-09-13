@@ -52,6 +52,38 @@ import javax.sql.DataSource;
 
 class RiskAnalysisJobWorkerTest {
 
+    @Test
+    void lateGraphResultCannotMarkSuccessAndFailureClosesAndUnbindsTheLease() {
+        var jobs = mock(JdbcRiskAnalysisJobRepository.class);
+        var graph = mock(SecurityRiskGraphExecutor.class);
+        var links = mock(JdbcShortLinkRiskProfileRepository.class);
+        var groups = mock(JdbcGroupRiskProfileRepository.class);
+        var manager = mock(RiskAnalysisJobLeaseManager.class);
+        var lease = mock(RiskAnalysisJobLeaseManager.Lease.class);
+        var clock = Clock.fixed(NOW_INSTANT, SHANGHAI);
+        var job = runningJob(1, "owner-a", "trace-001");
+        when(jobs.claimNext("owner-a", "trace-001", NOW, Duration.ofMinutes(5), 3)).thenReturn(Optional.of(job));
+        when(groups.findAuthorized(any(), eq("gid-001"), eq(BATCH_ID))).thenReturn(Optional.of(groupProfile()));
+        when(links.findAuthorized(any(), eq(BATCH_ID), eq(10))).thenReturn(List.of(profile("high", 92)));
+        when(manager.start(job, Duration.ofMinutes(5), clock)).thenReturn(lease);
+        when(graph.execute(any())).thenAnswer(invocation -> {
+            assertThat(RiskAnalysisJobLeaseManager.currentExecution()).isSameAs(lease);
+            org.mockito.Mockito.doThrow(new IllegalStateException("execution deadline exceeded")).when(lease).assertExecutionActive();
+            return runResult(job);
+        });
+        when(jobs.recordFailure(eq(job.jobId()), eq(job.ownerToken()), eq(job.traceId()), eq(1), eq(3),
+                eq(NOW), eq(NOW.plusSeconds(30)), org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+        var worker = new RiskAnalysisJobWorker(jobs, graph, links, groups, manager, clock, Duration.ofMinutes(5),
+                3, Duration.ofSeconds(30), Duration.ofMinutes(10), 10, "worker", () -> "owner-a", () -> "trace-001");
+        authorize(worker);
+        assertThat(worker.runNext()).isTrue();
+        verify(jobs, org.mockito.Mockito.never()).recordSuccess(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), any());
+        verify(jobs).recordFailure(eq(job.jobId()), eq(job.ownerToken()), eq(job.traceId()), eq(1), eq(3),
+                eq(NOW), eq(NOW.plusSeconds(30)), org.mockito.ArgumentMatchers.contains("deadline exceeded"));
+        verify(lease).close();
+        assertThat(RiskAnalysisJobLeaseManager.currentExecution()).isNull();
+    }
+
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
 
     private static final Instant NOW_INSTANT = Instant.parse("2026-07-10T02:00:00Z");
@@ -107,7 +139,9 @@ class RiskAnalysisJobWorkerTest {
                         request -> {
                             assertThat(request.sessionId()).isEqualTo(claimed.sessionId());
                             assertThat(request.traceId()).isEqualTo(claimed.traceId());
-                            assertThat(request.username()).isEqualTo("risk-analysis-worker");
+                            assertThat(request.username()).isEqualTo("Jupiter");
+                            assertThat(request.principal().tenantId()).isEqualTo("1001");
+                            assertThat(request.principal().system()).isFalse();
                             assertThat(request.analysisInput()).isNotNull();
                             assertThat(request.analysisInput().batchId()).isEqualTo(BATCH_ID);
                             assertThat(request.analysisInput().gid()).isEqualTo("gid-001");
@@ -444,6 +478,44 @@ class RiskAnalysisJobWorkerTest {
                         new com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient
                                 .AuthorizedScope("1001", "ownership-1", List.of()));
         org.springframework.test.util.ReflectionTestUtils.setField(worker, "authority", authority);
+        var scheduled = mock(com.jupiter.shortlink.agent.riskprofile.source.ScheduledRiskPrincipalClient.class);
+        when(scheduled.resolve("1001", "gid-001"))
+                .thenReturn(new com.jupiter.shortlink.agent.harness.security.AgentPrincipal("1001", "Jupiter", 7, false));
+        org.springframework.test.util.ReflectionTestUtils.setField(worker, "scheduledPrincipals", scheduled);
+        var groups = (JdbcGroupRiskProfileRepository) org.springframework.test.util.ReflectionTestUtils.getField(worker, "groupRepository");
+        when(groups.findBatchTenantId(BATCH_ID, "gid-001")).thenReturn(Optional.of("1001"));
+    }
+
+    @Test
+    void rejectsChangedTenantBeforeReadingStoredProfileContentOrExecutingGraph() {
+        var jobs = mock(JdbcRiskAnalysisJobRepository.class);
+        var graph = mock(SecurityRiskGraphExecutor.class);
+        var links = mock(JdbcShortLinkRiskProfileRepository.class);
+        var groups = mock(JdbcGroupRiskProfileRepository.class);
+        var worker = worker(jobs, graph, links, groups, Clock.fixed(NOW_INSTANT, SHANGHAI), 3,
+                () -> "owner-a", () -> "trace-001");
+        var scheduled = mock(com.jupiter.shortlink.agent.riskprofile.source.ScheduledRiskPrincipalClient.class);
+        when(scheduled.resolve("1001", "gid-001"))
+                .thenReturn(new com.jupiter.shortlink.agent.harness.security.AgentPrincipal("1002", "alice", 7, false));
+        org.springframework.test.util.ReflectionTestUtils.setField(worker, "scheduledPrincipals", scheduled);
+        assertThatThrownBy(() -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(worker, "graphRequest", runningJob(1, "owner-a", "trace-001")))
+                .isInstanceOf(SecurityException.class).hasMessageContaining("persisted profile tenant");
+        org.mockito.Mockito.verifyNoInteractions(graph, links);
+        org.mockito.Mockito.verify(groups, org.mockito.Mockito.never()).findAuthorized(any(), any(), any());
+    }
+
+    @Test
+    void rejectsJobWithoutPersistedTenantBeforeDelegating() {
+        var jobs = mock(JdbcRiskAnalysisJobRepository.class);
+        var graph = mock(SecurityRiskGraphExecutor.class);
+        var links = mock(JdbcShortLinkRiskProfileRepository.class);
+        var groups = mock(JdbcGroupRiskProfileRepository.class);
+        var worker = worker(jobs, graph, links, groups, Clock.fixed(NOW_INSTANT, SHANGHAI), 3,
+                () -> "owner-a", () -> "trace-001");
+        when(groups.findBatchTenantId(BATCH_ID, "gid-001")).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(worker, "graphRequest", runningJob(1, "owner-a", "trace-001")))
+                .isInstanceOf(SecurityException.class).hasMessageContaining("persisted tenant identity");
+        org.mockito.Mockito.verifyNoInteractions(graph, links);
     }
 
     private RiskAnalysisJob pendingJob() {

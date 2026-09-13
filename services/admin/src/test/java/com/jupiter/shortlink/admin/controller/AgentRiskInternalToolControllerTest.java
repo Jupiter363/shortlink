@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.alibaba.fastjson2.JSONObject;
@@ -170,7 +171,28 @@ class AgentRiskInternalToolControllerTest {
         assertThat(captured.getValue().cursor()).isEqualTo("next-2");
         assertThat(captured.getValue().pageSize()).isEqualTo(50);
         assertThat(captured.getValue().linkIds()).containsExactly(LINK);
+        assertThat(captured.getValue().endPolicy()).isEqualTo("REQUESTED");
+        assertThat(captured.getValue().windows()).isNull();
         verifyNoInteractions(legacy);
+    }
+
+    @Test
+    void explicitActiveLinkQueryKeepsRequestedRangeWithoutAnInvalidCommonWindowPolicy() throws Exception {
+        mvc.perform(post("/internal/short-link-admin/v1/agent-tools/risk/active-link-query")
+                        .header("X-Agent-Internal-Token", TOKEN).header("X-Agent-Username", "zhangsan")
+                        .header("X-Agent-UserId", "1001").header("X-Agent-Auth-Version", "7")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(JSONObject.toJSONString(Map.of("linkIds", List.of(LINK),
+                                "since", "2026-07-03T00:00:00Z", "endTime", "2026-07-10T00:00:00Z"))))
+                .andExpect(jsonPath("$.code").value("0"));
+        var captured = ArgumentCaptor.forClass(AnalyticsQueryRequest.class);
+        verify(client).query(captured.capture());
+        assertThat(captured.getValue().queryKind()).isEqualTo("ACTIVE_LINKS");
+        assertThat(captured.getValue().windows()).isNull();
+        assertThat(captured.getValue().endPolicy()).isEqualTo("REQUESTED");
+        assertThat(captured.getValue().startInclusive()).isEqualTo(Instant.parse("2026-07-03T00:00:00Z").toEpochMilli());
+        assertThat(captured.getValue().endExclusive()).isEqualTo(Instant.parse("2026-07-10T00:00:00Z").toEpochMilli());
+        assertThat(captured.getValue().linkIds()).containsExactly(LINK);
     }
 
     @Test

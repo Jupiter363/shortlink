@@ -14,9 +14,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.cloud.openfeign.FeignClientProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -36,11 +39,14 @@ import java.util.Map;
                 + "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"
         })
+@TestPropertySource(locations = "classpath:application-production.properties")
 class AgentRemoteServiceFeignTest {
 
     private static final RecordingHttpServer SERVER = RecordingHttpServer.start();
 
     @Autowired private AgentRemoteService agentRemoteService;
+
+    @Autowired private FeignClientProperties feignClientProperties;
 
     @DynamicPropertySource
     static void dynamicProperties(DynamicPropertyRegistry registry) {
@@ -96,6 +102,19 @@ class AgentRemoteServiceFeignTest {
         assertThat(SERVER.lastRequest.header("X-Agent-UserId")).isEqualTo("1001");
         assertThat(SERVER.lastRequest.header("X-Agent-RealName")).isEqualTo("Trusted Name");
         assertThat(SERVER.lastRequest.body()).isEmpty();
+    }
+
+    @Test
+    void agentChatHasAnIsolatedInferenceReadTimeout() {
+        var client = AgentRemoteService.class.getAnnotation(FeignClient.class);
+        var defaultConfig = feignClientProperties.getConfig().get("default");
+        var agentChatConfig = feignClientProperties.getConfig().get("agent-chat");
+
+        assertThat(client.contextId()).isEqualTo("agent-chat");
+        assertThat(defaultConfig.getConnectTimeout()).isEqualTo(1000);
+        assertThat(defaultConfig.getReadTimeout()).isEqualTo(5000);
+        assertThat(agentChatConfig.getConnectTimeout()).isEqualTo(1000);
+        assertThat(agentChatConfig.getReadTimeout()).isEqualTo(45000);
     }
 
     @Configuration

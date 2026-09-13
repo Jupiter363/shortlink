@@ -105,6 +105,37 @@ class RiskStatsSourceGatewayTest {
     }
 
     @Test
+    void dimensionsAreCopiedPerWindowWithoutReusingGlobalQualityOrPrivateFields() {
+        var shortRow = row("2h", 2);
+        shortRow.put("countryStats", List.of(Map.of("country", "CN", "cnt", 12L, "ratio", 1D, "ipHash", "discard")));
+        shortRow.put("localeCnStats", List.of(Map.of("locale", "广东省", "cnt", 12L, "ratio", 1D)));
+        shortRow.put("networkStats", List.of(Map.of("network", "电信", "cnt", 12L, "ratio", 1D)));
+        shortRow.put("uvTypeStats", List.of(Map.of("uvType", "newUser", "cnt", 2L, "ratio", .25D)));
+        shortRow.put("dimensionQuality", Map.of("networkStats", Map.of("status", "AVAILABLE", "semantic", "ISP"),
+                "uvTypeStats", Map.of("status", "PARTIAL", "scope", "SHORT_LINK", "unknownUv", 2L)));
+        shortRow.put("topIpStats", List.of(Map.of("ipHash", "discard")));
+        var longRow = row("24h", 24);
+        longRow.put("dimensionQuality", Map.of("networkStats", Map.of("status", "UNKNOWN", "reason", "NOT_CONFIGURED")));
+        var meta = StatsTestFixtures.meta();
+        meta.put("dimensionQuality", Map.of("networkStats", Map.of("status", "AVAILABLE", "semantic", "DO_NOT_COPY")));
+        respond(Map.of("items", List.of(shortRow, longRow, row("7d", 168)), "metrics", Map.of(), "meta", meta));
+
+        var windows = gateway.loadStatsWindows(new ShortLinkActiveCandidate("g1", "nurl.ink", "abc", "nurl.ink/abc"),
+                Instant.ofEpochMilli(StatsTestFixtures.NOW));
+        var dimensions = windows.get("2h").dimensions();
+        assertThat(dimensions.networkStats().get(0).value()).isEqualTo("电信");
+        assertThat(dimensions.localeCnStats().get(0).cnt()).isEqualTo(12);
+        assertThat(dimensions.startInclusive()).isEqualTo(StatsTestFixtures.NOW - Duration.ofHours(2).toMillis());
+        assertThat(dimensions.dimensionQuality().get("uvTypeStats")).containsEntry("scope", "SHORT_LINK");
+        assertThat(windows.get("24h").dimensions().dimensionQuality().get("networkStats")).containsEntry("status", "UNKNOWN");
+        assertThat(windows.get("7d").dimensions().networkStats()).isEmpty();
+        assertThat(windows.get("7d").dimensions().dimensionQuality().get("networkStats")).containsEntry("status", "UNKNOWN");
+        assertThat(new RiskJsonCodec().toJson(dimensions)).doesNotContain("ipHash", "topIpStats", "discard", "DO_NOT_COPY");
+        assertThat(new RiskJsonCodec().toJson(windows.get("2h").meta())).isEqualTo(new RiskJsonCodec().toJson(meta));
+        server.verify();
+    }
+
+    @Test
     void metadataWithoutRecordsIsNotFabricatedIntoAWindow() {
         respond(Map.of("items", List.of(), "metrics", Map.of(), "meta", StatsTestFixtures.meta()));
         assertThatThrownBy(

@@ -301,6 +301,17 @@ public class AgentProperties {
 
         private int jobLeaseMinutes = 5;
 
+        private long executionTimeoutMillis = 120000L;
+
+        public long getExecutionTimeoutMillis() {
+            return executionTimeoutMillis;
+        }
+
+        public void setExecutionTimeoutMillis(long executionTimeoutMillis) {
+            if (executionTimeoutMillis < 1) throw new IllegalArgumentException("Risk execution timeout must be positive");
+            this.executionTimeoutMillis = executionTimeoutMillis;
+        }
+
         private int maxAttempts = 3;
 
         private int retryInitialSeconds = 30;

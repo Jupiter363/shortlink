@@ -1,5 +1,8 @@
 package com.jupiter.shortlink.contract;
 
+import com.jupiter.shortlink.contract.geo.GeoLookup;
+import com.jupiter.shortlink.contract.geo.GeoResult;
+import com.jupiter.shortlink.contract.geo.Ip2RegionGeoLookup;
 import java.net.InetAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -13,30 +16,59 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * Shared deterministic interpretation for Flink and archive rebuild. No wall clock or network I/O.
  */
-public final class EventEnricher {
+public final class EventEnricher implements AutoCloseable {
     public static final String DATASET = "detail-v1";
     public static final String PARSER = "builtin-ua-v1";
     public static final String HASH = "hmac-sha256-128-v1";
     private final byte[] key;
     private final long futureTolerance;
+    private final GeoLookup geoLookup;
 
     public EventEnricher(String key, long futureTolerance) {
+        this(key, futureTolerance, GeoLookup.notConfigured());
+    }
+
+    public EventEnricher(String key, long futureTolerance, GeoLookup geoLookup) {
         if (key == null || key.getBytes(StandardCharsets.UTF_8).length < 32)
             throw new IllegalArgumentException("ANALYTICS_HASH_KEY must contain at least 32 bytes");
         this.key = key.getBytes(StandardCharsets.UTF_8);
         this.futureTolerance = futureTolerance;
+        this.geoLookup = java.util.Objects.requireNonNull(geoLookup, "geoLookup");
+    }
+
+    public static EventEnricher fromEnvironment(String key, long futureTolerance) {
+        var geo = Ip2RegionGeoLookup.fromEnvironment();
+        try {
+            return new EventEnricher(key, futureTolerance, geo);
+        } catch (RuntimeException ex) {
+            geo.close();
+            throw ex;
+        }
+    }
+
+    @Override
+    public void close() {
+        geoLookup.close();
+    }
+
+    public String geoVersion() {
+        return geoLookup.version();
     }
 
     public EnrichedRecord enrich(RawReceipt r) {
+        Object event;
         try {
             if (Topics.CLICK_RAW.equals(r.topic()))
-                return click(r, EventJson.read(r.payload(), ClickEventV1.class));
-            if (Topics.GATEWAY_REQUEST.equals(r.topic()))
-                return request(r, EventJson.read(r.payload(), GatewayRequestEventV1.class));
-            return rejected(r, "UNKNOWN_TOPIC");
+                event = EventJson.read(r.payload(), ClickEventV1.class);
+            else if (Topics.GATEWAY_REQUEST.equals(r.topic()))
+                event = EventJson.read(r.payload(), GatewayRequestEventV1.class);
+            else return rejected(r, "UNKNOWN_TOPIC");
         } catch (IllegalArgumentException ex) {
             return rejected(r, "INVALID_SCHEMA");
         }
+        // Lookup errors are infrastructure failures and must reach the consumer's retry boundary.
+        if (event instanceof ClickEventV1 click) return click(r, click);
+        return request(r, (GatewayRequestEventV1) event);
     }
 
     private EnrichedRecord click(RawReceipt r, ClickEventV1 e) {
@@ -68,6 +100,8 @@ public final class EventEnricher {
                                                 ? "macOS"
                                                 : ua.contains("linux") ? "Linux" : "Unknown";
         String ip = normalizedIp(e.clientIp());
+        var geo = "VALID".equals(result) ? geoLookup.lookup(e.clientIp())
+                : GeoResult.unknown("NOT_APPLICABLE", geoLookup.version());
         return new EnrichedRecord(
                 "CLICK",
                 r.clusterId(),
@@ -87,7 +121,7 @@ public final class EventEnricher {
                 browser,
                 os,
                 ua.isBlank() ? "Unknown" : ua.contains("mobile") ? "Mobile" : "Desktop",
-                "UNKNOWN",
+                geo.country(),
                 refererDomain(e.referer()),
                 "",
                 "",
@@ -96,8 +130,9 @@ public final class EventEnricher {
                 TimeValidation.VERSION,
                 result,
                 DATASET,
-                PARSER,
-                HASH);
+                parserVersion(),
+                HASH,
+                geo.province(), geo.city(), geo.network(), geo.status(), geo.version());
     }
 
     private EnrichedRecord request(RawReceipt r, GatewayRequestEventV1 e) {
@@ -137,8 +172,9 @@ public final class EventEnricher {
                 TimeValidation.VERSION,
                 result,
                 DATASET,
-                PARSER,
-                HASH);
+                parserVersion(),
+                HASH,
+                "UNKNOWN", "UNKNOWN", "UNKNOWN", "NOT_APPLICABLE", geoLookup.version());
     }
 
     private EnrichedRecord rejected(RawReceipt r, String reason) {
@@ -170,8 +206,13 @@ public final class EventEnricher {
                 TimeValidation.VERSION,
                 reason,
                 DATASET,
-                PARSER,
-                HASH);
+                parserVersion(),
+                HASH,
+                "UNKNOWN", "UNKNOWN", "UNKNOWN", "NOT_APPLICABLE", geoLookup.version());
+    }
+
+    private String parserVersion() {
+        return PARSER + "+" + (geoLookup.version().isEmpty() ? "geo-not-configured" : geoLookup.version());
     }
 
     private String hash(String... values) {

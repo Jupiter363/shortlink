@@ -45,6 +45,8 @@ import com.jupiter.shortlink.agent.securityriskagent.model.RiskProfileTargetRef;
 import com.jupiter.shortlink.agent.tool.registry.AgentToolRegistry;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -330,6 +332,86 @@ class DefaultSecurityRiskGraphExecutorTest {
         assertThat(checkpointStore.saved).hasSize(1);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void namedGroupWithoutProfileReadsNewDimensionsWithoutPersistingOrActivatingPolicies(boolean partial) {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient("统计只读说明");
+        CapturingGraphCheckpointStore checkpoints = new CapturingGraphCheckpointStore();
+        RiskCenterService center = mock(RiskCenterService.class);
+        RiskPolicyService policies = mock(RiskPolicyService.class);
+        Map<String, Object> meta = com.jupiter.shortlink.agent.StatsTestFixtures.meta();
+        meta.put("provisional", true);
+        meta.put("collectionQuality", Map.of("status", "UNKNOWN"));
+        meta.put("completeness", partial ? "PARTIAL" : "COMPLETE");
+        Map<String, Object> metrics = Map.of(
+                "pv", 100, "uv", 2, "uip", 2,
+                "topIpStats", List.of(Map.of("ipHash", "fixture-hash", "cnt", 90)),
+                "countryStats", List.of(Map.of("country", "CN", "cnt", 2)),
+                "networkStats", List.of(Map.of("network", "中国电信", "cnt", 2)),
+                "uvTypeStats", List.of(),
+                "dimensionQuality", Map.of("uvTypeStats", Map.of("status", "UNKNOWN", "unknownUv", 2)));
+        CapturingAgentTool stats = new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of(
+                "metrics", Map.of("requested", metrics), "items", List.of(), "meta", meta)), false);
+        CapturingAgentTool records = new CapturingAgentTool("get_group_access_records", ToolResult.success(Map.of(
+                "metrics", Map.of(), "items", List.of(Map.of("province", "广东省", "city", "深圳市",
+                        "network", "中国电信", "geoVersion", "fixture-geo", "visitorType", "UNKNOWN")), "meta", meta)), false);
+        CapturingAgentTool groups = new CapturingAgentTool("list_groups", ToolResult.success(List.of(
+                Map.of("gid", "g1", "name", "UAT统计维度样本"))), false);
+        DefaultSecurityRiskGraphExecutor executor = authorizedExecutor(chatClient, checkpoints,
+                new AgentProperties(), new AgentToolRegistry(List.of(groups, stats, records)),
+                mock(JdbcShortLinkRiskProfileRepository.class), mock(JdbcGroupRiskProfileRepository.class), center, policies);
+
+        AgentRunResult result = executor.execute(trustedRequest("named-stats-" + partial, "zhangsan",
+                "诊断分组‘UAT统计维度样本’2026-09-13的访问明细，只读说明地区、ISP及新老访客", "trace-named-stats"));
+
+        assertThat(stats.context.arguments()).containsEntry("gid", "g1")
+                .containsEntry("startDate", "2026-09-13").containsEntry("endDate", "2026-09-13");
+        assertThat(records.context.arguments()).containsEntry("current", 1L).containsEntry("size", 10L);
+        assertThat(stats.context.principal()).isEqualTo(com.jupiter.shortlink.agent.StatsTestFixtures.PRINCIPAL);
+        assertThat(result.toolCalls().toString()).contains("list_groups", "get_group_stats", "get_group_access_records",
+                "countryStats", "networkStats", "uvTypeStats", "广东省", "深圳市", "provisional=true", "UNKNOWN");
+        assertThat(result.warnings().toString()).contains("没有可用风险画像", "不表示该分组没有风险");
+        if (partial) {
+            assertThat(chatClient.request).isNull();
+            assertThat(result.cards()).isEmpty();
+        } else {
+            assertThat(result.answer()).isEqualTo("统计只读说明");
+            assertThat(chatClient.request.messages().get(1).content()).contains("countryStats", "networkStats", "UNKNOWN",
+                    "没有可用风险画像", "本轮统计查询范围");
+            assertThat(result.cards()).isNotEmpty();
+        }
+        verifyNoInteractions(center, policies);
+        assertThat(checkpoints.saved).hasSize(1);
+        assertThat(checkpoints.saved.get(0).checkpointJson())
+                .contains("\"persistedRiskEvents\":[]", "\"activatedPolicies\":[]", "\"profileRiskDataSource\":{}");
+    }
+
+    @Test
+    void aLaterUnknownNamedGroupDoesNotReuseThePreviousSessionsStatisticsScope() {
+        CapturingLlmChatClient chatClient = new CapturingLlmChatClient("统计只读说明");
+        CapturingAgentTool stats = new CapturingAgentTool("get_group_stats", ToolResult.success(Map.of("pv", 3)));
+        CapturingAgentTool groups = new CapturingAgentTool("list_groups", ToolResult.success(List.of(
+                Map.of("gid", "g1", "name", "UAT统计维度样本"))));
+        RiskCenterService center = mock(RiskCenterService.class);
+        RiskPolicyService policies = mock(RiskPolicyService.class);
+        DefaultSecurityRiskGraphExecutor executor = authorizedExecutor(chatClient, new CapturingGraphCheckpointStore(),
+                new AgentProperties(), new AgentToolRegistry(List.of(groups, stats)),
+                mock(JdbcShortLinkRiskProfileRepository.class), mock(JdbcGroupRiskProfileRepository.class), center, policies);
+        executor.execute(trustedRequest("named-switch", "zhangsan", "分组‘UAT统计维度样本’2026-09-13的统计", "first"));
+        assertThat(stats.context).isNotNull();
+        stats.context = null;
+        chatClient.request = null;
+
+        AgentRunResult result = executor.execute(trustedRequest("named-switch", "zhangsan",
+                "分组‘不存在’2026-09-13的统计", "second"));
+
+        assertThat(stats.context).isNull();
+        assertThat(chatClient.request).isNull();
+        assertThat(result.toolCalls().toString()).doesNotContain("get_group_stats");
+        assertThat(result.warnings().toString()).contains("无法唯一确定风险诊断分组");
+        verifyNoInteractions(center, policies);
+    }
+
     @Test
     void executeDoesNotCreatePendingActionFromStringifiedMediumRiskCardContent() {
         CapturingLlmChatClient chatClient = new CapturingLlmChatClient();
@@ -572,7 +654,7 @@ class DefaultSecurityRiskGraphExecutorTest {
                         trustedRequest(
                                 "session-interactive",
                                 "zhangsan",
-                                "check security risk",
+                                "check security risk gid=gid-no-profiles",
                                 "trace-interactive"));
 
         assertThat(result.answer())
@@ -906,9 +988,13 @@ class DefaultSecurityRiskGraphExecutorTest {
         private ToolContext context;
 
         private CapturingAgentTool(String name, ToolResult result) {
+            this(name, result, true);
+        }
+
+        private CapturingAgentTool(String name, ToolResult result, boolean wrapStats) {
             this.name = name;
             this.result =
-                    name.endsWith("_stats")
+                    wrapStats && name.endsWith("_stats")
                                     && result.success()
                                     && result.data() instanceof Map<?, ?> stats
                                     && !stats.isEmpty()

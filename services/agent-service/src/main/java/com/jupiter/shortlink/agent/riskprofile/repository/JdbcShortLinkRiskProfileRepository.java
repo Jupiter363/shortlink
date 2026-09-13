@@ -6,6 +6,7 @@ import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskWatchStatus;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskMetrics;
+import com.jupiter.shortlink.agent.riskprofile.model.RiskWindowDimensions;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence;
 
@@ -440,7 +441,8 @@ where exists (
                         doubleValue(rs, "top_browser_share"),
                         doubleValue(rs, "pv_per_uv"),
                         doubleValue(rs, "peak_hour_share"),
-                        doubleValue(rs, "repeat_visit_ratio"));
+                        doubleValue(rs, "repeat_visit_ratio"))
+                        .withDimensionWindows(dimensionWindows(snapshot));
         return new ShortLinkRiskProfile(
                 rs.getString("gid"),
                 rs.getString("domain"),
@@ -458,6 +460,20 @@ where exists (
                 stringValue(snapshot.get("latestAgentSummary")),
                 rs.getString("batch_id"),
                 StatsEvidence.from(snapshot.get("evidence")));
+    }
+
+    private Map<String, RiskWindowDimensions> dimensionWindows(Map<?, ?> snapshot) {
+        if (!(snapshot.get("metrics") instanceof Map<?, ?> metrics)
+                || metrics.get("dimensionWindows") == null) return Map.of();
+        if (!(metrics.get("dimensionWindows") instanceof Map<?, ?> windows) || windows.size() > 3)
+            throw new IllegalArgumentException("Invalid persisted dimension windows");
+        Map<String, RiskWindowDimensions> result = new LinkedHashMap<>();
+        windows.forEach((key, value) -> {
+            if (!(key instanceof String name) || !Set.of("2h", "24h", "7d").contains(name))
+                throw new IllegalArgumentException("Invalid persisted dimension window name");
+            result.put(name, jsonCodec.fromJson(jsonCodec.toJson(value), RiskWindowDimensions.class));
+        });
+        return result;
     }
 
     private List<String> reasonCodeNames(Set<RiskReasonCode> reasonCodes) {

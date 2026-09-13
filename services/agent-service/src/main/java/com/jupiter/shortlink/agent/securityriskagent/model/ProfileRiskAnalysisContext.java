@@ -15,7 +15,9 @@ public record ProfileRiskAnalysisContext(
 
     public ProfileRiskAnalysisContext {
         gid = gid == null ? "" : gid;
-        shortLinkProfiles = shortLinkProfiles == null ? List.of() : List.copyOf(shortLinkProfiles);
+        var projection = RiskProfileGraphProjection.project(gid, groupProfile, shortLinkProfiles);
+        groupProfile = projection.group();
+        shortLinkProfiles = projection.profiles();
     }
 
     public static ProfileRiskAnalysisContext empty() {
@@ -171,6 +173,8 @@ public record ProfileRiskAnalysisContext(
         putIfNotNull(value, "pvPerUv", metrics.pvPerUv());
         putIfNotNull(value, "peakHourShare", metrics.peakHourShare());
         putIfNotNull(value, "repeatVisitRatio", metrics.repeatVisitRatio());
+        if (!metrics.dimensionWindows().isEmpty())
+            value.put("dimensionWindows", metrics.dimensionWindows());
         return value;
     }
 

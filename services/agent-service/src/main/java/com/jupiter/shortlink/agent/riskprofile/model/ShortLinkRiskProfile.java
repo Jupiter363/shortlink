@@ -6,6 +6,7 @@ import com.jupiter.shortlink.agent.riskcommon.model.RiskWatchStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public record ShortLinkRiskProfile(
@@ -75,6 +76,13 @@ public record ShortLinkRiskProfile(
                 latestAgentSummary,
                 batchId,
                 null);
+    }
+
+    /** Attach explanation after detection so new dimensions cannot alter established scores. */
+    public ShortLinkRiskProfile withDimensionWindows(Map<String, RiskWindowDimensions> dimensions) {
+        return new ShortLinkRiskProfile(gid, domain, shortUri, fullShortUrl, profileWindowStart,
+                profileWindowEnd, metrics.withDimensionWindows(dimensions), anomalyScore, riskScore,
+                riskLevel, reasonCodes, watchStatus, latestPolicyActions, latestAgentSummary, batchId, evidence);
     }
 
     public ShortLinkRiskProfile withEvidence(StatsEvidence sourceEvidence) {

@@ -28,7 +28,12 @@ CREATE TABLE IF NOT EXISTS shortlink_analytics.derived_events (
  validationResult String,
  detailDatasetVersion String,
  parserVersion String,
- hashVersion String
+ hashVersion String,
+ province String DEFAULT 'UNKNOWN',
+ city String DEFAULT 'UNKNOWN',
+ network String DEFAULT 'UNKNOWN',
+ geoStatus String DEFAULT 'UNKNOWN',
+ geoVersion String DEFAULT ''
 ) ENGINE=MergeTree ORDER BY (sourceTopic,sourcePartition,sourceOffset,clusterId,topicId)
 TTL toDateTime(greatest(receivedAt,0)/1000)+INTERVAL 180 DAY;
 CREATE MATERIALIZED VIEW IF NOT EXISTS shortlink_analytics.derived_events_mv TO shortlink_analytics.event_receipts AS
@@ -60,7 +65,12 @@ validationVersion AS validation_version,
 validationResult AS validation_result,
 detailDatasetVersion AS dataset_version,
 parserVersion AS parser_version,
-hashVersion AS hash_version FROM shortlink_analytics.derived_events;
+hashVersion AS hash_version,
+province AS province,
+city AS city,
+network AS network,
+geoStatus AS geo_status,
+geoVersion AS geo_version FROM shortlink_analytics.derived_events;
 CREATE TABLE IF NOT EXISTS shortlink_analytics.derived_windows (
  tenantId String,
  linkId UInt64,
