@@ -30,6 +30,65 @@ component = load("scripts/integration/production_jar_components.py", "single_gat
 path_probe = load("scripts/performance/verify_edge_path.py", "single_gateway_path")
 summary = load("scripts/performance/summarize.py", "single_gateway_summary")
 e2e = load("scripts/e2e/run_create_redirect_e2e.py", "single_gateway_supervisor")
+bootstrap = load("deploy/apisix/bootstrap-etcd.py", "single_gateway_bootstrap")
+
+
+class AgentChatRouteTests(unittest.TestCase):
+    def setUp(self):
+        self.manifest = yaml.safe_load((ROOT / "deploy/apisix/apisix.yaml").read_text(encoding="utf-8"))
+        self.routes = {route["id"]: route for route in self.manifest["routes"]}
+
+    def test_chat_has_an_exact_protected_route_and_other_timeout_budgets_are_preserved(self):
+        self.assertEqual(set(self.routes), {"shortlink-management", "shortlink-agent-chat", "shortlink-redirect"})
+        management, chat, redirect = (self.routes[name] for name in (
+            "shortlink-management", "shortlink-agent-chat", "shortlink-redirect"))
+        self.assertEqual(chat["uri"], "/api/short-link/admin/v1/agent/chat")
+        self.assertNotIn("uris", chat)
+        self.assertGreater(chat["priority"], management["priority"])
+        self.assertEqual(chat["hosts"], management["hosts"])
+        self.assertEqual(chat["plugins"], management["plugins"])
+        self.assertEqual(chat["plugins"]["shortlink-boundary"], {"mode": "management"})
+        self.assertEqual(chat["plugins"]["proxy-control"], {"request_buffering": False})
+        self.assertIsNot(chat["plugins"], management["plugins"])
+        expected = copy.deepcopy(management["upstream"])
+        expected["timeout"]["read"] = 50
+        self.assertEqual(chat["upstream"], expected)
+        self.assertEqual(management["upstream"]["timeout"], {"connect": 1, "send": 3, "read": 10})
+        self.assertEqual(redirect["upstream"]["timeout"], {"connect": 0.2, "send": 1, "read": 1})
+        self.assertEqual([route["upstream"]["retries"] for route in self.routes.values()], [0, 0, 0])
+        bootstrap.validate_limiter_keys(self.manifest)
+        bootstrap.validate_agent_chat_route(self.manifest)
+
+    def test_import_rejects_chat_scope_protection_and_upstream_drift(self):
+        for name, mutate in (
+                ("wildcard-path", lambda chat: chat.update(uri="/api/short-link/admin/v1/*")),
+                ("extra-paths", lambda chat: chat.update(uris=["/*"])),
+                ("host", lambda chat: chat.update(hosts=["wrong.example"])),
+                ("missing-host", lambda chat: chat.pop("hosts")),
+                ("priority", lambda chat: chat.update(priority=100)),
+                ("boundary", lambda chat: chat["plugins"].pop("shortlink-boundary")),
+                ("buffering", lambda chat: chat["plugins"]["proxy-control"].update(request_buffering=True)),
+                ("limiter-budget", lambda chat: chat["plugins"]["limit-req"].update(rate=200)),
+                ("read-timeout", lambda chat: chat["upstream"]["timeout"].update(read=10)),
+                ("retries", lambda chat: chat["upstream"].update(retries=1)),
+                ("upstream", lambda chat: chat["upstream"]["nodes"][0].update(host="wrong.example"))):
+            with self.subTest(name=name):
+                candidate = copy.deepcopy(self.manifest)
+                mutate(next(route for route in candidate["routes"] if route["id"] == "shortlink-agent-chat"))
+                with self.assertRaises(ValueError):
+                    bootstrap.validate_agent_chat_route(candidate)
+
+    def test_import_requires_the_chat_route_and_both_of_its_limiter_keys(self):
+        for plugin in (None, "limit-req", "limit-conn"):
+            with self.subTest(plugin=plugin):
+                candidate = copy.deepcopy(self.manifest)
+                if plugin is None:
+                    candidate["routes"] = [route for route in candidate["routes"] if route["id"] != "shortlink-agent-chat"]
+                else:
+                    chat = next(route for route in candidate["routes"] if route["id"] == "shortlink-agent-chat")
+                    chat["plugins"].pop(plugin)
+                with self.assertRaises(ValueError):
+                    bootstrap.validate_limiter_keys(candidate)
 
 
 class LimiterFixtureTests(unittest.TestCase):

@@ -59,6 +59,7 @@ public class RiskAnalysisJobWorker {
 
     private final String username;
     private AgentAuthorityClient authority;
+    private com.jupiter.shortlink.agent.riskprofile.source.ScheduledRiskPrincipalClient scheduledPrincipals;
 
     private final Supplier<String> ownerTokenSupplier;
 
@@ -74,7 +75,8 @@ public class RiskAnalysisJobWorker {
             JdbcGroupRiskProfileRepository groupRepository,
             RiskAnalysisJobLeaseManager leaseManager,
             AgentProperties agentProperties,
-            AgentAuthorityClient authority) {
+            AgentAuthorityClient authority,
+            com.jupiter.shortlink.agent.riskprofile.source.ScheduledRiskPrincipalClient scheduledPrincipals) {
         this(
                 jobRepository,
                 graphExecutor,
@@ -96,6 +98,7 @@ public class RiskAnalysisJobWorker {
                 () -> "risk-analysis-" + UUID.randomUUID(),
                 () -> "risk-trace-" + UUID.randomUUID());
         this.authority = authority;
+        this.scheduledPrincipals = scheduledPrincipals;
     }
 
     public RiskAnalysisJobWorker(
@@ -140,9 +143,11 @@ public class RiskAnalysisJobWorker {
         }
         RiskAnalysisJob job = claimed.get();
         try (RiskAnalysisJobLeaseManager.Lease lease =
-                leaseManager.start(job, leaseDuration, clock)) {
+                leaseManager.start(job, leaseDuration, clock);
+                RiskAnalysisJobLeaseManager.ExecutionScope execution = RiskAnalysisJobLeaseManager.bindExecution(lease)) {
             try {
                 graphExecutor.execute(graphRequest(job));
+                lease.assertExecutionActive();
                 lease.assertOwned();
                 LocalDateTime completionTime = LocalDateTime.now(clock);
                 boolean recorded =
@@ -183,9 +188,13 @@ public class RiskAnalysisJobWorker {
                 || !SecurityRiskGraphDefinition.GRAPH_VERSION.equals(job.graphVersion())) {
             throw new IllegalStateException("Unsupported security risk graph definition");
         }
-        if (authority == null)
+        if (authority == null || scheduledPrincipals == null)
             throw new SecurityException("Current scheduled profile authorization is required");
-        AgentPrincipal principal = AgentPrincipal.system(username);
+        String tenantId = groupRepository.findBatchTenantId(job.batchId(), job.gid())
+                .orElseThrow(() -> new SecurityException("Scheduled job has no persisted tenant identity"));
+        AgentPrincipal principal = scheduledPrincipals.resolve(tenantId, job.gid());
+        if (principal.system() || !tenantId.equals(principal.tenantId()))
+            throw new SecurityException("Scheduled owner differs from persisted profile tenant");
         AgentAuthorityClient.AuthorizedScope scope =
                 authority.resolve(principal, job.gid(), null, null);
         Optional<GroupRiskProfile> groupProfile =
@@ -228,7 +237,7 @@ public class RiskAnalysisJobWorker {
                                 .toList());
         return new SecurityRiskGraphRequest(
                 job.sessionId(),
-                username,
+                principal.username(),
                 "Analyze security risk profiles for the scheduled batch.",
                 job.traceId(),
                 analysisInput,

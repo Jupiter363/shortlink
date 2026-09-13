@@ -48,6 +48,15 @@ public class RiskPolicyService {
             ShortLinkRiskProfile profile,
             String commandId,
             String policyId) {
+        return autoLimitRate(principal, profile, commandId, policyId, () -> {});
+    }
+
+    public Map<String, Object> autoLimitRate(
+            AgentPrincipal principal,
+            ShortLinkRiskProfile profile,
+            String commandId,
+            String policyId,
+            Runnable beforeAction) {
         if (principal == null || commands == null)
             throw new SecurityException("Trusted policy principal is required");
         // Read committed commands under current permissions before inspecting old evidence or
@@ -106,6 +115,8 @@ public class RiskPolicyService {
         command.put("expectedPolicyRevision", StatsEvidence.number(snapshot.get("policyRevision")));
         command.put("evidence", evidence.commandEvidence());
         command.put("automatic", true);
+        // Authority reads can finish after the originating Graph's deadline. Fence the actual dispatch too.
+        beforeAction.run();
         return commands.activate(principal, Collections.unmodifiableMap(command));
     }
 

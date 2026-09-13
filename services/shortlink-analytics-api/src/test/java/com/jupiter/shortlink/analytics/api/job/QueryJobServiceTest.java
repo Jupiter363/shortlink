@@ -118,6 +118,34 @@ class QueryJobServiceTest {
         return new QueryJobService.Identity("1", "alice", 8, page, 500);
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void trueGroupSummaryIsFrozenOutsidePublishedPagesAndNeverAddedToDetailRowCounts() {
+        doReturn(new AuthorizationClient.Scope("1", List.of(4000000001L, 4000000002L), "v1")).when(auth).authorize(any());
+        doAnswer(invocation -> {
+            Consumer<Map<String, Object>> output = invocation.getArgument(4);
+            output.accept(Map.of("group_row", 1, "whole_window", 1, "pv", 3, "uv", 1, "uip", 1));
+            output.accept(Map.of("group_row", 1, "whole_window", 0, "day", "1970-01-01", "pv", 3, "uv", 1, "uip", 1));
+            output.accept(Map.of("group_row", 0, "whole_window", 0, "day", "1970-01-01", "linkId", 4000000001L, "pv", 2, "uv", 1, "uip", 1));
+            output.accept(Map.of("group_row", 0, "whole_window", 0, "day", "1970-01-01", "linkId", 4000000002L, "pv", 1, "uv", 1, "uip", 1));
+            return null;
+        }).when(ch).query(anyString(), anyString(), anyInt(), anyLong(), any());
+        var status = submit("frozen-summary");
+        service.execute(service.claim("worker"));
+        var complete = service.status(status.jobId(), identity(0));
+        assertThat(complete.rowCount()).isEqualTo(2); assertThat(complete.pageCount()).isEqualTo(1);
+        var page = service.page(status.jobId(), identity(0));
+        var metrics = (Map<String, Object>) page.get("metrics");
+        var requested = (Map<String, Object>) metrics.get("requested");
+        assertThat(requested.get("uv").toString()).isEqualTo("1");
+        assertThat(((List<?>) page.get("items"))).hasSize(2);
+        assertThat(((Map<?, ?>) page.get("meta")).get("totalRows").toString()).isEqualTo("2");
+        assertThat(((Map<?, ?>) page.get("meta")).get("nextPageIndex")).isNull();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM analytics_query_page WHERE page_index=-1", Integer.class)).isEqualTo(1);
+        assertThat(((List<Map<String, Object>>) requested.get("daily")).get(0).get("uv").toString()).isEqualTo("1");
+        assertThatThrownBy(() -> service.page(status.jobId(), identity(1))).isInstanceOf(QueryFailure.class);
+    }
+
     @SuppressWarnings("unchecked")
     void emit(int count) {
         doAnswer(

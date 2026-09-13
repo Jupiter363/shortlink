@@ -28,7 +28,6 @@ class CampaignInsightCardFactory {
                 continue;
             }
             Map<String, Object> envelope = mapValue(execution.get("data"));
-            Map<String, Object> meta = mapValue(envelope.get("meta"));
             if (!com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence.usable(envelope)) {
                 continue;
             }
@@ -59,6 +58,10 @@ class CampaignInsightCardFactory {
                         }
                         if ("ip".equalsIgnoreCase(textKey)) {
                             result.put(textKey, maskIp(textValue(item)));
+                            return;
+                        }
+                        if ("ipHash".equalsIgnoreCase(textKey)) {
+                            result.put(textKey, maskIpHash(textValue(item)));
                             return;
                         }
                         result.put(textKey, sanitizeForPrompt(item));
@@ -139,6 +142,13 @@ class CampaignInsightCardFactory {
         if (topIpShare < TOP_IP_SHARE_WARNING && top3IpShare < TOP3_IP_SHARE_WARNING) {
             return;
         }
+        Map<String, Object> topIpEvidence = new LinkedHashMap<>();
+        if (topIp.containsKey("ipHash")) {
+            topIpEvidence.put("maskedTopIpHash", maskIpHash(textValue(topIp.get("ipHash"))));
+        } else {
+            topIpEvidence.put("maskedTopIp", maskIp(textValue(topIp.get("ip"))));
+        }
+        topIpEvidence.put("topIpCount", topIpCount);
         cards.add(
                 derivedCard(
                         "traffic_anomaly",
@@ -155,11 +165,7 @@ class CampaignInsightCardFactory {
                         thresholds(
                                 "topIpShareWarning", TOP_IP_SHARE_WARNING,
                                 "top3IpShareWarning", TOP3_IP_SHARE_WARNING),
-                        evidence(
-                                "maskedTopIp",
-                                maskIp(textValue(topIp.get("ip"))),
-                                "topIpCount",
-                                topIpCount)));
+                        topIpEvidence));
     }
 
     private void addPerformanceInsightCards(
@@ -376,7 +382,16 @@ class CampaignInsightCardFactory {
         card.put("metrics", metrics);
         card.put("thresholds", thresholds);
         card.put("evidence", evidence);
+        Map<String, Object> envelope = mapValue(execution.get("data"));
+        card.put("meta", mapValue(envelope.get("meta")));
+        card.put("message", CampaignStatsPresentation.qualityMessage(envelope));
         return card;
+    }
+
+    private String maskIpHash(String hash) {
+        if (hash == null || hash.isBlank()) return "hash: unavailable";
+        if (hash.length() < 9) return "hash: " + hash.charAt(0) + "…";
+        return "hash: " + hash.substring(0, 4) + "…" + hash.substring(hash.length() - 4);
     }
 
     private Map<String, Object> summary(String category, String reasonCode, String signal) {

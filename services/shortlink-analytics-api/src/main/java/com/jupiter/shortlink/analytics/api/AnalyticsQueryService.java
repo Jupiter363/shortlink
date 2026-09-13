@@ -129,16 +129,10 @@ public class AnalyticsQueryService {
         if (canonical) {
             Set<String> eligible =
                     new LinkedHashSet<>(List.of(settings.clickHouseUrls().split(",")));
-            List<String> clauses = new ArrayList<>();
+            List<String> clauses = canonicalClauses(manifests);
             Map<String, Object> cuts = new LinkedHashMap<>();
             for (var m : manifests) {
                 long w = number(m.get("window_start"));
-                clauses.add(
-                        "(build_id="
-                                + quote(m.get("build_id").toString())
-                                + " AND window_start="
-                                + w
-                                + ")");
                 eligible.retainAll(readList(m.get("replica_ids").toString()));
                 cuts.put(Long.toString(w), readMap(m.get("source_cut").toString()));
                 versions.put(
@@ -168,11 +162,17 @@ public class AnalyticsQueryService {
                                         + quote(build)
                                         + " GROUP BY receipt_id,payload_hash,validation_result)",
                                 1);
+                var expectedProof = readMap(Objects.toString(m.get("coverage_proof"), "{}"));
                 if (proof.size() != 1
-                        || !readMap(Objects.toString(m.get("coverage_proof"), "{}"))
-                                .equals(proof.get(0)))
+                        || !Objects.toString(expectedProof.get("n")).equals(Objects.toString(proof.get(0).get("n")))
+                        || !Objects.toString(expectedProof.get("digest")).equals(Objects.toString(proof.get(0).get("digest"))))
                     throw new QueryFailure(
                             "NOT_READY", "Selected replica no longer covers the immutable build");
+                if (DimensionProof.required(expectedProof)) {
+                    var dimensions = ch.query(replica, DimensionProof.sql(build), 1);
+                    if (dimensions.size() != 1) throw new QueryFailure("NOT_READY", "Missing dimension proof");
+                    DimensionProof.verify(expectedProof, dimensions.get(0));
+                }
             }
             facts = facts("rebuild_input", "(" + String.join(" OR ", clauses) + ")", scope);
             sourceCut = cuts;
@@ -268,6 +268,20 @@ public class AnalyticsQueryService {
                 sourceCut = cuts;
             }
         }
+        long created = System.currentTimeMillis();
+        var history = VisitorHistory.plan(sourceCut, json, created, effectiveEnd);
+        if (history.available() && Set.of("METRICS", "ACCESS_RECORDS").contains(q.kind())) {
+            var candidate = history;
+            String selectedReplica = replica;
+            var trustedCoverage = coverage;
+            history = VisitorHistory.optionalProof(candidate,
+                    () -> ch.queryOptionalProof(selectedReplica, VisitorHistory.visibilitySql(candidate), 4096),
+                    visible -> VisitorHistory.verifyVisibility(candidate, visible,
+                            trustedCoverage.get("sourceCut"), trustedCoverage.get("receipts"), json,
+                            epoch.equals(trustedCoverage.get("recoveryEpoch"))));
+        }
+        if (Set.of("METRICS", "ACCESS_RECORDS").contains(q.kind()))
+            facts = VisitorHistory.enrich(facts, history, scope.tenantId(), scope.linkIds());
         List<Map<String, Object>> items = new ArrayList<>();
         Map<String, Object> metrics = new LinkedHashMap<>();
         if ("METRICS".equals(q.kind())) {
@@ -295,6 +309,7 @@ public class AnalyticsQueryService {
                                     + " window_name,link_id,grouping(link_id) group_row,"
                                     + aggregate
                                     + MetricDimensions.sql(start, effectiveEnd)
+                                    + VisitorHistory.metricsSql("tupleElement(report_window,2)")
                                     + " FROM ("
                                     + facts
                                     + ") ARRAY JOIN ["
@@ -318,6 +333,8 @@ public class AnalyticsQueryService {
                     row.putAll(
                             MetricDimensions.materialize(
                                     byLink.getOrDefault(link, Map.of()), w[0], w[1]));
+                    VisitorHistory.materialize(row, byLink.getOrDefault(link, Map.of()), history, false);
+                    VisitorHistory.labelScope(row, 1);
                     row.put("linkId", link);
                     row.put("window", entry.getKey());
                     row.put("startInclusive", w[0]);
@@ -326,6 +343,8 @@ public class AnalyticsQueryService {
                 }
                 var totals = counts(total);
                 totals.putAll(MetricDimensions.materialize(total, w[0], w[1]));
+                VisitorHistory.materialize(totals, total, history, true);
+                VisitorHistory.labelScope(totals, scope.linkIds().size());
                 metrics.put(entry.getKey(), totals);
             }
         } else if ("ACCESS_RECORDS".equals(q.kind())) {
@@ -334,7 +353,12 @@ public class AnalyticsQueryService {
                             replica,
                             "SELECT event_id eventId,link_id linkId,occurred_at"
                                 + " occurredAt,visitor_hash visitorHash,ip_hash"
-                                + " ipHash,browser,os,device,country,referer_domain refererDomain"
+                                + " ipHash,kind,status,browser,os,device,country,province,city,network,"
+                                + "geo_status geoStatus,geo_version geoVersion,referer_domain refererDomain,"
+                                + "(geo_version_count>1) geoVersionConflict,"
+                                + "history_earliest historyEarliestObservedAt,"
+                                + "if(scope_history_known,if(scope_first_seen>=" + start
+                                + ",'newUser','oldUser'),'UNKNOWN') uvType"
                                 + " FROM ("
                                     + facts
                                     + ") WHERE kind='CLICK' AND occurred_at>="
@@ -371,7 +395,6 @@ public class AnalyticsQueryService {
                 || !epoch.equals(auth.activeEpoch()))
             throw new QueryFailure(
                     "QUERY_SCOPE_CHANGED", "Scope or recovery epoch changed while querying");
-        long created = System.currentTimeMillis();
         String id = UUID.randomUUID().toString();
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("requestedStart", q.startInclusive());
@@ -391,54 +414,22 @@ public class AnalyticsQueryService {
         meta.put("freshness", finalized || created - effectiveEnd <= 120000 ? "FRESH" : "STALE");
         meta.put("completeness", complete ? "COMPLETE" : "PARTIAL");
         meta.put("provisional", !finalized);
-        Map<String, Object> approximation = new LinkedHashMap<>();
-        for (String metric :
-                List.of(
-                        "pv",
-                        "denied",
-                        "daily.pv",
-                        "hourStats",
-                        "weekdayStats",
-                        "browserStats",
-                        "osStats",
-                        "deviceStats",
-                        "peakHourShare",
-                        "topBrowserShare",
-                        "topDeviceShare"))
-            approximation.put(
-                    metric,
-                    Map.of("type", "EXACT", "algorithm", "eventId-dedup", "version", "click-v1"));
-        for (String metric : List.of("uv", "uip", "daily.uv", "daily.uip", "repeatVisitRatio"))
-            approximation.put(
-                    metric,
-                    Map.of(
-                            "type",
-                            "APPROXIMATE",
-                            "algorithm",
-                            "uniqCombined64",
-                            "version",
-                            "click-v1"));
-        for (String metric :
-                List.of("topIpStats", "topVisitorStats", "topIpShare", "topVisitorShare"))
-            approximation.put(
-                    metric,
-                    Map.of(
-                            "type",
-                            "APPROXIMATE",
-                            "algorithm",
-                            "topK-counts",
-                            "version",
-                            "click-v1"));
-        meta.put("approximation", approximation);
+        meta.put("approximation", MetricDimensions.approximation());
         meta.put("collectionQuality", quality.read(start, effectiveEnd, created));
-        meta.put(
-                "missingMetrics",
-                List.of(
-                        "country",
-                        "localeCnStats",
-                        "topRegionShare",
-                        "networkStats",
-                        "uvTypeStats"));
+        Map<String, Object> dimensions;
+        if (!metrics.isEmpty()) {
+            String widest = windows.entrySet().stream().min(Comparator.comparingLong(e -> e.getValue()[0])).orElseThrow().getKey();
+            dimensions = (Map<String, Object>) ((Map<?, ?>) metrics.get(widest)).get("dimensionQuality");
+            meta.put("dimensionQualityWindow", widest);
+        } else {
+            var recordDimensions = MetricDimensions.recordDimensions(items);
+            VisitorHistory.materializeRecords(recordDimensions, items, history);
+            VisitorHistory.labelScope(recordDimensions, scope.linkIds().size());
+            dimensions = (Map<String, Object>) recordDimensions.get("dimensionQuality");
+        }
+        meta.put("dimensionQuality", dimensions);
+        meta.put("missingMetrics", MetricDimensions.missingMetrics(dimensions));
+        meta.put("businessTimezone", "Asia/Shanghai");
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("metrics", metrics);
         result.put("items", items);
@@ -456,6 +447,32 @@ public class AnalyticsQueryService {
                 write(result),
                 new Timestamp(created + SNAPSHOT_TTL));
         return slice(result, 0, q.boundedPageSize());
+    }
+
+    /** Preserve every selected revision while coalescing only adjacent windows of the same build. */
+    static List<String> canonicalClauses(List<Map<String, Object>> manifests) {
+        Map<String, SortedSet<Long>> builds = new LinkedHashMap<>();
+        for (var manifest : manifests)
+            builds.computeIfAbsent(manifest.get("build_id").toString(), ignored -> new TreeSet<>())
+                    .add(number(manifest.get("window_start")));
+        List<String> clauses = new ArrayList<>();
+        builds.forEach((build, windows) -> {
+            long first = -1, previous = -1;
+            for (long window : windows) {
+                if (first >= 0 && window != previous + WINDOW) {
+                    clauses.add(buildRange(build, first, previous + WINDOW));
+                    first = window;
+                } else if (first < 0) first = window;
+                previous = window;
+            }
+            if (first >= 0) clauses.add(buildRange(build, first, previous + WINDOW));
+        });
+        return clauses;
+    }
+
+    private static String buildRange(String build, long start, long end) {
+        return "(build_id=" + quote(build) + " AND window_start>=" + start
+                + " AND window_start<" + end + ")";
     }
 
     private Map<String, Object> page(
@@ -512,26 +529,7 @@ public class AnalyticsQueryService {
     }
 
     private String facts(String table, String predicate, AuthorizationClient.Scope scope) {
-        String ids =
-                scope.linkIds().isEmpty()
-                        ? "0"
-                        : scope.linkIds().stream()
-                                .map(String::valueOf)
-                                .collect(java.util.stream.Collectors.joining(","));
-        return "SELECT * FROM (SELECT kind,tenant_id,event_id,any(link_id) link_id,any(occurred_at)"
-                + " occurred_at,any(visitor_hash) visitor_hash,any(ip_hash) ip_hash,any(browser)"
-                + " browser,any(os) os,any(device) device,any(country)"
-                + " country,any(referer_domain) referer_domain,any(request_source)"
-                + " request_source,any(decision_stage) decision_stage,any(status) status FROM "
-                + table
-                + " WHERE "
-                + predicate
-                + " AND tenant_id="
-                + quote(scope.tenantId())
-                + " AND validation_result='VALID' GROUP BY kind,tenant_id,event_id HAVING"
-                + " uniqExact(payload_hash)=1) WHERE link_id IN ("
-                + ids
-                + ")";
+        return AnalyticsFacts.sql(table, predicate, scope.tenantId(), scope.linkIds());
     }
 
     private static Map<String, Object> counts(Map<String, Object> row) {

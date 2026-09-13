@@ -4,6 +4,9 @@ import com.jupiter.shortlink.contract.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -13,7 +16,7 @@ import java.security.*;
 import java.util.*;
 
 @Component
-public final class RebuildExecutor {
+public final class RebuildExecutor implements DisposableBean {
     private static final Logger LOG = LoggerFactory.getLogger(RebuildExecutor.class);
     private final ControlLedger ledger;
     private final ObjectArchive archive;
@@ -23,11 +26,23 @@ public final class RebuildExecutor {
     private final String owner = UUID.randomUUID().toString();
 
     public RebuildExecutor(ControlLedger l, ObjectArchive a, ClickHouseStore ch, WorkerSettings s) {
+        this(l, a, ch, s, false);
+    }
+
+    @Autowired
+    public RebuildExecutor(
+            ControlLedger l,
+            ObjectArchive a,
+            ClickHouseStore ch,
+            WorkerSettings s,
+            @Value("${analytics.rebuild.enrich-dimensions:false}") boolean enrichDimensions) {
         ledger = l;
         archive = a;
         this.ch = ch;
         settings = s;
-        enricher = new EventEnricher(s.hashKey(), 5000);
+        // Historical interpretation remains frozen unless an operator explicitly requests a
+        // dimension rebuild. This reader is pinned to the configured XDB SHA for its lifetime.
+        enricher = enrichDimensions ? EventEnricher.fromEnvironment(s.hashKey(), 5000) : null;
     }
 
     @Scheduled(fixedDelayString = "${analytics.rebuild.poll-delay:2000}")
@@ -44,6 +59,8 @@ public final class RebuildExecutor {
     }
 
     public void run(Map<String, Object> job) throws Exception {
+        if (enricher != null && enricher.geoVersion().isBlank())
+            throw new IllegalStateException("DIMENSION_REPLAY_REQUIRES_VERIFIED_GEO_DATABASE");
         SourceCut cut = EventJson.read((String) job.get("source_cut"), SourceCut.class);
         long start = ((Number) job.get("start_ms")).longValue(),
                 end = ((Number) job.get("end_ms")).longValue();
@@ -117,22 +134,17 @@ public final class RebuildExecutor {
         ch.insert("window_results", output);
         // Query exact deduplicated receipt content on each configured replica, not merely INSERT
         // ACK.
-        String fingerprint =
-                "SELECT count()"
-                    + " n,toString(groupBitXor(cityHash64(receipt_id,payload_hash,validation_result)))"
-                    + " digest FROM (SELECT receipt_id,payload_hash,validation_result FROM"
-                    + " rebuild_input WHERE build_id="
-                        + build
-                        + " GROUP BY receipt_id,payload_hash,validation_result)";
-        String expected = null;
+        Map<String, Object> expected = null;
         for (String replica : settings.replicas()) {
-            List<String> values = new ArrayList<>();
-            ch.query(replica, fingerprint, r -> values.add(EventJson.write(r)));
-            String found = String.join("", values);
+            if (enricher != null)
+                BuildCoverageProof.requireGeoVersion(
+                        ch, replica, (String) job.get("build_id"), enricher.geoVersion());
+            Map<String, Object> found =
+                    BuildCoverageProof.read(ch, replica, (String) job.get("build_id"));
             if (expected == null) expected = found;
             else if (!expected.equals(found)) throw new IllegalStateException("REPLICA_NOT_READY");
         }
-        job.put("coverage_proof", expected);
+        job.put("coverage_proof", EventJson.write(expected));
         ledger.heartbeat(job);
         ledger.publish(job, settings.replicas());
     }
@@ -159,6 +171,7 @@ public final class RebuildExecutor {
                     throw new IllegalStateException(
                             "HASH_KEY_VERSION_CHANGED_REQUIRES_NEW_DATASET");
                 if (e.occurredAt() < start || e.occurredAt() >= end) continue;
+                if (enricher != null) e = DimensionReplay.apply(archived, enricher);
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("build_id", job.get("build_id"));
                 row.put("window_start", Math.floorDiv(e.occurredAt(), 300000) * 300000);
@@ -175,6 +188,11 @@ public final class RebuildExecutor {
                 row.put("os", e.os());
                 row.put("device", e.device());
                 row.put("country", e.country());
+                row.put("province", e.province());
+                row.put("city", e.city());
+                row.put("network", e.network());
+                row.put("geo_status", e.geoStatus());
+                row.put("geo_version", e.geoVersion());
                 row.put("referer_domain", e.refererDomain());
                 row.put("request_source", e.requestSource());
                 row.put("decision_stage", e.decisionStage());
@@ -192,5 +210,10 @@ public final class RebuildExecutor {
         if (!HexFormat.of().formatHex(digest.digest()).equals(expected))
             throw new IllegalStateException("ARCHIVE_CHECKSUM_MISMATCH");
         ch.insert("rebuild_input", rows);
+    }
+
+    @Override
+    public void destroy() {
+        if (enricher != null) enricher.close();
     }
 }

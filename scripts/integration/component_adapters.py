@@ -1,5 +1,5 @@
 """Isolated APISIX and official ClickHouse Kafka Connect component checks (no business E2E)."""
-import argparse, base64, datetime, json, os, pathlib, subprocess, time, uuid
+import argparse, base64, datetime, json, os, pathlib, re, subprocess, time, uuid
 from http.client import HTTPConnection
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -164,17 +164,58 @@ def connect():
     case("CHC02-schema-error-fails-task",lambda:lane("invalid",True))
 
 
+def connect_schema():
+    """Pure static contract check: no HTTP, Kafka, Docker or credential resolution."""
+    config = json.loads((ROOT / "deploy/clickhouse/connect-config.json").read_text(encoding="utf-8"))["config"]
+    require(config.get("tableRefreshInterval") == "60", "Connector schema refresh must be explicitly bounded to 60 seconds")
+    fields = {"province": "province", "city": "city", "network": "network", "geoStatus": "geo_status", "geoVersion": "geo_version"}
+    schemas = {name: (ROOT / "deploy/clickhouse" / name).read_text(encoding="utf-8") for name in (
+        "001-analytics.sql", "002-connect-landing.sql", "003-replicated.sql.template",
+        "004-geo-dimensions.sql", "004-geo-dimensions.sql.template")}
+    def table_columns(sql, table):
+        match = re.search(r"CREATE TABLE IF NOT EXISTS \S+\." + table + r"\b[^\(]*\((.*?)\)\s*ENGINE", sql, re.S)
+        require(match is not None, "Missing table declaration: " + table)
+        return match.group(1)
+    for filename, tables in (("001-analytics.sql", ("event_receipts", "rebuild_input")),
+                            ("002-connect-landing.sql", ("derived_events",)),
+                            ("003-replicated.sql.template", ("event_receipts", "rebuild_input", "derived_events"))):
+        for table in tables:
+            columns = table_columns(schemas[filename], table)
+            for landing, stored in fields.items():
+                column = landing if table == "derived_events" else stored
+                default = "" if landing == "geoVersion" else "UNKNOWN"
+                require(re.search(r"\b" + column + r"\s+String\s+DEFAULT\s+'" + default + "'", columns) is not None,
+                        filename + ": missing backward-compatible " + table + "." + column)
+    for filename in ("002-connect-landing.sql", "003-replicated.sql.template", "004-geo-dimensions.sql", "004-geo-dimensions.sql.template"):
+        for landing, stored in fields.items():
+            require(landing + " AS " + stored in schemas[filename], filename + ": missing geography view mapping " + stored)
+    for filename in ("004-geo-dimensions.sql", "004-geo-dimensions.sql.template"):
+        sql = schemas[filename]
+        require("MODIFY QUERY" in sql, filename + ": migration must update the existing view")
+        for landing, stored in fields.items():
+            if landing == stored:
+                require(sql.count("ADD COLUMN IF NOT EXISTS " + landing + " ") == 3, filename + ": migration must update all three tables")
+            else:
+                require(sql.count("ADD COLUMN IF NOT EXISTS " + landing + " ") == 1
+                        and sql.count("ADD COLUMN IF NOT EXISTS " + stored + " ") == 2,
+                        filename + ": landing/receipt/rebuild columns drifted")
+    return {"tableRefreshIntervalSeconds": 60, "schemaFilesChecked": len(schemas), "geographyFields": fields,
+            "networkCalls": 0, "dockerCalls": 0}
+
+
 if __name__=="__main__":
-    parser=argparse.ArgumentParser();parser.add_argument("mode",choices=["init","topics","apisix","connect"]);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument("mode",choices=["init","topics","apisix","connect","schema"]);args=parser.parse_args()
     try:
         if args.mode=="init":case("CH00-initialize",initialize_clickhouse)
         elif args.mode=="topics":case("KF00-initialize",initialize_topics)
         elif args.mode=="apisix":apisix()
+        elif args.mode=="schema":case("CHC00-schema-refresh-contract",connect_schema)
         else:connect()
     except Exception as failure:
         RESULTS.append(dict(id=args.mode+"-setup",outcome="FAIL",error=str(failure)))
     output=ROOT/".work/component-results";output.mkdir(parents=True,exist_ok=True)
     path=output/(args.mode+"-"+datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")+".json")
-    path.write_text(json.dumps(dict(scope="isolated component integration; no business E2E or load test",results=RESULTS),ensure_ascii=False,indent=2),encoding="utf-8")
+    scope = "read-only static schema/config check; no services or network" if args.mode=="schema" else "isolated component integration; no business E2E or load test"
+    path.write_text(json.dumps(dict(scope=scope,results=RESULTS),ensure_ascii=False,indent=2),encoding="utf-8")
     print(path,flush=True)
     raise SystemExit(0 if all(item["outcome"]=="PASS" for item in RESULTS) else 1)

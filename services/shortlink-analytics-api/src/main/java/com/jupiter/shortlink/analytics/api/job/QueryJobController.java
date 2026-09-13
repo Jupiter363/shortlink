@@ -97,6 +97,8 @@ public class QueryJobController {
                             "eventId",
                             "linkId",
                             "occurredAt",
+                            "kind",
+                            "status",
                             "pv",
                             "uv",
                             "uip",
@@ -105,7 +107,7 @@ public class QueryJobController {
                             "browser",
                             "os",
                             "device",
-                            "country");
+                            "country", "province", "city", "network", "geoStatus", "geoVersion", "uvType", "ipHash", "refererDomain");
             writer.write(String.join(",", fields) + "\r\n");
             Map<String, Object> page = first;
             long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(5);

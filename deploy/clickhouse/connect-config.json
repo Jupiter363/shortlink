@@ -13,6 +13,7 @@
     "ssl": "false",
     "exactlyOnce": "false",
     "reportInsertedOffsets": "true",
+    "tableRefreshInterval": "60",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "false",

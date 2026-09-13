@@ -14,7 +14,12 @@ public record ShortLinkActiveCandidate(
         Long uip,
         String tenantId,
         Long linkId,
-        Map<String, Object> meta) {
+        Map<String, Object> meta,
+        com.jupiter.shortlink.agent.harness.security.AgentPrincipal principal) {
+    public ShortLinkActiveCandidate(String gid, String domain, String shortUri, String fullShortUrl,
+            Long pv, Long uv, Long uip, String tenantId, Long linkId, Map<String, Object> meta) {
+        this(gid, domain, shortUri, fullShortUrl, pv, uv, uip, tenantId, linkId, meta, null);
+    }
     public ShortLinkActiveCandidate(
             String gid, String domain, String shortUri, String fullShortUrl) {
         this(gid, domain, shortUri, fullShortUrl, null, null, null, null, null, Map.of());

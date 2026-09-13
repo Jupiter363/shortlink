@@ -5,6 +5,7 @@ import com.jupiter.shortlink.agent.riskprofile.detector.ShortLinkRiskDetector;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskProfile;
 import com.jupiter.shortlink.agent.riskprofile.model.ShortLinkRiskSourceStats;
 import com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence;
+import com.jupiter.shortlink.agent.riskprofile.model.RiskWindowDimensions;
 import com.jupiter.shortlink.agent.riskprofile.repository.JdbcShortLinkRiskProfileRepository;
 import com.jupiter.shortlink.agent.riskprofile.source.RiskStatsSourceGateway;
 import com.jupiter.shortlink.agent.riskprofile.source.ShortLinkActiveCandidate;
@@ -99,6 +100,10 @@ public class ShortLinkRiskProfileService {
         ShortLinkRiskProfile profile =
                 riskDetector
                         .detect(sourceStats)
+                        .withDimensionWindows(Map.of(
+                                "2h", dimensions("2h", stats2h),
+                                "24h", dimensions("24h", stats24h),
+                                "7d", dimensions("7d", stats7d)))
                         .withBatchId(batchId)
                         .withEvidence(
                                 new StatsEvidence(
@@ -123,6 +128,16 @@ public class ShortLinkRiskProfileService {
 
     private long intValue(Long value) {
         return StatsEvidence.number(value);
+    }
+
+    private static RiskWindowDimensions dimensions(String name, ShortLinkStatsWindow stats) {
+        if (stats.dimensions() == null)
+            return RiskWindowDimensions.from(name, stats.startTime().toEpochMilli(), stats.endTime().toEpochMilli(), Map.of(), stats.meta());
+        RiskWindowDimensions dimensions = stats.dimensions();
+        if (!name.equals(dimensions.window()) || dimensions.startInclusive() != stats.startTime().toEpochMilli()
+                || dimensions.endExclusive() != stats.endTime().toEpochMilli())
+            throw new IllegalStateException("Dimension evidence belongs to a different window");
+        return dimensions;
     }
 
     private static void requireWindow(ShortLinkStatsWindow window, Instant end, Duration duration) {

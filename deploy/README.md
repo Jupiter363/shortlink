@@ -92,6 +92,22 @@ bin/flink run -d -c com.jupiter.shortlink.analytics.flink.AnalyticsFlinkJob \
 
 并行度 2 仅为启动基线，不是容量承诺。JobManager/TaskManager 均要获得固定 hash 密钥及 Kafka 安全文件。恢复同一作业保留 UID、checkpoint 和事务身份；新状态构建使用新 build ID，不允许两个运行实例共享同一 Kafka transaction prefix。Kafka 事务超时须覆盖已配置的 checkpoint 时间和故障恢复间隔。
 
+## 离线地域与统计维度部署
+
+地域解释在 Flink / Analytics Worker 的异步链路执行，管理前端和两个 Agent Tool 复用 Analytics API / 查询 Job。Redirect 跳转不增加同步 IP 查询。`network` 表示数据库中的运营商 / ISP，不代表 Wi-Fi 或移动接入方式；新老访客表示当前授权短链 / 分组内、最多 180 天可读且证明完整的历史中首次观测，不承诺终身首次访问。
+
+Flink 与 Worker 须使用相同、不可变的 IPv4 / IPv6 XDB 文件，并同时配置 `ANALYTICS_GEO_IPV4_XDB_PATH`、`ANALYTICS_GEO_IPV4_XDB_SHA256`、`ANALYTICS_GEO_IPV6_XDB_PATH`、`ANALYTICS_GEO_IPV6_XDB_SHA256`。完整 SHA-256 在启动时校验；只读挂载文件，不在运行中替换。`ANALYTICS_GEO_MAX_CONCURRENCY` 默认 4，范围 1–32。未配置、非公网及未识别信息保留明确质量状态；文件、校验或解析错误使处理失败，不能退化成伪造的地域成功。
+
+已有 ClickHouse 环境采用 `clickhouse/004-geo-dimensions.sql` 或对应集群模板，新装使用已补齐字段的初始化 DDL。升级必须按以下顺序执行：
+
+1. 保留 Flink checkpoint / savepoint，暂停新版本派生生产者，在全部副本应用幂等迁移并确认 landing、receipt、rebuild 表及物化视图映射。
+2. 应用含 `tableRefreshInterval=60` 的 Connect 配置，显式重启 connector **及其 tasks**。运行中的任务缓存旧 schema，单独升级数据库可能让新增列继续写入默认值并提交消费 offset；任务 RUNNING 或插入成功不代表维度已落库。
+3. 部署兼容旧 proof 与新 `dimensionVersion=geo-v1` 的 API 读者，更新 Worker / Flink 及固定 XDB，从原 checkpoint / savepoint 恢复。在放开完整生产流之前，以有界明细样本验证 `derived_events`、`event_receipts` 的 `geoVersion/geoStatus` 和实际地域值。非公网样本也应具有非空版本及 `NON_PUBLIC`，不能只看 `UNKNOWN` 默认值。
+4. 若旧 schema 任务已经消费新记录，刷新任务后按原固定 cut 重放派生明细并核对逻辑 PV 不变。原始事件、Archive 和生产 consumer offset 不由回放工具改写。
+5. 规范历史窗口需要补地理时，显式启用 `ANALYTICS_REBUILD_ENRICH_DIMENSIONS=true` 并请求已有 Worker 重建接口；只在满足窗口门禁的范围生成新 build / manifest，完成后恢复默认 `false`。普通重建沿用归档解释，不就地改变旧事实。
+
+新 proof 保留原始计数 / hash 证明，另核验地理维度 digest 与版本；旧 proof 保持兼容。API 和 Job 同步验证证明与质量，历史覆盖不足或地理版本冲突继续披露未知 / 部分结果，不能为风控动作补造证据。详细迁移、恢复次序和静态检查见 [ClickHouse 部署说明](clickhouse/README.md)，有界回放见[工具说明](../scripts/development/geo-replay/README.md)，本轮固定数据库与脱敏验收记录见[统计维度补验](../doc/integration/dual-agent-console-uat-2026-09-13/statistics-dimensions-followup.md)。
+
 ## 边界与运行观测
 
 - 创建同步最多 500 行；501～50000 为持久任务；更大请求使用不可变对象导入，文件最多 64 MiB、最多一百万行。取消与旧 Worker 提交在同库事务中仲裁。

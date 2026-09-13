@@ -191,6 +191,13 @@ public class JobClickHouseStream implements AutoCloseable {
                                         .equals(Objects.toString(a.get("digest"))))
                             throw new QueryFailure(
                                     "NOT_READY", "Frozen build unavailable on replica");
+                        if (DimensionProof.required(e)) {
+                            List<Map<String, Object>> dimensions = new ArrayList<>();
+                            query(replica, DimensionProof.sql(build), 1, deadline, dimensions::add);
+                            if (dimensions.size() != 1)
+                                throw new QueryFailure("NOT_READY", "Missing frozen dimension proof");
+                            DimensionProof.verify(e, dimensions.get(0));
+                        }
                     }
                 }
                 return replica;

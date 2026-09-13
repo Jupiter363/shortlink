@@ -10,10 +10,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RestController
 public class LinkCommandController {
+    private static final DateTimeFormatter MANAGEMENT_DATE_TIME =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final LinkCommandService links;
     private final GroupCommandService groups;
     private final CommandAuthorization auth;
@@ -221,7 +226,7 @@ public class LinkCommandController {
                             v.put("originUrl", rs.getString("origin_url"));
                             v.put("routeVersion", rs.getLong("route_version"));
                             v.put("ownershipVersion", rs.getLong("ownership_version"));
-                            v.put("validDate", rs.getTimestamp("expire_at"));
+                            v.put("validDate", managementDateTime(rs.getTimestamp("expire_at")));
                             v.put("validDateType", rs.getTimestamp("expire_at") == null ? 0 : 1);
                             v.put("enableStatus", recycled ? 1 : 0);
                             v.put("metadataStatus", rs.getString("metadata_status"));
@@ -255,7 +260,7 @@ public class LinkCommandController {
             record.put("describe", detail.get("describe_text"));
             record.put("title", detail.get("title"));
             record.put("favicon", detail.get("favicon"));
-            record.put("createTime", detail.get("create_time"));
+            record.put("createTime", managementDateTime(detail.get("create_time")));
         }
         return new Result<>(
                 "0",
@@ -268,5 +273,14 @@ public class LinkCommandController {
                         size,
                         "total",
                         total == null ? 0 : total));
+    }
+
+    static String managementDateTime(Object value) {
+        if (value == null) return null;
+        LocalDateTime dateTime;
+        if (value instanceof Timestamp timestamp) dateTime = timestamp.toLocalDateTime();
+        else if (value instanceof LocalDateTime localDateTime) dateTime = localDateTime;
+        else throw new IllegalStateException("Unsupported management date value");
+        return MANAGEMENT_DATE_TIME.format(dateTime);
     }
 }

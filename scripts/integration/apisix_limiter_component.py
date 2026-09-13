@@ -40,6 +40,7 @@ REDIRECT = "s.limiter.it"
 MANAGEMENT_PATH = "/api/short-link/v1/user/has-username?username=limiterprobe"
 DIAGNOSTIC_PATH = "/__limiter_worker__"
 EXPECTED_KEYS = {"shortlink-management": "shortlink-management:$remote_addr",
+                 "shortlink-agent-chat": "shortlink-management:$remote_addr",
                  "shortlink-redirect": "shortlink-redirect:$remote_addr"}
 
 
@@ -76,23 +77,24 @@ def static_checks():
 
     def budgets():
         module.validate_limiter_keys(original)
-        require(len(original["routes"]) == 2, "Unexpected common route count")
+        module.validate_agent_chat_route(original)
+        require(len(original["routes"]) == 3, "Unexpected common route count")
         for route in original["routes"]:
             plugins = route["plugins"]
             req, conn = plugins["limit-req"], plugins["limit-conn"]
-            pair = (100, 100) if route["id"] == "shortlink-management" else (1000, 200)
+            pair = (1000, 200) if route["id"] == "shortlink-redirect" else (100, 100)
             require((req["rate"], req["burst"]) == pair, "Request budget changed")
             require((conn["conn"], conn["burst"], conn["default_conn_delay"]) == (200, 100, 0.1),
                     "Connection budget changed")
             require(req["rejected_code"] == conn["rejected_code"] == 429, "Rejection status changed")
             require(req.get("nodelay", False) is False, "Request delay semantics changed")
-        return {"validatedPlugins": 4, "productionBudgetsPreserved": True}
+        return {"validatedPlugins": 6, "productionBudgetsPreserved": True}
 
     record(results, "LS01-production-keys-and-budgets", budgets)
 
     def invalid_keys():
         rejected = 0
-        for index in range(2):
+        for index in range(len(original["routes"])):
             for name in ("limit-req", "limit-conn"):
                 for mutation in ("legacy", "wrong-prefix", "wrong-type", "missing"):
                     candidate = copy.deepcopy(original)
@@ -111,15 +113,13 @@ def static_checks():
                         rejected += 1
                     else:
                         raise AssertionError("Unsafe limiter configuration accepted")
-        require(rejected == 16, "Incomplete negative matrix")
+        require(rejected == 24, "Incomplete negative matrix")
         return {"unsafeVariantsRejected": rejected}
 
-    record(results, "LS02-all-four-import-guards", invalid_keys)
-    work = ROOT / ".work"
-    work.mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="limiter-static-", dir=work) as temporary:
+    record(results, "LS02-all-six-import-guards", invalid_keys)
+    # Static checks keep synthetic TLS artifacts outside the repository.
+    with tempfile.TemporaryDirectory(prefix="limiter-static-") as temporary:
         folder = Path(temporary).resolve()
-        require(folder.parent == work.resolve(), "Unexpected temporary directory")
         cert, key = folder / "fixture-cert.pem", folder / "fixture-key.pem"
         cert.write_text("SYNTHETIC CERTIFICATE FOR RENDER-WIRING TEST", encoding="utf-8")
         key.write_text("SYNTHETIC KEY FOR RENDER-WIRING TEST", encoding="utf-8")
@@ -140,6 +140,7 @@ def static_checks():
             with patch.dict(os.environ, environment):
                 resolved = module.resolve(rendered)
             module.validate_limiter_keys(resolved)
+            module.validate_agent_chat_route(resolved)
             for route in resolved["routes"]:
                 for name in ("limit-req", "limit-conn"):
                     expected = route["plugins"][name]
@@ -147,32 +148,42 @@ def static_checks():
                     require(module.contains(actual, expected), "Readback rejected matching limiter")
                     actual.update(key_type="var", key="remote_addr")
                     require(not module.contains(actual, expected), "Etcd readback accepted legacy limiter")
-            return {"validatedPlugins": 4, "tlsRouteCopyAndEtcdResolution": True,
+            return {"validatedPlugins": 6, "tlsRouteCopyAndEtcdResolution": True,
                     "scope": "Renderer wiring; PEM validation mocked, not a TLS handshake test"}
 
         record(results, "LS03-tls-render-and-etcd-readback", render)
 
         def reject_before_network():
             rendered = yaml.safe_load((output / "apisix.yaml").read_text(encoding="utf-8"))
-            rendered["routes"][0]["plugins"]["limit-req"].update(key_type="var", key="remote_addr")
             bad = folder / "unsafe.yaml"
-            bad.write_text(yaml.safe_dump(rendered), encoding="utf-8")
             api_key = folder / "admin-key"
             api_key.write_text("synthetic-component-key-0000000000000000", encoding="utf-8")
             args = ["bootstrap-etcd.py", "--manifest", str(bad), "--admin-url", "https://127.0.0.1:9180",
                     "--ca-file", str(cert), "--key-file", str(api_key), "--report", str(folder / "report.json")]
-            with patch.dict(os.environ, environment), patch.object(sys, "argv", args), \
-                    patch.object(module.ssl, "create_default_context"), \
-                    patch.object(module.http.client, "HTTPSConnection") as connection:
-                try:
-                    module.main()
-                except ValueError as error:
-                    require("route-scoped limiter" in str(error), "Rejected for an unrelated reason")
+            for mutation, expected_error in (("legacy-key", "route-scoped limiter"),
+                                             ("chat-boundary", "management boundary"),
+                                             ("chat-path", "Exact chat path")):
+                candidate = copy.deepcopy(rendered)
+                chat = next(route for route in candidate["routes"] if route["id"] == "shortlink-agent-chat")
+                if mutation == "legacy-key":
+                    chat["plugins"]["limit-req"].update(key_type="var", key="remote_addr")
+                elif mutation == "chat-boundary":
+                    del chat["plugins"]["shortlink-boundary"]
                 else:
-                    raise AssertionError("Unsafe import unexpectedly completed")
-                connection.assert_not_called()
+                    chat["uri"] = "/api/short-link/admin/v1/*"
+                bad.write_text(yaml.safe_dump(candidate), encoding="utf-8")
+                with patch.dict(os.environ, environment), patch.object(sys, "argv", args), \
+                        patch.object(module.ssl, "create_default_context"), \
+                        patch.object(module.http.client, "HTTPSConnection") as connection:
+                    try:
+                        module.main()
+                    except ValueError as error:
+                        require(expected_error in str(error), "Rejected for an unrelated reason")
+                    else:
+                        raise AssertionError("Unsafe import unexpectedly completed")
+                    connection.assert_not_called()
             require(not (folder / "report.json").exists(), "Unsafe import produced a success report")
-            return {"adminHttpCalls": 0, "unsafeManifestRejectedBeforeImport": True}
+            return {"adminHttpCalls": 0, "unsafeVariantsRejected": 3, "unsafeManifestRejectedBeforeImport": True}
 
         record(results, "LS04-unsafe-import-no-http", reject_before_network)
     return results

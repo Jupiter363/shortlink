@@ -112,6 +112,24 @@ class AgentAnalyticsJobTest {
     }
 
     @Test
+    void geoCoverageAndRetainedFirstObservedSemanticsPassThroughWithoutToolSideCollection() {
+        var dimensions = Map.of("networkStats", Map.of("status", "PARTIAL", "semantic", "ISP", "unknownCount", 3L),
+                "uvTypeStats", Map.of("status", "UNKNOWN", "semantic", "FIRST_OBSERVED_IN_RETAINED_DATASET",
+                        "reason", "HISTORY_RECEIPTS_INCOMPLETE", "maxHistoryDays", 180));
+        var statistics = Map.of("pv", 7L, "uv", 2L,
+                "networkStats", List.of(Map.of("network", "电信", "cnt", 4L, "ratio", 4D / 7)),
+                "dimensionQuality", dimensions);
+        when(client.job(eq("job-1"), eq("page"), any())).thenReturn(result(Map.of(
+                "metrics", Map.of("requested", statistics), "items", List.of(),
+                "meta", Map.of("snapshotId", "job-1", "dimensionQuality", dimensions,
+                        "missingMetrics", List.of("networkStats", "uvTypeStats")))));
+        var page = facade.jobPage("job-1", 0, 500);
+        assertThat(((Map<?, ?>) page.get("meta")).get("dimensionQuality")).isEqualTo(dimensions);
+        assertThat(((Map<?, ?>) page.get("metrics")).get("requested")).isEqualTo(statistics);
+        verify(client, never()).resolve(any());
+    }
+
+    @Test
     void oversizedScopeAndAbsentPrincipalAreRejectedBeforeSubmission() {
         when(client.resolve(any()))
                 .thenReturn(

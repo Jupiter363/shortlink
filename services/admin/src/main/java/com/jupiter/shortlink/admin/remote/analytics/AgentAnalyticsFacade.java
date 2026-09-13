@@ -113,7 +113,7 @@ public class AgentAnalyticsFacade {
                                 startTime,
                                 endTime,
                                 windows,
-                                windows == null && !"ACTIVE_LINKS".equals(queryKind)
+                                windows == null || windows.isEmpty()
                                         ? "REQUESTED"
                                         : "COMMON_AVAILABLE_END",
                                 snapshotId,

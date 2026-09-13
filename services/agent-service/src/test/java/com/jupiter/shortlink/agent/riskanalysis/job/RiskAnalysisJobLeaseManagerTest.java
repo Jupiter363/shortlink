@@ -22,6 +22,63 @@ import static org.mockito.Mockito.when;
 
 class RiskAnalysisJobLeaseManagerTest {
 
+    @Test
+    void absoluteExecutionDeadlineStopsRenewalButKeepsOriginalLeaseForFailureCas() {
+        var repository = mock(JdbcRiskAnalysisJobRepository.class);
+        var scheduler = mock(ScheduledExecutorService.class);
+        ScheduledFuture<?> future = mock(ScheduledFuture.class);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), eq(TimeUnit.NANOSECONDS));
+        var manager = new RiskAnalysisJobLeaseManager(repository, scheduler, Duration.ofNanos(1));
+        var lease = manager.start(runningJob(), Duration.ofMinutes(5), Clock.fixed(NOW_INSTANT, SHANGHAI));
+        var task = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), eq(TimeUnit.NANOSECONDS));
+        task.getValue().run();
+        assertThatThrownBy(lease::assertExecutionActive).hasMessageContaining("deadline exceeded");
+        lease.assertOwned();
+        org.assertj.core.api.Assertions.assertThat(lease.remainingExecutionTime()).isEqualTo(Duration.ZERO);
+        org.mockito.Mockito.verifyNoInteractions(repository);
+        verify(future).cancel(false);
+    }
+
+    @Test
+    void closingDoesNotWaitForAnAlreadyBlockedRenewalCall() throws Exception {
+        var repository = mock(JdbcRiskAnalysisJobRepository.class);
+        var scheduler = mock(ScheduledExecutorService.class);
+        doReturn(mock(ScheduledFuture.class)).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), eq(TimeUnit.NANOSECONDS));
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        when(repository.renewLease(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), any(), any()))
+                .thenAnswer(invocation -> { entered.countDown(); release.await(); return true; });
+        var lease = new RiskAnalysisJobLeaseManager(repository, scheduler).start(
+                runningJob(), Duration.ofMinutes(5), Clock.fixed(NOW_INSTANT, SHANGHAI));
+        var task = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), eq(TimeUnit.NANOSECONDS));
+        var thread = new Thread(task.getValue(), "lease-test-blocked-renewal");
+        thread.setDaemon(true);
+        thread.start();
+        try {
+            org.assertj.core.api.Assertions.assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
+            org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(Duration.ofSeconds(1), lease::close);
+        } finally { release.countDown(); thread.join(2000); }
+        org.assertj.core.api.Assertions.assertThat(thread.isAlive()).isFalse();
+        assertThatThrownBy(lease::assertExecutionActive).hasMessageContaining("deadline exceeded");
+    }
+
+    @Test
+    void closedLeaseRejectsFurtherExecutionAndLateHeartbeatDoesNotRenew() {
+        var repository = mock(JdbcRiskAnalysisJobRepository.class);
+        var scheduler = mock(ScheduledExecutorService.class);
+        doReturn(mock(ScheduledFuture.class)).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), anyLong(), anyLong(), eq(TimeUnit.NANOSECONDS));
+        var lease = new RiskAnalysisJobLeaseManager(repository, scheduler).start(
+                runningJob(), Duration.ofMinutes(5), Clock.fixed(NOW_INSTANT, SHANGHAI));
+        var task = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduler).scheduleWithFixedDelay(task.capture(), anyLong(), anyLong(), eq(TimeUnit.NANOSECONDS));
+        lease.close();
+        task.getValue().run();
+        org.mockito.Mockito.verifyNoInteractions(repository);
+        assertThatThrownBy(lease::assertExecutionActive).hasMessageContaining("deadline exceeded");
+    }
+
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
 
     private static final Instant NOW_INSTANT = Instant.parse("2026-07-10T02:00:00Z");

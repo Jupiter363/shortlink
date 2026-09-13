@@ -3,6 +3,8 @@ package com.jupiter.shortlink.agent.riskprofile.source;
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
 import com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport;
 import com.jupiter.shortlink.agent.riskprofile.model.StatsEvidence;
+import com.jupiter.shortlink.agent.riskprofile.model.RiskWindowDimensions;
+import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
@@ -90,27 +92,69 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
     }
 
     private List<ShortLinkActiveCandidate> listAuthorizedCandidates(Instant since) {
-        var principal =
-                com.jupiter.shortlink.agent.harness.security.AgentPrincipal.system(
-                        properties.getBusiness().getUsername());
+        AgentPrincipal scheduler = schedulerPrincipal();
+        List<ShortLinkActiveCandidate> candidates = new ArrayList<>();
+        String discoveryCursor = null;
+        Set<String> seenCursors = new HashSet<>();
+        Set<String> seenGroups = new HashSet<>();
+        int[] scannedLinks = {0};
+        Map<String, Object> discoveryCut = new LinkedHashMap<>();
+        for (int page = 0; page < 1000; page++) {
+            Map<String, Object> parameters = new LinkedHashMap<>();
+            parameters.put("pageSize", 100);
+            if (discoveryCursor != null) parameters.put("cursor", discoveryCursor);
+            Map<String, Object> response = request("/risk/scheduled-scopes", parameters, scheduler);
+            if (response == null || !"0".equals(String.valueOf(response.get("code")))
+                    || !(response.get("data") instanceof Map<?, ?> data))
+                throw new SecurityException("Scheduled tenant discovery could not be authorized");
+            Map<String, Object> discovery = StatsEvidence.copyMap(data);
+            List<Map<String, Object>> scopes = items(discovery);
+            if (scopes.size() > 1) throw new SecurityException("Scheduled scope page exceeded tenant budget");
+            for (Map<String, Object> scope : scopes) {
+                AgentPrincipal principal = new AgentPrincipal(text(scope.get("tenantId")),
+                        text(scope.get("username")), StatsEvidence.number(scope.get("authVersion")), false);
+                if (!(scope.get("gids") instanceof List<?> gids) || gids.size() > 100)
+                    throw new SecurityException("Scheduled group page exceeded budget");
+                for (Object value : gids) {
+                    String gid = text(value);
+                    if (!seenGroups.add(principal.tenantId() + ":" + gid))
+                        throw new SecurityException("Scheduled group scope repeated");
+                    if (seenGroups.size() > 1000)
+                        throw new IllegalStateException("TOO_LARGE: candidate discovery exceeds 1000 groups");
+                    candidates.addAll(listAuthorizedGroup(since, principal, gid, scannedLinks, discoveryCut));
+                }
+            }
+            Object next = discovery.get("nextCursor");
+            if (next == null) return List.copyOf(candidates);
+            discoveryCursor = text(next);
+            if (!seenCursors.add(discoveryCursor))
+                throw new IllegalStateException("Scheduled scope cursor did not advance");
+        }
+        throw new IllegalStateException("TOO_LARGE: scheduled tenant discovery exceeds page budget");
+    }
+
+    private List<ShortLinkActiveCandidate> listAuthorizedGroup(Instant since, AgentPrincipal principal,
+            String gid, int[] scannedLinks, Map<String, Object> discoveryCut) {
         List<ShortLinkActiveCandidate> candidates = new ArrayList<>();
         Long after = null;
         String ownershipVersion = null;
-        String tenantId = null;
-        Map<String, Object> discoveryCut = null;
+        String tenantId = principal.tenantId();
         // A failed or over-budget discovery never returns a silently truncated successful batch.
         for (int scopePage = 0; scopePage < 20; scopePage++) {
-            var scope = authority.resolvePage(principal, null, null, null, after, ownershipVersion);
-            if (tenantId != null
-                    && (!tenantId.equals(scope.tenantId())
-                            || !ownershipVersion.equals(scope.ownershipVersion())))
+            var scope = authority.resolvePage(principal, gid, null, null, after, ownershipVersion);
+            if (!tenantId.equals(scope.tenantId())
+                    || (ownershipVersion != null && !ownershipVersion.equals(scope.ownershipVersion())))
                 throw new SecurityException("Candidate ownership changed during discovery");
-            tenantId = scope.tenantId();
             ownershipVersion = scope.ownershipVersion();
+            if (scope.links().stream().anyMatch(link -> !gid.equals(link.get("gid"))))
+                throw new SecurityException("Candidate group left the authorized scope");
             List<Long> ids =
                     scope.links().stream()
                             .map(link -> StatsEvidence.number(link.get("linkId")))
                             .toList();
+            scannedLinks[0] += ids.size();
+            if (scannedLinks[0] > 10_000)
+                throw new IllegalStateException("TOO_LARGE: candidate discovery exceeds 10000 links");
             if (!ids.isEmpty()) {
                 String snapshot = null, cursor = null;
                 Map<String, Object> originalMeta = null;
@@ -134,14 +178,11 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                                     request);
                     Map<String, Object> envelope = checkedResponse(response);
                     Map<String, Object> metadata = meta(envelope);
-                    if (discoveryCut == null) discoveryCut = metadata;
+                    if (discoveryCut.isEmpty()) discoveryCut.putAll(metadata);
                     else
                         for (String field :
                                 List.of(
                                         "recoveryEpoch",
-                                        "effectiveEnd",
-                                        "manifestVersion",
-                                        "sourceCut",
                                         "metricVersion",
                                         "detailDatasetVersion")) {
                             if (discoveryCut.get(field) == null
@@ -169,7 +210,8 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                                         null,
                                         tenantId,
                                         id,
-                                        metadata));
+                                        metadata,
+                                        principal));
                     }
                     if (metadata.get("nextCursor") == null) break;
                     if (page == 19)
@@ -201,8 +243,16 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                                 "fullShortUrl",
                                 candidate.fullShortUrl(),
                                 "endTime",
-                                end.toString()));
+                                end.toString()), candidatePrincipal(candidate));
         Map<String, Object> meta = meta(envelope);
+        if (candidate.principal() != null) {
+            // Resources have independent snapshots. A profile's three windows share their own
+            // frozen snapshot, at the discovery cutoff and within the same dataset/epoch.
+            for (String field : List.of("effectiveEnd", "recoveryEpoch", "metricVersion", "detailDatasetVersion")) {
+                if (candidate.meta().get(field) == null || !Objects.equals(candidate.meta().get(field), meta.get(field)))
+                    throw new IllegalStateException("Candidate statistics " + field + " changed; restart the batch");
+            }
+        }
         Map<String, ShortLinkStatsWindow> windows = new LinkedHashMap<>();
         for (Map<String, Object> row : items(envelope)) {
             String window = text(row.get("window"));
@@ -230,7 +280,7 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                                 "startTime",
                                 start.toString(),
                                 "endTime",
-                                end.toString()));
+                                end.toString()), candidatePrincipal(candidate));
         List<Map<String, Object>> items = items(envelope);
         if (items.size() != 1)
             throw new IllegalStateException("Expected one statistics resource window");
@@ -239,6 +289,30 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> get(String path, Map<String, Object> parameters) {
+        return get(path, parameters, schedulerPrincipal());
+    }
+
+    private Map<String, Object> get(String path, Map<String, Object> parameters, AgentPrincipal principal) {
+        return checkedResponse(request(path, parameters, principal));
+    }
+
+    private AgentPrincipal candidatePrincipal(ShortLinkActiveCandidate candidate) {
+        if (authority == null) return schedulerPrincipal();
+        AgentPrincipal principal = candidate.principal();
+        if (principal == null || principal.system() || !principal.tenantId().equals(candidate.tenantId()))
+            throw new SecurityException("Scheduled candidate has no current delegated tenant identity");
+        return principal;
+    }
+
+    private AgentPrincipal schedulerPrincipal() {
+        String username = properties.getBusiness().getUsername();
+        if (username == null || username.isBlank())
+            throw new IllegalStateException("Scheduled analytics principal is not configured");
+        return AgentPrincipal.system(username);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> request(String path, Map<String, Object> parameters, AgentPrincipal principal) {
         String username = properties.getBusiness().getUsername();
         String token = properties.getBusiness().getInternalToken();
         if (username == null || username.isBlank() || token == null || token.length() < 24)
@@ -250,7 +324,7 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                                 + path);
         parameters.forEach(uri::queryParam);
         URI target = uri.build().encode().toUri();
-        Map<String, String> headers =
+        Map<String, String> headers = authority != null ? authority.headers(principal) :
                 Map.of(
                         "X-Agent-Username",
                         username,
@@ -272,7 +346,7 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                                     Map.class)
                             .getBody();
         }
-        return checkedResponse(response);
+        return response;
     }
 
     private static Map<String, Object> checkedResponse(Map<String, Object> response) {
@@ -320,7 +394,10 @@ public class ShortLinkBusinessRiskStatsGateway implements RiskStatsSourceGateway
                 ratio(row.get("repeatVisitRatio")),
                 tenant,
                 linkId,
-                meta);
+                meta,
+                RiskWindowDimensions.from(row.get("window") instanceof String name ? name : "requested",
+                        StatsEvidence.number(row.get("startInclusive")), StatsEvidence.number(row.get("endExclusive")),
+                        row, meta));
     }
 
     @SuppressWarnings("unchecked")

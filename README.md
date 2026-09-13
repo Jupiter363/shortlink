@@ -151,6 +151,7 @@ Spring AI Alibaba Graph 运行在 Agent Service 内部。MySQL 的业务、统�
 | `analytics-flink` | `analytics-flink` | Kafka / Flink / RocksDB 作业、明细及在线聚合分支 |
 | `analytics-worker` | `analytics-worker` | 原始接收归档、补算、覆盖证明、不可变发布与恢复世代 |
 | `shortlink-analytics-api` | `shortlink-analytics-api` | 当前授权、统计快照、持久化查询 Job 及结果分页 |
+| `frontend/console-vue` | `shortlink-console` | 标准管理入口、短链接管理、访问统计与登录态内 Agent 工作台 |
 | `deploy` | 部署资源 | SQL、APISIX 插件与配置、Kafka、ClickHouse、监控及隔离测试拓扑 |
 | `scripts` | Python / PowerShell / JavaScript | 组件集成、有限 E2E、压测编排、诊断与证据核对 |
 | `doc` | 项目文档 | 项目计划、统计说明、验收记录、压测归档与图片 |
@@ -1056,6 +1057,7 @@ Flink 作为独立作业提交。Java 服务可以直接运行 JAR，并由系�
 ### 环境要求
 
 - JDK 17、Maven 3.9.4；构建与运行采用 UTF-8。
+- Node.js 18+ 与 npm；用于构建 `frontend/console-vue` 标准管理前端。
 - 完整业务环境需要 MySQL 8.x、Redis、Kafka、APISIX；统计需要 Flink、ClickHouse / Connect 与 S3 兼容对象存储。
 - Agent 需要独立数据库、内部服务身份和实际可用的模型配置。
 - PowerShell 用于仓库的 Windows 集成入口；Flink RocksDB 集成和当前完整创建 / 跳转监督脚本在 Linux 测试环境执行。
@@ -1076,6 +1078,16 @@ $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
 mvn clean test
 mvn package -DskipTests
 ```
+
+构建管理前端：
+
+```bash
+cd frontend/console-vue
+npm ci
+npm run build
+```
+
+前端产物位于 `frontend/console-vue/dist/`。静态服务器需把 SPA 路由回退到 `index.html`，并将同源 `/api/` 转发至 APISIX 管理入口；Agent 工作台位于 `/home/agent`，复用当前管理端登录态。
 
 按模块连同依赖一起构建，例如：
 
@@ -1190,6 +1202,8 @@ shortlink/
 │   └── risk-core/          # 确定性策略语义与共享安全能力
 ├── jobs/
 │   └── analytics-flink/    # Kafka / Flink / RocksDB 作业
+├── frontend/
+│   └── console-vue/        # Vue 管理端与登录态内 Agent 工作台
 ├── deploy/                  # 受控部署输入
 │   ├── apisix/              # 网关配置、插件、TLS 与 etcd
 │   ├── mysql/               # 业务、统计控制、Agent 建表脚本

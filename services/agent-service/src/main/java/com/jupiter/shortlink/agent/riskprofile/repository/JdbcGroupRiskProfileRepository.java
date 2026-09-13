@@ -4,6 +4,7 @@ import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.Autho
 import com.jupiter.shortlink.agent.riskcommon.json.RiskJsonCodec;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskReasonCode;
+import com.jupiter.shortlink.agent.riskcommon.safety.RiskSummaryText;
 import com.jupiter.shortlink.agent.riskprofile.model.GroupRiskProfile;
 import com.jupiter.shortlink.agent.riskprofile.model.RiskTrendPoint;
 
@@ -124,7 +125,7 @@ public class JdbcGroupRiskProfileRepository {
                             reasonCodesJson,
                             topLinksJson,
                             trendJson,
-                            profile.agentSummary(),
+                            RiskSummaryText.forPersistence(profile.agentSummary()),
                             profile.batchId(),
                             ownerToken,
                             com.jupiter.shortlink.agent.riskprofile.batch.RiskProfileBatchStatus
@@ -202,7 +203,7 @@ public class JdbcGroupRiskProfileRepository {
                 reasonCodesJson,
                 topLinksJson,
                 trendJson,
-                profile.agentSummary(),
+                RiskSummaryText.forPersistence(profile.agentSummary()),
                 profile.batchId(),
                 profile.gid(),
                 Timestamp.valueOf(profile.profileWindowEnd()),
@@ -314,6 +315,17 @@ public class JdbcGroupRiskProfileRepository {
         return profiles.stream().findFirst();
     }
 
+    /** Identity only: the worker must still reauthorize before loading profile content. */
+    public Optional<String> findBatchTenantId(String batchId, String gid) {
+        List<String> tenants = jdbcTemplate.query(
+                "SELECT DISTINCT tenant_id FROM t_agent_group_risk_profile WHERE batch_id = ? AND gid = ? LIMIT 2",
+                (rs, row) -> rs.getString("tenant_id"), batchId, gid);
+        if (tenants.isEmpty()) return Optional.empty();
+        if (tenants.size() != 1 || tenants.get(0) == null || !tenants.get(0).matches("[1-9][0-9]{0,18}"))
+            throw new SecurityException("Scheduled profile tenant is missing or ambiguous");
+        return Optional.of(tenants.get(0));
+    }
+
     public List<RiskTrendPoint> findTrend7d(String gid, LocalDate endDate) {
         LocalDate startDate = endDate.minusDays(6);
         List<RiskTrendPoint> points =
@@ -353,7 +365,7 @@ public class JdbcGroupRiskProfileRepository {
                 where batch_id = ?
                   and gid = ?
                 """,
-                agentSummary == null ? "" : agentSummary,
+                RiskSummaryText.forPersistence(agentSummary),
                 batchId,
                 gid);
     }

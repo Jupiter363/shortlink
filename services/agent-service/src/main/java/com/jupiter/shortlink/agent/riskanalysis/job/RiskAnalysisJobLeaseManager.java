@@ -16,11 +16,20 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class RiskAnalysisJobLeaseManager {
 
+    private static final ThreadLocal<Lease> CURRENT_EXECUTION = new ThreadLocal<>();
+
     private final JdbcRiskAnalysisJobRepository repository;
 
     private final ScheduledExecutorService scheduler;
 
+    private final Duration executionTimeout;
+
     @Autowired
+    public RiskAnalysisJobLeaseManager(JdbcRiskAnalysisJobRepository repository,
+            com.jupiter.shortlink.agent.infrastructure.config.AgentProperties properties) {
+        this(repository, newScheduler(), Duration.ofMillis(properties.getRisk().getAnalysis().getExecutionTimeoutMillis()));
+    }
+
     public RiskAnalysisJobLeaseManager(JdbcRiskAnalysisJobRepository repository) {
         this(repository, newScheduler());
     }
@@ -29,8 +38,32 @@ public class RiskAnalysisJobLeaseManager {
             JdbcRiskAnalysisJobRepository repository,
             ScheduledExecutorService scheduler
     ) {
+        this(repository, scheduler, Duration.ofSeconds(120));
+    }
+
+    RiskAnalysisJobLeaseManager(JdbcRiskAnalysisJobRepository repository,
+            ScheduledExecutorService scheduler, Duration executionTimeout) {
         this.repository = repository;
         this.scheduler = scheduler;
+        this.executionTimeout = executionTimeout;
+    }
+
+    /** Captured by the Graph before it crosses the reactive execution boundary. */
+    public static Lease currentExecution() {
+        return CURRENT_EXECUTION.get();
+    }
+
+    public static ExecutionScope bindExecution(Lease lease) {
+        Lease previous = CURRENT_EXECUTION.get();
+        CURRENT_EXECUTION.set(lease);
+        return () -> {
+            if (previous == null) CURRENT_EXECUTION.remove();
+            else CURRENT_EXECUTION.set(previous);
+        };
+    }
+
+    public interface ExecutionScope extends AutoCloseable {
+        @Override void close();
     }
 
     public Lease start(RiskAnalysisJob job, Duration leaseDuration, Clock clock) {
@@ -55,6 +88,10 @@ public class RiskAnalysisJobLeaseManager {
 
         void assertOwned();
 
+        default void assertExecutionActive() { assertOwned(); }
+
+        default Duration remainingExecutionTime() { return Duration.ofSeconds(120); }
+
         @Override
         void close();
     }
@@ -71,6 +108,10 @@ public class RiskAnalysisJobLeaseManager {
 
         private final AtomicReference<RiskAnalysisJobLeaseLostException> leaseLoss = new AtomicReference<>();
 
+        private final long executionDeadlineNanos;
+
+        private volatile boolean closed;
+
         private ScheduledFuture<?> heartbeat;
 
         private ManagedLease(RiskAnalysisJob job, Duration leaseDuration, Clock clock) {
@@ -78,6 +119,8 @@ public class RiskAnalysisJobLeaseManager {
             this.leaseDuration = leaseDuration;
             this.clock = clock;
             this.leaseUntil = new AtomicReference<>(job.leaseUntil());
+            Duration budget = executionTimeout.compareTo(leaseDuration) < 0 ? executionTimeout : leaseDuration;
+            this.executionDeadlineNanos = System.nanoTime() + budget.toNanos();
         }
 
         private void attach(ScheduledFuture<?> heartbeat) {
@@ -85,6 +128,10 @@ public class RiskAnalysisJobLeaseManager {
         }
 
         private void renew() {
+            if (closed || System.nanoTime() >= executionDeadlineNanos) {
+                if (heartbeat != null) heartbeat.cancel(false);
+                return;
+            }
             LocalDateTime now = LocalDateTime.now(clock);
             try {
                 boolean renewed = repository.renewLease(
@@ -95,6 +142,7 @@ public class RiskAnalysisJobLeaseManager {
                         now,
                         leaseDuration
                 );
+                if (closed) return;
                 if (renewed) {
                     leaseUntil.set(now.plus(leaseDuration));
                 } else {
@@ -121,7 +169,20 @@ public class RiskAnalysisJobLeaseManager {
         }
 
         @Override
+        public void assertExecutionActive() {
+            assertOwned();
+            if (closed || System.nanoTime() >= executionDeadlineNanos)
+                throw new IllegalStateException("Risk analysis execution deadline exceeded");
+        }
+
+        @Override
+        public Duration remainingExecutionTime() {
+            return Duration.ofNanos(Math.max(0, executionDeadlineNanos - System.nanoTime()));
+        }
+
+        @Override
         public void close() {
+            closed = true;
             if (heartbeat != null) {
                 heartbeat.cancel(false);
             }

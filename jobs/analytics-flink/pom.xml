@@ -19,6 +19,7 @@
       <createDependencyReducedPom>false</createDependencyReducedPom>
       <artifactSet><includes>
         <include>com.jupiter.shortlink:event-contract</include>
+        <include>org.lionsoul:ip2region</include>
         <include>org.apache.flink:flink-connector-kafka</include><include>org.apache.flink:flink-connector-base</include>
         <include>org.apache.kafka:kafka-clients</include><include>com.fasterxml.jackson.core:*</include>
         <include>org.lz4:lz4-java</include><include>org.xerial.snappy:snappy-java</include><include>com.github.luben:zstd-jni</include>

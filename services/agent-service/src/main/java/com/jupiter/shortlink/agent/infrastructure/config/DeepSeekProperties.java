@@ -9,11 +9,18 @@ public class DeepSeekProperties {
 
     private String baseUrl = "https://api.deepseek.com";
 
-    private String model = "deepseek-v4-flash";
+    private String model = "deepseek-flash";
 
     private int timeoutMs = 30000;
 
     private int maxOutputTokens = 2000;
+
+    /**
+     * Graph nodes already compute the evidence before asking for an explanation.
+     * Keep the bounded output budget available for the answer instead of relying
+     * on the provider's default, which enables high-effort thinking.
+     */
+    private boolean thinkingEnabled = false;
 
     public String getApiKey() {
         return apiKey;
@@ -53,5 +60,13 @@ public class DeepSeekProperties {
 
     public void setMaxOutputTokens(int maxOutputTokens) {
         this.maxOutputTokens = maxOutputTokens;
+    }
+
+    public boolean isThinkingEnabled() {
+        return thinkingEnabled;
+    }
+
+    public void setThinkingEnabled(boolean thinkingEnabled) {
+        this.thinkingEnabled = thinkingEnabled;
     }
 }

@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS {{DATABASE}}.event_receipts ON CLUSTER {{CLUSTER}} (
  device LowCardinality(String), country LowCardinality(String), referer_domain String,
  request_source LowCardinality(String), decision_stage LowCardinality(String), status UInt16,
  reason String, validation_version String, validation_result String,
- dataset_version String, parser_version String, hash_version String
+ dataset_version String, parser_version String, hash_version String,
+ province String DEFAULT 'UNKNOWN', city String DEFAULT 'UNKNOWN', network String DEFAULT 'UNKNOWN',
+ geo_status String DEFAULT 'UNKNOWN', geo_version String DEFAULT ''
 ) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') PARTITION BY toYYYYMM(toDateTime(received_at/1000))
 ORDER BY (source_topic,source_partition,source_offset,cluster_id,topic_id)
 TTL toDateTime(received_at/1000) + INTERVAL 180 DAY;
@@ -16,7 +18,9 @@ CREATE TABLE IF NOT EXISTS {{DATABASE}}.rebuild_input ON CLUSTER {{CLUSTER}} (
  event_id String, payload_hash FixedString(64), occurred_at Int64, received_at Int64,
  visitor_hash String, ip_hash String, browser String, os String, device String, country String, referer_domain String,
  request_source String, decision_stage String, status UInt16, validation_result String,
- receipt_id String
+ receipt_id String,
+ province String DEFAULT 'UNKNOWN', city String DEFAULT 'UNKNOWN', network String DEFAULT 'UNKNOWN',
+ geo_status String DEFAULT 'UNKNOWN', geo_version String DEFAULT ''
 ) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') PARTITION BY toYYYYMM(toDateTime(window_start/1000))
 ORDER BY (build_id,tenant_id,event_id,receipt_id);
 CREATE TABLE IF NOT EXISTS {{DATABASE}}.window_results ON CLUSTER {{CLUSTER}} (
@@ -59,7 +63,12 @@ CREATE TABLE IF NOT EXISTS {{DATABASE}}.derived_events ON CLUSTER {{CLUSTER}} (
  validationResult String,
  detailDatasetVersion String,
  parserVersion String,
- hashVersion String
+ hashVersion String,
+ province String DEFAULT 'UNKNOWN',
+ city String DEFAULT 'UNKNOWN',
+ network String DEFAULT 'UNKNOWN',
+ geoStatus String DEFAULT 'UNKNOWN',
+ geoVersion String DEFAULT ''
 ) ENGINE=ReplicatedMergeTree('/shortlink/clickhouse/{database}/{shard}/{table}','{replica}') ORDER BY (sourceTopic,sourcePartition,sourceOffset,clusterId,topicId)
 TTL toDateTime(greatest(receivedAt,0)/1000)+INTERVAL 180 DAY;
 CREATE MATERIALIZED VIEW IF NOT EXISTS {{DATABASE}}.derived_events_mv ON CLUSTER {{CLUSTER}} TO {{DATABASE}}.event_receipts AS
@@ -91,7 +100,12 @@ validationVersion AS validation_version,
 validationResult AS validation_result,
 detailDatasetVersion AS dataset_version,
 parserVersion AS parser_version,
-hashVersion AS hash_version FROM {{DATABASE}}.derived_events;
+hashVersion AS hash_version,
+province AS province,
+city AS city,
+network AS network,
+geoStatus AS geo_status,
+geoVersion AS geo_version FROM {{DATABASE}}.derived_events;
 CREATE TABLE IF NOT EXISTS {{DATABASE}}.derived_windows ON CLUSTER {{CLUSTER}} (
  tenantId String,
  linkId UInt64,

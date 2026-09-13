@@ -18,6 +18,7 @@ public class MysqlGraphSaverConfiguration {
     @Bean
     public MysqlSaver mysqlGraphSaver(DataSource dataSource) {
         return MysqlSaver.builder()
+                .stateSerializer(AgentStateSerializerFactory.create())
                 .dataSource(dataSource)
                 .createOption(CreateOption.CREATE_IF_NOT_EXISTS)
                 .build();

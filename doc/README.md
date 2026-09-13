@@ -13,6 +13,10 @@
 
 当前入口：[APISIX 单网关与 Admin 鉴权](development/single-gateway.md)。
 
+前端入口：[Vue 管理控制台与 Agent 工作台](development/frontend-console.md)。
+
+Agent UAT：[2026-09-13 新后端与 NageOffer 前端双 Agent 验收](integration/dual-agent-console-uat-2026-09-13/README.md)。
+
 常用入口：[生产级重构计划](plan/生产级重构增强/01-开发阶段与任务拆分.md) · [真实跳转执行记录](压测报告/过程报告/27-真实跳转按序突破执行记录.md) · [2026-09-09 压测归档](压测报告/2026-09-09/README.md)。
 
 合并验收：[2026-09-09 main 合并前检查](integration/main-merge-2026-09-09/README.md)（Issue #2 / PR #3）。

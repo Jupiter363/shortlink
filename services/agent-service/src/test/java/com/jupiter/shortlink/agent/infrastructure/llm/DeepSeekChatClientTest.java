@@ -33,14 +33,15 @@ class DeepSeekChatClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer unit-test-key"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.model").value("deepseek-v4-flash"))
+                .andExpect(jsonPath("$.model").value("deepseek-flash"))
+                .andExpect(jsonPath("$.thinking.type").value("disabled"))
                 .andExpect(jsonPath("$.messages[0].role").value("user"))
                 .andExpect(jsonPath("$.messages[0].content").value("hello"))
                 .andExpect(jsonPath("$.max_tokens").value(2000))
                 .andRespond(withSuccess("""
                         {
                           "id": "chatcmpl-test",
-                          "model": "deepseek-v4-flash",
+                          "model": "deepseek-flash",
                           "choices": [
                             {
                               "finish_reason": "stop",
@@ -66,7 +67,7 @@ class DeepSeekChatClientTest {
         ));
 
         assertThat(response.id()).isEqualTo("chatcmpl-test");
-        assertThat(response.model()).isEqualTo("deepseek-v4-flash");
+        assertThat(response.model()).isEqualTo("deepseek-flash");
         assertThat(response.content()).isEqualTo("world");
         assertThat(response.finishReason()).isEqualTo("stop");
         assertThat(response.usage().promptTokens()).isEqualTo(5);

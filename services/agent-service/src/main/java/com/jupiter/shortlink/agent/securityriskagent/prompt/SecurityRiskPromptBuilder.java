@@ -13,6 +13,8 @@ public class SecurityRiskPromptBuilder {
             Use only the sanitized tool and risk signal context as evidence.
             Prefer risk-profile facts when they are provided; they are already aggregated and sanitized.
             Do not fabricate missing 7-day trend points or unobserved profile metrics.
+            IP geography and network operator/ISP are inferred attribution, not exact person location or Wi-Fi/4G/5G evidence; honor dimension coverage and unknown reasons.
+            New/returning visitors mean first observed hashes in the authorized short-link/group retained history, not lifetime people or cookie age.
             Do not expose raw IP addresses, raw user identifiers, secrets, tokens, or database connection strings.
             Do not claim that suspicious traffic is definitely an attack; explain confidence and possible false positives.
             Do not execute write actions directly from the language model. DISABLE_SHORT_LINK, BLOCK_IP, and LIMIT_TIME_WINDOW must remain pending review actions.

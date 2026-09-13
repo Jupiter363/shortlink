@@ -40,8 +40,9 @@ def contains(actual, expected):
 
 
 def validate_limiter_keys(manifest):
-    """Keep route identity explicit; standalone versions alone do not isolate keys."""
+    """Keep management/redirect scope explicit, including the protected chat route."""
     expected = {"shortlink-management": "shortlink-management:$remote_addr",
+                "shortlink-agent-chat": "shortlink-management:$remote_addr",
                 "shortlink-redirect": "shortlink-redirect:$remote_addr"}
     found = set()
     for route in manifest.get("routes", []):
@@ -56,7 +57,28 @@ def validate_limiter_keys(manifest):
             if limit.get("key_type") != "var_combination" or limit.get("key") != expected[identity]:
                 raise ValueError("Explicit route-scoped limiter key required: " + identity + "/" + name)
     if found != set(expected):
-        raise ValueError("Both common routes with isolated limiter keys are required")
+        raise ValueError("All common routes with explicit limiter keys are required")
+
+
+def validate_agent_chat_route(manifest):
+    """The long read budget must only apply to protected, exact-path Agent chat."""
+    routes = {route.get("id"): route for route in manifest.get("routes", [])}
+    management = routes.get("shortlink-management", {})
+    chat = routes.get("shortlink-agent-chat", {})
+    if (chat.get("uri") != "/api/short-link/admin/v1/agent/chat" or "uris" in chat
+            or not isinstance(chat.get("priority"), (int, float))
+            or chat["priority"] <= management.get("priority", 100)
+            or not chat.get("hosts") or chat["hosts"] != management.get("hosts")):
+        raise ValueError("Exact chat path, management Host and higher priority are required")
+    plugins = chat.get("plugins", {})
+    if (plugins != management.get("plugins")
+            or plugins.get("shortlink-boundary", {}).get("mode") != "management"
+            or plugins.get("proxy-control", {}).get("request_buffering") is not False):
+        raise ValueError("Chat must retain every management boundary, proxy and limiter setting")
+    expected_upstream = dict(management.get("upstream", {}))
+    expected_upstream["timeout"] = {"connect": 1, "send": 3, "read": 50}
+    if chat.get("upstream") != expected_upstream or chat["upstream"].get("retries") != 0:
+        raise ValueError("Chat must retain the management upstream with a 50s read budget and no retries")
 
 
 def main():
@@ -82,6 +104,7 @@ def main():
     if set(manifest) - {"routes", "global_rules", "ssls"} or not all(manifest.get(k) for k in ("routes", "global_rules", "ssls")):
         raise ValueError("Expected exactly the common routes/global_rules plus generated TLS resources")
     validate_limiter_keys(manifest)
+    validate_agent_chat_route(manifest)
     resources = []
     for kind in ("global_rules", "ssls", "routes"):
         seen = set()

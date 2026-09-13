@@ -7,6 +7,7 @@ import com.jupiter.shortlink.agent.riskcommon.model.RiskLevel;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskReasonCode;
 import com.jupiter.shortlink.agent.riskcommon.model.RiskTargetType;
 import com.jupiter.shortlink.agent.riskcommon.safety.RiskSensitiveDataGuard;
+import com.jupiter.shortlink.agent.riskcommon.safety.RiskSummaryText;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -203,7 +204,7 @@ public class JdbcRiskEventRepository {
                     reasonCodesJson,
                     evidenceJson,
                     recommendedActionsJson,
-                    event.agentSummary(),
+                    RiskSummaryText.forPersistence(event.agentSummary()),
                     event.traceId(),
                     event.sessionId(),
                     event.source().name(),
@@ -251,7 +252,7 @@ public class JdbcRiskEventRepository {
                 reasonCodesJson,
                 evidenceJson,
                 recommendedActionsJson,
-                event.agentSummary(),
+                RiskSummaryText.forPersistence(event.agentSummary()),
                 event.traceId(),
                 event.sessionId(),
                 event.source().name(),

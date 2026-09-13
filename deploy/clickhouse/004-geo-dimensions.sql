@@ -1,0 +1,59 @@
+-- Additive, repeatable migration for existing analytics databases; run before new producers.
+-- Legacy receipts keep UNKNOWN geography until an explicit immutable-build replay is requested.
+-- MODIFY QUERY retains the materialized view and its target data; it does not backfill old rows.
+-- After DDL: apply tableRefreshInterval=60 and restart the connector AND its tasks before new producers.
+-- Verify geoVersion/geoStatus in derived_events AND event_receipts with a bounded raw-receipt canary.
+-- Stale task schemas can commit Kafka offsets while new columns take defaults; repeat that fixed cut after restart.
+ALTER TABLE shortlink_analytics.event_receipts
+ ADD COLUMN IF NOT EXISTS province String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS city String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS network String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS geo_status String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS geo_version String DEFAULT '';
+ALTER TABLE shortlink_analytics.rebuild_input
+ ADD COLUMN IF NOT EXISTS province String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS city String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS network String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS geo_status String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS geo_version String DEFAULT '';
+ALTER TABLE shortlink_analytics.derived_events
+ ADD COLUMN IF NOT EXISTS province String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS city String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS network String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS geoStatus String DEFAULT 'UNKNOWN',
+ ADD COLUMN IF NOT EXISTS geoVersion String DEFAULT '';
+ALTER TABLE shortlink_analytics.derived_events_mv MODIFY QUERY
+SELECT kind AS kind,
+clusterId AS cluster_id,
+topicId AS topic_id,
+sourceTopic AS source_topic,
+sourcePartition AS source_partition,
+sourceOffset AS source_offset,
+receivedAt AS received_at,
+timestampType AS timestamp_type,
+eventId AS event_id,
+payloadHash AS payload_hash,
+tenantId AS tenant_id,
+linkId AS link_id,
+occurredAt AS occurred_at,
+visitorHash AS visitor_hash,
+ipHash AS ip_hash,
+browser AS browser,
+os AS os,
+device AS device,
+country AS country,
+refererDomain AS referer_domain,
+requestSource AS request_source,
+decisionStage AS decision_stage,
+status AS status,
+reason AS reason,
+validationVersion AS validation_version,
+validationResult AS validation_result,
+detailDatasetVersion AS dataset_version,
+parserVersion AS parser_version,
+hashVersion AS hash_version,
+province AS province,
+city AS city,
+network AS network,
+geoStatus AS geo_status,
+geoVersion AS geo_version FROM shortlink_analytics.derived_events;

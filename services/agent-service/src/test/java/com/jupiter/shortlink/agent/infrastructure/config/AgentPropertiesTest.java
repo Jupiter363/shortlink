@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AgentPropertiesTest {
 
     @Test
-    void defaultPropertiesUseDeepSeekV4FlashAndAgentConsole() {
+    void defaultPropertiesUseDeepSeekFlashAndAgentConsole() {
         AgentProperties agentProperties = new AgentProperties();
         DeepSeekProperties deepSeekProperties = new DeepSeekProperties();
 
@@ -20,6 +20,9 @@ class AgentPropertiesTest {
         assertThat(agentProperties.getBusiness().getUsername()).isEmpty();
         assertThat(agentProperties.getSecurity().getInternalToken()).isEmpty();
         assertThat(deepSeekProperties.getBaseUrl()).isEqualTo("https://api.deepseek.com");
-        assertThat(deepSeekProperties.getModel()).isEqualTo("deepseek-v4-flash");
+        assertThat(deepSeekProperties.getModel()).isEqualTo("deepseek-flash");
+        assertThat(deepSeekProperties.isThinkingEnabled()).isFalse();
+        assertThat(deepSeekProperties.getMaxOutputTokens()).isEqualTo(2000);
+        assertThat(deepSeekProperties.getTimeoutMs()).isEqualTo(30000);
     }
 }

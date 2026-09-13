@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-09-13T20:49:37+08:00",
+  "status": "CONDITIONAL_PASS",
+  "scope": "new backend with restored NageOffer console and two Agent entries",
+  "source": {
+    "branch": "codex/fix-redirect-load-failures",
+    "baseCommit": "14273abaa779178c885553cab4a064b90e705ab2",
+    "dirtyWorktree": true,
+    "sha256": {
+      "frontend/console-vue/src/router/index.js": "73df60b230467532370f7ea197fcd7942890bb7c04ff72ea5523caa434d62dbb",
+      "frontend/console-vue/src/views/home/HomeIndex.vue": "effd7e465c23e5d2124762c16235bd2efaf06623d29cf917f92a0c5df8457d72",
+      "frontend/console-vue/src/views/agent/AgentWorkspace.vue": "17f9c46e514aa1f24ccb8b15a035e3d6cfedce5621899bf61713bceb20be6aad",
+      "frontend/console-vue/src/api/modules/agent.js": "6598a8554059f81dec7d6401cdee451957ea8f44ae90c23a351e9599e03be288",
+      "frontend/console-vue/dist/index.html": "a361fa99c220721828c47d2cc406e293f79adb585b34c12c67d855d2c9a5f235"
+    }
+  },
+  "checks": {
+    "eslint": "PASS",
+    "viteBuild": "PASS",
+    "campaignAgent": "PASS_WITH_LLM_FALLBACK",
+    "securityAgent": "PARTIAL_WITH_LLM_FALLBACK",
+    "routeAndStateIsolation": "PASS",
+    "inFlightControlLock": "PASS",
+    "externalUnauthenticatedRequest": "PASS_401",
+    "internalMissingTokenRequest": "PASS_401",
+    "browserConsole": "PASS_EMPTY",
+    "llmGeneration": "BLOCKED",
+    "analyticsToolchain": "BLOCKED",
+    "riskProfilePipeline": "FAIL"
+  },
+  "runtime": {
+    "frontendUrl": "http://127.0.0.1:5174",
+    "managementGatewayUrl": "http://127.0.0.1:19080",
+    "healthyServices": ["mysql", "redis", "kafka", "command", "admin", "redirect", "agent"],
+    "runningServices": ["minio", "apisix", "frontend"],
+    "llmApiKeyConfigured": false,
+    "analyticsServicesPresent": false
+  },
+  "secretsIncluded": false
+}
