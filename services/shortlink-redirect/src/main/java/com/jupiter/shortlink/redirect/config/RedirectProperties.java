@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.redirect.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.util.List;
@@ -24,7 +25,24 @@ public record RedirectProperties(
         @DefaultValue("16384") int eventMaxBytes,
         @DefaultValue("127.0.0.1:9092") String kafkaBootstrap,
         @DefaultValue("16") int clickBuckets,
-        @DefaultValue("1000") int generationPollMillis) {
+        @DefaultValue("1000") int generationPollMillis,
+        @DefaultValue("900") long endToEndTimeoutMillis) {
+    /** Compatibility constructor for focused tests and adapters that predate the split budget. */
+    public RedirectProperties(
+            String instanceId, List<String> allowedHosts, List<String> trustedProxyCidrs,
+            String internalToken, String riskHashSalt, String commandBaseUrl,
+            long authorityTtlMillis, long requestTimeoutMillis, long redisTimeoutMillis,
+            int cacheEntries, int originConcurrency, int clusterOriginRate,
+            int kafkaQueueCapacity, long kafkaQueueBytes, int eventMaxBytes,
+            String kafkaBootstrap, int clickBuckets, int generationPollMillis) {
+        this(instanceId, allowedHosts, trustedProxyCidrs, internalToken, riskHashSalt,
+                commandBaseUrl, authorityTtlMillis, requestTimeoutMillis, redisTimeoutMillis,
+                cacheEntries, originConcurrency, clusterOriginRate, kafkaQueueCapacity,
+                kafkaQueueBytes, eventMaxBytes, kafkaBootstrap, clickBuckets,
+                generationPollMillis, Math.min(900, authorityTtlMillis - 1));
+    }
+
+    @ConstructorBinding
     public RedirectProperties {
         allowedHosts = allowedHosts == null ? List.of() : List.copyOf(allowedHosts);
         trustedProxyCidrs = trustedProxyCidrs == null ? List.of() : List.copyOf(trustedProxyCidrs);
@@ -43,6 +61,8 @@ public record RedirectProperties(
                 || authorityTtlMillis > 1000
                 || requestTimeoutMillis < 1
                 || requestTimeoutMillis >= authorityTtlMillis
+                || endToEndTimeoutMillis <= requestTimeoutMillis
+                || endToEndTimeoutMillis >= authorityTtlMillis
                 || redisTimeoutMillis < 1
                 || cacheEntries < 1
                 || originConcurrency < 1

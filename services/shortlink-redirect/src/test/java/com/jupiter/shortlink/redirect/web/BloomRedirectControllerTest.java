@@ -215,7 +215,7 @@ class BloomRedirectControllerTest {
         var routes = resolver();
         allowed();
         var exchange = request();
-        long timeout = TestConfig.defaults().requestTimeoutMillis();
+        long timeout = TestConfig.defaults().endToEndTimeoutMillis();
         exchange.getResponse()
                 .beforeCommit(
                         () ->
