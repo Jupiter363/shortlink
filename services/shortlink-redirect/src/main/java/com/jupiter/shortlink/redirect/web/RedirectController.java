@@ -108,7 +108,7 @@ public final class RedirectController {
                                                     context,
                                                     ((RouteResolution.Route) resolution).value());
                                         })
-                                .timeout(Duration.ofMillis(config.requestTimeoutMillis()))
+                                .timeout(Duration.ofMillis(config.endToEndTimeoutMillis()))
                                 .onErrorResume(
                                         error ->
                                                 finish(

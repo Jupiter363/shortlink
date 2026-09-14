@@ -19,6 +19,7 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.net.InetSocketAddress;
 import java.time.*;
@@ -476,6 +477,54 @@ class RedirectControllerTest {
         controller().redirect("Ab", exchange).block();
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exchange.getResponse().getStatusCode());
         verify(events, never()).click(any());
+    }
+
+    @Test
+    void coldSerialAuthoritiesMayCrossOldIoBudgetButCompleteInsideEndToEndBudget() {
+        allowed();
+        when(routes.resolve("s.example", "Ab"))
+                .thenReturn(Mono.delay(Duration.ofMillis(300)).thenReturn(route()));
+        when(policies.resolve("1", 5))
+                .thenReturn(Mono.delay(Duration.ofMillis(300)).thenReturn(policy()));
+        var exchange = request(HttpMethod.GET);
+
+        StepVerifier.withVirtualTime(() -> controller().redirect("Ab", exchange))
+                .expectSubscription()
+                .expectNoEvent(Duration.ofMillis(500))
+                .thenAwait(Duration.ofMillis(101))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.FOUND, exchange.getResponse().getStatusCode());
+    }
+
+    @Test
+    void coldSerialAuthoritiesBeyondEndToEndBudgetRemainFailClosed() {
+        allowed();
+        when(routes.resolve("s.example", "Ab"))
+                .thenReturn(Mono.delay(Duration.ofMillis(450)).thenReturn(route()));
+        when(policies.resolve("1", 5))
+                .thenReturn(Mono.delay(Duration.ofMillis(451)).thenReturn(policy()));
+        var exchange = request(HttpMethod.GET);
+
+        StepVerifier.withVirtualTime(() -> controller().redirect("Ab", exchange))
+                .thenAwait(Duration.ofMillis(TestConfig.defaults().endToEndTimeoutMillis() + 1))
+                .verifyComplete();
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exchange.getResponse().getStatusCode());
+        assertNull(exchange.getResponse().getHeaders().getLocation());
+        verify(events, never()).click(any());
+    }
+
+    private RouteInfo route() {
+        return new RouteInfo(
+                "s.example", "Ab", 5, "1", "g", "https://target.example/path", "ACTIVE",
+                null, 1, 1, 1000, 2000, 1);
+    }
+
+    private PolicySnapshot policy() {
+        return new PolicySnapshot(
+                "1:5", 1, 1000, null, 2000, PolicyState.KNOWN_ALLOWED, false, true,
+                "UTC", List.of(), Set.of(), null);
     }
 
     @Test
