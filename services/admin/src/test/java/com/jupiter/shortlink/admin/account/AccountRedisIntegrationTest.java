@@ -12,6 +12,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -45,6 +46,34 @@ class AccountRedisIntegrationTest {
     void cleanup() {
         if (redis != null && username != null) redis.delete("login_" + username);
         if (factory != null) factory.destroy();
+    }
+
+    @Test
+    void LoginLastsThirtyDaysWithoutRenewingEarlierTokens() {
+        Instant issuedAt = Instant.parse("2026-09-15T00:00:00Z");
+        Duration thirtyDays = Duration.ofDays(30);
+        sessions = new RedisAccountSessionStore(redis, Clock.fixed(issuedAt, ZoneOffset.UTC));
+        String first = sessions.issue(9, username, 1);
+        assertEquals(issuedAt.plus(thirtyDays).toEpochMilli(),
+                sessions.find(username, first).expiresAt());
+        long ttlSeconds = redis.getExpire("login_" + username);
+        assertTrue(ttlSeconds > thirtyDays.minusSeconds(10).toSeconds()
+                && ttlSeconds <= thirtyDays.toSeconds(), "Redis must retain the session for 30 days");
+
+        var laterLogin = new RedisAccountSessionStore(redis,
+                Clock.fixed(issuedAt.plus(Duration.ofDays(10)), ZoneOffset.UTC));
+        String second = laterLogin.issue(9, username, 1);
+        assertNotNull(laterLogin.find(username, first), "Login must survive beyond 30 minutes");
+        assertEquals(issuedAt.plus(thirtyDays).toEpochMilli(),
+                laterLogin.find(username, first).expiresAt());
+        var beforeExpiry = new RedisAccountSessionStore(redis,
+                Clock.fixed(issuedAt.plus(thirtyDays).minusMillis(1), ZoneOffset.UTC));
+        assertNotNull(beforeExpiry.find(username, first));
+        var atExpiry = new RedisAccountSessionStore(redis,
+                Clock.fixed(issuedAt.plus(thirtyDays), ZoneOffset.UTC));
+        assertNull(atExpiry.find(username, first), "Original token must expire exactly at 30 days");
+        assertNotNull(atExpiry.find(username, second), "Later login keeps its own expiry");
+        assertTrue(redis.getExpire("login_" + username) > 0);
     }
 
     @Test

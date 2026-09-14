@@ -22,7 +22,8 @@ import java.util.List;
 @Component
 public final class RedisAccountSessionStore implements AccountSessionStore {
     public static final String SESSION_KEY_PREFIX = "login_";
-    public static final Duration SESSION_LIFETIME = Duration.ofMinutes(30);
+    /** Fixed lifetime from login; another login never extends an existing token's expiresAt. */
+    public static final Duration SESSION_LIFETIME = Duration.ofDays(30);
     public static final int MAX_SESSIONS = 16;
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final ObjectMapper SESSION_JSON = new ObjectMapper(JsonFactory.builder()
