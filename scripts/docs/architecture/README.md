@@ -8,6 +8,8 @@
 
 统计分区的在线处理、归档补算、统一查询共用右侧 ClickHouse，三个用途入口分别对齐调用方。原始 Kafka 与 Worker 垂直对齐，对象存储的归档写入与补算读取分别标明方向；统计控制 MySQL 位于 Worker、Analytics API 之间，由两者直接访问。Kafka Connect 明确标为连接器，与分析存储区分。
 
+Agent 分区与创建分区共用外框高度，内部按两个 Graph 的真实处理步骤、共享 Harness、状态存储和工具出口组织。Graph 步骤是源码流程摘要；人工审核作为留痕记录展示，策略命令单独经过 Admin 提交给 Command。图中不再放置“与防穿透链路的边界”说明块。
+
 ## 依赖和生成
 
 本次使用 Python 3、FontTools 4.55.0、Sharp 0.35.4。字形来自 Windows 微软雅黑与 Segoe UI：`msyh.ttc`、`msyhbd.ttc`、`segoeui.ttf`、`seguisb.ttf`。默认字体目录为 `C:/Windows/Fonts`，可通过 `ARCHITECTURE_FONT_DIR` 指定持有这些字体的目录；字体文件不随仓库分发。
