@@ -74,8 +74,9 @@ public class UserController {
 
     /** 用户退出登录 */
     @DeleteMapping("/api/short-link/admin/v1/user/logout")
-    public Result<Void> logout(@RequestParam String username, @RequestParam String token) {
-        userService.logout(username, token);
+    public Result<Void> logout(HttpServletRequest request) {
+        var session = UserTransmitFilter.requireVerifiedLogoutSession(request);
+        userService.logout(session.username(), session.token());
         return Results.success();
     }
 
