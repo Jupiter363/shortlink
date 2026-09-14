@@ -31,7 +31,6 @@
   background: url('/jupiter-hero.svg') center / contain no-repeat;
   right: -184px;
   top: 174px;
-  opacity: 0.94;
 }
 .auth-story > :not(.auth-illustration) {
   z-index: 1;
