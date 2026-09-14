@@ -5,20 +5,20 @@
   "implementationBase": "eb77871af819bef5d938b1f3c30019537d269df5",
   "implementationPullRequest": "https://github.com/Jupiter363/shortlink/pull/16",
   "automatedLayout": {
-    "textCount": 190,
-    "uniqueCharacters": 410,
+    "textCount": 202,
+    "uniqueCharacters": 414,
     "minimumFontSize": 24,
     "missingGlyphs": 0,
     "iconCount": 52,
     "outputPixels": [
       5600,
-      7880
+      8520
     ],
     "issues": []
   },
   "svgStructure": {
-    "uniqueIdCount": 999,
-    "fragmentReferenceCount": 2220,
+    "uniqueIdCount": 1030,
+    "fragmentReferenceCount": 2327,
     "duplicateIds": [],
     "missingFragmentTargets": [],
     "liveTextCount": 0,
@@ -27,51 +27,54 @@
   "artifacts": {
     "svg": {
       "path": "doc/images/shortlink-global-architecture-leaf-hd.svg",
-      "sha256LfNormalized": "6e86aa4d798dd7d4bfb3110fb80f68e7720d6b1aca4d636f2c629529f8744911",
+      "sha256LfNormalized": "bdee432a53bfbd35a1ded0223d38693d7c4a59dd389fa82c938e673d373da89a",
       "viewBox": [
         0,
         0,
         2800,
-        3940
+        4260
       ]
     },
     "png": {
       "path": "doc/images/shortlink-global-architecture-leaf-hd.png",
-      "sha256": "cbcf702c9131c001ea9a4fb9d51a7c68e5f1c7f1813755de5f2f76a380d36cbb",
+      "sha256": "2a9828bba706421f2cc5528c76abf1b022e97f9016114cc99d9b76ae8dea8100",
       "width": 5600,
-      "height": 7880,
-      "bytes": 2683758
+      "height": 8520,
+      "bytes": 2854362
     }
   },
   "renderer": {
     "sharp": "0.35.4",
     "libvips": "8.18.6",
-    "renderedAt": "2026-09-14T05:27:28.482Z"
+    "renderedAt": "2026-09-14T05:53:16.413Z"
   },
   "manualVisualReview": {
     "status": "PASS",
     "regionsReviewed": [
-      "01-redirect",
       "02-analytics",
-      "03-command",
+      "03-command"
+    ],
+    "unchangedVerifiedRegionSha256": [
+      "01-redirect",
       "04-agent",
       "05-title",
       "06-footer"
     ],
     "checks": [
-      "All section crops reviewed; title and Agent region match previously reviewed PNG hashes",
-      "Top icon padding and Outbox footnote clearance checked after final spacing adjustment",
-      "No observed text clipping, glyph corruption or connectors through labels"
+      "Analytics title, connector/storage distinction, labels and icon padding checked visually",
+      "Independent archive subscription and both object-storage directions are readable",
+      "Sections 01/03/04 retain their previous relative text, icon, box and connector geometry"
     ]
   },
   "independentTechnicalReview": {
     "status": "PASS",
     "checks": [
-      "Redirect in-process conditional lookup separated from Redis/MySQL/Command dependency calls",
-      "L1/Bloom/L2 fallback conditions, cache hits, reliable-absence recheck and UNKNOWN preserved",
-      "Single downward Leaf/codec/registration/barrier/publication order with aligned primary DB roles",
-      "One committed-Outbox publisher branches to invalidation and synchronization hints",
-      "Kafka remains a wake-up hint; DB completeness and lease authorize absence"
+      "All 13 analytics edges retained, with no elbows",
+      "One ClickHouse with aligned online/rebuild/query ports",
+      "Worker archives raw Kafka independently of Flink",
+      "Worker writes versioned rebuild results directly; API queries ClickHouse directly",
+      "Worker and API each access the same control MySQL",
+      "Kafka Connect is explicitly identified as the ClickHouse connector"
     ]
   },
   "localMarkdownLinksChecked": 53,
@@ -79,26 +82,18 @@
     "Static artifact checks do not assert that Bloom is enabled in a running deployment",
     "No new application tests, E2E or load tests were run for this documentation-only update"
   ],
-  "layoutBase": "5983cad57f57a08155fa32659dca801d3de0e08b",
+  "layoutBase": "50ea4c51b6b9cee026b4844c0a33db53cbace9df",
   "routingComparison": {
-    "01-redirect": {
+    "02-analytics": {
       "before": {
-        "elbowCount": 4,
-        "longestPolylineDesignUnits": 1092.0
+        "edgeCount": 13,
+        "elbowCount": 8,
+        "longestPolylineDesignUnits": 1457
       },
       "after": {
+        "edgeCount": 13,
         "elbowCount": 0,
-        "longestPolylineDesignUnits": 402
-      }
-    },
-    "03-command": {
-      "before": {
-        "elbowCount": 11,
-        "longestPolylineDesignUnits": 2154.0
-      },
-      "after": {
-        "elbowCount": 2,
-        "longestPolylineDesignUnits": 338
+        "longestPolylineDesignUnits": 634
       }
     }
   }
