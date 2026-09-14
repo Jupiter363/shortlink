@@ -1,0 +1,82 @@
+{
+  "status": "PASS",
+  "date": "2026-09-14",
+  "scope": "Architecture SVG, HD PNG, reproducible generator and documentation only",
+  "implementationBase": "eb77871af819bef5d938b1f3c30019537d269df5",
+  "implementationPullRequest": "https://github.com/Jupiter363/shortlink/pull/16",
+  "automatedLayout": {
+    "textCount": 177,
+    "uniqueCharacters": 398,
+    "minimumFontSize": 24,
+    "missingGlyphs": 0,
+    "iconCount": 49,
+    "outputPixels": [
+      5600,
+      7600
+    ],
+    "issues": []
+  },
+  "svgStructure": {
+    "uniqueIdCount": 931,
+    "fragmentReferenceCount": 2085,
+    "duplicateIds": [],
+    "missingFragmentTargets": [],
+    "liveTextCount": 0,
+    "bitmapCount": 0
+  },
+  "artifacts": {
+    "svg": {
+      "path": "doc/images/shortlink-global-architecture-leaf-hd.svg",
+      "sha256LfNormalized": "53da64c4d302a0f738e47fa136effe4c56dd17ee70a257dfb51332b2267bf41a",
+      "viewBox": [
+        0,
+        0,
+        2800,
+        3800
+      ]
+    },
+    "png": {
+      "path": "doc/images/shortlink-global-architecture-leaf-hd.png",
+      "sha256": "95c15046cc49e3616e667043673a5333292d444c890ca9d7a0810be6ae9cc20f",
+      "width": 5600,
+      "height": 7600,
+      "bytes": 2495843
+    }
+  },
+  "renderer": {
+    "sharp": "0.35.4",
+    "libvips": "8.18.6",
+    "renderedAt": "2026-09-14T05:05:01.900Z"
+  },
+  "manualVisualReview": {
+    "status": "PASS",
+    "regionsReviewed": [
+      "01-redirect",
+      "02-analytics",
+      "03-command",
+      "04-agent",
+      "05-title",
+      "06-footer"
+    ],
+    "checks": [
+      "Glyph readability, line spacing and icon padding",
+      "No observed text clipping or connector crossings through labels",
+      "Existing official icons and four module palettes preserved"
+    ]
+  },
+  "independentTechnicalReview": {
+    "status": "PASS",
+    "checks": [
+      "Bloom after L1 miss and before L2",
+      "Reliable absence rechecked before response commit; UNKNOWN falls back",
+      "Registration and Outbox before per-publication-batch barrier and route commit",
+      "Primary DB completeness and at-most-1s lease authorize the same local Bloom view",
+      "Separate Kafka membership hint only wakes background synchronization"
+    ]
+  },
+  "localMarkdownLinksChecked": 52,
+  "limits": [
+    "Static artifact checks do not assert that Bloom is enabled in a running deployment",
+    "No new application tests, E2E or load tests were run for this documentation-only update"
+  ]
+}

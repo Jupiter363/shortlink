@@ -116,9 +116,9 @@ Command 业务事实 + Analytics 统计证据
 
 ## 全局架构
 
-![ShortLink 全局架构图：含美团 Leaf Segment 发号链路](doc/images/shortlink-global-architecture-leaf-hd.png)
+![ShortLink 全局架构图：含布隆过滤、创建登记租约和美团 Leaf Segment 发号链路](doc/images/shortlink-global-architecture-leaf-hd.png)
 
-[查看 SVG 矢量图](doc/images/shortlink-global-architecture-leaf-hd.svg) · [查看高清 PNG（5600 × 6120）](doc/images/shortlink-global-architecture-leaf-hd.png)。品牌图标采用官方 SVG，通用功能图标复用 Phosphor Icons，文字采用真实字体转曲；SVG 放大不失真，跨设备查看不依赖本地字体。图标来源与适配说明见[许可说明](doc/images/architecture-icons-NOTICE.md)。
+[查看 SVG 矢量图](doc/images/shortlink-global-architecture-leaf-hd.svg) · [查看高清 PNG（5600 × 7600）](doc/images/shortlink-global-architecture-leaf-hd.png)。品牌图标采用官方 SVG，通用功能图标复用 Phosphor Icons，文字采用真实字体转曲；SVG 放大不失真，跨设备查看不依赖本地字体。图标来源与适配说明见[许可说明](doc/images/architecture-icons-NOTICE.md)，后续修改可使用[矢量排版与导出脚本](scripts/docs/architecture/README.md)。
 
 图按链路分区，同名组件表示同一服务。归档与补算的实际方向分别是 `Kafka → Analytics Worker → 对象存储`、`对象存储 → Analytics Worker → ClickHouse`；补算结果由 Analytics Worker 写入 ClickHouse，对象存储不直接写 ClickHouse。
 
