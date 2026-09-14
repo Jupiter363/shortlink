@@ -1,5 +1,5 @@
 <script setup>
-import { computed, provide, ref, watch } from 'vue'
+import { computed, provide, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { relay, state, messages } from './core/controller.js'
 import { navigation } from './router.js'
@@ -7,29 +7,26 @@ import ProductDialogs from './views/ProductDialogs.vue'
 
 provide('relay', relay)
 const route = useRoute()
-const navOpen = ref(false)
 const isAuth = computed(() => route.meta.public)
-const title = computed(
-  () => navigation.find((item) => item.route === route.path)?.label || '工作台'
-)
+const compactNavigation = ref(false)
 function navigate(path) {
-  if (relay.go(path)) navOpen.value = false
+  relay.go(path)
 }
-watch(
-  () => state.session.loggedIn,
-  (value) => {
-    if (!value) navOpen.value = false
-  }
-)
 </script>
 <template>
-  <div class="relay-app">
+  <div
+    :class="[
+      'relay-app',
+      { 'relay-workbench': !isAuth, 'relay-workbench--compact': !isAuth && compactNavigation }
+    ]"
+  >
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     <main v-if="isAuth" id="main-content" class="auth-stage"><RouterView :key="route.path" /></main>
     <template v-else>
-      <aside class="sidebar">
+      <aside id="workspace-sidebar" class="sidebar" aria-label="工作台侧栏">
         <button class="brand-link" aria-label="返回短链接工作区" @click="navigate('/home/space')">
-          <RBrand variant="small" :show-text="true" :size="42" />
+          <RBrand variant="small" :show-text="true" size="var(--sidebar-brand-size, 42px)" />
+          <span class="brand-tagline" aria-hidden="true">连接 · 洞察 · 守护</span>
         </button>
         <nav aria-label="主导航">
           <button
@@ -49,6 +46,7 @@ watch(
           <button
             class="nav-item"
             :class="{ selected: route.path === '/home/account' }"
+            :aria-current="route.path === '/home/account' ? 'page' : undefined"
             aria-label="账户中心"
             title="账户中心"
             :disabled="state.agentBusy"
@@ -59,44 +57,29 @@ watch(
         </div>
       </aside>
       <div class="main-column">
-        <header class="topbar">
+        <header class="workspace-topnav">
+          <div class="workspace-topnav-art" aria-hidden="true">
+            <span class="topnav-orbit"></span>
+            <RIcon name="sparkle" class="topnav-star topnav-star--small" :size="18" />
+            <RBrand class="topnav-planet" :show-text="false" :size="58" />
+            <RIcon name="sparkle" class="topnav-star topnav-star--large" :size="26" />
+            <RRobot role="navigator" expression="success" class="topnav-robot" :size="86" />
+          </div>
+          <div id="workspace-page-header" class="workspace-page-header"></div>
           <button
-            class="mobile-menu"
-            type="button"
-            aria-label="打开工作台导航"
-            @click="navOpen = true"
+            class="workspace-nav-toggle"
+            :aria-expanded="!compactNavigation"
+            aria-controls="workspace-sidebar"
+            @click="compactNavigation = !compactNavigation"
           >
-            <RBrand variant="small" :size="32" />
+            {{ compactNavigation ? '展开导航' : '收起导航' }}
           </button>
-          <div class="topbar-context">
-            <span class="topbar-eyebrow">木星中继站</span>
-            <div class="breadcrumb" aria-label="当前位置">
-              <span class="breadcrumb-root">工作台</span>
-              <span class="breadcrumb-separator" aria-hidden="true">/</span>
-              <strong>{{ title }}</strong>
-            </div>
-          </div>
-          <div class="topbar-actions">
-            <span class="local-badge"><RIcon name="user" />{{ state.session.username }}</span>
-          </div>
         </header>
         <main id="main-content" class="main-content" tabindex="-1">
           <RouterView :key="route.path" />
         </main>
       </div>
     </template>
-    <RModal :open="navOpen" title="工作台导航" drawer @close="navOpen = false"
-      ><div class="drawer-nav">
-        <RButton
-          v-for="item in navigation"
-          :key="item.route"
-          :kind="route.path === item.route ? 'primary' : 'secondary'"
-          :disabled="state.agentBusy && route.path !== item.route"
-          @click="navigate(item.route)"
-          ><RIcon :name="item.icon" />{{ item.label }}</RButton
-        >
-      </div></RModal
-    >
     <RModal
       :open="state.modal.type === 'copyFallback'"
       title="手动复制短链接"

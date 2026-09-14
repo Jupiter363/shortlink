@@ -20,6 +20,8 @@
 
 内置浏览器 UAT：[2026-09-14 CDP 真实业务复验](integration/relay-in-app-uat-2026-09-14/README.md)（Issue #35）。
 
+管理台布局：[2026-09-14 至 15 首屏与卡片布局验收](integration/fixed-viewport-2026-09-14/README.md)（Issue #40）。
+
 Agent UAT：[2026-09-13 新后端与 NageOffer 前端双 Agent 验收](integration/dual-agent-console-uat-2026-09-13/README.md)。
 
 常用入口：[生产级重构计划](plan/生产级重构增强/01-开发阶段与任务拆分.md) · [真实跳转执行记录](压测报告/过程报告/27-真实跳转按序突破执行记录.md) · [2026-09-09 压测归档](压测报告/2026-09-09/README.md) · [2026-09-13 真实跳转复测](压测报告/2026-09-13/README.md)。

@@ -616,7 +616,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <RModal :open="visible" :title="modalTitle" :drawer="isBatch" @close="!busy && close()">
+  <RModal
+    :open="visible"
+    :title="modalTitle"
+    :drawer="isBatch"
+    :class="{ 'product-link-dialog': ['create', 'edit'].includes(type) }"
+    @close="!busy && close()"
+  >
     <div
       v-if="['groupCreate', 'groupRename', 'groupDelete'].includes(type)"
       class="product-dialog-fields"
@@ -646,7 +652,10 @@ onBeforeUnmount(() => {
         <RCheckbox v-else v-model="form.confirmed" label="我确认删除这个空分组" :disabled="busy"
       /></template>
     </div>
-    <div v-else-if="['create', 'edit'].includes(type)" class="product-dialog-fields">
+    <div
+      v-else-if="['create', 'edit'].includes(type)"
+      class="product-dialog-fields product-link-fields"
+    >
       <div v-if="created" class="product-created">
         <RRobot role="base" expression="success" :size="132" />
         <h3>新的连接，准备出发</h3>
@@ -666,13 +675,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <template v-else
-        ><p class="product-lead">
-          {{
-            type === 'create'
-              ? '一个简洁的链接，让好内容更容易抵达。'
-              : '更新目标链接与描述，原有短码保持不变。'
-          }}
-        </p>
+        ><p v-if="type === 'edit'" class="product-lead">更新目标链接与描述，原有短码保持不变。</p>
         <RField
           v-model="form.url"
           label="原始链接"
@@ -697,8 +700,13 @@ onBeforeUnmount(() => {
         <p v-else-if="titleState === 'READY'" class="product-inline-success">
           <RIcon name="check" />已填入网页标题，可继续编辑。
         </p>
-        <RSelect v-model="form.groupId" :options="groupOptions" label="所属分组" :disabled="busy" />
         <div class="product-two-fields">
+          <RSelect
+            v-model="form.groupId"
+            :options="groupOptions"
+            label="所属分组"
+            :disabled="busy"
+          />
           <RSelect
             v-model="form.validity"
             :options="[
@@ -707,21 +715,25 @@ onBeforeUnmount(() => {
             ]"
             label="有效期"
             :disabled="busy"
-          /><RDateTime
-            v-if="form.validity === 'custom'"
-            v-model="form.expires"
-            type="datetime-local"
-            label="到期时间（北京时间）"
-            :disabled="busy"
           />
         </div>
-        <div class="product-domain-info">
+        <RDateTime
+          v-if="form.validity === 'custom'"
+          v-model="form.expires"
+          type="datetime-local"
+          label="到期时间（北京时间）"
+          :disabled="busy"
+        />
+        <div v-if="type === 'edit'" class="product-domain-info">
           <RIcon name="link" />
           <div>
-            <strong>{{ type === 'edit' ? shortUrl(target) : '创建成功后展示完整短链接' }}</strong
+            <strong>{{ shortUrl(target) }}</strong
             ><span>短链域名由服务端分配，无需手动填写。</span>
           </div>
-        </div></template
+        </div>
+        <p v-else class="product-helper">
+          短链域名由服务端分配，创建后即可复制或查看二维码。
+        </p></template
       >
     </div>
     <div
