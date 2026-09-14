@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.redirect.web;
 
 import com.jupiter.shortlink.contract.*;
+import com.jupiter.shortlink.redirect.cache.RouteResolution;
 import com.jupiter.shortlink.redirect.cache.RouteResolver;
 import com.jupiter.shortlink.redirect.config.RedirectProperties;
 import com.jupiter.shortlink.redirect.event.RequestEventPublisher;
@@ -70,7 +71,9 @@ public final class RedirectController {
                                             trustedPeer,
                                             request.getHeaders().get(GatewayRequestIds.HEADER)),
                                     shortUri);
-                    exchange.getResponse().getHeaders().set(GatewayRequestIds.HEADER, context.requestId);
+                    exchange.getResponse()
+                            .getHeaders()
+                            .set(GatewayRequestIds.HEADER, context.requestId);
                     try {
                         if (request.getMethod() != HttpMethod.GET
                                 && request.getMethod() != HttpMethod.HEAD)
@@ -78,8 +81,7 @@ public final class RedirectController {
                         if (!SHORT_URI.matcher(shortUri).matches()
                                 || !request.getURI().getRawPath().equals("/" + shortUri))
                             return finish(exchange, context, 404, "NOT_FOUND");
-                        if (!trustedPeer)
-                            return finish(exchange, context, 403, "UNTRUSTED_PROXY");
+                        if (!trustedPeer) return finish(exchange, context, 403, "UNTRUSTED_PROXY");
                         List<String> hosts = request.getHeaders().get(HttpHeaders.HOST);
                         if (hosts == null || hosts.size() != 1)
                             return finish(exchange, context, 400, "INVALID_HOST");
@@ -90,159 +92,21 @@ public final class RedirectController {
                                         || schemes.get(0).equals("http")))
                             return finish(exchange, context, 400, "INVALID_FORWARDED_SCHEME");
                         context.scheme = schemes.get(0);
-                        context.domain =
-                                hostNormalizer.normalize(hosts.get(0), context.scheme);
+                        context.domain = hostNormalizer.normalize(hosts.get(0), context.scheme);
                         if (!config.allowedHosts().contains(context.domain))
                             return finish(exchange, context, 404, "UNKNOWN_HOST");
                         context.ip =
                                 proxies.resolve(
                                         peer, request.getHeaders().getFirst("X-Forwarded-For"));
-                        return routes.resolve(context.domain, shortUri)
+                        return routes.resolveGuarded(context.domain, shortUri)
                                 .flatMap(
-                                        route -> {
-                                            context.route = route;
-                                            if (!route.active(clock.millis()))
-                                                return finish(
-                                                        exchange, context, 404, "LINK_UNAVAILABLE");
-                                            return policies.resolve(
-                                                            route.tenantId(), route.linkId())
-                                                    .flatMap(
-                                                            policy -> {
-                                                                context.policy = policy;
-                                                                context.ipHash =
-                                                                        riskHash.hash(
-                                                                                route.tenantId(),
-                                                                                context.ip);
-                                                                RiskDecision decision =
-                                                                        evaluator.evaluate(
-                                                                                policy,
-                                                                                route.resourceKey(),
-                                                                                context.ipHash,
-                                                                                clock.millis());
-                                                                return rates.evaluate(
-                                                                        route.resourceKey(),
-                                                                        decision);
-                                                            })
-                                                    .flatMap(
-                                                            decision -> {
-                                                                context.revision =
-                                                                        decision.policyRevision();
-                                                                if (!decision.allowed())
-                                                                    return finish(
-                                                                            exchange,
-                                                                            context,
-                                                                            decision.status(),
-                                                                            decision.reason());
-                                                                // Recheck route and policy lease at
-                                                                // the point of redirect. No I/O may
-                                                                // extend a proof.
-                                                                long decisionAt = clock.millis();
-                                                                if (!route.active(decisionAt)
-                                                                        || decisionAt
-                                                                                < route
-                                                                                        .authorityCheckedAt()
-                                                                        || decisionAt
-                                                                                >= route
-                                                                                        .validUntil())
-                                                                    return finish(
-                                                                            exchange,
-                                                                            context,
-                                                                            503,
-                                                                            "ROUTE_PROOF_EXPIRED");
-                                                                RiskDecision finalDecision =
-                                                                        evaluator.evaluate(
-                                                                                context.policy,
-                                                                                route.resourceKey(),
-                                                                                context.ipHash,
-                                                                                decisionAt);
-                                                                if (!finalDecision.allowed())
-                                                                    return finish(
-                                                                            exchange,
-                                                                            context,
-                                                                            finalDecision.status(),
-                                                                            finalDecision.reason());
-                                                                URI location =
-                                                                        URI.create(
-                                                                                route.originUrl());
-                                                                if (!location.isAbsolute()
-                                                                        || !(location.getScheme()
-                                                                                        .equalsIgnoreCase(
-                                                                                                "https")
-                                                                                || location.getScheme()
-                                                                                        .equalsIgnoreCase(
-                                                                                                "http"))
-                                                                        || location
-                                                                                        .getRawAuthority()
-                                                                                == null
-                                                                        || location.getUserInfo()
-                                                                                != null)
-                                                                    return finish(
-                                                                            exchange,
-                                                                            context,
-                                                                            503,
-                                                                            "INVALID_TARGET");
-                                                                exchange.getResponse()
-                                                                        .getHeaders()
-                                                                        .setLocation(location);
-                                                                exchange.getResponse()
-                                                                        .setStatusCode(
-                                                                                HttpStatus.FOUND);
-                                                                if (exchange.getRequest()
-                                                                                .getMethod()
-                                                                        == HttpMethod.GET) {
-                                                                    String uv =
-                                                                            visitor(
-                                                                                    exchange,
-                                                                                    context.scheme);
-                                                                    long occurredAt =
-                                                                            clock.millis();
-                                                                    ClickEventV1 event =
-                                                                            new ClickEventV1(
-                                                                                    EventIdentity
-                                                                                            .bind(
-                                                                                                    occurredAt,
-                                                                                                    SecureRequestIds.randomUuid()
-                                                                                                            .toString()),
-                                                                                    1,
-                                                                                    occurredAt,
-                                                                                    config
-                                                                                            .instanceId(),
-                                                                                    route
-                                                                                            .tenantId(),
-                                                                                    route.linkId(),
-                                                                                    route
-                                                                                            .currentGid(),
-                                                                                    route
-                                                                                            .ownershipVersion(),
-                                                                                    route
-                                                                                            .domainNorm(),
-                                                                                    route
-                                                                                            .shortUri(),
-                                                                                    route
-                                                                                            .routeVersion(),
-                                                                                    uv,
-                                                                                    context.ip,
-                                                                                    trim(
-                                                                                            request.getHeaders()
-                                                                                                    .getFirst(
-                                                                                                            "User-Agent"),
-                                                                                            2048),
-                                                                                    trim(
-                                                                                            request.getHeaders()
-                                                                                                    .getFirst(
-                                                                                                            "Referer"),
-                                                                                            2048),
-                                                                                    context.requestId,
-                                                                                    context.requestId,
-                                                                                    1);
-                                                                    events.click(event);
-                                                                }
-                                                                return finish(
-                                                                        exchange,
-                                                                        context,
-                                                                        302,
-                                                                        "REDIRECT");
-                                                            });
+                                        resolution -> {
+                                            if (resolution instanceof RouteResolution.Absent absent)
+                                                return finishAbsent(exchange, context, absent);
+                                            return respondRoute(
+                                                    exchange,
+                                                    context,
+                                                    ((RouteResolution.Route) resolution).value());
                                         })
                                 .timeout(Duration.ofMillis(config.requestTimeoutMillis()))
                                 .onErrorResume(
@@ -256,6 +120,94 @@ public final class RedirectController {
                         return finish(exchange, context, 400, "INVALID_REQUEST");
                     }
                 });
+    }
+
+    private Mono<Void> respondRoute(ServerWebExchange exchange, Context context, RouteInfo route) {
+        var request = exchange.getRequest();
+        context.route = route;
+        if (!route.active(clock.millis()))
+            return finish(exchange, context, 404, "LINK_UNAVAILABLE");
+        return policies.resolve(route.tenantId(), route.linkId())
+                .flatMap(
+                        policy -> {
+                            context.policy = policy;
+                            context.ipHash = riskHash.hash(route.tenantId(), context.ip);
+                            RiskDecision decision =
+                                    evaluator.evaluate(
+                                            policy,
+                                            route.resourceKey(),
+                                            context.ipHash,
+                                            clock.millis());
+                            return rates.evaluate(route.resourceKey(), decision);
+                        })
+                .flatMap(
+                        decision -> {
+                            context.revision = decision.policyRevision();
+                            if (!decision.allowed())
+                                return finish(
+                                        exchange, context, decision.status(), decision.reason());
+                            // Recheck route and policy lease at
+                            // the point of redirect. No I/O may
+                            // extend a proof.
+                            long decisionAt = clock.millis();
+                            if (!route.active(decisionAt)
+                                    || decisionAt < route.authorityCheckedAt()
+                                    || decisionAt >= route.validUntil())
+                                return finish(exchange, context, 503, "ROUTE_PROOF_EXPIRED");
+                            RiskDecision finalDecision =
+                                    evaluator.evaluate(
+                                            context.policy,
+                                            route.resourceKey(),
+                                            context.ipHash,
+                                            decisionAt);
+                            if (!finalDecision.allowed())
+                                return finish(
+                                        exchange,
+                                        context,
+                                        finalDecision.status(),
+                                        finalDecision.reason());
+                            URI location = URI.create(route.originUrl());
+                            if (!location.isAbsolute()
+                                    || !(location.getScheme().equalsIgnoreCase("https")
+                                            || location.getScheme().equalsIgnoreCase("http"))
+                                    || location.getRawAuthority() == null
+                                    || location.getUserInfo() != null)
+                                return finish(exchange, context, 503, "INVALID_TARGET");
+                            exchange.getResponse().getHeaders().setLocation(location);
+                            exchange.getResponse().setStatusCode(HttpStatus.FOUND);
+                            if (exchange.getRequest().getMethod() == HttpMethod.GET) {
+                                String uv = visitor(exchange, context.scheme);
+                                long occurredAt = clock.millis();
+                                ClickEventV1 event =
+                                        new ClickEventV1(
+                                                EventIdentity.bind(
+                                                        occurredAt,
+                                                        SecureRequestIds.randomUuid().toString()),
+                                                1,
+                                                occurredAt,
+                                                config.instanceId(),
+                                                route.tenantId(),
+                                                route.linkId(),
+                                                route.currentGid(),
+                                                route.ownershipVersion(),
+                                                route.domainNorm(),
+                                                route.shortUri(),
+                                                route.routeVersion(),
+                                                uv,
+                                                context.ip,
+                                                trim(
+                                                        request.getHeaders().getFirst("User-Agent"),
+                                                        2048),
+                                                trim(
+                                                        request.getHeaders().getFirst("Referer"),
+                                                        2048),
+                                                context.requestId,
+                                                context.requestId,
+                                                1);
+                                events.click(event);
+                            }
+                            return finish(exchange, context, 302, "REDIRECT");
+                        });
     }
 
     private boolean trustedPeer(String peer) {
@@ -286,9 +238,89 @@ public final class RedirectController {
 
     private Mono<Void> finish(
             ServerWebExchange exchange, Context context, int status, String reason) {
+        return finish(exchange, context, status, reason, true);
+    }
+
+    private Mono<Void> finish(
+            ServerWebExchange exchange,
+            Context context,
+            int status,
+            String reason,
+            boolean record) {
         if (exchange.getResponse().isCommitted()) return Mono.empty();
         exchange.getResponse().setStatusCode(HttpStatusCode.valueOf(status));
         exchange.getResponse().getHeaders().setCacheControl("no-store, private");
+        if (record) recordResult(exchange, context, status, reason);
+        if (status == 404
+                && exchange.getRequest().getMethod() != HttpMethod.HEAD
+                && wantsHtml(exchange)) {
+            exchange.getResponse()
+                    .getHeaders()
+                    .setContentType(
+                            new MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8));
+            exchange.getResponse()
+                    .getHeaders()
+                    .set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+            exchange.getResponse().getHeaders().set("X-Content-Type-Options", "nosniff");
+            byte[] html =
+                    "<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>短链接不可用</title><body><h1>短链接不可用</h1><p>此链接不存在、已过期或已停用。请联系链接提供者获取新的地址。</p></body></html>"
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return exchange.getResponse()
+                    .writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(html)));
+        }
+        return exchange.getResponse().setComplete();
+    }
+
+    private Mono<Void> finishAbsent(
+            ServerWebExchange exchange, Context context, RouteResolution.Absent absent) {
+        return Mono.defer(
+                () -> {
+                    exchange.getResponse()
+                            .beforeCommit(
+                                    () ->
+                                            Mono.fromRunnable(
+                                                    () -> {
+                                                        // Previous commit hooks have completed.
+                                                        // This is the final denial decision.
+                                                        // Failed commit actions leave Spring's
+                                                        // response mutable for one fallback.
+                                                        if (!routes.validAbsent(absent))
+                                                            throw new MembershipProofExpired();
+                                                        recordResult(
+                                                                exchange,
+                                                                context,
+                                                                404,
+                                                                "NOT_FOUND");
+                                                    }));
+                    return finish(exchange, context, 404, "NOT_FOUND", false)
+                            .onErrorResume(
+                                    MembershipProofExpired.class,
+                                    expired -> {
+                                        exchange.getResponse()
+                                                .getHeaders()
+                                                .remove("Content-Security-Policy");
+                                        exchange.getResponse()
+                                                .getHeaders()
+                                                .remove("X-Content-Type-Options");
+                                        // This bypasses Bloom once, inside the original
+                                        // request-wide timeout.
+                                        return routes.resolve(context.domain, context.uri)
+                                                .flatMap(
+                                                        route ->
+                                                                respondRoute(
+                                                                        exchange, context, route));
+                                    });
+                });
+    }
+
+    private static final class MembershipProofExpired extends RuntimeException {
+        MembershipProofExpired() {
+            super("Membership denial proof expired", null, false, false);
+        }
+    }
+
+    private void recordResult(
+            ServerWebExchange exchange, Context context, int status, String reason) {
         RouteInfo route = context.route;
         long occurredAt = clock.millis();
         events.result(
@@ -309,24 +341,6 @@ public final class RedirectController {
                         context.revision,
                         context.requestId,
                         context.requestId));
-        if (status == 404
-                && exchange.getRequest().getMethod() != HttpMethod.HEAD
-                && wantsHtml(exchange)) {
-            exchange.getResponse()
-                    .getHeaders()
-                    .setContentType(
-                            new MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8));
-            exchange.getResponse()
-                    .getHeaders()
-                    .set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
-            exchange.getResponse().getHeaders().set("X-Content-Type-Options", "nosniff");
-            byte[] html =
-                    "<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>短链接不可用</title><body><h1>短链接不可用</h1><p>此链接不存在、已过期或已停用。请联系链接提供者获取新的地址。</p></body></html>"
-                            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            return exchange.getResponse()
-                    .writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(html)));
-        }
-        return exchange.getResponse().setComplete();
     }
 
     private boolean wantsHtml(ServerWebExchange exchange) {

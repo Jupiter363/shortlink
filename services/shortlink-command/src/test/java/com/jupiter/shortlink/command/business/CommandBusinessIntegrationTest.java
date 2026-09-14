@@ -44,6 +44,7 @@ class CommandBusinessIntegrationTest {
     PolicyCommandService policies;
     String gid;
     AtomicLong sequence;
+    IdGenerator ids;
 
     @BeforeAll
     static void connect() throws Exception {
@@ -51,10 +52,13 @@ class CommandBusinessIntegrationTest {
         if (!"true".equals(System.getenv("SHORTLINK_BUSINESS_TEST_ALLOW_RESET"))
                 || url == null
                 || !url.matches(
-                        "jdbc:mysql://127\\.0\\.0\\.1:(3306|13306)/shortlink_business_it\\?.*")) {
+                        "jdbc:mysql://127\\.0\\.0\\.1:[0-9]{4,5}/shortlink_business_it\\?.*")) {
             throw new IllegalStateException(
                     "Explicit isolated business integration URL and reset opt-in required");
         }
+        int port = java.net.URI.create(url.substring(5)).getPort();
+        if (port < 1024 || port > 65535)
+            throw new IllegalStateException("Invalid isolated test port");
         var config = new CommandDataSourceConfiguration();
         physical =
                 config.physicalDataSource(
@@ -104,7 +108,7 @@ class CommandBusinessIntegrationTest {
         sequence = new AtomicLong(1000);
         // Deterministic ID fault fixture; real allocator acceptance is in id-generator and batch
         // integration suites.
-        IdGenerator ids =
+        ids =
                 new IdGenerator() {
                     public long nextId() {
                         return sequence.getAndIncrement();
@@ -129,9 +133,78 @@ class CommandBusinessIntegrationTest {
                         json,
                         clock,
                         new TenantQuotaService(jdbc, limits),
+                        new com.jupiter.shortlink.command.membership
+                                .ExistingBusinessPublicationFixture(),
                         "s.it.test");
         policies = new PolicyCommandService(jdbc, manager, auth, outbox, json, clock);
         gid = groups.create(ALICE, "first").gid();
+    }
+
+    @Test
+    void membershipPublicationUsesActualShardedTransactionAndAsyncCreation() throws Exception {
+        var raw = new JdbcTemplate(physical);
+        raw.update("DELETE FROM t_route_membership");
+        raw.update(
+                "UPDATE t_route_membership_control SET"
+                    + " generation=?,revision=0,member_count=0,mode='OFF',baseline_ready=FALSE",
+                UUID.randomUUID().toString());
+        try (var barrier =
+                new com.jupiter.shortlink.command.membership.RoutePublicationCoordinator(
+                        jdbc, manager, outbox, 8, 2, 15000)) {
+            var registeredLinks =
+                    new LinkCommandService(
+                            jdbc,
+                            manager,
+                            auth,
+                            groups,
+                            ids,
+                            new ShortCodeCodec(new byte[32]),
+                            outbox,
+                            new ObjectMapper(),
+                            clock,
+                            new TenantQuotaService(
+                                    jdbc,
+                                    new BatchLimits(
+                                            1000000, 8, 2, 268435456, 67108864, 1000000, 200, 4,
+                                            30000, 8)),
+                            barrier,
+                            "s.it.test");
+            var input =
+                    List.of(
+                            new LinkCommandService.Creation(
+                                    "S.IT.TEST:443",
+                                    "https://example.org/membership",
+                                    gid,
+                                    0,
+                                    0,
+                                    null,
+                                    "membership"));
+            var result =
+                    registeredLinks
+                            .createManyAsync(ALICE, "registered", input)
+                            .get(10, TimeUnit.SECONDS);
+            assertThat(result).hasSize(1);
+            assertThat(
+                            raw.queryForObject(
+                                    "SELECT COUNT(*) FROM t_route_membership WHERE"
+                                        + " domain_norm='s.it.test'",
+                                    Long.class))
+                    .isEqualTo(1);
+            assertThat(raw.queryForObject("SELECT COUNT(*) FROM t_link_route", Long.class))
+                    .isEqualTo(1);
+            assertThat(
+                            raw.queryForObject(
+                                    "SELECT COUNT(*) FROM t_outbox WHERE"
+                                        + " topic='shortlink.route.membership.v1'",
+                                    Long.class))
+                    .isEqualTo(1);
+            assertThat(
+                            registeredLinks
+                                    .createManyAsync(ALICE, "registered", input)
+                                    .get(3, TimeUnit.SECONDS))
+                    .isEqualTo(result);
+            assertThat(sequence).hasValue(1001);
+        }
     }
 
     LinkCommandService.Created create() {

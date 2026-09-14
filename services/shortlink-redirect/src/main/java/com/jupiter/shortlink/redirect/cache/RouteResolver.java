@@ -2,6 +2,7 @@ package com.jupiter.shortlink.redirect.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.jupiter.shortlink.redirect.membership.RouteMembershipGuard;
 import com.jupiter.shortlink.redirect.route.AuthorityUnavailableException;
 import com.jupiter.shortlink.redirect.route.RouteAuthority;
 import com.jupiter.shortlink.redirect.route.RouteInfo;
@@ -24,6 +25,7 @@ public final class RouteResolver {
     private final Clock clock;
     private final int maxFlights;
     private final long minimumRemainingMillis;
+    private final RouteMembershipGuard membership;
 
     public RouteResolver(
             RedisRouteCache redis,
@@ -36,6 +38,32 @@ public final class RouteResolver {
             long ttlMillis,
             long guardMillis,
             long minimumRemainingMillis) {
+        this(
+                redis,
+                authority,
+                generation,
+                budget,
+                clock,
+                maxEntries,
+                maxFlights,
+                ttlMillis,
+                guardMillis,
+                minimumRemainingMillis,
+                RouteMembershipGuard.disabled());
+    }
+
+    public RouteResolver(
+            RedisRouteCache redis,
+            RouteAuthority authority,
+            CacheGeneration generation,
+            Supplier<Mono<Void>> budget,
+            Clock clock,
+            int maxEntries,
+            int maxFlights,
+            long ttlMillis,
+            long guardMillis,
+            long minimumRemainingMillis,
+            RouteMembershipGuard membership) {
         if (minimumRemainingMillis < 1 || minimumRemainingMillis >= ttlMillis)
             throw new IllegalArgumentException("Route proof must outlive the request budget");
         this.redis = redis;
@@ -45,6 +73,7 @@ public final class RouteResolver {
         this.clock = clock;
         this.maxFlights = maxFlights;
         this.minimumRemainingMillis = minimumRemainingMillis;
+        this.membership = java.util.Objects.requireNonNull(membership);
         local =
                 Caffeine.newBuilder()
                         .maximumSize(maxEntries)
@@ -57,6 +86,36 @@ public final class RouteResolver {
                         .build();
     }
 
+    public Mono<RouteResolution> resolveGuarded(String domain, String uri) {
+        return Mono.defer(
+                () -> {
+                    long epoch = generation.current();
+                    String key = domain + "/" + uri;
+                    RouteInfo cached = local.getIfPresent(key);
+                    // Hot routes do not hash an address or consult any Bloom state.
+                    if (usable(cached, key, epoch)) return Mono.just(RouteResolution.route(cached));
+                    RouteMembershipGuard.Check check;
+                    try {
+                        check = membership.check(domain, uri);
+                    } catch (RuntimeException unavailable) {
+                        // The existence optimization must not bypass the original bounded fallback.
+                        check = RouteMembershipGuard.Check.unknown();
+                    }
+                    if (check.outcome() == RouteMembershipGuard.Outcome.DEFINITELY_ABSENT)
+                        return Mono.just(new RouteResolution.Absent(check.proof(), epoch));
+                    return resolve(domain, uri).map(RouteResolution::route);
+                });
+    }
+
+    public boolean validAbsent(RouteResolution.Absent absent) {
+        try {
+            return generation.current() == absent.cacheEpoch() && membership.valid(absent.proof());
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    /** Original bounded route chain; also the single fallback after a denial proof expires. */
     public Mono<RouteInfo> resolve(String domain, String uri) {
         return Mono.defer(
                 () -> {

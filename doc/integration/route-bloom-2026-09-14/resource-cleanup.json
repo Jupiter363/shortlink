@@ -1,0 +1,21 @@
+{
+  "containers": [
+    {
+      "name": "shortlink-bloom15-it-mysql-1",
+      "status": "exited"
+    },
+    {
+      "name": "shortlink-bloom15-it-redis-1",
+      "status": "exited"
+    },
+    {
+      "name": "shortlink-bloom15-it-kafka-1",
+      "status": "exited"
+    }
+  ],
+  "unrelatedContainersChanged": false,
+  "loadGeneratorsStarted": false,
+  "project": "shortlink-bloom15-it",
+  "applicationsStarted": false,
+  "testVolumesPreserved": true
+}

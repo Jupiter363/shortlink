@@ -149,6 +149,8 @@ class BatchMetadataIntegrationTest {
                         json,
                         clock,
                         quota,
+                        new com.jupiter.shortlink.command.membership
+                                .ExistingBusinessPublicationFixture(),
                         "s.example");
         ImmutableImportStore objects =
                 new ImmutableImportStore() {
@@ -180,6 +182,99 @@ class BatchMetadataIntegrationTest {
         jdbc.afterMetadataIdentityRead = null;
         jdbc.metadataFinishUpdates = 0;
         jdbc.metadataFinishAffected = -1;
+    }
+
+    @Test
+    void membershipPublicationRetriesReservedIdentityThroughRealShardingSphere() throws Exception {
+        physical.update("DELETE FROM t_route_membership");
+        physical.update(
+                "UPDATE t_route_membership_control SET"
+                    + " generation=?,revision=0,member_count=0,mode='OFF',baseline_ready=FALSE",
+                UUID.randomUUID().toString());
+        var manager = new DataSourceTransactionManager(sharded);
+        var auth = new CommandAuthorization(jdbc, "01234567890123456789012345678901");
+        var quota = new TenantQuotaService(jdbc, limits);
+        var outbox = new BusinessOutbox(jdbc, json, clock);
+        try (var barrier =
+                new com.jupiter.shortlink.command.membership.RoutePublicationCoordinator(
+                        jdbc, manager, outbox, 8, 2, 15000)) {
+            var registeredLinks =
+                    new LinkCommandService(
+                            jdbc,
+                            manager,
+                            auth,
+                            groups,
+                            countingIds,
+                            new ShortCodeCodec(new byte[32]),
+                            outbox,
+                            json,
+                            clock,
+                            quota,
+                            barrier,
+                            "s.example");
+            var registeredJobs =
+                    new BatchJobService(
+                            jdbc,
+                            manager,
+                            auth,
+                            groups,
+                            registeredLinks,
+                            quota,
+                            countingIds,
+                            outbox,
+                            json,
+                            clock,
+                            limits,
+                            new ImmutableImportStore() {
+                                public void verifyReference(long tenant, Reference ref) {}
+
+                                public InputStream open(Reference ref) {
+                                    return new ByteArrayInputStream(objectInput);
+                                }
+                            });
+            var submitted = registeredJobs.submitInline(principal, "membership-retry", rows(501));
+            registeredJobs
+                    .runAsync(registeredJobs.claim(submitted.jobId(), "validator"))
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS);
+            var first = registeredJobs.claim(submitted.jobId(), "first");
+            jdbc.failLinkBatch = true;
+            assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () ->
+                            registeredJobs
+                                    .runAsync(first)
+                                    .get(10, java.util.concurrent.TimeUnit.SECONDS));
+            List<Long> reserved =
+                    physical.queryForList(
+                            "SELECT link_id FROM t_batch_row WHERE state='RESERVED' ORDER BY"
+                                + " row_no",
+                            Long.class);
+            assertEquals(200, reserved.size());
+            assertEquals(200, count("t_route_membership"));
+            assertEquals(0, count("t_link_route"));
+            registeredJobs.failed(first, new IllegalStateException("injected route rollback"));
+            physical.update(
+                    "UPDATE t_batch_job SET next_attempt_at=0 WHERE job_id=?", submitted.jobId());
+            jdbc.failLinkBatch = false;
+            registeredJobs
+                    .runAsync(registeredJobs.claim(submitted.jobId(), "retry"))
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals(
+                    reserved,
+                    physical.queryForList(
+                            "SELECT link_id FROM t_batch_row WHERE state='SUCCEEDED' ORDER BY"
+                                + " row_no",
+                            Long.class));
+            assertEquals(1, allocations.get());
+            assertEquals(200, count("t_route_membership"));
+            assertEquals(200, count("t_link_route"));
+            assertEquals(
+                    1L,
+                    physical.queryForObject(
+                            "SELECT COUNT(*) FROM t_outbox WHERE"
+                                + " topic='shortlink.route.membership.v1'",
+                            Long.class));
+        }
     }
 
     private LinkCommandService.Creation row(int i) {
@@ -757,7 +852,7 @@ class BatchMetadataIntegrationTest {
         var detailBefore = metadataDetail(lease.linkId(), "gA");
         jdbc.update(
                 "UPDATE t_user SET disabled=1,auth_version=auth_version+1 WHERE username=? AND"
-                    + " id=?",
+                        + " id=?",
                 principal.username(),
                 principal.tenantId());
 
@@ -807,7 +902,7 @@ class BatchMetadataIntegrationTest {
                                         status -> {
                                             jdbc.queryForObject(
                                                     "SELECT id FROM t_user WHERE username=? AND"
-                                                        + " id=? FOR UPDATE",
+                                                            + " id=? FOR UPDATE",
                                                     Long.class,
                                                     principal.username(),
                                                     principal.tenantId());
@@ -909,7 +1004,7 @@ class BatchMetadataIntegrationTest {
     private Map<String, Object> metadataDetail(long id, String gid) {
         return jdbc.queryForMap(
                 "SELECT title,favicon,metadata_status,target_revision,origin_url,del_flag FROM"
-                    + " t_link WHERE gid=? AND id=?",
+                        + " t_link WHERE gid=? AND id=?",
                 gid,
                 id);
     }

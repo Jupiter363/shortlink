@@ -82,6 +82,7 @@ Command 业务事实 + Analytics 统计证据
 - APISIX 公开入口：Host / 路径边界、可信头重写、请求速率及连接并发限制
 - Admin 管理入口：Redis Session 校验、当前账号权限与请求预算
 - Redirect 本地 L1、Redis L2、负缓存、缓存世代与权威刷新期限
+- L1 miss 后的本地 Bloom 预检，创建端持久地址登记与否定租约协作，减少不存在短码的缓存穿透
 - 回源并发限制、集群回源预算及请求超时
 - 业务事实与同库 Outbox 事务提交，Kafka 变更通知驱动缓存失效
 - 网关与 Redirect 独立的有界异步事件生产，发送攒批、ACK 与拒绝/失败计数
@@ -123,6 +124,24 @@ Command 业务事实 + Analytics 统计证据
 
 美团 Leaf Segment 在本项目中以受控源码适配的形式嵌入 Command 的 `id-generator`：通过业务 MySQL 的 `t_id_alloc` 独立事务预留号段、Current/Next 双号段异步预取和内存取号，供单条及批量创建复用。后续数值置换与 9 位 Base62 编码由项目的 `ShortCodeCodec` 完成；点击跳转不调用发号器。实现边界见[发号模块说明](libraries/id-generator/README.md)和[Leaf 来源与适配说明](libraries/id-generator/UPSTREAM.md)。
 
+服务部署图中的 Redirect 进一步包含以下防穿透流程。Bloom 只做地址存在性预检，不能决定路由状态或风险策略；创建端通过持久登记和发布等待避免异步更新间隙误拒新链。
+
+```mermaid
+flowchart LR
+    A[APISIX] --> B[Redirect L1]
+    B -->|miss| C[本地 Bloom + 否定租约]
+    C -->|可靠阴性| D[404]
+    C -->|可能存在或未知| E[Redis L2]
+    E -->|miss| F[限额回源 MySQL]
+    G[Command 单条与批量创建] --> H[写前地址登记]
+    H --> I[事务外等待旧否定租约期限后发布路由]
+    H -.->|主库分页补齐 / 完整版本发租| C
+    H -.-> J[Outbox / Kafka 成员通知]
+    J -.-> C
+```
+
+新库初态为 OFF，须完成基线核验和写入端升级后显式启用。模式、容量与创建等待代价见[布隆过滤器部署与恢复](doc/development/route-membership.md)。
+
 ### 分层架构
 
 | 层级 | 组成 | 职责 |
@@ -148,6 +167,7 @@ Spring AI Alibaba Graph 运行在 Agent Service 内部。MySQL 的业务、统�
 | `event-contract` | `event-contract` | 原始接收记录、事件、结果与 sourceCut 公共契约 |
 | `id-generator` | `id-generator` | 受控 Leaf Segment 适配、连续区间预留与固定短码映射 |
 | `risk-core` | `risk-core` | 共享的确定性策略语义、身份摘要与条件匹配 |
+| `route-membership` | `route-membership` | 地址登记、布隆否定租约与受控基线维护，供 Command / Redirect 共用 |
 | `analytics-flink` | `analytics-flink` | Kafka / Flink / RocksDB 作业、明细及在线聚合分支 |
 | `analytics-worker` | `analytics-worker` | 原始接收归档、补算、覆盖证明、不可变发布与恢复世代 |
 | `shortlink-analytics-api` | `shortlink-analytics-api` | 当前授权、统计快照、持久化查询 Job 及结果分页 |
@@ -156,7 +176,7 @@ Spring AI Alibaba Graph 运行在 Agent Service 内部。MySQL 的业务、统�
 | `scripts` | Python / PowerShell / JavaScript | 组件集成、有限 E2E、压测编排、诊断与证据核对 |
 | `doc` | 项目文档 | 项目计划、统计说明、验收记录、压测归档与图片 |
 
-旧 `project`、`aggregation` 已退出 Maven 构建。旧目录中可能保留本机被忽略的配置或构建产物，它们不是当前部署入口。当前构建包含 10 个 Java 模块，公共库随所属服务打包使用。
+旧 `project`、`aggregation` 已退出 Maven 构建。旧目录中可能保留本机被忽略的配置或构建产物，它们不是当前部署入口。当前构建包含 11 个 Java 模块，公共库随所属服务打包使用。
 
 ### 服务边界
 
@@ -1185,7 +1205,7 @@ APISIX 使用 `limit-req` 漏桶和 `limit-conn` 并发控制；Admin 通过零�
 
 ## 目录结构
 
-下列为当前源码与文档的主要层级：10 个 Maven 模块按 6 个常驻服务、3 个公共库和 1 个 Flink 作业归类，仍由根 POM 统一聚合：
+下列为当前源码与文档的主要层级：11 个 Maven 模块按 6 个常驻服务、4 个公共库和 1 个 Flink 作业归类，仍由根 POM 统一聚合：
 
 ```text
 shortlink/
@@ -1196,10 +1216,11 @@ shortlink/
 │   ├── shortlink-analytics-api/ # 统计快照、查询任务、分页与授权复核
 │   ├── admin/              # 账号、管理 API、Agent 入口与统计适配
 │   └── agent-service/      # Harness、Graph、Tool、风险画像与审核
-├── libraries/               # 3 个进程内公共库
+├── libraries/               # 4 个进程内公共库
 │   ├── event-contract/     # 公共事件、原始接收与 sourceCut 契约
 │   ├── id-generator/       # Leaf Segment 来源适配、固定短码映射
-│   └── risk-core/          # 确定性策略语义与共享安全能力
+│   ├── risk-core/          # 确定性策略语义与共享安全能力
+│   └── route-membership/   # 地址登记、布隆否定租约与基线维护
 ├── jobs/
 │   └── analytics-flink/    # Kafka / Flink / RocksDB 作业
 ├── frontend/

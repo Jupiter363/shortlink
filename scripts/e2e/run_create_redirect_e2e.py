@@ -142,6 +142,7 @@ def serve(args):
         raise RuntimeError("No empty isolated Redis database; refusing to flush existing data")
     sql("CREATE DATABASE `" + database + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;")
     sql((ROOT / "deploy/mysql/001-business-schema.sql").read_text(encoding="utf-8-sig"), database)
+    sql((ROOT / "deploy/mysql/004-route-membership.sql").read_text(encoding="utf-8-sig"), database)
     suffix = uuid.uuid4().hex[:8]
     app_user, redirect_user = "sl_e2e_app_" + suffix, "sl_e2e_read_" + suffix
     password = uuid.uuid4().hex

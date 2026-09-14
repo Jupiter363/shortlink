@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.jupiter.shortlink.contract.*;
 import com.jupiter.shortlink.redirect.TestConfig;
+import com.jupiter.shortlink.redirect.cache.RouteResolution;
 import com.jupiter.shortlink.redirect.cache.RouteResolver;
 import com.jupiter.shortlink.redirect.event.RequestEventPublisher;
 import com.jupiter.shortlink.redirect.risk.*;
@@ -30,6 +31,17 @@ class RedirectControllerTest {
     final RequestEventPublisher events = mock(RequestEventPublisher.class);
     final Clock clock = Clock.fixed(Instant.ofEpochMilli(1500), ZoneOffset.UTC);
 
+    @org.junit.jupiter.api.BeforeEach
+    void adaptExistingAuthoritativeRouteFixtures() {
+        lenient()
+                .doAnswer(
+                        call ->
+                                routes.resolve(call.getArgument(0), call.getArgument(1))
+                                        .map(RouteResolution::route))
+                .when(routes)
+                .resolveGuarded(anyString(), anyString());
+    }
+
     RedirectController controller() {
         return new RedirectController(routes, policies, rate, events, TestConfig.defaults(), clock);
     }
@@ -40,9 +52,7 @@ class RedirectControllerTest {
         try (var ids = mockStatic(SecureRequestIds.class)) {
             ids.when(SecureRequestIds::verifyAvailable).thenThrow(unavailable);
 
-            assertSame(
-                    unavailable,
-                    assertThrows(IllegalStateException.class, this::controller));
+            assertSame(unavailable, assertThrows(IllegalStateException.class, this::controller));
 
             ids.verify(SecureRequestIds::verifyAvailable, times(1));
             ids.verifyNoMoreInteractions();
@@ -101,8 +111,11 @@ class RedirectControllerTest {
     void trustedGatewayIdLinksGetEventsAndResponseWithoutChangingEventIdentities() {
         allowed();
         String gatewayId = "0123456789abcdef0123456789abcdef";
-        var exchange = request(HttpMethod.GET).mutate()
-                .request(builder -> builder.header("X-Request-ID", gatewayId)).build();
+        var exchange =
+                request(HttpMethod.GET)
+                        .mutate()
+                        .request(builder -> builder.header("X-Request-ID", gatewayId))
+                        .build();
 
         controller().redirect("Ab", exchange).block();
 
@@ -116,7 +129,8 @@ class RedirectControllerTest {
         assertEquals(gatewayId, click.getValue().traceId());
         assertEquals(gatewayId, result.getValue().requestId());
         assertEquals(gatewayId, result.getValue().traceId());
-        assertNotEquals(assertBoundUuidV4(click.getValue().eventId(), click.getValue().occurredAt()),
+        assertNotEquals(
+                assertBoundUuidV4(click.getValue().eventId(), click.getValue().occurredAt()),
                 assertBoundUuidV4(result.getValue().decisionId(), result.getValue().occurredAt()));
     }
 
@@ -124,39 +138,65 @@ class RedirectControllerTest {
     void headAndBusinessErrorKeepTheTrustedRequestId() {
         allowed();
         String gatewayId = "abcdef0123456789abcdef0123456789";
-        var head = request(HttpMethod.HEAD).mutate()
-                .request(builder -> builder.header("X-Request-ID", gatewayId)).build();
+        var head =
+                request(HttpMethod.HEAD)
+                        .mutate()
+                        .request(builder -> builder.header("X-Request-ID", gatewayId))
+                        .build();
         controller().redirect("Ab", head).block();
         assertEquals(HttpStatus.FOUND, head.getResponse().getStatusCode());
         assertEquals(gatewayId, head.getResponse().getHeaders().getFirst("X-Request-ID"));
         verify(events, never()).click(any());
-        verify(events).result(argThat(event -> gatewayId.equals(event.requestId()) && event.status() == 302));
+        verify(events)
+                .result(
+                        argThat(
+                                event ->
+                                        gatewayId.equals(event.requestId())
+                                                && event.status() == 302));
 
         clearInvocations(events);
-        when(policies.resolve("1", 5)).thenReturn(Mono.error(new IllegalStateException("unavailable")));
-        var failed = request(HttpMethod.GET).mutate()
-                .request(builder -> builder.header("X-Request-ID", gatewayId)).build();
+        when(policies.resolve("1", 5))
+                .thenReturn(Mono.error(new IllegalStateException("unavailable")));
+        var failed =
+                request(HttpMethod.GET)
+                        .mutate()
+                        .request(builder -> builder.header("X-Request-ID", gatewayId))
+                        .build();
         controller().redirect("Ab", failed).block();
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, failed.getResponse().getStatusCode());
         assertEquals(gatewayId, failed.getResponse().getHeaders().getFirst("X-Request-ID"));
         verify(events, never()).click(any());
-        verify(events).result(argThat(event -> gatewayId.equals(event.requestId()) && event.status() == 503));
+        verify(events)
+                .result(
+                        argThat(
+                                event ->
+                                        gatewayId.equals(event.requestId())
+                                                && event.status() == 503));
     }
 
     @Test
     void malformedAndRepeatedGatewayHeadersUseLocalIdsConsistently() {
         allowed();
         String good = "0123456789abcdef0123456789abcdef";
-        List<String[]> headers = List.of(
-                new String[] {good, good}, new String[] {good + "," + good},
-                new String[] {good.toUpperCase(Locale.ROOT)}, new String[] {" " + good},
-                new String[] {good + " "}, new String[] {good.substring(1)},
-                new String[] {good + "0"}, new String[] {"g".repeat(32)}, new String[] {""});
+        List<String[]> headers =
+                List.of(
+                        new String[] {good, good},
+                        new String[] {good + "," + good},
+                        new String[] {good.toUpperCase(Locale.ROOT)},
+                        new String[] {" " + good},
+                        new String[] {good + " "},
+                        new String[] {good.substring(1)},
+                        new String[] {good + "0"},
+                        new String[] {"g".repeat(32)},
+                        new String[] {""});
         Set<UUID> localIds = new HashSet<>();
         for (String[] values : headers) {
             clearInvocations(events);
-            var exchange = request(HttpMethod.GET).mutate()
-                    .request(builder -> builder.header("X-Request-ID", values)).build();
+            var exchange =
+                    request(HttpMethod.GET)
+                            .mutate()
+                            .request(builder -> builder.header("X-Request-ID", values))
+                            .build();
             controller().redirect("Ab", exchange).block();
             assertEquals(HttpStatus.FOUND, exchange.getResponse().getStatusCode());
             String actual = exchange.getResponse().getHeaders().getFirst("X-Request-ID");
@@ -169,11 +209,14 @@ class RedirectControllerTest {
     @Test
     void untrustedPeerCannotChooseTheResponseOrEventRequestId() {
         String supplied = "0123456789abcdef0123456789abcdef";
-        var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("http://s.example/Ab")
-                .header("Host", "s.example")
-                .header("X-Request-ID", supplied)
-                .header("X-Forwarded-For", "127.0.0.1")
-                .remoteAddress(new InetSocketAddress("192.0.2.8", 1234)).build());
+        var exchange =
+                MockServerWebExchange.from(
+                        MockServerHttpRequest.get("http://s.example/Ab")
+                                .header("Host", "s.example")
+                                .header("X-Request-ID", supplied)
+                                .header("X-Forwarded-For", "127.0.0.1")
+                                .remoteAddress(new InetSocketAddress("192.0.2.8", 1234))
+                                .build());
         controller().redirect("Ab", exchange).block();
         assertEquals(HttpStatus.FORBIDDEN, exchange.getResponse().getStatusCode());
         String actual = exchange.getResponse().getHeaders().getFirst("X-Request-ID");
@@ -181,7 +224,11 @@ class RedirectControllerTest {
         assertNotEquals(supplied, actual);
         verifyNoInteractions(routes, policies, rate);
         verify(events, never()).click(any());
-        verify(events).result(argThat(event -> actual.equals(event.requestId()) && event.status() == 403));
+        verify(events)
+                .result(
+                        argThat(
+                                event ->
+                                        actual.equals(event.requestId()) && event.status() == 403));
     }
 
     @Test
@@ -219,7 +266,9 @@ class RedirectControllerTest {
         assertTrue(cookie.getValue().matches("[0-9a-f]{12}4[0-9a-f]{3}[89ab][0-9a-f]{15}"));
         assertEquals(cookie.getValue(), click.getValue().uvId());
         assertUuidV4(click.getValue().requestId());
-        assertEquals(click.getValue().requestId(), exchange.getResponse().getHeaders().getFirst("X-Request-ID"));
+        assertEquals(
+                click.getValue().requestId(),
+                exchange.getResponse().getHeaders().getFirst("X-Request-ID"));
         assertEquals(click.getValue().requestId(), result.getValue().requestId());
         UUID clickNonce =
                 assertBoundUuidV4(click.getValue().eventId(), click.getValue().occurredAt());
@@ -241,7 +290,9 @@ class RedirectControllerTest {
         var result = org.mockito.ArgumentCaptor.forClass(GatewayRequestEventV1.class);
         verify(events).result(result.capture());
         assertUuidV4(result.getValue().requestId());
-        assertEquals(result.getValue().requestId(), exchange.getResponse().getHeaders().getFirst("X-Request-ID"));
+        assertEquals(
+                result.getValue().requestId(),
+                exchange.getResponse().getHeaders().getFirst("X-Request-ID"));
         assertBoundUuidV4(result.getValue().decisionId(), result.getValue().occurredAt());
     }
 
@@ -302,22 +353,57 @@ class RedirectControllerTest {
     void policyTransitionDuringRateCheckStillPreventsRedirect() {
         allowed();
         when(routes.resolve("s.example", "Ab"))
-                .thenReturn(Mono.just(new RouteInfo("s.example", "Ab", 5, "1", "g",
-                        "https://target.example/path", "ACTIVE", null, 1, 1, 1000, 5000, 1)));
+                .thenReturn(
+                        Mono.just(
+                                new RouteInfo(
+                                        "s.example",
+                                        "Ab",
+                                        5,
+                                        "1",
+                                        "g",
+                                        "https://target.example/path",
+                                        "ACTIVE",
+                                        null,
+                                        1,
+                                        1,
+                                        1000,
+                                        5000,
+                                        1)));
         when(policies.resolve("1", 5))
-                .thenReturn(Mono.just(new PolicySnapshot("1:5", 1, 1000, 2000L, 5000,
-                        PolicyState.KNOWN_ALLOWED, false, true, "UTC", List.of(), Set.of(), null)));
+                .thenReturn(
+                        Mono.just(
+                                new PolicySnapshot(
+                                        "1:5",
+                                        1,
+                                        1000,
+                                        2000L,
+                                        5000,
+                                        PolicyState.KNOWN_ALLOWED,
+                                        false,
+                                        true,
+                                        "UTC",
+                                        List.of(),
+                                        Set.of(),
+                                        null)));
         var now = new java.util.concurrent.atomic.AtomicLong(1500);
         Clock advancingClock = mock(Clock.class);
         when(advancingClock.millis()).thenAnswer(ignored -> now.get());
-        doAnswer(invocation -> Mono.defer(() -> {
-            now.set(2000);
-            return Mono.just(invocation.getArgument(1, RiskDecision.class));
-        })).when(rate).evaluate(anyString(), any());
+        doAnswer(
+                        invocation ->
+                                Mono.defer(
+                                        () -> {
+                                            now.set(2000);
+                                            return Mono.just(
+                                                    invocation.getArgument(1, RiskDecision.class));
+                                        }))
+                .when(rate)
+                .evaluate(anyString(), any());
 
         var exchange = request(HttpMethod.GET);
-        new RedirectController(routes, policies, rate, events, TestConfig.defaults(), advancingClock)
-                .redirect("Ab", exchange).block();
+        new RedirectController(
+                        routes, policies, rate, events, TestConfig.defaults(), advancingClock)
+                .redirect("Ab", exchange)
+                .block();
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, exchange.getResponse().getStatusCode());
         assertNull(exchange.getResponse().getHeaders().getLocation());
@@ -330,24 +416,51 @@ class RedirectControllerTest {
     @Test
     void canonicalBlockedIpDoesNotLeakIntoTheNextRequest() {
         allowed();
-        String blockedHash = new RiskHash(TestConfig.defaults().riskHashSalt())
-                .hash("1", "198.51.100.1");
+        String blockedHash =
+                new RiskHash(TestConfig.defaults().riskHashSalt()).hash("1", "198.51.100.1");
         when(policies.resolve("1", 5))
-                .thenReturn(Mono.just(new PolicySnapshot("1:5", 1, 1000, null, 2000,
-                        PolicyState.KNOWN_RESTRICTED, false, true, "UTC", List.of(),
-                        Set.of(blockedHash), null)));
+                .thenReturn(
+                        Mono.just(
+                                new PolicySnapshot(
+                                        "1:5",
+                                        1,
+                                        1000,
+                                        null,
+                                        2000,
+                                        PolicyState.KNOWN_RESTRICTED,
+                                        false,
+                                        true,
+                                        "UTC",
+                                        List.of(),
+                                        Set.of(blockedHash),
+                                        null)));
         var controller = controller();
-        var blocked = request(HttpMethod.GET).mutate()
-                .request(builder -> builder.headers(headers ->
-                        headers.set("X-Forwarded-For", "::ffff:198.51.100.1"))).build();
+        var blocked =
+                request(HttpMethod.GET)
+                        .mutate()
+                        .request(
+                                builder ->
+                                        builder.headers(
+                                                headers ->
+                                                        headers.set(
+                                                                "X-Forwarded-For",
+                                                                "::ffff:198.51.100.1")))
+                        .build();
         controller.redirect("Ab", blocked).block();
         assertEquals(HttpStatus.FORBIDDEN, blocked.getResponse().getStatusCode());
         assertNull(blocked.getResponse().getHeaders().getLocation());
         verify(events, never()).click(any());
 
-        var allowed = request(HttpMethod.GET).mutate()
-                .request(builder -> builder.headers(headers ->
-                        headers.set("X-Forwarded-For", "198.51.100.2"))).build();
+        var allowed =
+                request(HttpMethod.GET)
+                        .mutate()
+                        .request(
+                                builder ->
+                                        builder.headers(
+                                                headers ->
+                                                        headers.set(
+                                                                "X-Forwarded-For", "198.51.100.2")))
+                        .build();
         controller.redirect("Ab", allowed).block();
         assertEquals(HttpStatus.FOUND, allowed.getResponse().getStatusCode());
         verify(events, times(1)).click(any());

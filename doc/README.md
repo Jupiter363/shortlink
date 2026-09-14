@@ -23,4 +23,6 @@ Agent UAT：[2026-09-13 新后端与 NageOffer 前端双 Agent 验收](integrati
 
 仓库整理：[2026-09-10 分阶段验收](integration/repository-layout-2026-09-10/README.md)（Issue #6）。
 
+布隆过滤器：[部署与恢复](development/route-membership.md) · [2026-09-14 单元与隔离集成验收](integration/route-bloom-2026-09-14/README.md)（Issue #15）。
+
 后续开发计划放入 `doc/plan/`，压测执行与分析报告放入 `doc/压测报告/过程报告/`，正式留档按日期或批次创建子目录。部署文件及其使用说明仍可从[部署入口](../deploy/README.md)查阅。

@@ -370,6 +370,7 @@ def serve(args):
     redis_database = select_empty_redis_database(redis_container, redis_port, requested_redis_database)
     sql("CREATE DATABASE `" + database + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;")
     sql((ROOT / "deploy/mysql/001-business-schema.sql").read_text(encoding="utf-8-sig"), database)
+    sql((ROOT / "deploy/mysql/004-route-membership.sql").read_text(encoding="utf-8-sig"), database)
     suffix = uuid.uuid4().hex[:8]
     app_user, redirect_user = "sl_e2e_app_" + suffix, "sl_e2e_read_" + suffix
     password = uuid.uuid4().hex
