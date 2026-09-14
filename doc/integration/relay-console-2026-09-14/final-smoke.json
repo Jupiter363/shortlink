@@ -1,0 +1,319 @@
+{
+  "time": "2026-09-14T13:51:29.002Z",
+  "mode": "最终构建只读烟测；Jupiter 真实登录",
+  "checks": [
+    {
+      "name": "未登录入口显示登录页",
+      "passed": true
+    },
+    {
+      "name": "注册路由支持直接访问与刷新",
+      "passed": true
+    },
+    {
+      "name": "登录路由支持直接访问与刷新",
+      "passed": true
+    },
+    {
+      "name": "只读烟测已获得 Jupiter 登录凭据",
+      "passed": true
+    },
+    {
+      "name": "Jupiter 真实登录后刷新恢复 READY 工作区",
+      "passed": true
+    },
+    {
+      "name": "短链接业务路由可进入",
+      "passed": true
+    },
+    {
+      "name": "短链接直接刷新后保持业务路由",
+      "passed": true,
+      "details": {
+        "path": "/home/space",
+        "heading": "短链接",
+        "overflow": true
+      }
+    },
+    {
+      "name": "访问统计业务路由可进入",
+      "passed": true
+    },
+    {
+      "name": "访问统计直接刷新后保持业务路由",
+      "passed": true,
+      "details": {
+        "path": "/home/analytics",
+        "heading": "访问统计",
+        "overflow": true
+      }
+    },
+    {
+      "name": "风险中心业务路由可进入",
+      "passed": true
+    },
+    {
+      "name": "风险中心直接刷新后保持业务路由",
+      "passed": true,
+      "details": {
+        "path": "/home/risk-center",
+        "heading": "风险中心",
+        "overflow": true
+      }
+    },
+    {
+      "name": "投放分析 Agent业务路由可进入",
+      "passed": true
+    },
+    {
+      "name": "投放分析 Agent直接刷新后保持业务路由",
+      "passed": true,
+      "details": {
+        "path": "/home/agent/campaign-analysis",
+        "heading": "投放分析 Agent",
+        "overflow": true
+      }
+    },
+    {
+      "name": "安全风控 Agent业务路由可进入",
+      "passed": true
+    },
+    {
+      "name": "安全风控 Agent直接刷新后保持业务路由",
+      "passed": true,
+      "details": {
+        "path": "/home/agent/security-risk",
+        "heading": "安全风控 Agent",
+        "overflow": true
+      }
+    },
+    {
+      "name": "回收站业务路由可进入",
+      "passed": true
+    },
+    {
+      "name": "回收站直接刷新后保持业务路由",
+      "passed": true,
+      "details": {
+        "path": "/home/recycleBin",
+        "heading": "回收站",
+        "overflow": true
+      }
+    },
+    {
+      "name": "账户中心业务路由可进入",
+      "passed": true
+    },
+    {
+      "name": "账户中心直接刷新后保持业务路由",
+      "passed": true,
+      "details": {
+        "path": "/home/account",
+        "heading": "账户中心",
+        "overflow": true
+      }
+    },
+    {
+      "name": "移动端分组管理可选择真实分组",
+      "passed": true
+    },
+    {
+      "name": "移动端分组选择实际触发短链列表读取",
+      "passed": true,
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "name": "风险刷新按钮重新读取概览、档案与事件",
+      "passed": true,
+      "details": {
+        "overview": 200,
+        "cards": 200,
+        "events": 200
+      }
+    },
+    {
+      "name": "风险详情保留空原因码与空审核记录状态",
+      "passed": true
+    },
+    {
+      "name": "风险空态详情 1280px 无横向溢出",
+      "passed": true,
+      "details": {
+        "viewport": 1280,
+        "width": 604,
+        "scrollWidth": 604,
+        "emptyReview": true,
+        "emptyReasons": true
+      }
+    },
+    {
+      "name": "风险空态详情 768px 无横向溢出",
+      "passed": true,
+      "details": {
+        "viewport": 768,
+        "width": 753,
+        "scrollWidth": 753,
+        "emptyReview": true,
+        "emptyReasons": true
+      }
+    },
+    {
+      "name": "风险空态详情 390px 无横向溢出",
+      "passed": true,
+      "details": {
+        "viewport": 390,
+        "width": 375,
+        "scrollWidth": 375,
+        "emptyReview": true,
+        "emptyReasons": true
+      }
+    },
+    {
+      "name": "风险当前策略 UNKNOWN 故障态保持未知语义",
+      "passed": true
+    },
+    {
+      "name": "最终烟测没有 Agent chat、审核、策略或产品写请求",
+      "passed": true,
+      "details": []
+    },
+    {
+      "name": "最终烟测没有未捕获运行时异常",
+      "passed": true
+    },
+    {
+      "name": "全部 9 个路由均完成验证",
+      "passed": true,
+      "details": {
+        "public": [
+          "/login",
+          "/register"
+        ],
+        "protected": [
+          "/home/space",
+          "/home/analytics",
+          "/home/risk-center",
+          "/home/agent/campaign-analysis",
+          "/home/agent/security-risk",
+          "/home/recycleBin",
+          "/home/account"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "label": "短链接",
+      "route": "/home/space",
+      "heading": "短链接",
+      "ready": ".link-workspace",
+      "shot": "space",
+      "path": "/home/space",
+      "overflow": true
+    },
+    {
+      "label": "访问统计",
+      "route": "/home/analytics",
+      "heading": "访问统计",
+      "ready": ".analytics-metrics,.analytics-state:not([aria-live])",
+      "shot": "analytics",
+      "path": "/home/analytics",
+      "overflow": true
+    },
+    {
+      "label": "风险中心",
+      "route": "/home/risk-center",
+      "heading": "风险中心",
+      "ready": ".ar-risk-card,.ar-muted",
+      "shot": "risk",
+      "path": "/home/risk-center",
+      "overflow": true
+    },
+    {
+      "label": "投放分析 Agent",
+      "route": "/home/agent/campaign-analysis",
+      "heading": "投放分析 Agent",
+      "ready": ".ar-agent-layout",
+      "shot": "agent-campaign",
+      "path": "/home/agent/campaign-analysis",
+      "overflow": true
+    },
+    {
+      "label": "安全风控 Agent",
+      "route": "/home/agent/security-risk",
+      "heading": "安全风控 Agent",
+      "ready": ".ar-agent-layout",
+      "shot": "agent-security",
+      "path": "/home/agent/security-risk",
+      "overflow": true
+    },
+    {
+      "label": "回收站",
+      "route": "/home/recycleBin",
+      "heading": "回收站",
+      "ready": ".link-workspace",
+      "shot": "recycle",
+      "path": "/home/recycleBin",
+      "overflow": true
+    },
+    {
+      "label": "账户中心",
+      "route": "/home/account",
+      "heading": "账户中心",
+      "ready": ".account-view,.account-page,.ar-view,.paper",
+      "shot": "account",
+      "path": "/home/account",
+      "overflow": true
+    }
+  ],
+  "riskBounds": [
+    {
+      "viewport": 1280,
+      "width": 604,
+      "scrollWidth": 604,
+      "emptyReview": true,
+      "emptyReasons": true
+    },
+    {
+      "viewport": 768,
+      "width": 753,
+      "scrollWidth": 753,
+      "emptyReview": true,
+      "emptyReasons": true
+    },
+    {
+      "viewport": 390,
+      "width": 375,
+      "scrollWidth": 375,
+      "emptyReview": true,
+      "emptyReasons": true
+    }
+  ],
+  "screenshots": [
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-login-1440.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-register-1440.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-space-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-analytics-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-risk-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-agent-campaign-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-agent-security-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-recycle-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-account-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\final-space-mobile-group.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-page-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-page-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-page-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-default-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-expanded-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-bottom-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-default-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-expanded-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-bottom-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-default-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-expanded-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-bottom-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-unknown-1280.png"
+  ]
+}

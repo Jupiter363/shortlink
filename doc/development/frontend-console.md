@@ -1,51 +1,51 @@
 # 管理前端与 Agent 工作台
 
-`frontend/console-vue/` 是当前标准管理入口。根路由进入短链接管理，两个 Agent 作为登录后的独立入口与短链接管理并列。
+`frontend/console-vue/` 是标准管理入口。木星中继站的新主题由 `src/main.js` 启动 `src/relay/App.vue`，使用同一套 Vue/Vite 构建；设计原型在 `doc/design/relay-preview` 归档。
 
-## 请求链路
+## 请求与认证
 
 ```text
 Browser -> Nginx /api -> APISIX (management host) -> Admin
-                                                \-> Command / Analytics API / Agent Service
+                                                -> Command / Analytics API / Agent Service
 ```
 
-前端只访问同源 `/api`。Axios 统一注入现有登录态的 `Token` 与 `Username`；Agent chat body 只发送 `sessionId`、`agentType` 和 `message`。Admin 从已验证的 `UserContext` 构造可信主体，浏览器不能指定 Agent 的用户或内部服务身份。
+新的 `src/relay/api/http.js` 使用同源 Fetch，请求头是 `Username` 与 `Token`。它保留超出 JavaScript 安全整数范围的 ID、解包业务结果、处理 401 会话过期、取消与超时，并对流式文件下载单独处理。迟到的旧请求不能使新登录退出。
 
-主要路由：
+登录、注册后均查询真实初始化状态。只有 READY 且默认分组可见时进入工作台；刷新浏览器恢复 token 也需要重新核验。未就绪、初始化失败和状态不可确认有独立界面。退出登录清空用户数据和内存中的 Agent 会话、批量任务、风险命令。
 
-| 页面 | 路由 | 登录要求 |
-| --- | --- | --- |
-| 登录 / 注册 | `/login` | 否 |
-| 短链接管理 | `/home/space` | 是 |
-| 投放分析 Agent | `/home/agent/campaign-analysis` | 是 |
-| 安全风控 Agent | `/home/agent/security-risk` | 是 |
-| Agent 兼容入口 | `/home/agent`（重定向至投放分析） | 是 |
-| 个人信息 | `/home/account` | 是 |
+## 页面与行为
 
-Agent 工作台保留回答、洞察卡片、告警、风控动作、访问记录、Graph 执行轨迹和脱敏调试数据。两类 Agent 使用独立会话，路由切换会清除旧结果，请求期间会锁定会话和 Agent 选择，避免迟到响应串入另一条链路。风控动作按待人工确认、已执行和部分未生效分别展示。
+| 页面 | 路由 |
+| --- | --- |
+| 登录 / 注册 | `/login` / `/register` |
+| 短链管理 / 回收站 | `/home/space` / `/home/recycleBin` |
+| 访问统计 / 风险中心 | `/home/analytics` / `/home/risk-center` |
+| 投放分析 Agent | `/home/agent/campaign-analysis` |
+| 安全风控 Agent | `/home/agent/security-risk` |
+| 账户中心 | `/home/account` |
 
-健康入口只表示 Agent 服务可达，不代表 Graph、Analytics 或 LLM 分别就绪。未配置 `LLM_API_KEY` 时，实际对话会显示后端返回的配置错误，不能视为模型联调成功。当前双 Agent 验收结果见[2026-09-13 UAT 报告](../integration/dual-agent-console-uat-2026-09-13/README.md)。
+短链管理使用服务端分组、分页和排序。创建请求保留幂等 requestId；修改、回收和恢复回传实际 routeVersion，不伪造默认版本。2–500 行批量请求同步返回，501–50,000 行返回异步任务，前端继续轮询并以行游标查询结果。8 MiB 限制按实际 UTF-8 请求体计算，结果导出来自后端，未知创建结果保留原请求进行核实。
 
-当前本地 LLM 使用官方 `https://api.deepseek.com` 和模型 `deepseek-flash`，密钥通过被 Git 忽略的本地环境文件注入 Agent 服务；解释节点默认关闭 thinking，空回答或截断不会作为正常模型结果返回。真实统计、双 Agent 和后台分析结果见[业务链路补验](../integration/dual-agent-console-uat-2026-09-13/business-unblock-followup.md)。Agent 对话采用独立等待预算：模型读取 30 秒、Admin `agent-chat` 45 秒、APISIX 精确对话路由 50 秒；普通管理和短链跳转仍使用各自原有预算。
+统计最多查询 7 天和 500 条授权短链。累计覆盖未知、采集部分完整、近似 UV/UIP、地域未知、运营商解析和保留历史范围均保留服务端口径。访问记录后续页固定 snapshotId 与 cursor，失效后重新读取，不能把不同快照拼接。未返回的数字显示「—」，不填充演示值。
 
-## 构建与代理
+两个 Agent 只提交 sessionId、agentType、message，服务端决定可信主体与工具权限。同一登录期间两类会话独立保存在内存，页面切换后可以回看；请求运行期间锁定导航，超时或离开后的旧结果不能串入其他会话。页面展示真实回答、证据、工具记录和 Graph 轨迹；健康入口仅表示 HTTP 可达。
 
-```bash
+风险中心分别展示人工审核、当前策略和停用命令状态。UNKNOWN 不视为成功；结果未知时继续查询原 commandId，不重复提交停用动作。COMMITTED 与传播确认分别展示。策略总数或覆盖未提供时保留未知。
+
+## 构建与部署
+
+```sh
 cd frontend/console-vue
 npm ci
+npm run test
 npm run lint
 npm run build
 ```
 
-开发服务器把 `/api` 代理到 `http://127.0.0.1:19080`，并将 Host 设置为 `admin.local.test` 进入 APISIX 管理路由。部署静态产物时，Nginx 需要：
+Windows 必要时使用 `npm.cmd`。Vite 开发代理转发 `/api` 至 `127.0.0.1:19080` 并设置管理 Host `admin.local.test`。生产构建将 `dist/` 挂载给 Nginx，配置见 [Nginx 示例](../../frontend/console-vue/deploy/nginx.conf) 与 [部署说明](../../frontend/console-vue/deploy/README.md)。Nginx 处理 SPA fallback、静态资源缓存、8 MiB 外层请求上限和 Agent 专用等待预算；请求日志不记录 query 参数，避免旧 logout 接口的 token 落入访问日志。
 
-1. 为未知页面路径回退 `index.html`；
-2. 为 JavaScript、CSS 等资源返回正确 MIME；
-3. 将 `/api/` 转发到 APISIX，并设置部署环境认可的管理 Host；
-4. 不直接暴露 Admin、Command 或 Agent Service 的业务端口。
+创建不在前端指定域名，仍由 Command 统一分配。本地历史地址没有协议且 APISIX 端口只提供 HTTP 时，可以在忽略的 `.env.local` 配置 `VITE_SHORTLINK_PUBLIC_ORIGIN=http://localhost:19080`；仅对 host 完全相同的地址应用协议。生产构建使用实际 HTTPS origin，不得携带本地 override 或任何密钥。
 
-短链域名不在前端硬编码。创建请求将 `domain` 留空，由 Command 的 `shortlink.default-domain` 和允许域名集合统一决定；前端只负责展示服务端返回的地址。
-
-`services/admin/.../static/agent-admin/` 与 `services/agent-service/.../static/agent-console/` 是早期联调页，保留用于兼容既有后端静态资源测试，不再作为用户入口。
+2026-09-14 的真实联调证据归档在 [Relay 联调目录](../integration/relay-console-2026-09-14/)。原型的模拟交互检查不能代替该验收。
 
 [返回开发入口](repository-layout.md) · [返回文档目录](../README.md)
