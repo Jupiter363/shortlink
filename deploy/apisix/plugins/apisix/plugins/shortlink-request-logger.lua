@@ -495,9 +495,16 @@ local function send_item(slot, item)
   end
   return false
 end
+-- Cache only immutable prefix facts. The clock/deadline checks stay live.
+-- Keep one worker-local cache, with no allocation per readiness check.
+local ready_cache_head, ready_cache_conf, ready_cache_batch_size, ready_cache_byte_limit
+local ready_cache_next, ready_cache_last, ready_cache_items, ready_cache_bytes
 local function ready_head(now)
   local item=queue[head]
-  if not item then return false end
+  if not item then
+    ready_cache_head=nil;ready_cache_conf=nil;ready_cache_last=nil
+    return false
+  end
   local conf=item.conf
   local linger=conf.send_linger_ms or 0
   local batch_size=conf.send_batch_size or 1
@@ -508,16 +515,28 @@ local function ready_head(now)
   -- wakeup. Timers cannot be cancelled; send this prefix early rather than
   -- creating a second future timer or extending the new configuration's wait.
   if linger_wakeup and linger_wakeup.deadline>deadline then return true,nil,"configuration" end
-  local batch_bytes,items=0,0
   local byte_limit=conf.send_batch_bytes or 65536
-  for index=head,math.min(tail,head+batch_size-1) do
+  if ready_cache_head~=item or ready_cache_conf~=conf
+     or ready_cache_batch_size~=batch_size or ready_cache_byte_limit~=byte_limit
+     or (ready_cache_items>0 and
+         (ready_cache_next-1>tail or queue[ready_cache_next-1]~=ready_cache_last)) then
+    ready_cache_head=item;ready_cache_conf=conf
+    ready_cache_batch_size=batch_size;ready_cache_byte_limit=byte_limit
+    ready_cache_next=head;ready_cache_last=nil;ready_cache_items=0;ready_cache_bytes=0
+  end
+  -- Readiness can be checked twice before a reserved callback claims this head.
+  if ready_cache_items>=batch_size then return true,nil,"count" end
+  if ready_cache_bytes>=byte_limit then return true,nil,"bytes" end
+  for index=ready_cache_next,math.min(tail,head+batch_size-1) do
     local candidate=queue[index]
-    -- A closed prefix cannot be enlarged by waiting for later admissions.
+    -- Do not cache a closing boundary: admission can roll back that new tail
+    -- when timer creation fails. Re-check the excluded candidate next time.
     if candidate.conf~=conf then return true,nil,"configuration" end
-    if batch_bytes+candidate.size>byte_limit then return true,nil,"bytes" end
-    batch_bytes=batch_bytes+candidate.size;items=items+1
-    if items>=batch_size then return true,nil,"count" end
-    if batch_bytes>=byte_limit then return true,nil,"bytes" end
+    if ready_cache_bytes+candidate.size>byte_limit then return true,nil,"bytes" end
+    ready_cache_bytes=ready_cache_bytes+candidate.size;ready_cache_items=ready_cache_items+1
+    ready_cache_next=index+1;ready_cache_last=candidate
+    if ready_cache_items>=batch_size then return true,nil,"count" end
+    if ready_cache_bytes>=byte_limit then return true,nil,"bytes" end
   end
   return false,deadline
 end
