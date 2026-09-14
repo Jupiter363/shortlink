@@ -1,0 +1,281 @@
+{
+  "time": "2026-09-14T14:10:51.869Z",
+  "entry": "http://127.0.0.1:5174",
+  "scope": "Dedicated UAT session only; no Jupiter logout, password changes, or Agent calls.",
+  "checks": [
+    {
+      "name": "Dedicated account logs in through the real initialization path",
+      "passed": true,
+      "evidenceType": "REAL_HTTP"
+    },
+    {
+      "name": "Account logout click sends an actual DELETE request",
+      "passed": true,
+      "evidenceType": "REAL_HTTP"
+    },
+    {
+      "name": "Logout URL contains neither query parameters nor token",
+      "passed": true,
+      "evidenceType": "REAL_HTTP",
+      "details": {
+        "method": "DELETE",
+        "url": "http://127.0.0.1:5174/api/short-link/admin/v1/user/logout",
+        "queryPresent": false,
+        "tokenInQuery": false
+      }
+    },
+    {
+      "name": "Actual logout endpoint responds HTTP 200",
+      "passed": true,
+      "evidenceType": "REAL_HTTP",
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "name": "Logout routes to login and removes locally stored session",
+      "passed": true,
+      "evidenceType": "REAL_UI"
+    },
+    {
+      "name": "The original token is rejected by the group API",
+      "passed": true,
+      "evidenceType": "REAL_HTTP",
+      "details": {
+        "status": 401
+      }
+    },
+    {
+      "name": "Re-login remains usable after real server logout",
+      "passed": true,
+      "evidenceType": "REAL_HTTP"
+    },
+    {
+      "name": "Source group genuinely loads its count and coverage before injection",
+      "passed": true,
+      "evidenceType": "REAL_HTTP",
+      "details": {
+        "heading": "Relay 联调验收 · 1 条短链",
+        "coverage": "累计指标覆盖状态：LIFECYCLE_COVERAGE_UNKNOWN。未返回或尚未确认的数据以「—」显示。",
+        "rows": 1
+      }
+    },
+    {
+      "name": "Injected target-group failure displays unknown count instead of old count",
+      "passed": true,
+      "evidenceType": "FAULT_INJECTION",
+      "details": {
+        "heading": "Product batch 346322 · — 条短链",
+        "coverageVisible": false,
+        "rows": 0
+      }
+    },
+    {
+      "name": "Injected target-group failure clears the old coverage disclosure and rows",
+      "passed": true,
+      "evidenceType": "FAULT_INJECTION"
+    },
+    {
+      "name": "CDP injection was applied to exactly the intended next page read",
+      "passed": true,
+      "evidenceType": "FAULT_INJECTION",
+      "details": {
+        "requests": 1,
+        "status": 503
+      }
+    },
+    {
+      "name": "390px failure view stays within the viewport",
+      "passed": true,
+      "evidenceType": "FAULT_INJECTION"
+    },
+    {
+      "name": "Removing the injection and clicking refresh restores the target count",
+      "passed": true,
+      "evidenceType": "REAL_HTTP",
+      "details": {
+        "heading": "Product batch 346322 · 14 条短链",
+        "rows": 10,
+        "disclosure": "累计指标覆盖状态：LIFECYCLE_COVERAGE_UNKNOWN。未返回或尚未确认的数据以「—」显示。"
+      }
+    },
+    {
+      "name": "The recovery page response is a real HTTP 200",
+      "passed": true,
+      "evidenceType": "REAL_HTTP",
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "name": "No uncaught application exceptions occurred",
+      "passed": true,
+      "evidenceType": "BROWSER_RUNTIME"
+    }
+  ],
+  "requests": [
+    {
+      "method": "DELETE",
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/user/logout",
+      "queryPresent": false,
+      "tokenInQuery": false,
+      "status": 200,
+      "source": "Account UI click"
+    },
+    {
+      "method": "GET",
+      "path": "/api/short-link/admin/v1/group",
+      "status": 401,
+      "source": "Read-only original-token revocation verification; headers not retained in report"
+    }
+  ],
+  "screenshots": [
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\logout-scope-logout-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\logout-scope-source-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\logout-scope-failure-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\logout-scope-failure-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\logout-scope-recovered-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\logout-scope-recovered-1280.png"
+  ],
+  "faultInjection": {
+    "type": "Isolated CDP Fetch.fulfillRequest",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 503,
+    "requests": 1
+  },
+  "limitations": [
+    "The scoped 503 is deliberately injected, not evidence of an actual backend outage.",
+    "Only the requested logout and scope failure regressions were run."
+  ],
+  "finalStatus": "PASS",
+  "browserClosed": true,
+  "visualReview": {
+    "state": "FIXED_VERIFIED",
+    "viewport": 390,
+    "finding": "The mobile scope button clips both the group-name prefix and part of the count label. DOM scope/reset assertions pass, but text is not fully visible.",
+    "source": "frontend/console-vue/src/relay/styles.css .scope-trigger max-width with centered button content",
+    "screenshot": "screenshots/logout-scope-failure-390.png",
+    "owner": "root",
+    "screenshots": [
+      "doc/integration/relay-console-2026-09-14/screenshots/logout-scope-layout-failure-390.png",
+      "doc/integration/relay-console-2026-09-14/screenshots/logout-scope-layout-recovered-390.png"
+    ]
+  },
+  "visualRetest": {
+    "time": "2026-09-14T14:14:17.780Z",
+    "entry": "http://127.0.0.1:5174",
+    "scope": "Dedicated UAT session only; no Jupiter logout, password changes, or Agent calls.",
+    "checks": [
+      {
+        "name": "Dedicated account logs in through the real initialization path",
+        "passed": true,
+        "evidenceType": "REAL_HTTP"
+      },
+      {
+        "name": "Source group genuinely loads its count and coverage before injection",
+        "passed": true,
+        "evidenceType": "REAL_HTTP",
+        "details": {
+          "heading": "Relay 联调验收 · 1 条短链",
+          "coverage": "累计指标覆盖状态：LIFECYCLE_COVERAGE_UNKNOWN。未返回或尚未确认的数据以「—」显示。",
+          "rows": 1
+        }
+      },
+      {
+        "name": "Injected target-group failure displays unknown count instead of old count",
+        "passed": true,
+        "evidenceType": "FAULT_INJECTION",
+        "details": {
+          "heading": "Product batch 346322 · — 条短链",
+          "coverageVisible": false,
+          "rows": 0
+        }
+      },
+      {
+        "name": "Injected target-group failure clears the old coverage disclosure and rows",
+        "passed": true,
+        "evidenceType": "FAULT_INJECTION"
+      },
+      {
+        "name": "CDP injection was applied to exactly the intended next page read",
+        "passed": true,
+        "evidenceType": "FAULT_INJECTION",
+        "details": {
+          "requests": 1,
+          "status": 503
+        }
+      },
+      {
+        "name": "390px failed-scope full text fits its button without clipping",
+        "passed": true,
+        "evidenceType": "REAL_LAYOUT_WITH_FAULT_INJECTION",
+        "details": {
+          "text": "Product batch 346322 · — 条短链",
+          "buttonClientWidth": 356,
+          "buttonScrollWidth": 356,
+          "labelClientWidth": 245,
+          "labelScrollWidth": 245,
+          "rangeWithinButton": true
+        }
+      },
+      {
+        "name": "390px failure view stays within the viewport",
+        "passed": true,
+        "evidenceType": "FAULT_INJECTION"
+      },
+      {
+        "name": "Removing the injection and clicking refresh restores the target count",
+        "passed": true,
+        "evidenceType": "REAL_HTTP",
+        "details": {
+          "heading": "Product batch 346322 · 14 条短链",
+          "rows": 10,
+          "disclosure": "累计指标覆盖状态：LIFECYCLE_COVERAGE_UNKNOWN。未返回或尚未确认的数据以「—」显示。"
+        }
+      },
+      {
+        "name": "The recovery page response is a real HTTP 200",
+        "passed": true,
+        "evidenceType": "REAL_HTTP",
+        "details": {
+          "status": 200
+        }
+      },
+      {
+        "name": "390px recovered-scope full text fits its button without clipping",
+        "passed": true,
+        "evidenceType": "REAL_LAYOUT",
+        "details": {
+          "text": "Product batch 346322 · 14 条短链",
+          "buttonClientWidth": 341,
+          "buttonScrollWidth": 341,
+          "labelClientWidth": 248,
+          "labelScrollWidth": 248,
+          "rangeWithinButton": true
+        }
+      },
+      {
+        "name": "No uncaught application exceptions occurred",
+        "passed": true,
+        "evidenceType": "BROWSER_RUNTIME"
+      }
+    ],
+    "requests": [],
+    "screenshots": [
+      "doc/integration/relay-console-2026-09-14/screenshots/logout-scope-layout-failure-390.png",
+      "doc/integration/relay-console-2026-09-14/screenshots/logout-scope-layout-recovered-390.png"
+    ],
+    "faultInjection": {
+      "type": "Isolated CDP Fetch.fulfillRequest",
+      "path": "/api/short-link/admin/v1/page",
+      "status": 503,
+      "requests": 1
+    },
+    "limitations": [
+      "The scoped 503 is deliberately injected, not evidence of an actual backend outage.",
+      "Only the requested logout and scope failure regressions were run."
+    ],
+    "finalStatus": "PASS",
+    "browserClosed": true
+  }
+}
