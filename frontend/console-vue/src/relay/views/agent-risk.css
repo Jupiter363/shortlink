@@ -1,12 +1,23 @@
-.ar-view {
-  display: grid;
-  gap: 24px;
+.ar-view.operation-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   color: var(--text, #182847);
   font-size: 14px;
   line-height: 1.65;
   min-width: 0;
 }
-.ar-view h1,
+.ar-view .r-button {
+  max-width: 100%;
+}
+.ar-view .r-button__label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ar-view :is(.ar-composer, .ar-output, .operation-body):focus-visible {
+  outline: 2px solid var(--blue, #285fee);
+  outline-offset: -2px;
+}
 .ar-view h2,
 .ar-view h3,
 .ar-view h4,
@@ -17,11 +28,6 @@
   line-height: 1.35;
   margin: 0 0 10px;
   overflow-wrap: anywhere;
-}
-.ar-view h1 {
-  font-size: clamp(25px, 2.3vw, 36px);
-  font-weight: 800;
-  letter-spacing: -0.025em;
 }
 .ar-view h2,
 .ar-detail h2 {
@@ -44,7 +50,6 @@
 .ar-view p + p {
   margin-top: 10px;
 }
-.ar-page-head,
 .ar-section-head,
 .ar-risk-card > header {
   display: flex;
@@ -52,22 +57,8 @@
   align-items: center;
   gap: 18px;
 }
-.ar-page-head {
-  align-items: flex-start;
-}
-.ar-page-head > div:first-child {
-  flex: 1;
-}
-.ar-page-head p:not(.ar-kicker),
 .ar-section-head p {
   color: var(--muted, #596b89);
-}
-.ar-kicker {
-  color: var(--blue, #285fee);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  margin-bottom: 10px !important;
 }
 .ar-actions {
   display: flex;
@@ -91,33 +82,55 @@
   background: var(--sky, #dff2ff);
   color: var(--text, #182847);
   font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.ar-agent-body.operation-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+.ar-pane-switch.view-switch {
+  display: none;
 }
 .ar-agent-layout {
   display: grid;
   grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
   align-items: start;
-  gap: 24px;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 3px 4px 4px 0;
 }
-.ar-composer {
-  display: grid;
-  gap: 16px;
-  position: sticky;
-  top: 24px;
+.ar-panel.ar-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  max-height: 100%;
+  padding: 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
   border-color: var(--text, #182847);
   box-shadow: 3px 3px 0 var(--text, #182847);
+}
+.ar-composer > * {
+  flex-shrink: 0;
 }
 .ar-identity {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: -8px -8px 4px;
+  gap: 10px;
+  min-height: 48px;
 }
 .ar-identity > div {
   min-width: 0;
 }
 .ar-identity p {
   font-size: 12px;
-  margin-top: 8px;
+  margin-top: 0;
   color: var(--muted, #596b89);
 }
 .ar-caption,
@@ -128,7 +141,43 @@
 }
 .ar-count {
   text-align: right;
-  margin-top: -10px !important;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ar-composer .ar-inline-scope {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.ar-composer .ar-inline-scope .r-form-field__label {
+  font-size: 13px;
+}
+.ar-composer .ar-inline-scope .r-input {
+  min-height: 40px;
+  padding: 8px 28px 8px 10px;
+}
+.ar-composer .r-textarea {
+  min-height: 108px;
+  height: 108px;
+  resize: vertical;
+}
+.ar-submit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ar-composer .ar-assistance {
+  margin-top: 0;
+  padding: 4px 0 0;
+}
+.ar-assistance > .ar-actions {
+  margin-top: 10px;
+}
+.ar-assistance > code {
+  display: block;
+  margin-top: 4px;
 }
 .ar-presets {
   display: grid;
@@ -137,21 +186,138 @@
 .ar-presets .r-button {
   justify-content: flex-start;
   text-align: left;
+  min-width: 0;
 }
 .ar-output {
-  display: grid;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  padding: 1px 3px 4px 1px;
+}
+.ar-output > * {
+  flex-shrink: 0;
+}
+.ar-output > .ar-result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1px;
+}
+.ar-result-content > * {
+  flex: none;
+}
+.ar-section-switch > .r-button {
+  box-shadow: none;
+}
+.ar-result-content > .ar-panel {
+  padding: 20px;
 }
 .ar-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 52px 28px;
+  gap: 12px;
+  padding: 24px;
   text-align: center;
-  min-height: 340px;
+  min-height: 250px;
+}
+.ar-result-content .ar-result-error {
+  min-height: 0;
+  align-items: flex-start;
+  text-align: left;
+}
+.ar-result-content .ar-suggestions {
+  align-items: stretch;
+  gap: 18px;
+  text-align: left;
+  background: linear-gradient(145deg, #f3f8ff 0, #ffffff 70%);
+}
+.ar-suggestion-intro {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ar-suggestion-intro > .r-robot {
+  flex: none;
+}
+.ar-suggestion-intro > div {
+  min-width: 0;
+}
+.ar-suggestion-intro h2 {
+  margin-bottom: 8px;
+}
+.ar-suggestion-intro p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ar-prompt-options {
+  display: grid;
+  gap: 10px;
+}
+.ar-prompt-options > button {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+.ar-prompt-options > button:hover {
+  border-color: var(--blue);
+  background: var(--subtle);
+}
+.ar-prompt-options > button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.ar-prompt-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--sky);
+  color: var(--blue);
+}
+.ar-prompt-options > button:nth-child(2) .ar-prompt-icon {
+  background: #fff2c9;
+  color: #806013;
+}
+.ar-prompt-options > button:nth-child(3) .ar-prompt-icon {
+  background: #e7f5ef;
+  color: #237355;
+}
+.ar-icon-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ar-icon-heading .r-icon {
+  flex: none;
+  color: var(--blue);
+}
+.ar-risk-trend-panel {
+  background: linear-gradient(145deg, #f0f7ff 0, #ffffff 78%);
 }
 .ar-empty > p {
   max-width: 520px;
@@ -258,6 +424,10 @@
   border-bottom: 1px solid var(--line, #d5dfed);
   align-items: start;
 }
+.ar-timeline li > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .ar-step {
   width: 32px;
   height: 32px;
@@ -295,6 +465,7 @@
   width: 100%;
   overflow-x: auto;
   margin-top: 16px;
+  overscroll-behavior-x: contain;
 }
 .ar-table-scroll table {
   width: 100%;
@@ -331,19 +502,85 @@
 }
 .ar-risk-summary {
   display: grid;
-  gap: 20px;
+  gap: 14px;
   background: linear-gradient(120deg, #fff9e6 0, #fff 60%);
+}
+.ar-risk-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px 4px 4px 1px;
+}
+.ar-risk-body > * {
+  flex-shrink: 0;
+}
+.ar-risk-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) auto;
+  justify-content: start;
+  align-items: end;
+}
+.ar-risk-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+.ar-risk-filters .r-form-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+.ar-risk-filters .r-input {
+  min-height: 42px;
+  padding: 8px 28px 8px 10px;
+}
+.ar-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.ar-overview-grid > .ar-panel {
+  padding: 18px;
+}
+.ar-risk-context.ar-details {
+  margin-top: 0;
+  padding: 4px 0 0;
+}
+.ar-risk-summary .ar-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.ar-risk-summary .ar-metrics > div {
+  padding: 10px;
+}
+.ar-risk-summary .ar-metrics strong {
+  font-size: 24px;
+  margin-top: 2px;
+}
+.ar-risk-filters .r-form-field {
+  min-width: 0;
 }
 .ar-risk-hero {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
 }
 .ar-risk-hero h2 {
-  margin-top: 10px;
+  margin: 4px 0;
+  font-size: 18px;
+}
+.ar-risk-hero > div {
+  min-width: 0;
+}
+.ar-risk-hero > svg {
+  flex-shrink: 0;
 }
 .ar-score {
-  font-size: 30px;
+  font-size: 24px;
   font-variant-numeric: tabular-nums;
   margin-left: 8px;
 }
@@ -371,28 +608,28 @@
 }
 .ar-trend {
   display: flex;
-  gap: 14px;
+  gap: 6px;
   justify-content: space-around;
-  margin: 24px 0;
+  margin: 16px 0 8px;
   overflow-x: auto;
   padding-bottom: 6px;
 }
 .ar-trend > div {
-  min-width: 72px;
+  min-width: 30px;
   flex: 1;
   display: grid;
   text-align: center;
   gap: 6px;
 }
 .ar-trend-track {
-  height: 110px;
+  height: 90px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   border-bottom: 1px solid var(--line, #d5dfed);
 }
 .ar-trend-track span {
-  width: 32px;
+  width: 24px;
   min-height: 2px;
   border-radius: 7px 7px 0 0;
   background: var(--blue, #285fee);
@@ -401,6 +638,7 @@
 .ar-trend small {
   font-size: 11px;
   color: var(--muted, #596b89);
+  overflow-wrap: anywhere;
 }
 .ar-risk-grid {
   display: grid;
@@ -480,6 +718,9 @@
 .ar-command p {
   margin-top: 8px;
 }
+.ar-command small {
+  overflow-wrap: anywhere;
+}
 .ar-pagination {
   display: flex;
   align-items: center;
@@ -519,16 +760,43 @@
   .ar-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .ar-page-head {
-    flex-wrap: wrap;
-  }
 }
 @media (max-width: 900px) {
-  .ar-agent-layout {
-    grid-template-columns: 1fr;
+  .ar-agent-body.operation-body {
+    overflow: auto;
   }
-  .ar-composer {
-    position: static;
+  .ar-pane-switch.view-switch {
+    display: grid;
+  }
+  .ar-pane-switch > .r-button {
+    box-shadow: none;
+  }
+  .ar-agent-layout {
+    display: block;
+    overflow: visible;
+    flex: none;
+  }
+  .ar-agent-layout > :is(.ar-composer, .ar-output) {
+    display: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
+    height: auto;
+    max-height: none;
+  }
+  .ar-agent-layout > .ar-pane-active {
+    display: flex;
+  }
+  .ar-output > .ar-result-content {
+    overflow: visible;
+    flex: none;
+  }
+  .ar-risk-controls {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .ar-overview-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
   .ar-identity {
     max-width: 420px;
@@ -536,20 +804,43 @@
   .ar-risk-grid {
     grid-template-columns: 1fr;
   }
-  .ar-page-head {
-    flex-direction: column;
-  }
-  .ar-page-head > .ar-actions {
-    width: 100%;
-  }
 }
 @media (max-width: 560px) {
-  .ar-view {
-    gap: 18px;
+  .ar-view.operation-page {
+    gap: 12px;
+  }
+  .ar-risk-switch.view-switch > button {
+    padding-inline: 4px;
+    font-size: 12px;
   }
   .ar-panel {
     padding: 18px;
     border-radius: 16px;
+  }
+  .ar-result-content .ar-suggestions {
+    padding: 18px;
+    gap: 14px;
+  }
+  .ar-suggestion-intro {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .ar-suggestion-intro > .r-robot {
+    width: 44px;
+    height: 44px;
+  }
+  .ar-suggestion-intro h2 {
+    font-size: 18px;
+  }
+  .ar-prompt-options > button {
+    grid-template-columns: 30px minmax(0, 1fr) 14px;
+    gap: 8px;
+    padding: 10px;
+    font-size: 13px;
+  }
+  .ar-prompt-icon {
+    width: 30px;
+    height: 30px;
   }
   .ar-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -573,6 +864,82 @@
   .ar-risk-hero {
     gap: 8px;
   }
+  .ar-risk-hero > svg {
+    width: 48px;
+    height: 48px;
+  }
+  .ar-risk-hero h2 {
+    font-size: 18px;
+  }
+  .ar-overview-grid > .ar-panel {
+    padding: 14px;
+  }
+  .ar-risk-summary {
+    gap: 10px;
+  }
+  .ar-risk-hero > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 8px;
+    flex: 1;
+  }
+  .ar-risk-hero > div > .r-badge {
+    grid-column: 1 / -1;
+  }
+  .ar-risk-hero h2 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+  .ar-risk-hero > div > p {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .ar-risk-hero .ar-score {
+    font-size: 24px;
+    line-height: 1.15;
+    margin-left: 4px;
+  }
+  .ar-risk-summary .ar-metrics span {
+    font-size: 12px;
+    line-height: 16px;
+    min-height: 32px;
+  }
+  .ar-risk-summary .ar-metrics strong {
+    line-height: 1.15;
+  }
+  .ar-risk-trend-panel h2 {
+    font-size: 18px;
+    line-height: 24px;
+    margin-bottom: 6px;
+  }
+  .ar-risk-trend-panel .ar-section-head p {
+    font-size: 12px;
+    line-height: 18px;
+  }
+  .ar-risk-trend-panel .ar-trend {
+    gap: 4px;
+    margin: 10px 0 0;
+    padding-bottom: 0;
+  }
+  .ar-risk-trend-panel .ar-trend > div {
+    gap: 4px;
+  }
+  .ar-risk-trend-panel .ar-trend-track {
+    height: 80px;
+  }
+  .ar-risk-trend-panel .ar-trend time,
+  .ar-risk-trend-panel .ar-trend small {
+    line-height: 14px;
+  }
+  .ar-risk-filters .r-form-field {
+    min-width: 0;
+  }
+  .ar-risk-filters > .r-button {
+    min-width: 64px;
+    padding-inline: 12px;
+  }
   .ar-empty {
     padding: 32px 18px;
   }
@@ -586,11 +953,70 @@
     flex: 1;
     min-width: 150px;
   }
+  .ar-actions.ar-risk-filters .r-form-field {
+    min-width: 0;
+  }
   .ar-risk-card {
     padding: 16px;
   }
+  .ar-risk-card > header h3 {
+    min-width: 0;
+  }
   .ar-graph {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-height: 700px) {
+  .ar-view.operation-page {
+    gap: 12px;
+  }
+}
+@media (min-width: 901px) and (min-height: 701px) {
+  .ar-agent-layout {
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: 24px;
+  }
+  .ar-panel.ar-composer {
+    padding: 22px;
+    gap: 12px;
+  }
+  .ar-output {
+    height: auto;
+    max-height: 100%;
+  }
+  .ar-output > .ar-result-content {
+    flex: 0 1 auto;
+  }
+  .ar-output.ar-output-intro {
+    height: min(100%, 460px);
+  }
+  .ar-output-intro > .ar-result-content {
+    flex: 1;
+  }
+  .ar-output-intro .ar-empty {
+    flex: 1 0 auto;
+    min-height: 0;
+    padding: 32px;
+  }
+  .ar-risk-body > .ar-overview-grid {
+    margin-block: auto;
+  }
+  .ar-overview-grid {
+    gap: 20px;
+    align-items: center;
+  }
+  .ar-overview-grid > .ar-panel {
+    padding: 24px;
+  }
+  .ar-risk-summary .ar-metrics {
+    gap: 10px;
+  }
+  .ar-risk-summary .ar-metrics > div {
+    padding: 12px;
+  }
+  .ar-risk-trend-panel .ar-trend-track {
+    height: 110px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

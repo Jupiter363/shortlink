@@ -1,0 +1,366 @@
+{
+  "capturedAt": "2026-09-14T17:01:26.286Z",
+  "scope": "最终布局验收，真实页面 DOM 只读观测；超长内容允许内部滚动",
+  "observations": [
+    {
+      "document": [
+        320,
+        568
+      ],
+      "page": "/home/space",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            217,
+            280
+          ],
+          "name": "短链接列表",
+          "scroll": [
+            217,
+            310
+          ]
+        }
+      ],
+      "viewport": [
+        320,
+        568
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        390,
+        844
+      ],
+      "page": "/home/space",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            287,
+            592
+          ],
+          "name": "短链接列表",
+          "scroll": [
+            287,
+            592
+          ]
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        390,
+        844
+      ],
+      "page": "/home/analytics",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            287,
+            748
+          ],
+          "name": "访问统计内容",
+          "scroll": [
+            287,
+            748
+          ]
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        390,
+        844
+      ],
+      "page": "/home/risk-center",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            287,
+            638
+          ],
+          "name": "风险概览与事件",
+          "scroll": [
+            287,
+            638
+          ]
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        390,
+        844
+      ],
+      "page": "/home/agent/security-risk",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            282,
+            454
+          ],
+          "name": "提问设置",
+          "scroll": [
+            282,
+            454
+          ]
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1440,
+        900
+      ],
+      "page": "/home/agent/security-risk",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            358,
+            473
+          ],
+          "name": "提问设置",
+          "scroll": [
+            358,
+            473
+          ]
+        },
+        {
+          "client": [
+            723,
+            455
+          ],
+          "name": "当前分析内容",
+          "scroll": [
+            723,
+            455
+          ]
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1440,
+        900
+      ],
+      "page": "/home/agent/campaign-analysis",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            358,
+            440
+          ],
+          "name": "提问设置",
+          "scroll": [
+            358,
+            440
+          ]
+        },
+        {
+          "client": [
+            723,
+            455
+          ],
+          "name": "当前分析内容",
+          "scroll": [
+            723,
+            455
+          ]
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1440,
+        900
+      ],
+      "page": "/home/account",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            1115,
+            759
+          ],
+          "name": "账户资料与安全设置",
+          "scroll": [
+            1115,
+            759
+          ]
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1440,
+        900
+      ],
+      "page": "/home/analytics",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            1115,
+            759
+          ],
+          "name": "访问统计内容",
+          "scroll": [
+            1115,
+            759
+          ]
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1024,
+        600
+      ],
+      "page": "/home/analytics",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            882,
+            512
+          ],
+          "name": "访问统计内容",
+          "scroll": [
+            882,
+            512
+          ]
+        }
+      ],
+      "viewport": [
+        1024,
+        600
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1440,
+        900
+      ],
+      "page": "/home/risk-center",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            1115,
+            695
+          ],
+          "name": "风险概览与事件",
+          "scroll": [
+            1115,
+            695
+          ]
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1440,
+        900
+      ],
+      "page": "/home/recycleBin",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            1128,
+            685
+          ],
+          "name": "已回收短链接列表",
+          "scroll": [
+            1128,
+            685
+          ]
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ],
+      "label": "acceptance-final"
+    },
+    {
+      "document": [
+        1440,
+        900
+      ],
+      "page": "/home/space",
+      "pending": false,
+      "regions": [
+        {
+          "client": [
+            918,
+            618
+          ],
+          "name": "短链接列表",
+          "scroll": [
+            918,
+            618
+          ]
+        }
+      ],
+      "viewport": [
+        1440,
+        900
+      ],
+      "label": "acceptance-final"
+    }
+  ]
+}
