@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <title>木星中继站</title>
+  <circle cx="32" cy="32" r="26" fill="#FFD665"/>
+  <clipPath id="planet-disc">
+    <circle cx="32" cy="32" r="24.25"/>
+  </clipPath>
+  <g clip-path="url(#planet-disc)">
+    <path d="M4 18.5C18 14 43 15 60 20.5" stroke="#FFF7DD" stroke-width="7" stroke-linecap="round"/>
+    <path d="M3 28.5C19 24 44 25 61 31" stroke="#FFAB84" stroke-width="7" stroke-linecap="round"/>
+    <path d="M3 40C19 35.5 44 36.5 61 42.5" stroke="#FFF7DD" stroke-width="6.5" stroke-linecap="round"/>
+    <path d="M6 51C21 46 43 47 58 52" stroke="#F6A957" stroke-width="7" stroke-linecap="round"/>
+    <ellipse cx="43" cy="37" rx="6" ry="3.5" fill="#E45152" transform="rotate(-7 43 37)"/>
+    <path d="M15 10.5C23 8 32 8 39 9.5" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity=".82"/>
+  </g>
+</svg>

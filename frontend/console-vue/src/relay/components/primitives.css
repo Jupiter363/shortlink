@@ -465,10 +465,14 @@
   line-height: 0;
 }
 .r-brand__mark svg,
+.r-brand__mark img,
 .r-robot svg {
   display: block;
   width: 100%;
   height: 100%;
+}
+.r-brand__mark img {
+  object-fit: contain;
 }
 .r-brand__wordmark {
   display: flex;

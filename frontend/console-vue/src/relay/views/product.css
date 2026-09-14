@@ -25,13 +25,13 @@
 .auth-story::before {
   content: '';
   position: absolute;
-  width: 420px;
-  height: 420px;
+  width: 440px;
+  height: 440px;
   border-radius: 50%;
-  background: var(--yellow);
-  right: -190px;
-  top: 195px;
-  opacity: 0.86;
+  background: url('/jupiter-hero.svg') center / contain no-repeat;
+  right: -184px;
+  top: 174px;
+  opacity: 0.94;
 }
 .auth-story > :not(.auth-illustration) {
   z-index: 1;

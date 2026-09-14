@@ -29,9 +29,7 @@ watch(
     <template v-else>
       <aside class="sidebar">
         <button class="brand-link" aria-label="返回短链接工作区" @click="navigate('/home/space')">
-          <RBrand variant="small" :size="38" /><span
-            ><strong>JUPITER RELAY</strong><small>木星中继站</small></span
-          >
+          <RBrand variant="small" :show-text="true" :size="42" />
         </button>
         <nav aria-label="主导航">
           <button
@@ -62,15 +60,24 @@ watch(
       </aside>
       <div class="main-column">
         <header class="topbar">
-          <RIconButton
+          <button
             class="mobile-menu"
-            icon="browser"
-            label="打开导航"
+            type="button"
+            aria-label="打开工作台导航"
             @click="navOpen = true"
-          />
-          <div class="breadcrumb">木星中继站 <span>/</span> {{ title }}</div>
+          >
+            <RBrand variant="small" :size="32" />
+          </button>
+          <div class="topbar-context">
+            <span class="topbar-eyebrow">木星中继站</span>
+            <div class="breadcrumb" aria-label="当前位置">
+              <span class="breadcrumb-root">工作台</span>
+              <span class="breadcrumb-separator" aria-hidden="true">/</span>
+              <strong>{{ title }}</strong>
+            </div>
+          </div>
           <div class="topbar-actions">
-            <span class="local-badge">{{ state.session.username }}</span>
+            <span class="local-badge"><RIcon name="user" />{{ state.session.username }}</span>
           </div>
         </header>
         <main id="main-content" class="main-content" tabindex="-1">
