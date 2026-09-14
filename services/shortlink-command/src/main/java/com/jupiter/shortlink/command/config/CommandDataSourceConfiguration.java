@@ -29,8 +29,12 @@ public class CommandDataSourceConfiguration {
             @Value("${shortlink.database.url}") String url,
             @Value("${shortlink.database.username}") String username,
             @Value("${shortlink.database.password}") String password) {
+        return new HikariDataSource(physicalConfiguration(url, username, password));
+    }
+
+    static HikariConfig physicalConfiguration(String url, String username, String password) {
         HikariConfig c = new HikariConfig();
-        c.setJdbcUrl(url);
+        UtcJdbcConfiguration.apply(c, url);
         c.setUsername(username);
         c.setPassword(password);
         c.setMaximumPoolSize(16);
@@ -40,7 +44,7 @@ public class CommandDataSourceConfiguration {
         c.addDataSourceProperty("rewriteBatchedStatements", "true");
         c.addDataSourceProperty("connectTimeout", "1500");
         c.addDataSourceProperty("socketTimeout", "5000");
-        return new HikariDataSource(c);
+        return c;
     }
 
     @Bean
