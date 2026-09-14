@@ -14,6 +14,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public class LinkCommandController {
@@ -73,7 +74,8 @@ public class LinkCommandController {
     public record Lifecycle(String fullShortUrl, String gid, Long expectedVersion) {}
 
     @PostMapping("/api/short-link/v1/create")
-    public Result<LinkCommandService.Created> create(@RequestBody Create q, HttpServletRequest r) {
+    public CompletableFuture<Result<LinkCommandService.Created>> create(
+            @RequestBody Create q, HttpServletRequest r) {
         var p = auth.principal(r);
         String requestId = q.requestId() == null ? r.getHeader("Idempotency-Key") : q.requestId();
         var c =
@@ -85,7 +87,9 @@ public class LinkCommandController {
                         q.validDateType(),
                         q.validDate() == null ? null : q.validDate().getTime(),
                         q.describe());
-        return new Result<>("0", links.createMany(p, requestId, List.of(c)).get(0));
+        return com.jupiter.shortlink.command.membership.RoutePublication.map(
+                links.createManyAsync(p, requestId, List.of(c)),
+                created -> new Result<>("0", created.get(0)));
     }
 
     @PostMapping("/api/short-link/v1/update")

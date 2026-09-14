@@ -28,3 +28,17 @@ groups:
           severity: critical
         annotations:
           summary: 'Event lane {{ $labels.lane }} has terminal failure or rejected events'
+      - alert: ShortlinkMembershipCapacityExceeded
+        expr: sum by (instance) (rate(shortlink_redirect_membership_unknown_total{job="shortlink-redirect",reason="CAPACITY"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Bloom capacity is insufficient; requests are falling back to the original route lookup'
+      - alert: ShortlinkMembershipAuthorityUnavailable
+        expr: sum by (instance) (rate(shortlink_redirect_membership_unknown_total{job="shortlink-redirect",reason=~"AUTHORITY_UNAVAILABLE|LEASE_UNAVAILABLE|LEASE_EXPIRED|CATCHING_UP"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Bloom denial authority is persistently unavailable; inspect registry lag and the primary database'

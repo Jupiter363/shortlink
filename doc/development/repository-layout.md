@@ -1,10 +1,10 @@
 # 开发入口与仓库布局
 
-当前状态：**10 个 Maven 模块已按运行角色归入 `services/`、`libraries/`、`jobs/`，标准管理前端位于 `frontend/console-vue/`**。本指南记录现行开发入口；Java Gateway 已移除，APISIX 直接路由到 Admin / Redirect，职责见[单网关说明](single-gateway.md)。此前目录整理决策与验收要求见[仓库结构整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md)。
+当前状态：**11 个 Maven 模块已按运行角色归入 `services/`、`libraries/`、`jobs/`，标准管理前端位于 `frontend/console-vue/`**。本指南记录现行开发入口；Java Gateway 已移除，APISIX 直接路由到 Admin / Redirect，职责见[单网关说明](single-gateway.md)。此前目录整理决策与验收要求见[仓库结构整理计划](../plan/仓库结构整理/01-现状分析与整理计划.md)。
 
 ## 当前模块与职责
 
-根 `pom.xml` 是统一父 POM 和 reactor 入口，直接聚合 10 个叶子模块；三个分类目录不另设 POM。模块内部沿用 `src/main`、`src/test`、`src/main/resources` 和 `target`。
+根 `pom.xml` 是统一父 POM 和 reactor 入口，直接聚合 11 个叶子模块；三个分类目录不另设 POM。模块内部沿用 `src/main`、`src/test`、`src/main/resources` 和 `target`。
 
 | 类型 | 当前目录 | 稳定 artifactId | 职责 |
 | --- | --- | --- | --- |
@@ -17,10 +17,11 @@
 | 公共库 | `libraries/event-contract/` | `event-contract` | 共享事件与 sourceCut 契约 |
 | 公共库 | `libraries/id-generator/` | `id-generator` | Command 进程内使用的 Leaf Segment 来源适配 |
 | 公共库 | `libraries/risk-core/` | `risk-core` | 共享的确定性风控语义 |
+| 公共库 | `libraries/route-membership/` | `route-membership` | Command / Redirect 共用的地址登记、否定租约及基线维护 |
 | Flink 作业 | `jobs/analytics-flink/` | `analytics-flink` | Kafka / Flink / RocksDB 流式统计作业 |
 | Web 前端 | `frontend/console-vue/` | `shortlink-console` | 登录、短链接管理、访问统计与 Agent 工作台 |
 
-这是 **6 个 Spring 常驻服务、3 个公共库、1 个 Flink 作业**。APISIX 配置与插件属于 `deploy/apisix/`，不是 Java 模块；发号库不会单独启动 Leaf Server。旧 `project`、`aggregation` 不在当前 reactor 中，本机残留目录不代表仍有对应部署入口。
+这是 **6 个 Spring 常驻服务、4 个公共库、1 个 Flink 作业**。APISIX 配置与插件属于 `deploy/apisix/`，不是 Java 模块；发号库不会单独启动 Leaf Server。旧 `project`、`aggregation` 不在当前 reactor 中，本机残留目录不代表仍有对应部署入口。
 
 Vue 前端不加入 Maven reactor。它通过同源 `/api` 进入 APISIX，管理请求由 APISIX 直达 Admin；Agent 页面继续经 Admin 转发到 Agent Service，不直接访问内部服务。路由、身份边界和构建方式见[管理前端说明](frontend-console.md)。
 
@@ -96,7 +97,7 @@ shortlink/
 ├── deploy/         # 保持现有组件分区
 ├── scripts/        # 保持 integration / e2e / performance 层级
 ├── doc/            # 文档总层级
-├── pom.xml         # 仍为统一父 POM，直接聚合 10 个叶子模块
+├── pom.xml         # 仍为统一父 POM，直接聚合 11 个叶子模块
 └── README.md
 ```
 

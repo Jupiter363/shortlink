@@ -69,21 +69,62 @@ public class BatchWorker {
         BatchJobService.Lease lease = null;
         try {
             lease = jobs.claim(candidate.jobId(), owner);
-            if (lease != null) jobs.run(lease);
-        } catch (BatchJobService.StaleLeaseException ignored) {
-        } catch (Exception e) {
-            log.warn(
-                    "Batch worker failed for job {} ({})",
-                    candidate.jobId(),
-                    e.getClass().getSimpleName());
-            if (lease != null)
-                try {
-                    jobs.failed(lease, e);
-                } catch (Exception retryFailure) {
-                    log.warn("Batch failure persistence deferred for job {}", candidate.jobId());
-                }
-        } finally {
-            activeTenants.remove(candidate.tenantId());
+            if (lease == null) {
+                activeTenants.remove(candidate.tenantId());
+                return;
+            }
+            BatchJobService.Lease claimed = lease;
+            jobs.runAsync(claimed)
+                    .whenComplete(
+                            (ignored, failure) -> {
+                                if (failure == null) {
+                                    activeTenants.remove(candidate.tenantId());
+                                    return;
+                                }
+                                // Completion can originate on the deadline timer. Never run JDBC
+                                // there.
+                                try {
+                                    executor.execute(
+                                            () -> {
+                                                try {
+                                                    recordFailure(candidate, claimed, failure);
+                                                } finally {
+                                                    activeTenants.remove(candidate.tenantId());
+                                                }
+                                            });
+                                } catch (RejectedExecutionException unavailable) {
+                                    activeTenants.remove(candidate.tenantId());
+                                    log.warn(
+                                            "Batch failure deferred to lease recovery for job {}",
+                                            candidate.jobId());
+                                }
+                            });
+        } catch (Exception failure) {
+            try {
+                recordFailure(candidate, lease, failure);
+            } finally {
+                activeTenants.remove(candidate.tenantId());
+            }
+        }
+    }
+
+    private void recordFailure(
+            BatchJobService.Candidate candidate, BatchJobService.Lease lease, Throwable failure) {
+        while ((failure instanceof CompletionException || failure instanceof ExecutionException)
+                && failure.getCause() != null) failure = failure.getCause();
+        if (failure instanceof BatchJobService.StaleLeaseException) return;
+        log.warn(
+                "Batch worker failed for job {} ({})",
+                candidate.jobId(),
+                failure.getClass().getSimpleName());
+        if (lease != null) {
+            try {
+                jobs.failed(
+                        lease,
+                        failure instanceof Exception e ? e : new IllegalStateException(failure));
+            } catch (Exception retryFailure) {
+                log.warn("Batch failure persistence deferred for job {}", candidate.jobId());
+            }
         }
     }
 

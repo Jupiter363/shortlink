@@ -39,6 +39,28 @@ public class TenantQuotaService {
                         limits.tenantRows()));
     }
 
+    /** Reject already exhausted tenants before permanent ID/membership allocation. */
+    public void checkAvailable(long tenant, long rows) {
+        requirePositive(rows);
+        var current =
+                jdbc.queryForList(
+                        "SELECT used_rows,reserved_rows FROM t_tenant_quota WHERE tenant_id=?",
+                        tenant);
+        long remaining = limits.tenantRows();
+        if (!current.isEmpty()) {
+            long used = ((Number) current.get(0).get("used_rows")).longValue();
+            long reserved = ((Number) current.get(0).get("reserved_rows")).longValue();
+            if (used < 0 || reserved < 0 || used > remaining || reserved > remaining - used)
+                remaining = 0;
+            else remaining -= used + reserved;
+        }
+        if (remaining < rows)
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS, "Tenant quota exhausted");
+        // This read is an early rejection only. The original locked consume still authorizes
+        // the eventual transaction, including races with other creates and durable batches.
+    }
+
     public void releaseDeleted(long tenant) {
         require(
                 jdbc.update(

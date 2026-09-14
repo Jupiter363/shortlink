@@ -1,8 +1,10 @@
 package com.jupiter.shortlink.redirect.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jupiter.shortlink.membership.JdbcRouteMembershipStore;
 import com.jupiter.shortlink.redirect.cache.*;
 import com.jupiter.shortlink.redirect.event.*;
+import com.jupiter.shortlink.redirect.membership.*;
 import com.jupiter.shortlink.redirect.risk.*;
 import com.jupiter.shortlink.redirect.route.*;
 
@@ -12,6 +14,7 @@ import org.springframework.boot.actuate.health.*;
 import org.springframework.context.annotation.*;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import reactor.core.publisher.Mono;
@@ -19,6 +22,8 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Clock;
+
+import javax.sql.DataSource;
 
 @Configuration
 public class RedirectRuntimeConfiguration {
@@ -71,13 +76,35 @@ public class RedirectRuntimeConfiguration {
     }
 
     @Bean
+    LocalRouteMembership routeMembership(
+            DataSource dataSource,
+            PlatformTransactionManager transactions,
+            RouteMembershipProperties membership,
+            MeterRegistry meters) {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.setQueryTimeout(1);
+        return new LocalRouteMembership(
+                new JdbcRouteMembershipStore(jdbc, transactions), membership, meters);
+    }
+
+    @Bean
+    MembershipHintConsumer membershipHintConsumer(
+            LocalRouteMembership membership,
+            RouteMembershipProperties options,
+            RedirectProperties p,
+            KafkaTransportProperties transport) {
+        return new MembershipHintConsumer(membership, options, p, transport.properties());
+    }
+
+    @Bean
     RouteResolver routeResolver(
             RedisRouteCache redis,
             RouteAuthority authority,
             CacheGeneration generation,
             ClusterOriginBudget budget,
             Clock clock,
-            RedirectProperties p) {
+            RedirectProperties p,
+            LocalRouteMembership membership) {
         return new RouteResolver(
                 redis,
                 authority,
@@ -88,7 +115,8 @@ public class RedirectRuntimeConfiguration {
                 p.originConcurrency() * 2,
                 p.authorityTtlMillis(),
                 30000,
-                p.requestTimeoutMillis());
+                p.requestTimeoutMillis(),
+                membership);
     }
 
     @Bean

@@ -1,0 +1,615 @@
+{
+  "date": "2026-09-14",
+  "baseCommit": "c15e10d1f035f679f76346d6ba167ceadf038ee3",
+  "branch": "jupiter/feat-route-bloom",
+  "issue": "https://github.com/Jupiter363/shortlink/issues/15",
+  "java": "17",
+  "unit": [
+    {
+      "module": "libraries/event-contract",
+      "tests": 258,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.contract.EventContractTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.contract.EventEnricherGeoTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.contract.EventIdentityTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.contract.EventJsonUtf8Test",
+          "tests": 33,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.contract.geo.Ip2RegionGeoLookupTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.contract.geo.IpAddressPolicyTest",
+          "tests": 209,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.contract.KafkaSecurityTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "module": "libraries/id-generator",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.id.SegmentIdGeneratorTest",
+          "tests": 13,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.id.ShortCodeCodecTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.id.StepControllerTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "module": "libraries/risk-core",
+      "tests": 101,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.risk.IpAddressesTest",
+          "tests": 54,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.risk.RequestContextTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.risk.RiskEvaluatorTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.risk.RiskHashTest",
+          "tests": 33,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.risk.TrustedProxyResolverTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "module": "libraries/route-membership",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.membership.JdbcRouteMembershipStoreTest",
+          "tests": 19,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.membership.MembershipAdminMainTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.membership.RouteAddressTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "module": "services/shortlink-command",
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.command.api.CommittedCreateResultControllerTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.api.LinkCommandAsyncWireTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.api.LinkCommandControllerWireContractTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.batch.ImportParserTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.membership.RoutePublicationBusinessTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.membership.RoutePublicationCoordinatorTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.metadata.MetadataJobExecutionTest",
+          "tests": 14,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.metadata.MetadataJobServiceTest",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.metadata.MetadataRuntimeTest",
+          "tests": 19,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.metadata.SafeMetadataFetcherTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.metadata.SafeMetadataTransportTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.outbox.OutboxPublisherTest",
+          "tests": 20,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.security.RequestBoundaryTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "module": "services/shortlink-redirect",
+      "tests": 176,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.redirect.cache.RouteResolverTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.AsyncKafkaPublisherBudgetTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.AsyncKafkaPublisherDiagnosticsTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.AsyncKafkaPublisherObservationIsolationTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.AsyncKafkaPublisherSettlementTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.AsyncKafkaPublisherTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.AsyncKafkaPublisherUtf8Test",
+          "tests": 17,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.InvalidationBootstrapTest",
+          "tests": 18,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.event.KafkaClientSecurityTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.membership.LocalRouteMembershipTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.membership.MembershipHintConsumerTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.risk.PolicyResolverTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.RiskIpIdentityContractTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.BloomRedirectControllerTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.ProofBudgetRedirectTest",
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.RedirectControllerTest",
+          "tests": 13,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.RedirectFileDescriptorWarmupConfigurationTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.RedirectFileDescriptorWarmupTest",
+          "tests": 13,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 2
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.RedirectRequestTimingFilterTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.RedirectRoutingParityTest",
+          "tests": 25,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.web.SecureRequestIdsTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ]
+    }
+  ],
+  "integration": [
+    {
+      "module": "libraries/route-membership",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.membership.JdbcRouteMembershipMySqlIT",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "cases": [
+            "migrationRerunPreservesGenerationControlAndRegisteredAddresses",
+            "observerFailureRollsBackRegistrationAndItsOutboxInMysql",
+            "concurrentReadOnlyLeaseGrantsShareTheControlLockWhileRegistrationWaits",
+            "publicationFenceRemainsLockedUntilMysqlBusinessCommit",
+            "actualAdminStatusConnectsWithoutUnsupportedDatasourceApiAndConfirmsCatalog",
+            "registrationAndLeaseGrantSerializeOnTheSameMysqlControlRow",
+            "selectOnlyRedirectAccountCanLockControlReadRegistryAndAcquireLease",
+            "mysqlAddressCollationPreservesShortCodeCase"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "services/shortlink-command",
+      "tests": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.command.batch.BatchMetadataIntegrationTest",
+          "tests": 23,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "cases": [
+            "expiredUnstartedJobReleasesValidationBudgetAndGroupReference",
+            "synchronousBatchIsAtomicRealBatchAndReplayDoesNotAllocate",
+            "failedSynchronousChunkRollsBackRoutesDetailsQuotaAndOutbox",
+            "metadataLeaseTakeoverAndFinalFailureCannotOverwriteNewerWork",
+            "validCreateIntentWithDisallowedFetchPortReachesTerminalFailure",
+            "concurrentDuplicateAdmissionCountsOneJobAndValidationQuotaIsAtomic",
+            "fixedObjectChecksumMismatchCannotReserveQuotaOrIds",
+            "metadataDlqFailureRollsBackTheSamePollsValidJobsOnRealShardedJdbc",
+            "databaseLeaseExpiryAtTheFinalWriteRollsBackBothMetadataTables(boolean)[1]",
+            "databaseLeaseExpiryAtTheFinalWriteRollsBackBothMetadataTables(boolean)[2]",
+            "failedBusinessChunkRetainsIdentityAndTakeoverRejectsOldFence",
+            "membershipPublicationRetriesReservedIdentityThroughRealShardingSphere",
+            "invalidAsyncRowsHaveExplicitResultsAndNeverConsumeLinkQuota",
+            "validationPrecedesQuotaIdsAndWorkerCommitsDurableRows",
+            "cancelFencesWorkerAndReleasesOnlyUnconsumedQuota",
+            "accountDisabledAfterFetchClaimMakesMetadataObsoleteWithoutTouchingLinkData",
+            "expiredMetadataLeaseCannotCompleteOrRescheduleTheExistingJob",
+            "sameTargetMoveAndOldGroupDeletionResolveTheCurrentShardForMetadata",
+            "metadataTargetRevisionAndCurrentGroupPreventStaleOverwrite",
+            "oneBoundedMetadataPollPersistsMixedJobsAndDlqAndReplayIsIdempotent",
+            "permanentDeleteReleasesStockQuotaAndRetainsRouteTombstone",
+            "recycledLinkCannotReceiveAnEarlierMetadataResult",
+            "malformedMetadataInputHasDurableDeduplicatedRejection"
+          ]
+        },
+        {
+          "suite": "com.jupiter.shortlink.command.business.CommandBusinessIntegrationTest",
+          "tests": 19,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "cases": [
+            "repeatableReadSnapshotCannotPairNewPolicyRevisionWithOldAllowedFacts",
+            "nonOverlappingPolicyWindowsDenyAndManualRevocationAlwaysAdvancesRevision",
+            "groupMoveHandlesTwoGidsInTheSamePhysicalShardAndPreservesIdentity",
+            "currentAccountVersionRejectsRevokedPrincipalAndForeignTenant",
+            "outboxLeaseFencesLateAcksAndRecoversAfterProcessLoss",
+            "defaultGroupResultSurvivesRenameAndDeleteAndConcurrentRetry",
+            "lateEpochActivationAndEpochReuseCannotReopenAutomaticActions",
+            "expiryExactlyAtWindowBoundaryDoesNotHoldTheFollowingWindow",
+            "automaticRetryReturnsCommittedResultAfterEvidenceExpiresAndEpochChanges",
+            "creationTimePaginationDoesNotAssumeSegmentIdsAreChronological",
+            "restartWithDifferentShortCodeKeyCannotJoinExistingNamespace",
+            "delayedNaturalExpiryDoesNotReserveAnUnconsumedLaterWindow",
+            "revokingFutureRateRuleDoesNotHoldAnUnusedCurrentWindow",
+            "membershipPublicationUsesActualShardedTransactionAndAsyncCreation",
+            "rateWindowRemainsHeldAfterRevocationSeveralIntervalsLater",
+            "mutationDuringFrozenScopePaginationExpiresCursor",
+            "expiryReconcilesUnderAuthorityAndCannotTurnAnotherRestrictionOff",
+            "deletionCompetesWithCreationUnderSameAccountAndGroupLocks",
+            "naturalRateExpiryRetainsOnlyTheWindowThatActuallyHadTheRule"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "services/shortlink-redirect",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "suite": "com.jupiter.shortlink.redirect.membership.MembershipHintConsumerIT",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "cases": [
+            "ownKafkaRegistrationNoticeWakesTheIndependentMembershipSynchronizer"
+          ]
+        },
+        {
+          "suite": "com.jupiter.shortlink.redirect.membership.RouteMembershipCacheIT",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "cases": [
+            "reliableNegativeDoesNotReadOrPopulateRealRedisOrMysqlRouteAuthority",
+            "pendingRegistrationIsAMaybeAndDatabaseAbsenceRetainsItsOriginalTimestamps",
+            "registeredAndPublishedRouteSurvivesStoppedKafkaAndAnOldBloom"
+          ]
+        }
+      ]
+    }
+  ],
+  "skipped": [
+    {
+      "suite": "com.jupiter.shortlink.redirect.web.RedirectFileDescriptorWarmupTest",
+      "case": "lowLimitLinuxChildFailsWithoutOpeningHandlesOrChangingParentLimit",
+      "reason": "Disabled on operating system: Windows 11"
+    },
+    {
+      "suite": "com.jupiter.shortlink.redirect.web.RedirectFileDescriptorWarmupTest",
+      "case": "freshLinuxJvmRetainsExpandedCapacityClosesAllOwnedFdsAndPreservesSentinel",
+      "reason": "Disabled on operating system: Windows 11"
+    }
+  ],
+  "loadTestExecuted": false,
+  "gatewayE2eExecuted": false,
+  "totals": {
+    "unit": {
+      "tests": 681,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "integration": {
+      "tests": 54,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "python": {
+    "suite": "scripts/performance/test_repository_jar_paths.py",
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "purpose": "fixture DDL and repository path regression; no load executed"
+  },
+  "resources": [
+    {
+      "image": "mysql:8.0.36",
+      "cpus": 1,
+      "memoryMiB": 512,
+      "hostPort": 23306
+    },
+    {
+      "image": "redis:7.2.5-alpine",
+      "cpus": 1,
+      "memoryMiB": 128,
+      "hostPort": 26379
+    },
+    {
+      "image": "apache/kafka:3.9.0",
+      "cpus": 1,
+      "memoryMiB": 640,
+      "hostPort": 29092
+    }
+  ],
+  "limits": [
+    "Component integration only; no APISIX end-to-end or throughput claim.",
+    "Bloom starts disabled locally and OFF in a newly migrated database.",
+    "Publication grace is 1250 ms per batch; no workload benchmark was run."
+  ]
+}

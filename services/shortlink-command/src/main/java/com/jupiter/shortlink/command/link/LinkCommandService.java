@@ -4,11 +4,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.command.batch.TenantQuotaService;
 import com.jupiter.shortlink.command.group.GroupCommandService;
+import com.jupiter.shortlink.command.membership.RoutePublication;
 import com.jupiter.shortlink.command.outbox.BusinessOutbox;
 import com.jupiter.shortlink.command.security.*;
 import com.jupiter.shortlink.contract.RouteChangeV1;
 import com.jupiter.shortlink.contract.Topics;
 import com.jupiter.shortlink.id.*;
+import com.jupiter.shortlink.membership.RegistrationPermit;
+import com.jupiter.shortlink.membership.RouteAddress;
 import com.jupiter.shortlink.risk.HostNormalizer;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +29,9 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Clock;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 
 @Service
 public class LinkCommandService {
@@ -40,6 +46,7 @@ public class LinkCommandService {
     private final Clock clock;
     private final Set<String> allowedDomains;
     private final TenantQuotaService quota;
+    private final RoutePublication publication;
 
     public LinkCommandService(
             JdbcTemplate jdbc,
@@ -52,6 +59,7 @@ public class LinkCommandService {
             ObjectMapper json,
             Clock clock,
             TenantQuotaService quota,
+            RoutePublication publication,
             @Value("${shortlink.domains}") String domains) {
         this.jdbc = jdbc;
         this.tx = new TransactionTemplate(manager);
@@ -63,6 +71,7 @@ public class LinkCommandService {
         this.json = json;
         this.clock = clock;
         this.quota = quota;
+        this.publication = Objects.requireNonNull(publication);
         this.tx.setTimeout(10);
         this.allowedDomains = new HashSet<>();
         for (String domain : domains.split(","))
@@ -118,36 +127,99 @@ public class LinkCommandService {
                 r.getLong("target_revision"));
     }
 
+    /** Blocking convenience for non-server callers. HTTP and batch workers use the async API. */
     public List<Created> createMany(CommandPrincipal p, String requestId, List<Creation> input) {
+        try {
+            return createManyAsync(p, requestId, input).join();
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof RuntimeException cause) throw cause;
+            throw e;
+        }
+    }
+
+    public CompletableFuture<List<Created>> createManyAsync(
+            CommandPrincipal p, String requestId, List<Creation> input) {
         requireId(requestId);
         if (input == null || input.isEmpty() || input.size() > 500)
             throw new IllegalArgumentException("Synchronous batch size must be 1..500");
         List<Creation> frozen = List.copyOf(input);
-        String digest = digest(frozen);
-        auth.check(p, false);
-        List<Created> committed = previousCreate(p, requestId, digest);
-        if (committed != null) return committed;
-        for (Creation c : frozen) validateCreation(c);
-        List<IdRange> reserved = ids.reserveRanges(frozen.size());
-        return tx.execute(
-                s -> {
-                    auth.check(p, true);
-                    List<Created> previous = previousCreate(p, requestId, digest);
-                    if (previous != null) return previous;
-                    quota.lock(p.tenantId());
-                    quota.consume(p.tenantId(), frozen.size());
-                    List<Created> result = insertReservedMany(p, frozen, reserved);
-                    jdbc.update(
-                            "INSERT INTO"
-                                + " t_command_result(tenant_id,command_id,request_digest,result_json,created_at)"
-                                + " VALUES (?,?,?,?,?)",
-                            p.tenantId(),
-                            "create:" + requestId,
-                            digest,
-                            serialize(result),
-                            clock.millis());
-                    return List.copyOf(result);
+        return publication.publish(
+                () -> {
+                    String digest = digest(frozen);
+                    auth.check(p, false);
+                    List<Created> committed = previousCreate(p, requestId, digest);
+                    if (committed != null)
+                        return new RoutePublication.Prepared<>(List.of(), ignored -> committed);
+                    for (Creation c : frozen) validateCreation(c);
+                    Set<String> owned = new HashSet<>();
+                    groups.list(p).forEach(g -> owned.add(g.gid()));
+                    if (frozen.stream().anyMatch(c -> !owned.contains(c.gid())))
+                        CommandAuthorization.denied();
+                    quota.checkAvailable(p.tenantId(), frozen.size());
+                    List<IdRange> reserved = ids.reserveRanges(frozen.size());
+                    return new RoutePublication.Prepared<>(
+                            addresses(frozen, reserved),
+                            permit ->
+                                    tx.execute(
+                                            status -> {
+                                                auth.check(p, true);
+                                                List<Created> previous =
+                                                        previousCreate(p, requestId, digest);
+                                                if (previous != null) return previous;
+                                                quota.lock(p.tenantId());
+                                                quota.consume(p.tenantId(), frozen.size());
+                                                List<Created> result =
+                                                        insertReservedMany(
+                                                                p, frozen, reserved, permit);
+                                                jdbc.update(
+                                                        "INSERT INTO"
+                                                            + " t_command_result(tenant_id,command_id,request_digest,result_json,created_at)"
+                                                            + " VALUES (?,?,?,?,?)",
+                                                        p.tenantId(),
+                                                        "create:" + requestId,
+                                                        digest,
+                                                        serialize(result),
+                                                        clock.millis());
+                                                publication.assertOpen(permit);
+                                                return List.copyOf(result);
+                                            }));
                 });
+    }
+
+    /** Register only after durable RESERVED identities have committed. */
+    public <T> CompletableFuture<T> publishReservedManyAsync(
+            List<Creation> creations,
+            List<IdRange> ranges,
+            Function<RegistrationPermit, T> commit) {
+        List<RouteAddress> addresses = addresses(creations, ranges);
+        return publication.publish(() -> new RoutePublication.Prepared<>(addresses, commit));
+    }
+
+    public void assertPublicationOpen(RegistrationPermit permit) {
+        publication.assertOpen(permit);
+    }
+
+    private List<RouteAddress> addresses(List<Creation> creations, List<IdRange> ranges) {
+        if (creations == null || creations.size() > 500 || ranges == null)
+            throw new IllegalArgumentException("Chunk size must be 0..500");
+        List<RouteAddress> result = new ArrayList<>(creations.size());
+        int index = 0;
+        long previousEnd = 0;
+        for (IdRange range : ranges) {
+            if (range.startInclusive() < previousEnd || range.size() > creations.size() - index)
+                throw new IllegalArgumentException("Invalid reserved ID ranges");
+            previousEnd = range.endExclusive();
+            for (long id = range.startInclusive(); id < range.endExclusive(); id++) {
+                Creation creation = creations.get(index++);
+                result.add(
+                        new RouteAddress(
+                                new HostNormalizer().normalize(creation.domain(), "https"),
+                                codec.encode(id)));
+            }
+        }
+        if (index != creations.size())
+            throw new IllegalArgumentException("ID count differs from row count");
+        return List.copyOf(result);
     }
 
     private List<Created> previousCreate(CommandPrincipal p, String requestId, String digest) {
@@ -172,8 +244,10 @@ public class LinkCommandService {
     /**
      * Only call after account/group/job fence locks have been acquired in this same transaction.
      */
-    public Created insertReserved(CommandPrincipal p, Creation c, long linkId) {
-        return insertReservedMany(p, List.of(c), List.of(new IdRange(linkId, linkId + 1))).get(0);
+    public Created insertReserved(
+            CommandPrincipal p, Creation c, long linkId, RegistrationPermit permit) {
+        return insertReservedMany(p, List.of(c), List.of(new IdRange(linkId, linkId + 1)), permit)
+                .get(0);
     }
 
     /**
@@ -181,7 +255,10 @@ public class LinkCommandService {
      * per-row generator calls.
      */
     public List<Created> insertReservedMany(
-            CommandPrincipal p, List<Creation> creations, List<IdRange> ranges) {
+            CommandPrincipal p,
+            List<Creation> creations,
+            List<IdRange> ranges,
+            RegistrationPermit permit) {
         if (!org.springframework.transaction.support.TransactionSynchronizationManager
                 .isActualTransactionActive())
             throw new IllegalStateException("Business transaction required");
@@ -199,6 +276,8 @@ public class LinkCommandService {
         for (Creation c : creations) validateCreation(c);
         for (String gid : creations.stream().map(Creation::gid).distinct().sorted().toList())
             groups.lockActive(p, gid);
+        // Re-read registry and generation in this exact route publication transaction.
+        publication.verify(permit, addresses(creations, ranges));
         List<Object[]> routeRows = new ArrayList<>(),
                 linkRows = new ArrayList<>(),
                 policyRows = new ArrayList<>();

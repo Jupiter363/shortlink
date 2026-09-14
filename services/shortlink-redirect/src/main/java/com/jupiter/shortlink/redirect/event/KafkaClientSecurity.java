@@ -7,10 +7,10 @@ import java.util.Map;
 import java.util.Properties;
 
 /** Both sources are transport-only. The shared deployment secret file takes precedence. */
-final class KafkaClientSecurity {
+public final class KafkaClientSecurity {
     private KafkaClientSecurity() {}
 
-    static Properties apply(Map<String, Object> correctness, Map<String, Object> transport) {
+    public static Properties apply(Map<String, Object> correctness, Map<String, Object> transport) {
         Properties settings = new Properties();
         settings.putAll(correctness);
         settings.putAll(new KafkaTransportProperties(transport).properties());

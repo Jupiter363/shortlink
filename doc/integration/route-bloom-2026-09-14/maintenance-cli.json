@@ -1,0 +1,50 @@
+[
+  {
+    "elapsedMillis": 585,
+    "exitCode": 0,
+    "status": [
+      "namespace=routes generation=3c2cda7a-e054-42d9-ab9c-6ae34f09f35b revision=1 members=1 mode=ENFORCE baselineReady=true"
+    ],
+    "action": "status"
+  },
+  {
+    "elapsedMillis": 2062,
+    "exitCode": 0,
+    "status": [
+      "namespace=routes generation=3c2cda7a-e054-42d9-ab9c-6ae34f09f35b revision=1 members=1 mode=SHADOW baselineReady=true"
+    ],
+    "action": "init"
+  },
+  {
+    "elapsedMillis": 1961,
+    "exitCode": 0,
+    "status": [
+      "namespace=routes generation=3c2cda7a-e054-42d9-ab9c-6ae34f09f35b revision=1 members=1 mode=ENFORCE baselineReady=true"
+    ],
+    "action": "enforce"
+  },
+  {
+    "elapsedMillis": 538,
+    "exitCode": 0,
+    "status": [
+      "namespace=routes generation=3c2cda7a-e054-42d9-ab9c-6ae34f09f35b revision=1 members=1 mode=ENFORCE baselineReady=true"
+    ],
+    "action": "status"
+  },
+  {
+    "elapsedMillis": 1953,
+    "exitCode": 0,
+    "status": [
+      "namespace=routes generation=3c2cda7a-e054-42d9-ab9c-6ae34f09f35b revision=1 members=1 mode=OFF baselineReady=false"
+    ],
+    "action": "off"
+  },
+  {
+    "elapsedMillis": 526,
+    "exitCode": 0,
+    "status": [
+      "namespace=routes generation=3c2cda7a-e054-42d9-ab9c-6ae34f09f35b revision=1 members=1 mode=OFF baselineReady=false"
+    ],
+    "action": "status"
+  }
+]

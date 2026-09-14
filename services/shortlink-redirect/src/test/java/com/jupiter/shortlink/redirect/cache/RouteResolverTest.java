@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.jupiter.shortlink.redirect.membership.RouteMembershipGuard;
 import com.jupiter.shortlink.redirect.route.*;
 
 import org.junit.jupiter.api.Test;
@@ -205,5 +206,75 @@ class RouteResolverTest {
         verify(authority, times(1)).find("s.example", "Ab", 1);
         verify(redis)
                 .put(route(1)); // Original proof is preserved even though it can no longer be used.
+    }
+
+    @Test
+    void negativeMembershipDoesNotOccupyFlightsOrEnterEitherRouteCache() {
+        var guard = mock(RouteMembershipGuard.class);
+        var proof = new RouteMembershipGuard.AbsentProof() {};
+        when(guard.check("s.example", "missing"))
+                .thenReturn(RouteMembershipGuard.Check.absent(proof));
+        when(redis.get(anyString(), anyString(), anyLong())).thenReturn(Mono.empty());
+        when(redis.put(any())).thenReturn(Mono.just(true));
+        RouteResolver resolver =
+                new RouteResolver(
+                        redis,
+                        authority,
+                        generation,
+                        Mono::empty,
+                        clock,
+                        10,
+                        1,
+                        1000,
+                        30000,
+                        100,
+                        guard);
+        Sinks.One<RouteInfo> pending = Sinks.one();
+        when(authority.find("s.example", "Ab", 1)).thenReturn(pending.asMono());
+        var occupied = resolver.resolve("s.example", "Ab").subscribe();
+        try {
+            assertInstanceOf(
+                    RouteResolution.Absent.class,
+                    resolver.resolveGuarded("s.example", "missing").block());
+            verify(redis, never()).get("s.example", "missing", 1);
+            verify(authority, never()).find("s.example", "missing", 1);
+            // Removing denial authority must re-enter the original bounded chain, not cached 404.
+            when(guard.check("s.example", "missing"))
+                    .thenReturn(RouteMembershipGuard.Check.unknown());
+            StepVerifier.create(resolver.resolveGuarded("s.example", "missing"))
+                    .expectErrorMatches(
+                            error ->
+                                    error instanceof AuthorityUnavailableException
+                                            && "TOO_MANY_ROUTE_LOOKUPS".equals(error.getMessage()))
+                    .verify();
+        } finally {
+            pending.tryEmitValue(route(1));
+            occupied.dispose();
+        }
+    }
+
+    @Test
+    void malformedOrUnavailableGuardDoesNotBypassOriginalAuthorityBudget() {
+        var guard = mock(RouteMembershipGuard.class);
+        when(guard.check(anyString(), anyString()))
+                .thenThrow(new IllegalStateException("broken snapshot"));
+        when(redis.get("s.example", "Ab", 1)).thenReturn(Mono.empty());
+        var resolver =
+                new RouteResolver(
+                        redis,
+                        authority,
+                        generation,
+                        () -> Mono.error(new AuthorityUnavailableException("NO_BUDGET")),
+                        clock,
+                        10,
+                        1,
+                        1000,
+                        30000,
+                        100,
+                        guard);
+        StepVerifier.create(resolver.resolveGuarded("s.example", "Ab"))
+                .expectErrorMatches(error -> "NO_BUDGET".equals(error.getMessage()))
+                .verify();
+        verifyNoInteractions(authority);
     }
 }

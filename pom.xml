@@ -12,6 +12,7 @@
         <module>libraries/event-contract</module>
         <module>libraries/id-generator</module>
         <module>libraries/risk-core</module>
+        <module>libraries/route-membership</module>
         <module>services/shortlink-command</module>
         <module>services/shortlink-redirect</module>
         <module>jobs/analytics-flink</module>

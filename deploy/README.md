@@ -66,7 +66,7 @@ Kafka 的 `KAFKA_SECURITY_PROPERTIES` 指向权限受控、UTF-8 且最多 64 Ki
 ## 新环境初始化顺序
 
 1. 为业务、统计控制、Agent 创建独立空 schema。业务采用一个物理库；分表不是跨库分布式事务。
-2. 在明确指定的业务库执行 `mysql/001-business-schema.sql`。账号服务和 Command 共用此物理库；Redirect 使用独立账号，对 `t_link_route`、`t_cache_generation` 授予 `SELECT`，仅对 `t_cache_generation` 额外授予表级 `UPDATE`。Redis 世代标记缺失（例如新 Redis 数据库）时，`GenerationCoordinator` 需要条件更新 `cache_name='redirect-route'` 的世代并回读；其他业务表保持只读，`UPDATE` 权限不扩大到整个业务库。ID 号段账号/连接池可以限制到分配表；当前默认与 Command 同账号、独立连接池和事务。
+2. 在明确指定的业务库依次执行 `mysql/001-business-schema.sql`、`mysql/004-route-membership.sql`。账号服务和 Command 共用此物理库；Redirect 使用独立账号，对 `t_link_route`、`t_cache_generation`、`t_route_membership`、`t_route_membership_control` 授予 `SELECT`，仅对 `t_cache_generation` 额外授予表级 `UPDATE`。Redis 世代标记缺失时，`GenerationCoordinator` 需要条件更新缓存世代并回读；其他业务表保持只读，`UPDATE` 权限不扩大到整个业务库。Command 另需登记表 INSERT、控制表 UPDATE 和原 Outbox 权限。ID 分配仍采用独立连接池和事务。
 3. 在统计控制库执行 `mysql/002-analytics-control-schema.sql`。在新的 Agent 空库执行 `mysql/003-agent-analytics-adaptation.sql`；它包含本版完整建表定义，不属于业务库。不能将 `CREATE TABLE IF NOT EXISTS` 当作修改旧表的迁移器；旧开发表应继续保留，使用新库验收和首次部署。
 4. 配置对象存储独立导入/归档 bucket 和版本保留。导入必须保留 versionId；归档对象、外部恢复世代标记、manifest 日志和 Flink checkpoint 不能配置为任意覆盖或随意到期。
 5. 创建 Kafka Topic：`kafka/topics.yaml`、`kafka/create-topics.sh`。生产 RF=3、minISR=2；raw 两条流使用 LogAppendTime；关闭自动建 Topic。为各生产者/消费者提供最小 Topic、consumer-group 和 transactional-id 权限，避免共用超级用户。
@@ -75,6 +75,8 @@ Kafka 的 `KAFKA_SECURITY_PROPERTIES` 指向权限受控、UTF-8 且最多 64 Ki
 8. 启动 Admin、Redirect、Agent，再配置 APISIX TLS。注册/初始化分开显示状态：默认组未就绪不能伪报 READY。Agent 必须使用当前账号 authVersion，不能把旧开发 userId 复制为可信身份。
 
 当前是新环境首次部署方案，不包含生产流量切换，也不修改原有开发 schema。任何恢复、备份或保留期变更都按 [统计恢复协议](../doc/analytics/runtime.md) 核对外部存储覆盖。
+
+布隆过滤器的新表初态为 OFF。完成所有创建入口升级后，显式执行登记基线 `init`，先在 SHADOW 验证，再执行 `enforce`。不能直接改控制表 mode；停用/回滚也须先排空旧否定租约。操作工具、数据库与 Kafka 权限、1.25 秒批次发布等待及恢复边界见[布隆过滤器部署与恢复](../doc/development/route-membership.md)。
 
 ## Flink 启动
 

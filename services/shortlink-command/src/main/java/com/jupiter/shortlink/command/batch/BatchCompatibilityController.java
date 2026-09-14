@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Keeps the existing management path while making synchronous versus durable asynchronous results
@@ -59,7 +60,8 @@ public class BatchCompatibilityController {
     }
 
     @PostMapping("/api/short-link/v1/create/batch")
-    public ResponseEntity<Result<Output>> create(HttpServletRequest request) throws IOException {
+    public CompletableFuture<ResponseEntity<Result<Output>>> create(HttpServletRequest request)
+            throws IOException {
         var p = auth.principal(request);
         int limit = 8 * 1024 * 1024;
         if (request.getContentLengthLong() > limit)
@@ -92,30 +94,38 @@ public class BatchCompatibilityController {
                             input.validDate() == null ? null : input.validDate().getTime(),
                             input.describes() == null ? null : input.describes().get(i)));
         if (rows.size() <= 500) {
-            var result = links.createMany(p, requestId, rows);
-            List<Map<String, Object>> infos = new ArrayList<>();
-            for (int i = 0; i < result.size(); i++) {
-                var row = result.get(i);
-                Map<String, Object> info = new LinkedHashMap<>();
-                info.put("linkId", row.linkId());
-                info.put("fullShortUrl", row.fullShortUrl());
-                info.put("originUrl", row.originUrl());
-                info.put("describe", rows.get(i).describe());
-                infos.add(info);
-            }
-            return ResponseEntity.ok(
-                    new Result<>("0", new Output(result.size(), infos, null, "SUCCEEDED", null)));
+            return com.jupiter.shortlink.command.membership.RoutePublication.map(
+                    links.createManyAsync(p, requestId, rows),
+                    result -> {
+                        List<Map<String, Object>> infos = new ArrayList<>();
+                        for (int i = 0; i < result.size(); i++) {
+                            var row = result.get(i);
+                            Map<String, Object> info = new LinkedHashMap<>();
+                            info.put("linkId", row.linkId());
+                            info.put("fullShortUrl", row.fullShortUrl());
+                            info.put("originUrl", row.originUrl());
+                            info.put("describe", rows.get(i).describe());
+                            infos.add(info);
+                        }
+                        return ResponseEntity.ok(
+                                new Result<>(
+                                        "0",
+                                        new Output(result.size(), infos, null, "SUCCEEDED", null)));
+                    });
         }
         var status = jobs.submitInline(p, requestId, rows);
-        return ResponseEntity.accepted()
-                .body(
-                        new Result<>(
-                                "0",
-                                new Output(
-                                        null,
-                                        List.of(),
-                                        status.jobId(),
-                                        status.state(),
-                                        "/internal/command/batches/" + status.jobId() + "/rows")));
+        return CompletableFuture.completedFuture(
+                ResponseEntity.accepted()
+                        .body(
+                                new Result<>(
+                                        "0",
+                                        new Output(
+                                                null,
+                                                List.of(),
+                                                status.jobId(),
+                                                status.state(),
+                                                "/internal/command/batches/"
+                                                        + status.jobId()
+                                                        + "/rows"))));
     }
 }

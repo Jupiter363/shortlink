@@ -391,6 +391,8 @@ Redis Cluster 解决容量与多 key 吞吐，不能分散单个热 key；单热
 - 扩容、冷启动和 Redis 故障时分批预热，不能让所有实例同时全量回源。
 - 首版不使用异步维护 Bloom 的否定结果强制拒绝有效新链。
 
+2026-09-14 补充设计（待实施）：拟在 L1 miss 后、L2 前加入本地 Bloom，使用写前地址登记与有期限的否定权限避免漏登记误拒；具体接入、Kafka 分工、创建延迟代价和验收见[跳转布隆过滤器与缓存穿透防护计划](27-跳转布隆过滤器与缓存穿透防护计划.md)。上述禁止未经完整性证明直接否决的约束继续有效。
+
 ### 缓存协议
 
 RouteInfo 包含 linkId、tenantId、currentGid、originUrl、状态、expireAt、routeVersion、ownershipVersion、authorityCheckedAt、validUntil、cacheGeneration；使用独立的新格式 key，避免把旧 URL 字符串误解成 JSON。

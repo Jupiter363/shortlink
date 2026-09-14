@@ -1,0 +1,12 @@
+{
+  "algorithm": "SHA256 over UTF-8 source bytes with CRLF normalized to LF",
+  "files": {
+    "deploy/mysql/004-route-membership.sql": "dab46c031ac78cb8288ea2aa0744183a20eac9c1847d91375cea3401088d1dac",
+    "libraries/route-membership/src/main/java/com/jupiter/shortlink/membership/JdbcRouteMembershipStore.java": "dd3fbc635f6d13b9966c09873ced543068a2e0ad30a0354105b4d4bdddf85a1f",
+    "services/shortlink-command/src/main/java/com/jupiter/shortlink/command/membership/RoutePublicationCoordinator.java": "aa6936297be6a00ccab0a496115346f5513d2d615759a72d286d2bb53312d8d5",
+    "services/shortlink-command/src/main/java/com/jupiter/shortlink/command/link/LinkCommandService.java": "310a1972e1766a81c26df6d2d5b7b97ef455da39f2a0fa53c28466bbbb8c2d32",
+    "services/shortlink-command/src/main/java/com/jupiter/shortlink/command/batch/BatchJobService.java": "5c5f340341f467474d57be0978b8b96bd291f7f622e0363607dea44460788258",
+    "services/shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/membership/LocalRouteMembership.java": "9e0b12411cbea73e1c53fce7dbfbac805d64518ed1f746b7bc30f85f88c38eda",
+    "services/shortlink-redirect/src/main/java/com/jupiter/shortlink/redirect/web/RedirectController.java": "b6a643df6f5d3d136c9e5ff057791da0e8a4bfa9f96a09bbfbc02b2f295537fd"
+  }
+}

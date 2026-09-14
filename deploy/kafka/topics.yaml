@@ -45,6 +45,11 @@ topics:
     timestamp-type: LogAppendTime
     cleanup-policy: delete
     retention-ms: 604800000
+  # Membership hints accelerate the authoritative registry reader; they are not coverage proof.
+  - name: shortlink.route.membership.v1
+    timestamp-type: LogAppendTime
+    cleanup-policy: delete
+    retention-ms: 604800000
   - name: shortlink.risk.policy.change.v1
     timestamp-type: LogAppendTime
     cleanup-policy: delete

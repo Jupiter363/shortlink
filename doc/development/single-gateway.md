@@ -1,6 +1,6 @@
 # APISIX 单网关与 Admin 入口
 
-管理请求直接经过 `APISIX → Admin → Command / Analytics API / Agent`，短链请求经过 `APISIX → Redirect`。Spring Cloud Gateway 独立服务已移除，Maven reactor 为 10 个模块、6 个 Spring 常驻服务。
+管理请求直接经过 `APISIX → Admin → Command / Analytics API / Agent`，短链请求经过 `APISIX → Redirect`。Spring Cloud Gateway 独立服务已移除，Maven reactor 为 11 个模块、6 个 Spring 常驻服务。
 
 ## 职责与信任边界
 

@@ -22,6 +22,8 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Types;
 import java.time.Clock;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * Durable job coordinator. Every state/lease/identity/quota change is a fenced local MySQL
@@ -380,8 +382,22 @@ public class BatchJobService {
      * yields its tenant slot.
      */
     public void run(Lease lease) throws IOException {
-        if (lease.phase().equals("VALIDATING")) validate(lease);
-        else executeChunk(lease);
+        try {
+            runAsync(lease).join();
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof IOException failure) throw failure;
+            if (e.getCause() instanceof RuntimeException failure) throw failure;
+            throw e;
+        }
+    }
+
+    /** Production workers release their thread while the membership barrier drains. */
+    public CompletableFuture<Void> runAsync(Lease lease) throws IOException {
+        if (lease.phase().equals("VALIDATING")) {
+            validate(lease);
+            return CompletableFuture.completedFuture(null);
+        }
+        return executeChunk(lease);
     }
 
     private void validate(Lease lease) throws IOException {
@@ -496,7 +512,7 @@ public class BatchJobService {
                 });
     }
 
-    private void executeChunk(Lease lease) {
+    private CompletableFuture<Void> executeChunk(Lease lease) {
         List<Map<String, Object>> pending =
                 tx.execute(
                         s -> {
@@ -509,101 +525,124 @@ public class BatchJobService {
                         Map<String, Object> r = fenced(lease);
                         finish(r, lease.principal(), "COMPLETED", null);
                     });
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         int unassigned = (int) pending.stream().filter(r -> r.get("link_id") == null).count();
         // The independent allocator transaction is NEVER inside a business transaction/row lock.
         List<IdRange> allocation = unassigned == 0 ? List.of() : ids.reserveRanges(unassigned);
-        tx.executeWithoutResult(
-                s -> {
-                    fenced(lease);
-                    Iterator<Long> reserved = rangeIterator(allocation);
-                    List<Object[]> values = new ArrayList<>();
-                    for (Map<String, Object> row : pending)
-                        if (row.get("link_id") == null)
-                            values.add(
-                                    new Object[] {
-                                        reserved.next(), lease.jobId(), num(row, "row_no")
-                                    });
-                    if (reserved.hasNext())
-                        throw new IllegalStateException("Unexpected surplus IDs");
-                    if (!values.isEmpty())
-                        jdbc.batchUpdate(
-                                "UPDATE t_batch_row SET link_id=?,state='RESERVED' WHERE job_id=?"
-                                        + " AND row_no=? AND link_id IS NULL AND state='VALIDATED'",
-                                values);
-                    renew(lease);
-                });
+        List<Map<String, Object>> reservedRows =
+                tx.execute(
+                        s -> {
+                            fenced(lease);
+                            Iterator<Long> reserved = rangeIterator(allocation);
+                            List<Object[]> values = new ArrayList<>();
+                            for (Map<String, Object> row : pending)
+                                if (row.get("link_id") == null)
+                                    values.add(
+                                            new Object[] {
+                                                reserved.next(), lease.jobId(), num(row, "row_no")
+                                            });
+                            if (reserved.hasNext())
+                                throw new IllegalStateException("Unexpected surplus IDs");
+                            if (!values.isEmpty())
+                                jdbc.batchUpdate(
+                                        "UPDATE t_batch_row SET link_id=?,state='RESERVED' WHERE"
+                                            + " job_id=? AND row_no=? AND link_id IS NULL AND"
+                                            + " state='VALIDATED'",
+                                        values);
+                            renew(lease);
+                            return pending(lease.jobId());
+                        });
+        List<Creation> registrationCreations = new ArrayList<>();
+        List<IdRange> registrationRanges = new ArrayList<>();
+        for (Map<String, Object> row : reservedRows) {
+            if (row.get("link_id") == null)
+                throw new IllegalStateException("Durable row identity missing");
+            registrationCreations.add(read(str(row, "creation_json"), Creation.class));
+            addRange(registrationRanges, num(row, "link_id"));
+        }
         // Crash after identity commit reuses the durable link_id. Commit-unknown never substitutes
         // a different identity.
-        tx.executeWithoutResult(
-                s -> {
-                    Map<String, Object> job = fenced(lease);
-                    List<Map<String, Object>> rows = pending(lease.jobId());
-                    List<Creation> valid = new ArrayList<>();
-                    List<Map<String, Object>> validRows = new ArrayList<>();
-                    List<Object[]> failed = new ArrayList<>();
-                    List<IdRange> ranges = new ArrayList<>();
-                    for (Map<String, Object> row : rows) {
-                        Creation c = read(str(row, "creation_json"), Creation.class);
-                        try {
-                            links.validateCreation(c);
-                        } catch (IllegalArgumentException e) {
-                            failed.add(
-                                    new Object[] {
-                                        "CREATION_NO_LONGER_VALID",
-                                        lease.jobId(),
-                                        num(row, "row_no")
-                                    });
-                            continue;
-                        }
-                        if (row.get("link_id") == null)
-                            throw new IllegalStateException("Durable row identity missing");
-                        valid.add(c);
-                        validRows.add(row);
-                        addRange(ranges, num(row, "link_id"));
-                    }
-                    List<Created> results =
-                            valid.isEmpty()
-                                    ? List.of()
-                                    : links.insertReservedMany(lease.principal(), valid, ranges);
-                    List<Object[]> success = new ArrayList<>();
-                    for (int i = 0; i < results.size(); i++)
-                        success.add(
-                                new Object[] {
-                                    serialize(results.get(i)),
-                                    lease.jobId(),
-                                    num(validRows.get(i), "row_no")
-                                });
-                    if (!success.isEmpty())
-                        jdbc.batchUpdate(
-                                "UPDATE t_batch_row SET"
-                                        + " state='SUCCEEDED',result_json=?,error_code=NULL WHERE"
-                                        + " job_id=? AND row_no=? AND state='RESERVED'",
-                                success);
-                    if (!failed.isEmpty())
-                        jdbc.batchUpdate(
-                                "UPDATE t_batch_row SET state='FAILED',error_code=? WHERE job_id=?"
-                                        + " AND row_no=? AND state IN ('VALIDATED','RESERVED')",
-                                failed);
-                    quota.completeRows(lease.principal().tenantId(), success.size(), rows.size());
-                    assertLease(lease);
-                    jdbc.update(
-                            "UPDATE t_batch_job SET"
-                                + " succeeded_rows=succeeded_rows+?,failed_rows=failed_rows+?,reserved_rows=reserved_rows-?,lease_until=0,lease_owner=NULL,attempts=0,next_attempt_at=?,updated_at=?"
-                                + " WHERE job_id=?",
-                            success.size(),
-                            failed.size(),
-                            rows.size(),
-                            dbNow(),
-                            dbNow(),
-                            lease.jobId());
-                    if (num(job, "reserved_rows") == rows.size())
-                        finish(
-                                job(lease.principal().tenantId(), lease.jobId(), true),
-                                lease.principal(),
-                                "COMPLETED",
-                                null);
+        return links.publishReservedManyAsync(
+                registrationCreations,
+                registrationRanges,
+                permit -> {
+                    tx.executeWithoutResult(
+                            s -> {
+                                Map<String, Object> job = fenced(lease);
+                                List<Map<String, Object>> rows = pending(lease.jobId());
+                                List<Creation> valid = new ArrayList<>();
+                                List<Map<String, Object>> validRows = new ArrayList<>();
+                                List<Object[]> failed = new ArrayList<>();
+                                List<IdRange> ranges = new ArrayList<>();
+                                for (Map<String, Object> row : rows) {
+                                    Creation c = read(str(row, "creation_json"), Creation.class);
+                                    try {
+                                        links.validateCreation(c);
+                                    } catch (IllegalArgumentException e) {
+                                        failed.add(
+                                                new Object[] {
+                                                    "CREATION_NO_LONGER_VALID",
+                                                    lease.jobId(),
+                                                    num(row, "row_no")
+                                                });
+                                        continue;
+                                    }
+                                    if (row.get("link_id") == null)
+                                        throw new IllegalStateException(
+                                                "Durable row identity missing");
+                                    valid.add(c);
+                                    validRows.add(row);
+                                    addRange(ranges, num(row, "link_id"));
+                                }
+                                List<Created> results =
+                                        valid.isEmpty()
+                                                ? List.of()
+                                                : links.insertReservedMany(
+                                                        lease.principal(), valid, ranges, permit);
+                                List<Object[]> success = new ArrayList<>();
+                                for (int i = 0; i < results.size(); i++)
+                                    success.add(
+                                            new Object[] {
+                                                serialize(results.get(i)),
+                                                lease.jobId(),
+                                                num(validRows.get(i), "row_no")
+                                            });
+                                if (!success.isEmpty())
+                                    jdbc.batchUpdate(
+                                            "UPDATE t_batch_row SET"
+                                                + " state='SUCCEEDED',result_json=?,error_code=NULL"
+                                                + " WHERE job_id=? AND row_no=? AND"
+                                                + " state='RESERVED'",
+                                            success);
+                                if (!failed.isEmpty())
+                                    jdbc.batchUpdate(
+                                            "UPDATE t_batch_row SET state='FAILED',error_code=?"
+                                                + " WHERE job_id=? AND row_no=? AND state IN"
+                                                + " ('VALIDATED','RESERVED')",
+                                            failed);
+                                quota.completeRows(
+                                        lease.principal().tenantId(), success.size(), rows.size());
+                                assertLease(lease);
+                                jdbc.update(
+                                        "UPDATE t_batch_job SET"
+                                            + " succeeded_rows=succeeded_rows+?,failed_rows=failed_rows+?,reserved_rows=reserved_rows-?,lease_until=0,lease_owner=NULL,attempts=0,next_attempt_at=?,updated_at=?"
+                                            + " WHERE job_id=?",
+                                        success.size(),
+                                        failed.size(),
+                                        rows.size(),
+                                        dbNow(),
+                                        dbNow(),
+                                        lease.jobId());
+                                if (num(job, "reserved_rows") == rows.size())
+                                    finish(
+                                            job(lease.principal().tenantId(), lease.jobId(), true),
+                                            lease.principal(),
+                                            "COMPLETED",
+                                            null);
+                                links.assertPublicationOpen(permit);
+                            });
+                    return null;
                 });
     }
 

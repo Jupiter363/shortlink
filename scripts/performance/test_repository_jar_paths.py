@@ -71,6 +71,8 @@ class RepositoryJarPathsTests(unittest.TestCase):
         ddl = self.candidate / "deploy/mysql/001-business-schema.sql"
         ddl.parent.mkdir(parents=True)
         ddl.write_text("-- offline DDL fixture, SQL adapter is mocked\n", encoding="utf-8")
+        (ddl.parent / "004-route-membership.sql").write_text(
+            "-- offline membership DDL fixture, SQL adapter is mocked\n", encoding="utf-8")
         self.bodies = {}
         for module, (filename, _, _) in JARS.items():
             target = self.candidate / "services" / module / "target" / filename

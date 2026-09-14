@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication
 @EnableConfigurationProperties({
     RedirectProperties.class,
+    com.jupiter.shortlink.redirect.membership.RouteMembershipProperties.class,
     com.jupiter.shortlink.redirect.config.KafkaTransportProperties.class
 })
 public class RedirectApplication {
