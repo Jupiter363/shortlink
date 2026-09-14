@@ -37,11 +37,11 @@ def icon_fragment(kind,size,instance):
         body=body.replace(f'href="#{ref}"',f'href="#{instance}-{ref}"')
     return body
 
-SPACING_CUTS={'analytics': [[1853, 16], [1925, 12], [1968, 8], [2000, 10], [2026, 8], [2052, 8], [2147, 8], [2213, 14], [2265, 10], [2300, 10], [2330, 8], [2359, 12]], 'agent': [[834, 12], [909, 12], [942, 10], [978, 8], [1003, 10], [1054, 8], [1106, 10], [1148, 8], [1227, 8], [1266, 8], [1308, 8], [1344, 8], [1509, 12], [1550, 12], [1578, 12], [1583, 10], [1589, 10], [1632, 10], [1658, 12]]}
+SPACING_CUTS={'agent': [[834, 12], [909, 12], [942, 10], [978, 8], [1003, 10], [1054, 8], [1106, 10], [1148, 8], [1227, 8], [1266, 8], [1308, 8], [1344, 8], [1509, 12], [1550, 12], [1578, 12], [1583, 10], [1589, 10], [1632, 10], [1658, 12]]}
 EXTRA={k:sum(delta for at,delta in v) for k,v in SPACING_CUTS.items()}
 TOP_H=1000
 DATA_Y=198+TOP_H+30
-DATA_H=726+EXTRA['analytics']
+DATA_H=1170
 MIDDLE_Y=DATA_Y+DATA_H+30
 MIDDLE_H=1640
 FOOTER_Y=MIDDLE_Y+MIDDLE_H+18
@@ -95,8 +95,8 @@ defs={}; bounds={}
 # Deliberate whitespace bands: move glyphs/icons without scaling them.
 SPACING_ZONE=None
 def spread(y):
-    # Rebuilt sections use a direct grid; retain accepted spacing in sections 02/04.
-    if SPACING_ZONE in {'redirect','command'}: return y
+    # Rebuilt sections use a direct grid; retain accepted spacing in the Agent section.
+    if SPACING_ZONE in {'redirect','command','analytics'}: return y
     return y+sum(delta for at,delta in SPACING_CUTS.get(SPACING_ZONE,[]) if y>=at)
 
 def f(v): return f'{v:.5f}'.rstrip('0').rstrip('.') if isinstance(v,float) else str(v)
@@ -412,65 +412,91 @@ text('agent-bloom-boundary-d','不在 Agent 服务中维护独立 Bloom。',1776
 end_shift()
 SPACING_ZONE='analytics'
 begin_shift(DATA_Y-1700)
-# 04: one online row, two clearly grouped maintenance/query areas below.
-panel('zone-04','02','异步统计与数据服务','在线聚合在上，归档补算与统一查询在下；后台与 Agent Tools 共用统计服务',48,1700,2704,726,'blue')
-rect('pipeline',80,1837,2640,211,'#f6f9fd','none',20,'zone-04','parents')
-group('event-sources',98,1850,377,165,'pipeline')
-icon('edge-event-icon','apisix',110,1859,38,'blue','event-sources')
-text('edge-event','APISIX · EDGE 请求结果',165,1890,25,'ink',True,parent='event-sources')
-icon('redirect-event-icon','link',110,1921,38,'blue','event-sources')
-text('redirect-event','Redirect · 点击',165,1952,25,'ink',True,parent='event-sources')
-text('business-event','BUSINESS 请求结果',165,1993,25,'muted',parent='event-sources')
-for id,cx,w,kind,title,subs,bordered in [('raw-kafka',665,250,'kafka','原始 Kafka',['原始事件主题'],True),('flink',1070,260,'flink','Flink',['校验 / 明细分支','去重聚合'],False),('derived-kafka',1490,286,'kafka','派生 Kafka',['明细 / 聚合主题'],True),('connect',1940,380,'clickhouse','ClickHouse',['Kafka Connect','官方连接器 · 至少一次'],False),('clickhouse',2470,456,'clickhouse','ClickHouse',['明细 / 聚合 / 版本化结果'],True)]:
-    x=cx-w/2
-    if bordered: rect(id,x,1850,w,157,'white','#e0e8f1',17,'pipeline')
-    else: group(id,x,1850,w,185,'pipeline')
-    icon(id+'-icon',kind,cx-27,1862,54,'blue',id,68)
-    text(id+'-title',title,cx,1955,31,'ink',True,'middle',id)
-    for n,s in enumerate(subs): text(id+f'-sub-{n}',s,cx,1989+n*29,25,'muted',anchor='middle',parent=id)
-edge('events-ingest',[(475,1899),(540,1899)],'blue',True,'event-sources','raw-kafka','EDGE / 点击 / BUSINESS 原始事件')
-edge('raw-consume',[(790,1899),(1036,1899)],'blue',True,'raw-kafka','flink','原始事件消费')
-edge('derive',[(1104,1899),(1347,1899)],'blue',True,'flink','derived-kafka','校验 / 明细 / 去重聚合结果')
-edge('connect-consume',[(1633,1899),(1906,1899)],'blue',True,'derived-kafka','connect','派生事件消费')
-edge('connect-write',[(1974,1899),(2242,1899)],source='connect',target='clickhouse',meaning='至少一次写入')
-text('kafka-same-system','原始 / 派生主题同属一个 Kafka 系统',98,2080,25,'muted',parent='zone-04')
+# 02: three horizontal data paths share one ClickHouse; control storage sits between its callers.
+panel('zone-04','02','异步统计与数据服务','在线处理、归档补算与统一查询分层；后台与 Agent Tools 共用统计服务',48,1700,2704,DATA_H,'blue')
+rect('pipeline',80,1840,2190,316,'#ecfcf6','none',20,'zone-04','parents')
+text('pipeline-title','在线处理',104,1880,28,'ink',True,parent='pipeline')
+text('kafka-same-system','原始 / 派生 Topic 同属一个 Kafka 集群',590,1880,25,'muted',parent='pipeline')
+group('event-sources',104,1910,365,210,'pipeline')
+icon('edge-event-icon','apisix',116,1940,38,'blue','event-sources')
+text('edge-event','APISIX · EDGE 请求结果',172,1968,25,'ink',True,parent='event-sources')
+icon('redirect-event-icon','link',116,2020,38,'blue','event-sources')
+text('redirect-event','Redirect · 点击',172,2048,25,'ink',True,parent='event-sources')
+text('business-event','BUSINESS 请求结果',172,2088,25,'muted',parent='event-sources')
+for id,x,w,kind,title,subs in [
+    ('raw-kafka',590,320,'kafka','原始 Kafka',['原始事件主题']),
+    ('flink',1050,290,'flink','Flink',['校验 / 明细分支','去重聚合']),
+    ('derived-kafka',1480,320,'kafka','派生 Kafka',['明细 / 聚合主题']),
+    ('connect',1940,290,'clickhouse','Kafka Connect',['ClickHouse 官方连接器','至少一次写入'])]:
+    rect(id,x,1910,w,210,'white','#a5e7d8',18,'pipeline',shadow=True)
+    icon(id+'-icon',kind,x+w/2-27,1940,54,'blue',id,68)
+    text(id+'-title',title,x+w/2,2030,29,'ink',True,'middle',id)
+    for n,sub in enumerate(subs):
+        text(id+f'-sub-{n}',sub,x+w/2,2070+n*34,24,'muted',anchor='middle',parent=id)
+for id,x1,x2,src,dst in [
+    ('events-ingest',469,590,'event-sources','raw-kafka'),
+    ('raw-consume',910,1050,'raw-kafka','flink'),
+    ('derive',1340,1480,'flink','derived-kafka'),
+    ('connect-consume',1800,1940,'derived-kafka','connect')]:
+    edge(id,[(x1,2015),(x2,2015)],'blue',True,src,dst,'异步原始或派生事件传递')
 
-# These backgrounds group responsibilities, without adding false deployment boundaries.
-rect('maintenance-lane',80,2144,1280,267,'#f7fafc','none',18,'zone-04','parents')
-text('maintenance-title','归档与补算',104,2181,28,'ink',True,parent='maintenance-lane')
-tile('archive-store',104,2210,340,153,'不可变对象存储','原始归档 / 补算输入','database',parent='maintenance-lane',stack=True,size=29)
-rect('worker',662,2210,669,153,'#f8fbff','#c4d7eb',20,'maintenance-lane',shadow=True)
-icon('worker-icon','gear',686,2235,56,'blue','worker',70)
-text('worker-title','Analytics Worker',776,2254,33,'ink',True,parent='worker')
-text('worker-tasks','归档 · 覆盖证明 · 补算 · 恢复',776,2295,26,'muted',parent='worker')
-text('worker-publish','任务执行与版本发布',776,2336,25,'muted',parent='worker')
-edge('independent-archive',[(665,2007),(665,2115),(880,2115),(880,2210)],'blue',True,'raw-kafka','worker','原始事件独立订阅')
-label('independent-archive-label','独立订阅',978,2178,'blue',25)
-edge('archive-write',[(662,2247),(444,2247)],source='worker',target='archive-store',meaning='归档写入')
-label('archive-write-label','归档写入',553,2230,'blue',25)
-edge('archive-input',[(444,2334),(662,2334)],source='archive-store',target='worker',meaning='归档数据 / 补算输入')
-label('archive-input-label-a','归档数据',553,2290,'blue',25)
-label('archive-input-label-b','补算输入',553,2320,'blue',25)
-edge('rebuild-write',[(1240,2210),(1240,2106),(2470,2106),(2470,2007)],source='worker',target='clickhouse',meaning='写入版本化补算结果')
-label('rebuild-write-label','写入版本化补算结果',1810,2087,'blue',25)
+# One storage boundary, with three ports aligned to the services that access it.
+rect('clickhouse',2330,1840,390,986,'#ecfcf6','#a5e7d8',20,'zone-04','parents')
+icon('clickhouse-icon','clickhouse',2362,1860,52,'blue','clickhouse',64)
+text('clickhouse-title','ClickHouse',2442,1898,31,'ink',True,parent='clickhouse')
+text('clickhouse-sub','共享分析存储',2525,1939,25,'muted',anchor='middle',parent='clickhouse')
+for id,y,title,sub in [
+    ('clickhouse-online',1959,'在线明细 / 聚合','Connect 至少一次写入'),
+    ('clickhouse-rebuild',2252,'版本化补算结果','Analytics Worker 直写'),
+    ('clickhouse-query',2690,'统计查询','快照 / 历史版本')]:
+    rect(id,2354,y,342,112,'white','#a5e7d8',16,'clickhouse')
+    text(id+'-title',title,2525,y+43,27,'ink',True,'middle',id)
+    text(id+'-sub',sub,2525,y+85,24,'muted',anchor='middle',parent=id)
+text('clickhouse-shared-a','明细 · 聚合 · 历史版本',2525,2465,25,'muted',anchor='middle',parent='clickhouse')
+text('clickhouse-shared-b','同一套 ClickHouse 存储',2525,2507,24,'muted',anchor='middle',parent='clickhouse')
+edge('connect-write',[(2230,2015),(2354,2015)],source='connect',target='clickhouse-online',meaning='官方连接器至少一次写入共享 ClickHouse')
 
-rect('query-lane',1404,2144,1316,267,'#f9f8fd','none',18,'zone-04','parents')
-text('analytics-shared','统一统计查询',1428,2181,28,'ink',True,parent='query-lane')
-text('analytics-query-boundary','查询不进入逐点击处理链路',1804,2181,25,'muted',parent='query-lane')
-tile('query-admin',1428,2210,350,93,'Admin','后台 / 统计 Tools','browser',parent='query-lane')
-tile('query-api',1910,2210,453,93,'Analytics API','快照 / 持久化查询 Job','chart','purple','query-lane',size=31)
-edge('query-api-call',[(1778,2256),(1910,2256)],source='query-admin',target='query-api',meaning='统计 / 查询 Job 请求')
-label('query-api-call-label','查询',1844,2235,'blue',25)
-edge('query-clickhouse',[(2363,2256),(2734,2256),(2734,1942),(2698,1942)],source='query-api',target='clickhouse',meaning='统计查询')
-label('query-clickhouse-label','统计查询',2524,2235,'blue',25)
-rect('statistics-control',1790,2330,906,65,'white','#dce5ee',12,'query-lane')
-icon('statistics-control-icon','database',1806,2348,32,'blue','statistics-control')
-text('statistics-control-title','统计控制 MySQL',1857,2372,26,'ink',True,parent='statistics-control')
-text('statistics-control-sub','查询任务 / 租约 / 构建清单',2240,2372,25,'muted',parent='statistics-control')
-edge('query-job-state',[(2135,2303),(2135,2330)],source='query-api',target='statistics-control',meaning='查询任务状态读写')
-label('query-job-state-label','查询任务状态',2435,2322,'blue',24)
-edge('worker-control',[(1331,2320),(1378,2320),(1378,2352),(1790,2352)],source='worker',target='statistics-control',meaning='任务 / 租约 / 构建清单读写')
-label('worker-control-label','任务 / 租约 / 构建清单',1578,2341,'blue',24)
+rect('maintenance-lane',80,2168,2190,252,'#ecfcf6','none',20,'zone-04','parents')
+text('maintenance-title','归档与补算',104,2200,28,'ink',True,parent='maintenance-lane')
+rect('archive-store',104,2220,365,176,'white','#a5e7d8',18,'maintenance-lane',shadow=True)
+icon('archive-store-icon','archive',259.5,2245,54,'blue','archive-store',68)
+text('archive-store-title','不可变对象存储',286.5,2340,29,'ink',True,'middle','archive-store')
+text('archive-store-sub','原始归档 / 补算输入',286.5,2377,24,'muted',anchor='middle',parent='archive-store')
+rect('worker',590,2220,1130,176,'white','#a5e7d8',18,'maintenance-lane',shadow=True)
+icon('worker-icon','cpu',618,2242,56,'blue','worker',70)
+text('worker-title','Analytics Worker',712,2266,33,'ink',True,parent='worker')
+text('worker-archive','归档 / 覆盖证明',712,2318,27,'ink',True,parent='worker')
+text('worker-archive-sub','原始事件独立订阅',712,2360,25,'muted',parent='worker')
+text('worker-rebuild','补算 / 恢复',1220,2318,27,'ink',True,parent='worker')
+text('worker-rebuild-sub','归档输入 · 版本发布',1220,2360,25,'muted',parent='worker')
+edge('independent-archive',[(750,2120),(750,2220)],'blue',True,'raw-kafka','worker','独立于 Flink 订阅原始事件归档')
+label('independent-archive-label','独立订阅原始事件',982,2190,'blue',25)
+edge('archive-write',[(590,2273),(469,2273)],source='worker',target='archive-store',meaning='归档写入')
+label('archive-write-label','归档写入',529.5,2255,'blue',24)
+edge('archive-input',[(469,2355),(590,2355)],source='archive-store',target='worker',meaning='读取归档作为补算输入')
+label('archive-input-label','补算读取',529.5,2337,'blue',24)
+edge('rebuild-write',[(1720,2308),(2354,2308)],source='worker',target='clickhouse-rebuild',meaning='Worker 直接向共享 ClickHouse 写入版本化补算结果')
+label('rebuild-write-label','版本化补算写入',2025,2290,'blue',25)
+
+# Shared control storage is between Worker and API, so both callers get a short direct connection.
+rect('control-lane',80,2450,2190,152,'#ecfcf6','none',18,'zone-04','parents')
+text('control-lane-title','共用控制面',104,2518,27,'ink',True,parent='control-lane')
+text('control-lane-sub','Worker / API',104,2560,24,'muted',parent='control-lane')
+tile('statistics-control',590,2470,1130,112,'统计控制 MySQL','查询任务 / 租约 / 构建清单','database',parent='control-lane',size=30)
+edge('worker-control',[(1440,2396),(1440,2470)],source='worker',target='statistics-control',meaning='Worker 直接读写任务、租约与构建清单')
+label('worker-control-label','任务 / 租约 / 构建清单',1670,2440,'blue',24)
+
+rect('query-lane',80,2632,2190,194,'#ecfcf6','none',18,'zone-04','parents')
+text('analytics-shared','统一统计查询',104,2665,28,'ink',True,parent='query-lane')
+text('analytics-query-boundary','查询不进入逐点击处理链路',1740,2665,24,'muted',parent='query-lane')
+tile('query-admin',104,2690,365,112,'Admin','后台 / 统计 Tools','browser',parent='query-lane',size=30)
+tile('query-api',590,2690,1130,112,'Analytics API','快照 / 持久化查询 Job','chart',parent='query-lane',size=31)
+edge('query-api-call',[(469,2746),(590,2746)],source='query-admin',target='query-api',meaning='后台与统计 Tools 统一调用 Analytics API')
+label('query-api-call-label','查询',529.5,2728,'blue',25)
+edge('query-clickhouse',[(1720,2746),(2354,2746)],source='query-api',target='clickhouse-query',meaning='Analytics API 查询同一套 ClickHouse 中的分析结果')
+label('query-clickhouse-label','统计查询',2025,2728,'blue',25)
+edge('query-job-state',[(850,2690),(850,2582)],source='query-api',target='statistics-control',meaning='Analytics API 直接读写查询任务状态')
+label('query-job-state-label','查询任务状态',1000,2640,'blue',24)
 
 end_shift()
 SPACING_ZONE=None
