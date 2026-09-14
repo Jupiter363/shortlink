@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260912T172134Z-bfc094fe",
+  "deployedConfigSha256": {
+    "config.yaml": "3f536622de809e56cea904a76aa1d5d3f194b4c5384b858e738a684beb4f6140",
+    "apisix.yaml": "ce72ef08db06c88be28f5e78922fd104ae81db0a97c491f356e3af4628965690"
+  },
+  "jarRecordedSha256": {
+    "shortlink-command": "c66f334b10001542b3691f73073a3b85bae31d98c6432f3d6203fa74ca525945",
+    "admin": "8f4262656f5329ba0509fe8c642886371012bdb097d01057d8999fbb544ac5f8",
+    "shortlink-redirect": "a1ed4bc74546d3581106432be9da9fad5c8644fb5b7654252a0ba627a659cbff"
+  },
+  "pluginRecordedSha256": {
+    "deploy/apisix/plugins/apisix/plugins/shortlink-boundary.lua": "7978e77edc645ddd8a813d194577c5a6cc423f36fe033d3eafc6f5a6b5049e37",
+    "deploy/apisix/plugins/apisix/plugins/shortlink-execution-diagnostics.lua": "cba5d920b5c0005caa672386d048a4bb7fa25993489aabbd5159f47a76a071cb",
+    "deploy/apisix/plugins/apisix/plugins/shortlink-fd-preallocate.lua": "374b34bfab3d6fd23a84b9b4a1e206f73fb138a97a4576aeed0e4cf8caecf8c5",
+    "deploy/apisix/plugins/apisix/plugins/shortlink-http-timing.lua": "771ed5cdf20cd02d8e49f3d5df04464931028d4807a0830f0446c732a24b26c5",
+    "deploy/apisix/plugins/apisix/plugins/shortlink-kafka-batch.lua": "3650358f2917bac8f2dd38240274a239d084ed24f3a2e8db1aad147fee66c146",
+    "deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua": "8288f6b4ea17b1a69da070e7043966279f11366109827c4537709d139115e678",
+    "deploy/apisix/plugins/apisix/plugins/shortlink-worker-identity.lua": "555104f477cf06343f77714f2d59d141795bc3ff8f73a55779c3d3e295696f40"
+  },
+  "resourceProfile": {
+    "javaHeapMaxMiB": 384,
+    "javaActiveProcessors": 2,
+    "javaCpuSet": "0-7",
+    "edgeWorkers": 4,
+    "edgeCpuSet": "0-7",
+    "edgeQueueCountPerWorker": 500,
+    "edgeQueueBytesPerWorker": 4194304,
+    "edgeQueueCountNode": 2000,
+    "edgeQueueBytesNode": 16777216,
+    "edgeSendConcurrencyPerWorker": 2,
+    "edgeSenderSlotsNode": 8,
+    "edgeSendBatchSize": 32,
+    "edgeSendBatchBytes": 65536,
+    "applicationCpuSet": "0-7",
+    "applicationDependencyCpuOverlap": null,
+    "applicationCpuUnion": "0-7",
+    "javaEdgeCpuOverlap": "0-7",
+    "edgeSendLingerMillis": 10,
+    "dependencyCpuSet": "8-11",
+    "loadGeneratorCpuSet": "12-15",
+    "wslLogicalProcessors": 16,
+    "metadataWorkers": 8,
+    "metadataPollDefaultMillis": 1000,
+    "commandPool": 16,
+    "idPool": 2,
+    "redirectPool": 8,
+    "adminPool": 12,
+    "kafkaReplicationFactor": 1,
+    "kafkaPartitions": 2
+  },
+  "redisDatabase": 15,
+  "edgeRuntimeRoot": "/var/lib/shortlink-perf/20260912T172134Z-bfc094fe/edge-runtime",
+  "scope": "Per-worker linger is10ms. Results do not establish causal improvement/regression against earlier runs with uncontrolled host competition. No finished4k capacity verdict included."
+}

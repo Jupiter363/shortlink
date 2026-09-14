@@ -1,0 +1,351 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-09-12T16:58:23.408010+00:00",
+  "readScope": "Only .work/load-fix-20260913 plus the four explicitly selected stage directories; exact fixture test rerun separately authorized.",
+  "sources": {
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/result.json": {
+      "sha256": "27b4fbe7cb441138a43eef9bd85fc8eb43c46f2b70acaff92233b162440dc980",
+      "bytes": 25727,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/before.json": {
+      "sha256": "e950a07dfaddc95d3ba01536ff6d9954a2d6ddf894fd8f378148873dde0ad590",
+      "bytes": 184446,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/after.json": {
+      "sha256": "874b2d8ef4f2b86ef721862d26ebbd54c775c080ad611d75a8239b4c3a43ce91",
+      "bytes": 183317,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/kafka-before.json": {
+      "sha256": "ead29a7eb13e6dbfc0ecda7215b1fed973e3042e9c14abd9dce6f574088a1427",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/kafka-after.json": {
+      "sha256": "0861e711860b9b659f49b6a7eebe82b4c43582dd5c46f8e2ebf759df52ff6197",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/requests-drained.json": {
+      "sha256": "c785902816fbbb41947461011847d878b5b36b1c1752f93ee4dcd46dfdffc86f",
+      "bytes": 486,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/system/system-summary.json": {
+      "sha256": "1ef15c5ea5a0d7687c75ff19593ff2c1502a99b7de74df14db3fe826dc9e7a80",
+      "bytes": 41876,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/native-summary.json": {
+      "sha256": "88e05ef823ed1d21f2e56bd30e0056805be437a8dbe3d8b4ef6d822e510d7c3f",
+      "bytes": 34525126,
+      "verification": "HASH_RECORDED_BY_STAGE; not reread or copied in this archive to avoid heavy I/O"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/source-distribution.json": {
+      "sha256": "920a17c568cba860a8977c804938882f6a853a10c88c3f326d665fb56fe0afc8",
+      "bytes": 22144,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/smoke-r1000-v2/native-client.log": {
+      "sha256": "d21cd831032118041bfbc9aae7055f79b73fcc48837e9e02f9e7ccc02db09f09",
+      "bytes": 107,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/result.json": {
+      "sha256": "a2382cf368d2889b0d8ca2c636745ae194e3789117dbbd952bcc8bdb6ff4dc39",
+      "bytes": 25835,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/before.json": {
+      "sha256": "5d17abb9d4260272a2e7fd8b783f831277a3e3477a8a95f59e6a75a3ccc956ca",
+      "bytes": 183107,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/after.json": {
+      "sha256": "21432105424cf92d7d9f3a38ecdba5511228eee8b1074a44cd8c6de8275f7c87",
+      "bytes": 183327,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/kafka-before.json": {
+      "sha256": "4b7f6e70ff4928844602483e0ce9ee2af2a3da10d414908e04cb7f0e65eaeb1e",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/kafka-after.json": {
+      "sha256": "69ccff4581be6e72847a21e6cb59951b9700030fbdade68300a08d1c51ef28ab",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/requests-drained.json": {
+      "sha256": "02360f6335f8321ee3c72eeb415670105b53824d4ed4ffdda468b919bcb793ef",
+      "bytes": 493,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/system/system-summary.json": {
+      "sha256": "536f03e5329c2e8a39b620c6cb243f361d9e7d3680c15be43313f7d4d25dbf6d",
+      "bytes": 42340,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/native-summary.json": {
+      "sha256": "7ddcf4d6005bf1cdd3ef9bc236a74151bb4f75ff837313d46b06e5c28000e89b",
+      "bytes": 688890994,
+      "verification": "HASH_RECORDED_BY_STAGE; not reread or copied in this archive to avoid heavy I/O"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/source-distribution.json": {
+      "sha256": "9285a0e524d2f980a610809f40b8249b05c487ad760d0232179a8f2ab1a23d47",
+      "bytes": 22315,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/baseline-r7000/native-client.log": {
+      "sha256": "711abedc98644f224dd22dc38b1c0dc68b9cba606771c1bc9febc2a70183d5c8",
+      "bytes": 110,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/result.json": {
+      "sha256": "48947962836e972d1ceb358e743ada8f274da8d64ef79c0becbdfa0acfad7c4a",
+      "bytes": 11087,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/before.json": {
+      "sha256": "a52b872c5c60691545cf72d83889d69be5dc05eee61c3deaaa45784c19d85c08",
+      "bytes": 184910,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/after.json": {
+      "sha256": "43fc323b23d4fce953f67d1d104633771ea2e5f8c4e456f1f37e11075d489496",
+      "bytes": 183368,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/kafka-before.json": {
+      "sha256": "0fb1c6b407979d65e1a0646254f635158367d83d61699ccb530a8a190143f141",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/kafka-after.json": {
+      "sha256": "3665ce52c39d08e221685786ce6c2f23d3eb9b7cd0982b99e6f9137e418fd06f",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/requests-drained.json": {
+      "sha256": "0f168799539daba9f83ef16c6829f46c392f69716b7422eee72c910d4242bd57",
+      "bytes": 505,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/system/system-summary.json": {
+      "sha256": "4aef75cd575bc97ce07f268c5767dcbba4d9813b242b036b104dec492ae5bc98",
+      "bytes": 42584,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/native-summary.json": {
+      "sha256": "6c8ef1c650ca59a24bbd47692ac213cce127f96c5947fd4139b1c2a7c9df7b11",
+      "bytes": 465715290,
+      "verification": "HASH_RECORDED_BY_STAGE; not reread or copied in this archive to avoid heavy I/O"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/source-distribution.json": {
+      "sha256": "c86253e6b125933e546c3b84e0396b6242243294dbf215f9773a6782421efee1",
+      "bytes": 22343,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/diagnose-r8000/native-client.log": {
+      "sha256": "ae00bc3024ea1ce9439fc9b4413c42ee425327bc7a6c8be4aa9af77ee181aeca",
+      "bytes": 114,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/result.json": {
+      "sha256": "1e9ef4e9fb7a343ecf07663484e87d0765ae193471ce94b54b51278897386b7f",
+      "bytes": 11074,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/before.json": {
+      "sha256": "396a4d698ca1db61cc047ecc9b5696792958b1751269a8b3d6d948aa3538b208",
+      "bytes": 184672,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/after.json": {
+      "sha256": "cca2b0d0ded2464a112d534fafdf67ff6ec0be00bfff4e806eedbf09fb74ddb2",
+      "bytes": 183361,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/kafka-before.json": {
+      "sha256": "784ea12ff5b7f36186f35c2f0ad6e192f16d5ec58fbdbc53dc01cbeb0dcf62b2",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/kafka-after.json": {
+      "sha256": "ed2bf249fba9ef08fe9e851cd35e3663e9d99c47ce3ecb649248dc52b15a01b3",
+      "bytes": 41276,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/requests-drained.json": {
+      "sha256": "5da64581329b2e4d0114ed782bc0cf2f557b5179309b934b2dbc45e574434c3c",
+      "bytes": 504,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/system/system-summary.json": {
+      "sha256": "21f32c51526c06dd641cc7f6498a0f215decfff569f664c48b1458d8d61e0b73",
+      "bytes": 42359,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/native-summary.json": {
+      "sha256": "a8fb31e1b3c366a469b296f417c0376c5138bf8a0ec90ae9c6473637cc382c68",
+      "bytes": 422647903,
+      "verification": "HASH_RECORDED_BY_STAGE; not reread or copied in this archive to avoid heavy I/O"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/source-distribution.json": {
+      "sha256": "09510bbbdcbbf39bd7cbb94729fd19b04219610af0bf5893a2bfaf5ad0554054",
+      "bytes": 22340,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/native-client.log": {
+      "sha256": "d78d8780b461b3c5306a843ae8de16b35228e7f738d2073fc3a02297c01ad70f",
+      "bytes": 114,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/launch.json": {
+      "sha256": "221d3044426893c86c70ff9eebdc78c6adec94a7891a0b005f540bfc53059f98",
+      "bytes": 1131,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/artifact-audit.json": {
+      "sha256": "614fb9094c9622bd1b42cb6db844092633b8275cfbaa18b60b6401ba08b473e8",
+      "bytes": 19857,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/diagnostics-baseline-analysis.json": {
+      "sha256": "cc20c040a55fe3acb705b72653039da69f7bab2957ff0233a85e4103c8c8126b",
+      "bytes": 39627,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/diagnostics-baseline-r7000/manifest.json": {
+      "sha256": "2e32138499ee827549c30c8f6fc3a9cf32c3635f4f1031deac716cd3fc517a7a",
+      "bytes": 4450,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/diagnostics-diagnose-r8000/manifest.json": {
+      "sha256": "e7ef9e5a45dda769ff605ac550accae1a5f37db0f4fd87cd62f762c0a0dfc23f",
+      "bytes": 4453,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/native/handoff.json": {
+      "sha256": "7e050ef714522a4d4753aa97d1acff172904f3b4cf97125c436c035aa20768f4",
+      "bytes": 8456,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/native/go-test-final.jsonl": {
+      "sha256": "5c3cf222ffa891e60ef8d114bbc7cd71edc7d23b731cd10fe6053c0f24e375db",
+      "bytes": 202726,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/native/go-test-final.exit": {
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "bytes": 3,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/native/go-build.exit": {
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "bytes": 3,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/native/go-test-final.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/native/integration-review.md": {
+      "sha256": "d94032a88dbb2da147decd276dcddb39f90476a49b150abea9bb0ed291933c29",
+      "bytes": 2233,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/fixture-tests-final.log": {
+      "sha256": "f769d26399df6e2ba68b7b11d118a146acfffba250f73cb13c2d59476158ec95",
+      "bytes": 1877,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/system/system-samples.jsonl": {
+      "sha256": "489f990967a40ad3ab3e30057ddfa00a952916bc983d80c7dcb508ef2201fe0f",
+      "bytes": 7820009,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/stage.py": {
+      "sha256": "c1cb3272d6e7a7e03cc03be70a67fa182500b053bfcbfb91c63dbb5f6c54b69a",
+      "bytes": 40713,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/prepare.py": {
+      "sha256": "508669772d5e9dbb523a6793082c016cb8f96b7ba02105289c72d9b678ade166",
+      "bytes": 6318,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/lifecycle.py": {
+      "sha256": "a53ecc78ca818ec235c55dd8c1536c5965a578dcbaf49c1a328788818f74c7af",
+      "bytes": 6455,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/system-observer.py": {
+      "sha256": "03fe4da4bd58d1c76f983e04200a174ca0c3402b8f9c03f312c7f9bfc4bdbce6",
+      "bytes": 35001,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/edge-observer.py": {
+      "sha256": "ac69b381e573f6527671af50429dc59306d6593d9e3b173bd01dabd780adcbdb",
+      "bytes": 22748,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/run-observed-stage.py": {
+      "sha256": "1a5a0e7659d2789292fc6013e9a4506802d6507346b98fc6c7f0c5075793687e",
+      "bytes": 965,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/budget-policy.json": {
+      "sha256": "baa94d8ffad99bf05fdaad0badf14e5f52cbadfb7ca26978bb6c2690abe6b01a",
+      "bytes": 583,
+      "verification": "SHA256_RECOMPUTED_SMALL_SOURCE"
+    },
+    ".work/load-fix-20260913/native/build/native-client": {
+      "sha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+      "bytes": 7827094,
+      "verification": "SHA256_RECOMPUTED; binary not copied"
+    }
+  },
+  "sensitiveRawFilesCopied": false,
+  "nativeSummaryCopied": false,
+  "sourceCodeHashReferencesFromFrozenHandoff": {
+    "scripts/performance/native-client/arrival_diagnostics.go": "8712eb8ecd687f10902bfeac0defbfb10c69080242b54c5616e92db4c0c421dd",
+    "scripts/performance/native-client/arrival_diagnostics_test.go": "16c68aeca5e694ed2a8a527b3553849d792160cd16a6f04222ca6af97cd2af8f",
+    "scripts/performance/native-client/capacity_ceiling_test.go": "e57007ccda81c94ca0330eeada968a6e439e9bb9d79d4b9313002acab250af84",
+    "scripts/performance/native-client/client.go": "c3551c57c2c6381e8a8c69623818a01eddf105a8f84fbc4592995bdae91d76da",
+    "scripts/performance/native-client/client_test.go": "e3cea8314895d192be1fe442ba1ef566ba92e1b9a7de697fe5cede85ff717464",
+    "scripts/performance/native-client/config.go": "1f42b8adc4488c6908e4d564b74aba250b4cef3eb2f223c6eb1682bbe8369b3f",
+    "scripts/performance/native-client/correlated_fd_preparation_linux_amd64_test.go": "abc259b9b882298d813d02b6c5aa6eae5556470e79f0e8881202081ba32c0f5f",
+    "scripts/performance/native-client/correlated_owners_test.go": "c1c2bb152498885a3552216a9d7998ebf374ecc0b7dc26e5fbd17aabcef11ed1",
+    "scripts/performance/native-client/diagnostics.go": "0de1b4ec4c852072363325137fe650d15a53d9cc24be4636d331a1be5914c847",
+    "scripts/performance/native-client/diagnostics_test.go": "9c82736e9532edbb62524611a29a80734bba714910c001bb6eb4df57e0f90638",
+    "scripts/performance/native-client/drained_receipt_linux_amd64.go": "5d2800f02d81eab6751a8cb2868771db3f001d5fd07c8f5e1cbc30abec61665d",
+    "scripts/performance/native-client/drained_receipt_linux_amd64_test.go": "f25abce471190c3c36b33cacf4fa4b8fc782fea7d2350c246cf1a402b8e5a864",
+    "scripts/performance/native-client/fd_preparation_config_test.go": "377c9d9d02f6ef899b578d1d9b53d024be92f2576735809d8d925e72217d05ed",
+    "scripts/performance/native-client/fd_preparation_linux_amd64.go": "a216c5d12f39e53398e36425d9ca627ce907ff0ce403ee8ab825eecd9ebc8a4a",
+    "scripts/performance/native-client/fd_preparation_linux_amd64_test.go": "ef16b2e5fc623e9fbc2662c664c23c79cc72c1f1a95af15a5c99b3be11820d94",
+    "scripts/performance/native-client/gateway_request_id.go": "aeea3d0b7562f15fd0887b474d5cf72ed505fd15023f03166bfa286980f8f720",
+    "scripts/performance/native-client/gateway_request_id_test.go": "5b5eda232885f2d12cb5844aac4cf2c99e843816dbb903aff359314ade56d795",
+    "scripts/performance/native-client/go.mod": "f82f720bbbd339f8325962951ebed33a07f3fa8a403324703b0cd6f81b948331",
+    "scripts/performance/native-client/main.go": "94bcbd7d381314e96acad478df833f90b98627a2ef1cbdce351ba3c37154085a",
+    "scripts/performance/native-client/README.md": "285f8fe40151c1803f0808b20c6778437c25847a524e03a0e4560da97ea534a4",
+    "scripts/performance/native-client/scaled_fd_preparation_linux_amd64_test.go": "3e0457b82beed27726804b3f72b995ea055a9ad00e12b8a96363aa3ffb386fc9",
+    "scripts/performance/native-client/scaled_owners_test.go": "4b072e97b76cc7e28fc26444573a8cb4f7ef0be8caa19dc17f9eaa3f486d9dba",
+    "scripts/performance/native-client/scheduler.go": "69f1243a02fa621e374075ff834a91943e3b2b4fafd94fb3e6814f05894b6df3",
+    "scripts/performance/native-client/scheduler_test.go": "833189da2f6ebe2d85d907cc0da5c734c297f7415dc2a8930ada16b5f5f115be",
+    "scripts/performance/native-client/summary.go": "041c16eae493a3fe7374775969e67b1f44a2a13718a1a702f2b14e38091dbc75"
+  },
+  "accountingSourceHashReferencesFromStage": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "e4bde2bce241ba213cb6aa5a6152fc32ff124e562cc6966ae4bab1967b8e60e8",
+    "scripts/performance/observe.py": "d317ee7fa9a4dcd3fda20362f87d83debf6e06d991a17a83d5741552664c8020",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "outsideReadScopeSourceHashesRecomputed": false,
+  "smallSourceHashTiming": "Small source scripts were hashed at archive collection time; frozen handoff/stage-recorded hashes are distinguished and remain the run-specific assertions."
+}

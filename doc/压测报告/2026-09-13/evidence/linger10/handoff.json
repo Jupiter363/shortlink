@@ -1,0 +1,52 @@
+{
+  "status": "LINGER10_ENDED_STAGES_AND_USER_PAUSE_ARCHIVED",
+  "createdAtUtc": "2026-09-12T17:34:36.564310+00:00",
+  "runId": "20260912T172134Z-bfc094fe",
+  "files": [
+    {
+      "path": "runtime-and-scope.json",
+      "bytes": 2858,
+      "sha256": "c0a1fa5441c28400d1c0fd754c8bd8d6a9f2ae31e8a1ff066f37b76e5aa71823"
+    },
+    {
+      "path": "sources.json",
+      "bytes": 4300,
+      "sha256": "8b37f346774421de00f8f1d521ae4b4f923a6684173f984bb429c77f7efd645c"
+    },
+    {
+      "path": "stages/linger10-r6000-a.json",
+      "bytes": 16633,
+      "sha256": "c2740990ff38a979c450a321684ac3257cd4fb5b406418cdb5c53a2dc54dc026"
+    },
+    {
+      "path": "stages/linger10-smoke-r1000.json",
+      "bytes": 18366,
+      "sha256": "9842df0f64e53ff9562f27363199fe4849fc33d5e1804debf34d9de8e3843df8"
+    },
+    {
+      "path": "user-paused-4k.json",
+      "bytes": 1216,
+      "sha256": "00812feccd3c2d79bf3b078214bd335ce2cc044ccf2e9bb45d3b4553dd307de8"
+    },
+    {
+      "path": "阶段验收摘要.md",
+      "bytes": 2581,
+      "sha256": "f1940a3b9d60b2d1d3769352fd71a8359acbf366eb4b2815534f69c17a933aaa"
+    }
+  ],
+  "checks": {
+    "jsonParsed": 5,
+    "localLinks": 6,
+    "linksValid": true,
+    "sensitiveValuePatternScan": true,
+    "original6kFailureAndExit2Retained": true,
+    "userPaused4kCapacityVerdictNull": true,
+    "priorEvidenceModified": false,
+    "largeSummaryPolling": false,
+    "servicesTestsOrPressureStarted": false
+  },
+  "remaining": [
+    "Root final resource cleanup receipt and overall README are separate.",
+    "No capacity verdict for user-paused4k; no further pressure requested."
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-smoke-r1000/result.json": {
+      "sha256": "9ba819e62869c4716343a609fbdad8b4d49707387a433209600e49167a258cac",
+      "bytes": 25733
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-smoke-r1000/before.json": {
+      "sha256": "397f9ce48e307d2a3db52957424a1846443e53a2aee99317ee1c4412181a7c59",
+      "bytes": 182056
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-smoke-r1000/after.json": {
+      "sha256": "638824c44f1f0c4ad966aae4257d1c18a8b3f3063c89b4284c5b18e9b0d8dc93",
+      "bytes": 182753
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-smoke-r1000/kafka-before.json": {
+      "sha256": "30b6c121f23db61867c0922f84577a2d80c1b77a7b514822f86ede5f3328bafb",
+      "bytes": 41277
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-smoke-r1000/kafka-after.json": {
+      "sha256": "bd846d57f940df76fb74a8e8d394553cbb6cb0f64efb7adc6550da516f12d1a2",
+      "bytes": 41277
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-smoke-r1000/requests-drained.json": {
+      "sha256": "7ae7d4eb796fc0353318ddd77c7d3747fc7150f56776790df443e4410abe71d0",
+      "bytes": 492
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-smoke-r1000/native-summary.json": {
+      "sha256": "c55ec8274605c34d4b95b9ab1c66d4d66c46f549341b8dc452f196d70cdf3a31",
+      "bytes": 34523668,
+      "verification": "Stage recorded SHA; raw large summary not reread/copied"
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-baseline-r7000/result.json": {
+      "sha256": "14d3ed91f876914ff6eddfbc5aa52fe8485ba4ab8b5822aa10b7b1e101d25976",
+      "bytes": 11120
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-baseline-r7000/before.json": {
+      "sha256": "21683f263fba132bfae57b3dd33ff47506f096d05b09256e3ca41af9f358d6ad",
+      "bytes": 182670
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-baseline-r7000/after.json": {
+      "sha256": "5febbf5cc1af0b4dffbccfa30b1f7f6d9e20c651bf36c2bd4840592006795289",
+      "bytes": 183780
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-baseline-r7000/kafka-before.json": {
+      "sha256": "7e073e3aaf450f3f15fc19f6b0ced4a106d6ff67918750a4e63153c0d19ac7ed",
+      "bytes": 41277
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-baseline-r7000/kafka-after.json": {
+      "sha256": "e6e9e57bf02b8cd1bde23592d3526f61dfbfcc21683f574afd52ca3db4c86f1c",
+      "bytes": 41277
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-baseline-r7000/requests-drained.json": {
+      "sha256": "e217736764373886be2afb61add9720dd28c7d018a5921379af9ed323f5c45c6",
+      "bytes": 513
+    },
+    ".work/performance/20260912T165811Z-a308ae92/stages/ext4-baseline-r7000/native-summary.json": {
+      "sha256": "254d2749af5e105302b8e16701cd85e3b5eb8f5f2759779fe798c88faaeaf474",
+      "bytes": 380961433,
+      "verification": "Stage recorded SHA; raw large summary not reread/copied"
+    },
+    ".work/performance/20260912T165811Z-a308ae92/runtime-identity.json": {
+      "sha256": "021166514fc526ab8ab92a55078beeb7d343072d2d9a65eac49184f4f82600fb",
+      "bytes": 7521
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/runtime-identity.json": {
+      "sha256": "1d4ed47fa991c237e1f330659c5b5d700feda93983baf8e70325badfc51d91de",
+      "bytes": 7371
+    },
+    ".work/performance/20260912T165811Z-a308ae92/state.json": {
+      "sha256": "cb0f005ce64af0a6a4811bc4991ace65fc6f0011854b8ae67b5b636d40d17269",
+      "bytes": 12065
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/config.yaml": {
+      "sha256": "3f536622de809e56cea904a76aa1d5d3f194b4c5384b858e738a684beb4f6140",
+      "bytes": 816
+    },
+    ".work/performance/20260912T165811Z-a308ae92/config.yaml": {
+      "sha256": "3f536622de809e56cea904a76aa1d5d3f194b4c5384b858e738a684beb4f6140",
+      "bytes": 816
+    },
+    ".work/performance/20260912T162855Z-3dbd69ad/apisix.yaml": {
+      "sha256": "7a1f2c2cd5aadb009618f325b5d2f240190aa7fe5f0444518d2890e89dca074a",
+      "bytes": 2293
+    },
+    ".work/performance/20260912T165811Z-a308ae92/apisix.yaml": {
+      "sha256": "7a1f2c2cd5aadb009618f325b5d2f240190aa7fe5f0444518d2890e89dca074a",
+      "bytes": 2293
+    },
+    ".work/load-fix-20260913-ext4/resource-diagnosis.md": {
+      "sha256": "7855aa8d3c00961a3079802584bb6c6f56d19275d77a738dbc3c19fb437aec32",
+      "bytes": 4655
+    },
+    ".work/load-fix-20260913-ext4/resource-diagnosis.json": {
+      "sha256": "75b2c80107a48cdd1b4a0ad3d8b5d69f6c4f63a9e1782043ac2c589272c61923",
+      "bytes": 136374
+    },
+    ".work/load-fix-20260913/native-stop-handoff.json": {
+      "sha256": "cffa2e30fd0bb949392b0f8c60f1e7e86fe15b9f54daef4a72a057bafce7360a",
+      "bytes": 3285
+    },
+    ".work/load-fix-20260913-ext4/stage.py": {
+      "sha256": "ccb564437890992e2a2a66bea130aed0132cd10a3a98931ce90ba9588f0abb8f",
+      "bytes": 41525
+    },
+    ".work/load-fix-20260913-ext4/host-idle.jsonl": {
+      "sha256": "8af8b5ed3796d89de62dc656ae838834b80e1222e04fc0a71de3d2b4e404b7dd",
+      "bytes": 814833
+    },
+    ".work/load-fix-20260913-ext4/observe-windows.ps1": {
+      "sha256": "99b65ae357cb231c483be2afe00ecdff233f24038aca2220e53ef1e896332820",
+      "bytes": 1474
+    }
+  },
+  "rawPrivateStateEnvOrConfigCopied": false,
+  "largeNativeSummaryCopied": false,
+  "hostRawProcessInventoryCopied": false,
+  "newRunningPrefixStagesRead": false
+}

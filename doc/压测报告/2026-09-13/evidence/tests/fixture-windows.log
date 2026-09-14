@@ -1,0 +1,15 @@
+test_account_mismatch_and_ambiguous_session_are_rejected (test_fixture_public_ingress.PublicFixtureIngressTest.test_account_mismatch_and_ambiguous_session_are_rejected) ... ok
+test_batch_create_uses_public_session (test_fixture_public_ingress.PublicFixtureIngressTest.test_batch_create_uses_public_session) ... ok
+test_failure_summary_does_not_include_response_or_session (test_fixture_public_ingress.PublicFixtureIngressTest.test_failure_summary_does_not_include_response_or_session) ... ok
+test_legacy_identity_without_session_is_rejected (test_fixture_public_ingress.PublicFixtureIngressTest.test_legacy_identity_without_session_is_rejected) ... ok
+test_malformed_session_cannot_become_http_headers (test_fixture_public_ingress.PublicFixtureIngressTest.test_malformed_session_cannot_become_http_headers) ... ok
+test_protected_routes_reject_missing_session_before_http (test_fixture_public_ingress.PublicFixtureIngressTest.test_protected_routes_reject_missing_session_before_http) ... ok
+test_register_keeps_real_session_and_initialization_uses_it (test_fixture_public_ingress.PublicFixtureIngressTest.test_register_keeps_real_session_and_initialization_uses_it) ... ok
+test_run_saves_session_only_in_private_fixture_and_preserves_seed_ids (test_fixture_public_ingress.PublicFixtureIngressTest.test_run_saves_session_only_in_private_fixture_and_preserves_seed_ids) ... skipped 'Real mode 0600 and O_NOFOLLOW require POSIX'
+test_single_create_uses_public_session (test_fixture_public_ingress.PublicFixtureIngressTest.test_single_create_uses_public_session) ... ok
+test_unknown_route_and_session_on_anonymous_route_fail_closed (test_fixture_public_ingress.PublicFixtureIngressTest.test_unknown_route_and_session_on_anonymous_route_fail_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.037s
+
+OK (skipped=1)

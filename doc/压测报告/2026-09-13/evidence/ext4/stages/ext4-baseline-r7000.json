@@ -1,0 +1,404 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260912T165811Z-a308ae92",
+  "label": "ext4-baseline-r7000",
+  "startedAt": "2026-09-12T17:01:39.848120+00:00",
+  "finishedAt": "2026-09-12T17:03:19.497926+00:00",
+  "capacityPassed": false,
+  "status": "CAPACITY_STAGE_FAILED",
+  "stageConfig": {
+    "label": "ext4-baseline-r7000",
+    "rate": 7000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 106500,
+    "formalRequests": 420000,
+    "maximumRequests": 526500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 19408896000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "sourceIpCount": 64,
+  "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+  "stopReasons": [
+    "EVENT_FAILURE_OR_COUNTER_RESET",
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "harnessCpuAffinity": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "021166514fc526ab8ab92a55078beeb7d343072d2d9a65eac49184f4f82600fb",
+    "edgePathProofSha256": "f110f7c21ffb3dc80c04d314f8e7bedf9830095e18a7d180b05bd8b638617169",
+    "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+    "containerId": "0cd795fe90df9cb5837a11a21ad285b6c7566474bb6c6a021d6a74958e3628e9",
+    "containerPid": 4115
+  },
+  "clientLaunch": {
+    "pid": 20054,
+    "startedAt": "2026-09-12T17:01:51.382881+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "nativeLifecycle": {
+    "state": "FAILED",
+    "reason": "PROCESS_EXIT_NONZERO",
+    "activityBudgetSeconds": 115,
+    "exportBudgetSeconds": 60,
+    "requestsDrainedReceipt": {
+      "schemaVersion": 1,
+      "kind": "NATIVE_GO_REQUESTS_DRAINED",
+      "version": "1.4.1-drained-receipt",
+      "runId": "20260912T165811Z-a308ae92",
+      "label": "ext4-baseline-r7000",
+      "pid": 20054,
+      "startTicks": 243967,
+      "drainedMonotonicNanos": 2480121376893,
+      "requestElapsedNanos": 40323159011,
+      "requestsDrained": true,
+      "workersFinished": 2048,
+      "activeRequests": 0,
+      "measurementComplete": false,
+      "stopReason": "EXTERNAL_STOP",
+      "planned": 526500,
+      "scheduled": 178097,
+      "sent": 176623,
+      "completed": 176623,
+      "correct": 176623,
+      "errors": 0,
+      "dropped": 1474,
+      "cancelled": 348403
+    }
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": false,
+    "checks": {
+      "observerExited": true,
+      "observerCpuIsolation": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": false,
+      "noSampleBudgetLoss": true
+    }
+  },
+  "checks": {
+    "clientExitedSuccessfully": false,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": false,
+    "noCancelledArrivals": false,
+    "sentAtLeast99PercentOfTarget": false,
+    "roundtripP99WithinBudget": false,
+    "scheduledCompletionP99WithinBudget": false,
+    "eventFailuresUnchanged": false,
+    "afterDrained": true,
+    "noMonitorStop": false,
+    "threeProducerLanesMatch": false,
+    "actualKafkaOffsetsMatch": false,
+    "sourceDistributionVerified": true,
+    "measurementComplete": false,
+    "nativeConservationVerified": false,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": false
+  },
+  "failedChecks": [
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 3260.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": null,
+  "accountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "all": {
+    "planned_arrivals": 526500,
+    "scheduled": 178097,
+    "sent": 176623,
+    "completed": 176623,
+    "received_http": 176623,
+    "correct": 176623,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1474,
+    "cancelled_arrivals": 348403,
+    "roundtrip_ms": {
+      "count": 176623,
+      "mean": 31.649595071179846,
+      "p50": 3.356334,
+      "p95": 199.167847,
+      "p99": 415.396563,
+      "p99_9": 700.654465,
+      "max": 1026.605979
+    },
+    "scheduled_to_completion_ms": {
+      "count": 176623,
+      "mean": 32.10414919346302,
+      "p50": 3.683419,
+      "p95": 200.081554,
+      "p99": 416.998135,
+      "p99_9": 701.142245,
+      "max": 1026.778949
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 106500,
+    "scheduled": 106500,
+    "sent": 106500,
+    "completed": 106500,
+    "received_http": 106500,
+    "correct": 106500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 106500,
+      "mean": 8.008167383699579,
+      "p50": 1.801726,
+      "p95": 37.631127,
+      "p99": 89.432316,
+      "p99_9": 140.654588,
+      "max": 229.417672
+    },
+    "scheduled_to_completion_ms": {
+      "count": 106500,
+      "mean": 8.386869933765269,
+      "p50": 2.078921,
+      "p95": 38.60647,
+      "p99": 90.504521,
+      "p99_9": 141.480023,
+      "max": 231.89296
+    }
+  },
+  "measure": {
+    "planned_arrivals": 420000,
+    "scheduled": 71597,
+    "sent": 70123,
+    "completed": 70123,
+    "received_http": 70123,
+    "correct": 70123,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1474,
+    "cancelled_arrivals": 348403,
+    "roundtrip_ms": {
+      "count": 70123,
+      "mean": 67.55524726399331,
+      "p50": 10.933045,
+      "p95": 303.643631,
+      "p99": 523.309087,
+      "p99_9": 793.604262,
+      "max": 1026.605979
+    },
+    "scheduled_to_completion_ms": {
+      "count": 70123,
+      "mean": 68.12500171200611,
+      "p50": 11.305231,
+      "p95": 304.65061,
+      "p99": 524.854396,
+      "p99_9": 794.558735,
+      "max": 1026.778949
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 10228.136315999996,
+      "start": "2026-09-12T17:02:21.513920902Z",
+      "end": "2026-09-12T17:03:21.513920902Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-12T17:01:51.513920902Z",
+      "end": "2026-09-12T17:02:21.513920902Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 106473,
+      "measure": 70150,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 1169.1666666666667,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 1169.1666666666667,
+  "measuredCorrectCohortQps": 1168.7166666666667,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": -9,
+  "nativeSummarySha256": "254d2749af5e105302b8e16701cd85e3b5eb8f5f2759779fe798c88faaeaf474",
+  "monitorStop": "EVENT_FAILURE_OR_COUNTER_RESET",
+  "nativeClientProcess": {
+    "samples": 53,
+    "cpuPercentMean": 143.5138810226067,
+    "cpuPercentPeak": 196.96295205650515,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 2861998080,
+    "rssBytesSampleMean": 561398069.1320754,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 52.029810264999924,
+    "timelineBytes": 14169,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-12T17:01:51.382881+00:00",
+    "end": "2026-09-12T17:02:44.410331+00:00"
+  },
+  "originalKafkaConservation": null,
+  "observedLaneDeltas": {
+    "source": "before/after services.shortlink-redirect.metrics and edgeSnapshot.rawCounters",
+    "lanes": {
+      "click": {
+        "delivered": 176623.0,
+        "failed": 0.0,
+        "rejected": 0.0
+      },
+      "result": {
+        "delivered": 176623.0,
+        "failed": 0.0,
+        "rejected": 0.0
+      },
+      "edge": {
+        "attempted": 176623.0,
+        "delivered": 173363.0,
+        "failed": 0.0,
+        "rejected": 3260.0
+      }
+    },
+    "meaning": "Diagnostic endpoint deltas never replace original failed/null conservation gate."
+  },
+  "edgeRejectionsByReason": {
+    "before": {
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "identity_unavailable": 0,
+      "encoding": 0,
+      "queue_count": 0,
+      "worker_exiting": 0,
+      "event_size": 0
+    },
+    "after": {
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "identity_unavailable": 0,
+      "encoding": 0,
+      "queue_count": 3260,
+      "worker_exiting": 0,
+      "event_size": 0
+    },
+    "delta": {
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "identity_unavailable": 0,
+      "encoding": 0,
+      "queue_count": 3260,
+      "worker_exiting": 0,
+      "event_size": 0
+    }
+  },
+  "observedKafkaOffsets": {
+    "nonzeroPartitionDeltas": [
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 0,
+        "before": 22638365,
+        "after": 22739363,
+        "delta": 100998
+      },
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 1,
+        "before": 17148078,
+        "after": 17223703,
+        "delta": 75625
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 0,
+        "before": 35751947,
+        "after": 35926611,
+        "delta": 174664
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 1,
+        "before": 35747484,
+        "after": 35922806,
+        "delta": 175322
+      }
+    ],
+    "nonzeroTopicDeltas": {
+      "shortlink.click.raw.v1": 176623,
+      "shortlink.gateway.request.v1": 349986
+    },
+    "totalOffsetDelta": 526609,
+    "originalVerdict": false
+  },
+  "partialMeasurement": true,
+  "qpsInterpretation": "Incomplete measurement fields cannot be used as sustainable throughput or ceiling."
+}

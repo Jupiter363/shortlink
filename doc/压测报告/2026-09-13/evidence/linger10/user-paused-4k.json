@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260912T172134Z-bfc094fe",
+  "label": "linger10-stable-r4000-a",
+  "status": "USER_PAUSED",
+  "capacityPassed": null,
+  "capacityVerdict": "NOT_EVALUATED_USER_PAUSE",
+  "requestedAt": "2026-09-12T17:31:05.811388+00:00",
+  "reason": "USER_REQUESTED_PAUSE_RESOURCE_CONSTRAINT",
+  "nativeReturnCode": null,
+  "resultAtOneTimeArchiveInspection": "NOT_PRESENT; no polling or large-summary waiting performed",
+  "receipt": {
+    "reason": "USER_REQUESTED_PAUSE_RESOURCE_CONSTRAINT",
+    "runId": "20260912T172134Z-bfc094fe",
+    "requestedAt": "2026-09-12T17:31:05.811388+00:00",
+    "targets": [
+      {
+        "pid": 10078,
+        "startTicks": 411268,
+        "role": "sequence"
+      },
+      {
+        "pid": 10081,
+        "startTicks": 411281,
+        "role": "stage"
+      },
+      {
+        "pid": 12434,
+        "startTicks": 412756,
+        "role": "generator"
+      }
+    ]
+  },
+  "meaning": "User requested pause because resources are insufficient. This is neither a capacity failure nor a capacity pass; do not add it to QPS pass/fail statistics.",
+  "resourceCleanup": "Owned by root; no cleanup claim made by this archive lane."
+}

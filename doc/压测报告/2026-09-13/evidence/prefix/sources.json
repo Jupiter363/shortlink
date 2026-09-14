@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-smoke-r1000/result.json": {
+      "sha256": "fe7d1910cfbf99ac9537463d33183945f2a8a0c01dd4f8c85f9d125c98ec0e31",
+      "bytes": 25748
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-smoke-r1000/before.json": {
+      "sha256": "3559e7bdfb84e0aec313fbaea9ded8fad4d1fbd4c8d860b056556bdbad5d4027",
+      "bytes": 185153
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-smoke-r1000/after.json": {
+      "sha256": "7a1af8062c855591c5874a1f8c9084e69182da91b6ee7319bad1f0d8603def15",
+      "bytes": 183913
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-smoke-r1000/kafka-before.json": {
+      "sha256": "5791c6a48f5c8b128ca50ffdbbcb9dbcd1bcd013c4ab27489ceccf2b2e68c54d",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-smoke-r1000/kafka-after.json": {
+      "sha256": "cde15e5544c3d16e445e4100fe407897f38dc7daa4f3ae2decd3a145b7879bf6",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-smoke-r1000/requests-drained.json": {
+      "sha256": "30a07cd8e955a06d15edd2795e8db299c1f227fde9db6f3fb549e895c82b189a",
+      "bytes": 494
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-smoke-r1000/native-summary.json": {
+      "sha256": "a9e4686bbc4d529c574bd7481dfb1697c57993e14b3c83db80174c765cf2ce21",
+      "bytes": 34526530,
+      "verification": "Recorded stage SHA only; large raw summary not reread/copied"
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-r6000-a/result.json": {
+      "sha256": "0419b6b883318a8865ddc2481ec57bfddefd15c976105ceda1abffba66a9dfa8",
+      "bytes": 11086
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-r6000-a/before.json": {
+      "sha256": "910e9e8ff147b484569e128eb202081ea34a1c46734125a5549548b118216a4b",
+      "bytes": 183796
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-r6000-a/after.json": {
+      "sha256": "8617b0130390ebcd43bf51745d060f846f07b2cd0438f9ef59a66454f9356452",
+      "bytes": 184017
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-r6000-a/kafka-before.json": {
+      "sha256": "4736f26f1f9250f540bdcae08d000837ed23bd937fecf05feccbd4d61bd45fa0",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-r6000-a/kafka-after.json": {
+      "sha256": "90856956897f4bcfd57bf8211979d13f1a4c5b33aaee57893f7f51b021a55212",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-r6000-a/requests-drained.json": {
+      "sha256": "3b07f08ef519f5a3a0775a45fbd34552ed44b987872e5209bff352aedb2c3d5e",
+      "bytes": 507
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/stages/prefix-r6000-a/native-summary.json": {
+      "sha256": "8a96776e3c7ce5541bb72922e685131cb941ff1eb429544d76ff006d6c2f60a0",
+      "bytes": 309395185,
+      "verification": "Recorded stage SHA only; large raw summary not reread/copied"
+    },
+    ".work/load-fix-20260913-prefix/host-window-analysis.json": {
+      "sha256": "018fe0593a3c99450825833fb8f99a791cbe322293a9973af21de5c408182d33",
+      "bytes": 17241
+    },
+    ".work/load-fix-20260913-prefix/host-window-analysis.md": {
+      "sha256": "e46f4d3c2d78b2007fdff4d968f009897f35c79229aaf407e2442b784d2d94d9",
+      "bytes": 4041
+    },
+    ".work/load-fix-20260913-prefix/prefix-r6000-a.host.jsonl": {
+      "sha256": "ed0a42451b8d3d46eeb300a6fbb5c1e6306125e1b5011282fc9f5be4e94579b8",
+      "bytes": 3271208
+    },
+    ".work/load-fix-20260913/canonical-prefix-final.stdout.log": {
+      "sha256": "214bac809f6829510f46bcadefa6327a337fd0a7f65a8f8f761f5c4b75e1c2ca",
+      "bytes": 12538
+    },
+    ".work/load-fix-20260913/canonical-prefix-final.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".work/load-fix-20260913/native-lifecycle-final.stdout.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".work/load-fix-20260913/native-lifecycle-final.stderr.log": {
+      "sha256": "d90702e1c4fff84626acdb859da041e0076b8eb377099bacb3e4153c0398c531",
+      "bytes": 3327
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/runtime-identity.json": {
+      "sha256": "4bb3faa0e20350d6b38c923ecfaab5d93db827774be3d364d7a7402d538a9776",
+      "bytes": 7541
+    },
+    ".work/performance/20260912T171106Z-b5674ed0/state.json": {
+      "sha256": "a7c0c6b1ce2e26795715512683dd26adde1f537414afa8078ecdeda319783506",
+      "bytes": 12069
+    }
+  },
+  "rawStateEnvPrivateConfigCopied": false,
+  "rawHostProcessInventoryCopied": false,
+  "largeNativeSummaryCopied": false,
+  "new172134StagesRead": false
+}

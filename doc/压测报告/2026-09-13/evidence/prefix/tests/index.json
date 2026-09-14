@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "testExecutionDuringArchiving": false,
+  "canonicalLua": {
+    "suite": "edge_ready_prefix",
+    "case_families": {
+      "EM": 14,
+      "SC": 20,
+      "BC": 18,
+      "LG": 28,
+      "GS": 10,
+      "SS": 32,
+      "RP": 13
+    },
+    "case_count": 135,
+    "mode": "canonical",
+    "canonical_source_sha256": "8288f6b4ea17b1a69da070e7043966279f11366109827c4537709d139115e678",
+    "candidate_patch_sha256": null,
+    "historical_oracle_revision": "main14273ab",
+    "historical_ready_head_sha256": "1ca7919cd616c94760c3c3085ed1a85c6d8a5142db2640f16bc6186e9572f479",
+    "candidate_normalized_source_sha256": "1035ebf4c2df3318a2e26a21561abcc1fff7449e580d71b64b14146b44fd6d7f",
+    "test_program_sha256": "92793787830551e75582e324e4ddbab86925c4cab9d42084a2926a0b9f962bf1",
+    "production_written": false,
+    "random_seeds": 32,
+    "random_operations": 8192,
+    "lua_executed": true,
+    "passed": true,
+    "process_exit": 0
+  },
+  "canonicalPassLinesRecounted": 135,
+  "canonicalLogFiles": [
+    "canonical-prefix-final.stdout.log",
+    "canonical-prefix-final.stderr.log"
+  ],
+  "canonicalWarnings": [
+    "WARNING: Your kernel does not support swap limit capabilities or the cgroup is not mounted. Memory limited without swap."
+  ],
+  "nativeLifecycle": {
+    "tests": 18,
+    "originalTests": 10,
+    "newTests": 8,
+    "rawPassLinesRecounted": 18,
+    "elapsedSeconds": 0.026,
+    "status": "OK",
+    "stderrLog": "native-lifecycle-final.stderr.log",
+    "stdoutLog": "native-lifecycle-final.stdout.log",
+    "notAddedTwiceToOriginalTen": true,
+    "subsequentRealRunEvidence": "../../prefix/stages/prefix-r6000-a.json: nativeReturnCode=2 and capacityPassed=false after stop; no -9"
+  },
+  "goGenerator": {
+    "version": "1.4.1-drained-receipt",
+    "topLevelTests": 72,
+    "nestedSubtests": 135,
+    "rerun": false,
+    "previousArchive": "../../tests/native-and-python.json"
+  },
+  "runtimeCanonicalLuaHashMatched": true
+}

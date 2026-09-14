@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "originalRunId": "20260912T162855Z-3dbd69ad",
+  "ext4RunId": "20260912T165811Z-a308ae92",
+  "imageIdEqual": true,
+  "configs": {
+    "config.yaml": {
+      "originalSha256": "3f536622de809e56cea904a76aa1d5d3f194b4c5384b858e738a684beb4f6140",
+      "ext4Sha256": "3f536622de809e56cea904a76aa1d5d3f194b4c5384b858e738a684beb4f6140",
+      "equal": true
+    },
+    "apisix.yaml": {
+      "originalSha256": "7a1f2c2cd5aadb009618f325b5d2f240190aa7fe5f0444518d2890e89dca074a",
+      "ext4Sha256": "7a1f2c2cd5aadb009618f325b5d2f240190aa7fe5f0444518d2890e89dca074a",
+      "equal": true
+    }
+  },
+  "pluginsRecordedHashes": {
+    "deploy/apisix/plugins/apisix/plugins/shortlink-boundary.lua": {
+      "original": "7978e77edc645ddd8a813d194577c5a6cc423f36fe033d3eafc6f5a6b5049e37",
+      "ext4": "7978e77edc645ddd8a813d194577c5a6cc423f36fe033d3eafc6f5a6b5049e37",
+      "equal": true
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-execution-diagnostics.lua": {
+      "original": "cba5d920b5c0005caa672386d048a4bb7fa25993489aabbd5159f47a76a071cb",
+      "ext4": "cba5d920b5c0005caa672386d048a4bb7fa25993489aabbd5159f47a76a071cb",
+      "equal": true
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-fd-preallocate.lua": {
+      "original": "374b34bfab3d6fd23a84b9b4a1e206f73fb138a97a4576aeed0e4cf8caecf8c5",
+      "ext4": "374b34bfab3d6fd23a84b9b4a1e206f73fb138a97a4576aeed0e4cf8caecf8c5",
+      "equal": true
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-http-timing.lua": {
+      "original": "771ed5cdf20cd02d8e49f3d5df04464931028d4807a0830f0446c732a24b26c5",
+      "ext4": "771ed5cdf20cd02d8e49f3d5df04464931028d4807a0830f0446c732a24b26c5",
+      "equal": true
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-kafka-batch.lua": {
+      "original": "3650358f2917bac8f2dd38240274a239d084ed24f3a2e8db1aad147fee66c146",
+      "ext4": "3650358f2917bac8f2dd38240274a239d084ed24f3a2e8db1aad147fee66c146",
+      "equal": true
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-request-logger.lua": {
+      "original": "048a88df815d6f48be00fd7a494b3cb427e81245aa177a8a4ce2978ae46ad875",
+      "ext4": "048a88df815d6f48be00fd7a494b3cb427e81245aa177a8a4ce2978ae46ad875",
+      "equal": true
+    },
+    "deploy/apisix/plugins/apisix/plugins/shortlink-worker-identity.lua": {
+      "original": "555104f477cf06343f77714f2d59d141795bc3ff8f73a55779c3d3e295696f40",
+      "ext4": "555104f477cf06343f77714f2d59d141795bc3ff8f73a55779c3d3e295696f40",
+      "equal": true
+    }
+  },
+  "jarsRecordedHashes": {
+    "shortlink-command": {
+      "originalSha256": "c66f334b10001542b3691f73073a3b85bae31d98c6432f3d6203fa74ca525945",
+      "ext4Sha256": "c66f334b10001542b3691f73073a3b85bae31d98c6432f3d6203fa74ca525945",
+      "equal": true
+    },
+    "admin": {
+      "originalSha256": "8f4262656f5329ba0509fe8c642886371012bdb097d01057d8999fbb544ac5f8",
+      "ext4Sha256": "8f4262656f5329ba0509fe8c642886371012bdb097d01057d8999fbb544ac5f8",
+      "equal": true
+    },
+    "shortlink-redirect": {
+      "originalSha256": "a1ed4bc74546d3581106432be9da9fad5c8644fb5b7654252a0ba627a659cbff",
+      "ext4Sha256": "a1ed4bc74546d3581106432be9da9fad5c8644fb5b7654252a0ba627a659cbff",
+      "equal": true
+    }
+  },
+  "nativeRuntimeRoot": "/var/lib/shortlink-perf/20260912T165811Z-a308ae92/edge-runtime",
+  "nativeRuntimeFiles": {
+    "config": {
+      "source": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260912T165811Z-a308ae92/config.yaml",
+      "path": "/var/lib/shortlink-perf/20260912T165811Z-a308ae92/edge-runtime/config.yaml",
+      "sha256": "3f536622de809e56cea904a76aa1d5d3f194b4c5384b858e738a684beb4f6140",
+      "sizeBytes": 816
+    },
+    "manifest": {
+      "source": "/mnt/d/学习/Project/马哥Project/shortlink/.work/performance/20260912T165811Z-a308ae92/apisix.yaml",
+      "path": "/var/lib/shortlink-perf/20260912T165811Z-a308ae92/edge-runtime/apisix.yaml",
+      "sha256": "7a1f2c2cd5aadb009618f325b5d2f240190aa7fe5f0444518d2890e89dca074a",
+      "sizeBytes": 2293
+    },
+    "plugins": {
+      "path": "/var/lib/shortlink-perf/20260912T165811Z-a308ae92/edge-runtime/plugins",
+      "files": [
+        {
+          "relativePath": "apisix/plugins/shortlink-boundary.lua",
+          "sha256": "7978e77edc645ddd8a813d194577c5a6cc423f36fe033d3eafc6f5a6b5049e37",
+          "sizeBytes": 2600
+        },
+        {
+          "relativePath": "apisix/plugins/shortlink-execution-diagnostics.lua",
+          "sha256": "cba5d920b5c0005caa672386d048a4bb7fa25993489aabbd5159f47a76a071cb",
+          "sizeBytes": 7569
+        },
+        {
+          "relativePath": "apisix/plugins/shortlink-fd-preallocate.lua",
+          "sha256": "374b34bfab3d6fd23a84b9b4a1e206f73fb138a97a4576aeed0e4cf8caecf8c5",
+          "sizeBytes": 6958
+        },
+        {
+          "relativePath": "apisix/plugins/shortlink-http-timing.lua",
+          "sha256": "771ed5cdf20cd02d8e49f3d5df04464931028d4807a0830f0446c732a24b26c5",
+          "sizeBytes": 4556
+        },
+        {
+          "relativePath": "apisix/plugins/shortlink-kafka-batch.lua",
+          "sha256": "3650358f2917bac8f2dd38240274a239d084ed24f3a2e8db1aad147fee66c146",
+          "sizeBytes": 21647
+        },
+        {
+          "relativePath": "apisix/plugins/shortlink-request-logger.lua",
+          "sha256": "048a88df815d6f48be00fd7a494b3cb427e81245aa177a8a4ce2978ae46ad875",
+          "sizeBytes": 39364
+        },
+        {
+          "relativePath": "apisix/plugins/shortlink-worker-identity.lua",
+          "sha256": "555104f477cf06343f77714f2d59d141795bc3ff8f73a55779c3d3e295696f40",
+          "sizeBytes": 1759
+        }
+      ]
+    }
+  },
+  "resourceProfile": {
+    "javaHeapMaxMiB": 384,
+    "javaActiveProcessors": 2,
+    "javaCpuSet": "0-7",
+    "edgeWorkers": 4,
+    "edgeCpuSet": "0-7",
+    "edgeQueueCountPerWorker": 500,
+    "edgeQueueBytesPerWorker": 4194304,
+    "edgeQueueCountNode": 2000,
+    "edgeQueueBytesNode": 16777216,
+    "edgeSendConcurrencyPerWorker": 2,
+    "edgeSenderSlotsNode": 8,
+    "edgeSendBatchSize": 32,
+    "edgeSendBatchBytes": 65536,
+    "applicationCpuSet": "0-7",
+    "applicationDependencyCpuOverlap": null,
+    "applicationCpuUnion": "0-7",
+    "javaEdgeCpuOverlap": "0-7",
+    "edgeSendLingerMillis": 5,
+    "dependencyCpuSet": "8-11",
+    "loadGeneratorCpuSet": "12-15",
+    "wslLogicalProcessors": 16,
+    "metadataWorkers": 8,
+    "metadataPollDefaultMillis": 1000,
+    "commandPool": 16,
+    "idPool": 2,
+    "redirectPool": 8,
+    "adminPool": 12,
+    "kafkaReplicationFactor": 1,
+    "kafkaPartitions": 2
+  },
+  "redisDatabase": 13,
+  "emptySchema": "Parent reported new empty schema; no direct SQL reinspection in this archive.",
+  "filesystemVerification": "Run records place mounted runtime under /var/lib/shortlink-perf instead of /mnt/d; no filesystem/proc/service probe performed while archiving.",
+  "scope": "config/plugins/JAR content equivalence does not control host workload, runtime age or all resource scheduling; no ext4 regression causal claim."
+}
