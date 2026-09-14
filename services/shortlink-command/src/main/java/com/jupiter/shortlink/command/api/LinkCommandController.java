@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -19,7 +21,8 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public class LinkCommandController {
     private static final DateTimeFormatter MANAGEMENT_DATE_TIME =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                    .withZone(ZoneId.of("Asia/Shanghai"));
     private final LinkCommandService links;
     private final GroupCommandService groups;
     private final CommandAuthorization auth;
@@ -281,10 +284,12 @@ public class LinkCommandController {
 
     static String managementDateTime(Object value) {
         if (value == null) return null;
-        LocalDateTime dateTime;
-        if (value instanceof Timestamp timestamp) dateTime = timestamp.toLocalDateTime();
-        else if (value instanceof LocalDateTime localDateTime) dateTime = localDateTime;
+        java.time.Instant instant;
+        if (value instanceof Timestamp timestamp) instant = timestamp.toInstant();
+        // DATETIME values returned by the UTC business connection carry no offset.
+        else if (value instanceof LocalDateTime localDateTime)
+            instant = localDateTime.toInstant(ZoneOffset.UTC);
         else throw new IllegalStateException("Unsupported management date value");
-        return MANAGEMENT_DATE_TIME.format(dateTime);
+        return MANAGEMENT_DATE_TIME.format(instant);
     }
 }
