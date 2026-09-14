@@ -92,10 +92,8 @@ const EXTRA_PHOSPHOR_ICONS = Object.freeze({
 })
 const PHOSPHOR_ALIASES = Object.freeze({ 'shield-check': 'shield' })
 
-// Original JUPITER RELAY vectors; embedded here for a standalone, editable preview.
+// Original JUPITER RELAY character vectors; embedded for standalone rendering.
 const BRAND_ASSETS = Object.freeze({
-  orbit:
-    '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">\n<g fill="none" stroke="#182847" stroke-width="3.5">\n<path d="M153 53C172 68 154 104 122 140S55 200 36 184S38 133 71 96S134 37 153 53Z" fill="#BDEBFF"/>\n<path d="M140 68C149 75 132 103 110 128S61 174 51 167S59 132 81 107S131 61 140 68Z" fill="#F5F9FF"/>\n<path d="M220 72C239 87 221 123 189 159S122 219 103 203S105 152 138 115S201 56 220 72Z" fill="#FFD665"/>\n<path d="M207 87C216 94 199 122 177 147S128 193 118 186S126 151 148 126S198 80 207 87Z" fill="#F5F9FF"/>\n<path d="M143 74C157 84 143 110 129 128" stroke="#BDEBFF" stroke-width="15"/>\n<path d="M137 70C153 84 138 109 124 126M151 80C165 96 148 120 136 134" stroke="#182847" stroke-width="3.5"/>\n<circle cx="59" cy="71" r="9" fill="#2F55E7"/>\n<circle cx="222" cy="183" r="7" fill="#FF927A"/>\n</g></svg>',
   base: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">\n<ellipse cx="123" cy="230" rx="75" ry="10" fill="#D7E1EE"/>\n<g stroke="#182847" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">\n<path d="M98 196V219H78C72 219 69 226 74 229H108V196Z" fill="#BDEBFF"/>\n<path d="M139 196V219H159C165 219 168 226 163 229H129V196Z" fill="#BDEBFF"/>\n<rect x="57" y="130" width="19" height="50" rx="9" transform="rotate(14 57 130)" fill="#FFFFFF"/>\n<circle cx="51" cy="185" r="12" fill="#FFD665"/>\n<rect x="170" y="126" width="20" height="50" rx="10" transform="rotate(-18 170 126)" fill="#FFFFFF"/>\n<rect x="70" y="114" width="102" height="91" rx="27" fill="#FFFFFF"/>\n<path d="M74 182C91 193 143 197 169 183V185C169 197 160 205 149 205H92C81 205 73 197 73 186Z" fill="#ECF3FF" stroke="none"/>\n<rect x="93" y="151" width="56" height="30" rx="10" fill="#FFD665"/>\n<path d="M105 167L116 157L126 167L116 177ZM123 167L134 157L144 167L134 177Z" fill="none" stroke-width="2.5"/>\n<path d="M120 44V29"/>\n<circle cx="120" cy="23" r="8" fill="#FF927A"/>\n<rect x="47" y="79" width="13" height="28" rx="6.5" fill="#BDEBFF"/>\n<rect x="180" y="79" width="13" height="28" rx="6.5" fill="#BDEBFF"/>\n<rect x="56" y="45" width="128" height="87" rx="28" fill="#FFFFFF"/>\n<path d="M65 63C68 57 74 54 81 54H107" fill="none" stroke="#ECF3FF" stroke-width="5"/>\n<rect x="70" y="66" width="100" height="49" rx="18" fill="#182847"/>\n<ellipse cx="96" cy="88" rx="9" ry="12" fill="#BDEBFF" stroke="none"/>\n<ellipse cx="144" cy="88" rx="9" ry="12" fill="#BDEBFF" stroke="none"/>\n<path d="M113 100Q120 106 127 100" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>\n<circle cx="90" cy="84" r="2.5" fill="#FFFFFF" stroke="none"/>\n<circle cx="138" cy="84" r="2.5" fill="#FFFFFF" stroke="none"/>\n</g></svg>',
   navigator:
     '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">\n<ellipse cx="123" cy="230" rx="75" ry="10" fill="#D7E1EE"/>\n<g stroke="#182847" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">\n<path d="M98 196V219H78C72 219 69 226 74 229H108V196Z" fill="#BDEBFF"/>\n<path d="M139 196V219H159C165 219 168 226 163 229H129V196Z" fill="#BDEBFF"/>\n<rect x="57" y="130" width="19" height="50" rx="9" transform="rotate(14 57 130)" fill="#FFFFFF"/>\n<circle cx="51" cy="185" r="12" fill="#FFD665"/>\n<rect x="170" y="126" width="20" height="50" rx="10" transform="rotate(-18 170 126)" fill="#FFFFFF"/>\n<rect x="70" y="114" width="102" height="91" rx="27" fill="#FFFFFF"/>\n<path d="M74 182C91 193 143 197 169 183V185C169 197 160 205 149 205H92C81 205 73 197 73 186Z" fill="#ECF3FF" stroke="none"/>\n<rect x="93" y="151" width="56" height="30" rx="10" fill="#FFD665"/>\n<path d="M105 167L116 157L126 167L116 177ZM123 167L134 157L144 167L134 177Z" fill="none" stroke-width="2.5"/>\n<path d="M120 44V29"/>\n<circle cx="120" cy="23" r="8" fill="#FF927A"/>\n<rect x="47" y="79" width="13" height="28" rx="6.5" fill="#BDEBFF"/>\n<rect x="180" y="79" width="13" height="28" rx="6.5" fill="#BDEBFF"/>\n<rect x="56" y="45" width="128" height="87" rx="28" fill="#FFFFFF"/>\n<path d="M65 63C68 57 74 54 81 54H107" fill="none" stroke="#ECF3FF" stroke-width="5"/>\n<rect x="70" y="66" width="100" height="49" rx="18" fill="#182847"/>\n<ellipse cx="96" cy="88" rx="9" ry="12" fill="#BDEBFF" stroke="none"/>\n<ellipse cx="144" cy="88" rx="9" ry="12" fill="#BDEBFF" stroke="none"/>\n<path d="M113 100Q120 106 127 100" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>\n<circle cx="90" cy="84" r="2.5" fill="#FFFFFF" stroke="none"/>\n<circle cx="138" cy="84" r="2.5" fill="#FFFFFF" stroke="none"/>\n\n<path d="M58 63L86 51" fill="none" stroke="#2F55E7" stroke-width="7"/>\n<circle cx="148" cy="86" r="23" fill="#BDEBFF"/>\n<circle cx="148" cy="86" r="15" fill="#2F55E7"/>\n<path d="M141 80Q147 74 154 81" fill="none" stroke="#FFFFFF" stroke-width="3"/>\n<path d="M168 98L181 110" stroke-width="6"/>\n<g transform="rotate(10 191 174)">\n<rect x="166" y="137" width="51" height="72" rx="10" fill="#2F55E7"/>\n<rect x="172" y="145" width="39" height="51" rx="5" fill="#F5F9FF" stroke-width="2"/>\n<path d="M179 187V177M190 187V168M201 187V159" stroke="#2F55E7" stroke-width="5"/>\n<circle cx="191" cy="202" r="2.5" fill="#FFFFFF" stroke="none"/>\n</g>\n<path d="M178 176Q190 175 192 184Q190 193 180 191" fill="#FFD665"/>\n</g></svg>',
@@ -567,8 +565,7 @@ const RBadge = {
   }
 }
 
-const SMALL_MARK =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-width="4" stroke-linecap="round"><ellipse cx="25" cy="29" rx="10" ry="19" transform="rotate(40 25 29)"/><ellipse cx="40" cy="36" rx="10" ry="19" transform="rotate(40 40 36)"/><path d="M29 16c7 5 5 14-1 21" stroke="var(--surface, #fff)" stroke-width="8"/><path d="M27 14c9 6 7 17 0 24"/></g></svg>'
+const BRAND_MARK_PATH = '/jupiter-mark.svg'
 const RBrand = {
   name: 'RBrand',
   props: {
@@ -583,12 +580,15 @@ const RBrand = {
         'span',
         { class: ['r-brand', `r-brand--${props.variant}`], role: 'img', 'aria-label': props.label },
         [
-          h('span', {
-            class: 'r-brand__mark',
-            'aria-hidden': 'true',
-            style: { width: sizeStyle(props.size), height: sizeStyle(props.size) },
-            innerHTML: props.variant === 'color' ? BRAND_ASSETS.orbit : SMALL_MARK
-          }),
+          h(
+            'span',
+            {
+              class: 'r-brand__mark',
+              'aria-hidden': 'true',
+              style: { width: sizeStyle(props.size), height: sizeStyle(props.size) }
+            },
+            [h('img', { src: BRAND_MARK_PATH, alt: '', draggable: false })]
+          ),
           props.showText &&
             h('span', { class: 'r-brand__wordmark', 'aria-hidden': 'true' }, [
               h('strong', 'JUPITER RELAY'),
