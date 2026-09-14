@@ -105,7 +105,8 @@ routes:
       type: roundrobin
       pass_host: pass
       retries: 0
-      timeout: {connect: 0.2, send: 1, read: 1}
+      # Leave transport/response margin above Redirect's 900ms end-to-end deadline.
+      timeout: {connect: 0.2, send: 1, read: 1.5}
       nodes:
         - host: "${{REDIRECT_UPSTREAM_HOST}}"
           port: 8003

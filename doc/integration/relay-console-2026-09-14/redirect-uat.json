@@ -1,0 +1,56 @@
+{
+  "time": "2026-09-14T13:40:48.456Z",
+  "scope": "Three distinct newly-created link IDs, one public gateway GET each, zero retries",
+  "checks": [
+    {
+      "name": "New short link 1 first GET",
+      "passed": true,
+      "status": 302,
+      "elapsedMs": 750.57,
+      "attempts": 1,
+      "url": "http://localhost:19080/5uFLpSxkE",
+      "location": "https://example.com/?relay-cold=65ecfb07-ea7a-4f4d-922a-2319ce78e8f4"
+    },
+    {
+      "name": "New short link 2 first GET",
+      "passed": true,
+      "status": 302,
+      "elapsedMs": 56.84,
+      "attempts": 1,
+      "url": "http://localhost:19080/BBCt73jjO",
+      "location": "https://example.com/?relay-cold=716dfdfd-7827-4b33-9de4-6184ad39a8a6"
+    },
+    {
+      "name": "New short link 3 first GET",
+      "passed": true,
+      "status": 302,
+      "elapsedMs": 31.19,
+      "attempts": 1,
+      "url": "http://localhost:19080/7LsrOBs5s",
+      "location": "https://example.com/?relay-cold=b7711914-1ff9-48c5-ae39-9110a972c751"
+    },
+    {
+      "name": "Created timestamp matches Shanghai now",
+      "passed": true,
+      "apiCreateTime": "2026-09-14 21:40:48",
+      "deltaMs": 456
+    },
+    {
+      "name": "New redirect clicks reach asynchronous statistics",
+      "passed": true,
+      "metrics": {
+        "pv": 3,
+        "uv": 3,
+        "uip": 1
+      },
+      "completeness": "PARTIAL",
+      "collectionQuality": {
+        "reasons": [
+          "PRODUCER_SAMPLE_STALE"
+        ],
+        "status": "UNKNOWN"
+      }
+    }
+  ],
+  "groupId": "b49dddffcc7b4b4daf87f56e33b699d0"
+}
