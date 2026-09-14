@@ -103,3 +103,17 @@ test('rejects random access to an uncached page before calling transport', async
   )
   assert.equal(called, false)
 })
+
+test('keeps the canonical link selector unchanged by presentation protocol rules', async () => {
+  const calls = []
+  const api = createAnalyticsApi(async (path, options) => {
+    calls.push({ path, options })
+    return metricsEnvelope
+  })
+  const canonical = 'https://localhost:19080/AbC9'
+  await api.queryMetrics(
+    { type: 'link', gid: 'g1', fullShortUrl: canonical },
+    { startDate: '2026-09-08', endDate: '2026-09-14' }
+  )
+  assert.equal(calls[0].options.query.fullShortUrl, canonical)
+})

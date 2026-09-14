@@ -1,0 +1,41 @@
+{
+  "browser": "Codex in-app browser, original tab via CDP",
+  "baseCommit": "103e2a19bce3fde6048dccc988bd31dd793361dc",
+  "scope": "Local Docker functional UAT, no load test",
+  "finalChecks": {
+    "total": 34,
+    "passed": 34
+  },
+  "runtimeExceptionsObserved": 0,
+  "captureCaveat": "One CDP buffer truncation across reload; not a complete HAR",
+  "nativeDownload": "UNVERIFIED; actual XLSX/CSV Blob received and archived",
+  "failures": [
+    {
+      "path": "risk/groups/{newGroup}/overview",
+      "before": 503,
+      "cause": "Group risk profile is not available",
+      "after": 200,
+      "profileStatus": "NOT_EVALUATED"
+    },
+    {
+      "path": "risk/groups/{newGroup}/short-links",
+      "observedAt": "2026-09-14 22:57:00 Asia/Shanghai",
+      "status": 503,
+      "code": "SESSION_OR_AUTHORITY_UNAVAILABLE",
+      "cause": "Redis session HGET command timeout in Admin identity filter",
+      "subsequentUiRefresh": 200,
+      "rootCauseOfRedisDelay": "Not determined"
+    }
+  ],
+  "testData": {
+    "group": "内置浏览器 UAT 0914",
+    "shortUris": [
+      "1sXqGAjVw",
+      "JVTpMwPs5",
+      "6cFe60Su7",
+      "GJqsvKQw2"
+    ],
+    "realBrowserClicks": 1
+  },
+  "temporaryInstrumentation": "URL.createObjectURL restored; CDP mobile metrics cleared; Network/Runtime observation disabled at end"
+}

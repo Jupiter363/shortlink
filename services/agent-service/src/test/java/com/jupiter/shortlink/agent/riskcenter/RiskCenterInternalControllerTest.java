@@ -3,6 +3,7 @@ package com.jupiter.shortlink.agent.riskcenter;
 import static com.jupiter.shortlink.agent.riskprofile.RiskProfileTestFixture.*;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -19,6 +20,7 @@ import com.jupiter.shortlink.agent.riskcommon.model.*;
 import com.jupiter.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.jupiter.shortlink.agent.riskprofile.model.*;
 import com.jupiter.shortlink.agent.riskprofile.repository.*;
+import com.jupiter.shortlink.agent.riskprofile.service.GroupRiskProfileAggregator;
 
 import org.junit.jupiter.api.*;
 import org.springframework.core.io.ClassPathResource;
@@ -96,6 +98,97 @@ class RiskCenterInternalControllerTest {
                 MockMvcBuilders.standaloneSetup(new RiskCenterInternalController(service))
                         .addFilters(new InternalAgentApiFilter(properties))
                         .build();
+    }
+
+    @Test
+    void overviewWithoutGroupProfilePreservesUnknownMetricsAndActualLinkEvidence() throws Exception {
+        mvc.perform(trusted(get(BASE + "/groups/g1/overview")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.gid").value("g1"))
+                .andExpect(jsonPath("$.data.profileStatus").value("NOT_EVALUATED"))
+                .andExpect(jsonPath("$.data.totalShortLinksScanned").value(nullValue()))
+                .andExpect(jsonPath("$.data.lowRiskCount").value(nullValue()))
+                .andExpect(jsonPath("$.data.mediumRiskCount").value(nullValue()))
+                .andExpect(jsonPath("$.data.highRiskCount").value(nullValue()))
+                .andExpect(jsonPath("$.data.avgRiskScore").value(nullValue()))
+                .andExpect(jsonPath("$.data.maxRiskScore").value(nullValue()))
+                .andExpect(jsonPath("$.data.groupRiskScore").value(nullValue()))
+                .andExpect(jsonPath("$.data.groupRiskLevel").value("UNKNOWN"))
+                .andExpect(jsonPath("$.data.agentSummary").value(nullValue()))
+                .andExpect(jsonPath("$.data.riskTrend7d").isEmpty())
+                .andExpect(jsonPath("$.data.topRiskShortLinks[0].pv2h").value(3_000_000_000L))
+                .andExpect(jsonPath("$.data.topRiskShortLinks[0].currentPolicy.state").value("UNKNOWN"));
+        verifyNoInteractions(policies);
+    }
+
+    @Test
+    void newlyAuthorizedEmptyGroupReturnsUnevaluatedInsteadOfServiceFailure() throws Exception {
+        when(authority.resolve(any(), eq("new-group"), any(), any()))
+                .thenReturn(new AuthorizedScope("1001", "4", List.of()));
+
+        mvc.perform(trusted(get(BASE + "/groups/new-group/overview")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.gid").value("new-group"))
+                .andExpect(jsonPath("$.data.profileStatus").value("NOT_EVALUATED"))
+                .andExpect(jsonPath("$.data.groupRiskLevel").value("UNKNOWN"))
+                .andExpect(jsonPath("$.data.groupRiskScore").value(nullValue()))
+                .andExpect(jsonPath("$.data.totalShortLinksScanned").value(nullValue()))
+                .andExpect(jsonPath("$.data.watchingCount").value(0))
+                .andExpect(jsonPath("$.data.manualReview").isEmpty())
+                .andExpect(jsonPath("$.data.topRiskShortLinks").isEmpty());
+    }
+
+    @Test
+    void evaluatedOverviewRemainsReadyWithPersistedMetrics() throws Exception {
+        GroupRiskProfile group =
+                new GroupRiskProfileAggregator().aggregate("g1", List.of(profile), List.of());
+        saveGroupProfile(jdbc, new JdbcGroupRiskProfileRepository(jdbc), group);
+
+        mvc.perform(trusted(get(BASE + "/groups/g1/overview")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileStatus").value("READY"))
+                .andExpect(jsonPath("$.data.totalShortLinksScanned").value(group.totalShortLinksScanned()))
+                .andExpect(jsonPath("$.data.lowRiskCount").value(group.lowRiskCount()))
+                .andExpect(jsonPath("$.data.mediumRiskCount").value(group.mediumRiskCount()))
+                .andExpect(jsonPath("$.data.highRiskCount").value(group.highRiskCount()))
+                .andExpect(jsonPath("$.data.avgRiskScore").value(group.avgRiskScore()))
+                .andExpect(jsonPath("$.data.maxRiskScore").value(group.maxRiskScore()))
+                .andExpect(jsonPath("$.data.groupRiskScore").value(group.groupRiskScore()))
+                .andExpect(jsonPath("$.data.groupRiskLevel").value(group.groupRiskLevel().name()))
+                .andExpect(jsonPath("$.data.disabledCount").value(nullValue()));
+    }
+
+    @Test
+    void unevaluatedOverviewIncludesOnlyActuallyRecordedReviewFacts() throws Exception {
+        mvc.perform(trusted(post(BASE + "/reviews"))
+                        .contentType(MediaType.APPLICATION_JSON).content(review("WATCH")))
+                .andExpect(status().isOk());
+        mvc.perform(trusted(post(BASE + "/reviews"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetType\":\"GROUP\",\"gid\":\"g1\",\"reviewAction\":\"FALSE_POSITIVE\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(trusted(get(BASE + "/groups/g1/overview")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileStatus").value("NOT_EVALUATED"))
+                .andExpect(jsonPath("$.data.groupRiskScore").value(nullValue()))
+                .andExpect(jsonPath("$.data.watchingCount").value(1))
+                .andExpect(jsonPath("$.data.topRiskShortLinks[0].watchStatus").value("WATCHING"))
+                .andExpect(jsonPath("$.data.manualReview.action").value("FALSE_POSITIVE"))
+                .andExpect(jsonPath("$.data.manualReview.reviewer").value("trusted-user"));
+        verifyNoInteractions(policies);
+    }
+
+    @Test
+    void unevaluatedOverviewStillRequiresTrustedIdentityAndGroupOwnership() throws Exception {
+        mvc.perform(get(BASE + "/groups/g1/overview").header("X-Agent-Internal-Token", TOKEN))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(authority);
+        when(authority.resolve(any(), eq("g1"), any(), any()))
+                .thenThrow(new SecurityException("not owned"));
+        mvc.perform(trusted(get(BASE + "/groups/g1/overview")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test

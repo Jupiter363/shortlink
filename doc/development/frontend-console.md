@@ -34,6 +34,8 @@ Browser -> Nginx /api -> APISIX (management host) -> Admin
 
 风险中心分别展示人工审核、当前策略和停用命令状态。UNKNOWN 不视为成功；结果未知时继续查询原 commandId，不重复提交停用动作。COMMITTED 与传播确认分别展示。策略总数或覆盖未提供时保留未知。
 
+已授权分组的风险聚合画像尚未生成时，概览返回 `profileStatus=NOT_EVALUATED`，画像计数和分数为 `null`、等级为 `UNKNOWN`；界面显示“尚未生成风险画像”和「—」。已有画像为 `READY`。人工审核、单链证据与当前策略各自保留已经查询到的事实，不受聚合画像是否生成影响。数据库异常与权限错误仍按错误处理。
+
 ## 构建与部署
 
 ```sh
@@ -47,6 +49,8 @@ npm run build
 Windows 必要时使用 `npm.cmd`。Vite 开发代理转发 `/api` 至 `127.0.0.1:19080` 并设置管理 Host `admin.local.test`。生产构建将 `dist/` 挂载给 Nginx，配置见 [Nginx 示例](../../frontend/console-vue/deploy/nginx.conf) 与 [部署说明](../../frontend/console-vue/deploy/README.md)。Nginx 处理 SPA fallback、静态资源缓存、8 MiB 外层请求上限和 Agent 专用等待预算；请求日志不记录 query 参数，避免旧 logout 接口的 token 落入访问日志。
 
 创建不在前端指定域名，仍由 Command 统一分配。本地历史地址没有协议且 APISIX 端口只提供 HTTP 时，可以在忽略的 `.env.local` 配置 `VITE_SHORTLINK_PUBLIC_ORIGIN=http://localhost:19080`；仅对 host 完全相同的地址应用协议。生产构建使用实际 HTTPS origin，不得携带本地 override 或任何密钥。
+
+访问记录和风险卡片也复用上述规则显示短链地址。协议调整仅用于展示或访问，后端返回的 canonical `fullShortUrl` 与授权请求参数保持原值。
 
 2026-09-14 的真实联调证据归档在 [Relay 联调目录](../integration/relay-console-2026-09-14/)。原型的模拟交互检查不能代替该验收。
 

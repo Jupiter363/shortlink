@@ -10,24 +10,26 @@ public class RiskGroupOverviewRespDTO {
 
     private String gid;
 
-    private long totalShortLinksScanned;
+    private String profileStatus;
 
-    private long lowRiskCount;
+    private Long totalShortLinksScanned;
 
-    private long mediumRiskCount;
+    private Long lowRiskCount;
 
-    private long highRiskCount;
+    private Long mediumRiskCount;
 
-    private long watchingCount;
+    private Long highRiskCount;
+
+    private Long watchingCount;
 
     private Long disabledCount;
     private String currentPolicyCoverage;
 
-    private double avgRiskScore;
+    private Double avgRiskScore;
 
-    private int maxRiskScore;
+    private Integer maxRiskScore;
 
-    private int groupRiskScore;
+    private Integer groupRiskScore;
 
     private String groupRiskLevel;
 

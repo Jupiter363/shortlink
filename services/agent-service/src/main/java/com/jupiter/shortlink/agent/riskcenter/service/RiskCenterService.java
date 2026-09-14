@@ -113,26 +113,47 @@ public class RiskCenterService {
     public RiskGroupOverviewRespDTO getGroupOverview(AgentPrincipal principal, String gid) {
         AuthorizedScope scope = authorize(principal, gid, null, null);
         GroupRiskProfile profile =
-                groupProfileRepository
-                        .findAuthorized(scope, gid, null)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "Group risk profile is not available"));
+                groupProfileRepository.findAuthorized(scope, gid, null).orElse(null);
         Map<Long, Map<String, Object>> reviews = reviewRepository.latestStates(scope);
         List<RiskShortLinkCardRespDTO> topRiskShortLinks =
                 shortLinkProfileRepository.findAuthorized(scope, null, 10).stream()
                         .map(value -> toCard(value, scope, reviews))
                         .toList();
-        return new RiskGroupOverviewRespDTO(
-                profile.gid(),
-                profile.totalShortLinksScanned(),
-                profile.lowRiskCount(),
-                profile.mediumRiskCount(),
-                profile.highRiskCount(),
+        long watchingCount =
                 reviews.values().stream()
                         .filter(value -> "WATCHING".equals(value.get("watchStatus")))
-                        .count(),
+                        .count();
+        Map<String, Object> manualReview = reviewRepository.latestGroupState(scope, gid);
+        if (profile == null) {
+            // An authorized group can exist before the asynchronous profile batch evaluates it.
+            // Review and individual-link evidence remain factual, independent of the aggregate.
+            return new RiskGroupOverviewRespDTO(
+                    gid,
+                    "NOT_EVALUATED",
+                    null,
+                    null,
+                    null,
+                    null,
+                    watchingCount,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "UNKNOWN",
+                    List.of(),
+                    topRiskShortLinks,
+                    List.of(),
+                    null,
+                    manualReview);
+        }
+        return new RiskGroupOverviewRespDTO(
+                profile.gid(),
+                "READY",
+                (long) profile.totalShortLinksScanned(),
+                (long) profile.lowRiskCount(),
+                (long) profile.mediumRiskCount(),
+                (long) profile.highRiskCount(),
+                watchingCount,
                 null,
                 profile.avgRiskScore(),
                 profile.maxRiskScore(),
@@ -142,7 +163,7 @@ public class RiskCenterService {
                 topRiskShortLinks,
                 profile.riskTrend7d().stream().map(this::toTrendMap).toList(),
                 profile.agentSummary(),
-                reviewRepository.latestGroupState(scope, gid));
+                manualReview);
     }
 
     public List<RiskShortLinkCardRespDTO> listGroupShortLinkCards(

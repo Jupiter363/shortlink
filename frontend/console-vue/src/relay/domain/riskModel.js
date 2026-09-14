@@ -25,6 +25,34 @@ export function formatTime(value) {
     : date.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
 }
 
+const PROFILE_STATUSES = new Set(['READY', 'NOT_EVALUATED'])
+const PROFILE_LEVELS = new Set(['LOW', 'MEDIUM', 'HIGH'])
+const OVERVIEW_METRICS = [
+  'groupRiskScore',
+  'totalShortLinksScanned',
+  'highRiskCount',
+  'mediumRiskCount',
+  'lowRiskCount',
+  'avgRiskScore',
+  'maxRiskScore'
+]
+
+function profileStatus(value, scoreField, levelField) {
+  const explicit = safeText(value.profileStatus).toUpperCase()
+  if (PROFILE_STATUSES.has(explicit)) return explicit
+  if (explicit) return 'UNKNOWN'
+  return numberOrNull(value[scoreField]) !== null ||
+    PROFILE_LEVELS.has(safeText(value[levelField]).toUpperCase())
+    ? 'READY'
+    : 'UNKNOWN'
+}
+
+function profileMetrics(value, fields, unavailable) {
+  return Object.fromEntries(
+    fields.map((field) => [field, unavailable ? null : numberOrNull(value[field])])
+  )
+}
+
 export function normalizeCard(raw) {
   const card = object(raw)
   return {
@@ -51,18 +79,26 @@ export function normalizeCard(raw) {
 
 export function normalizeOverview(raw) {
   const value = object(raw)
+  const status = profileStatus(value, 'groupRiskScore', 'groupRiskLevel')
+  const unavailable = status === 'NOT_EVALUATED'
   return {
     ...sanitize(value),
+    profileStatus: status,
+    ...profileMetrics(value, OVERVIEW_METRICS, unavailable),
+    watchingCount: numberOrNull(value.watchingCount),
     disabledCount: numberOrNull(value.disabledCount),
+    groupRiskLevel: unavailable ? 'UNKNOWN' : safeText(value.groupRiskLevel) || 'UNKNOWN',
     currentPolicyCoverage: value.currentPolicyCoverage || 'UNKNOWN',
-    groupRiskScore: numberOrNull(value.groupRiskScore),
-    groupReasonCodes: array(value.groupReasonCodes).map(safeText),
-    riskTrend7d: array(value.riskTrend7d).map((point) => ({
-      date: safeText(point.date),
-      score: numberOrNull(point.riskScore),
-      level: point.riskLevel
-    })),
-    topRiskShortLinks: array(value.topRiskShortLinks).map(normalizeCard)
+    groupReasonCodes: unavailable ? [] : array(value.groupReasonCodes).map(safeText),
+    riskTrend7d: unavailable
+      ? []
+      : array(value.riskTrend7d).map((point) => ({
+          date: safeText(point.date),
+          score: numberOrNull(point.riskScore),
+          level: point.riskLevel
+        })),
+    topRiskShortLinks: array(value.topRiskShortLinks).map(normalizeCard),
+    agentSummary: unavailable ? '' : safeText(value.agentSummary)
   }
 }
 
