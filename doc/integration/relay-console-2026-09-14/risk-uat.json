@@ -1,0 +1,360 @@
+{
+  "time": "2026-09-14T13:26:59.145Z",
+  "mode": "真实后端只读 UAT；一项 UNKNOWN 故障注入单独标明",
+  "checks": [
+    {
+      "name": "默认分组真实风险档案可见",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险概览、档案和事件均有真实 HTTP 200",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "未知全组停用数仍为破折号",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "真实事件末页禁止下一页",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "实际事件证据可展开并保留原因码",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "按分组切换：默认分组",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "name": "默认分组",
+        "cards": 2,
+        "errors": [],
+        "page": "共 4 条 · 第 1 页\n上一页\n下一页"
+      }
+    },
+    {
+      "name": "按分组切换：UAT统计维度样本",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "name": "UAT统计维度样本",
+        "cards": 2,
+        "errors": [],
+        "page": "共 2 条 · 第 1 页\n上一页\n下一页"
+      }
+    },
+    {
+      "name": "风险页 1280 无文档横向溢出",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "viewport": 1280,
+        "document": 1265,
+        "body": 1265
+      }
+    },
+    {
+      "name": "风险详情 1280 当前策略来自实际读取",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险详情 1280 抽屉内无横向溢出",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "dialogWidth": 604,
+        "dialogScroll": 604,
+        "bodyWidth": 604,
+        "bodyScroll": 604
+      }
+    },
+    {
+      "name": "风险详情 1280 初始焦点在抽屉内",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险详情 1280 展开证据不溢出且已脱敏",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "dialog": 604,
+        "width": 604,
+        "pre": 4,
+        "rawIPv4": false,
+        "sensitive": false
+      }
+    },
+    {
+      "name": "风险详情 1280 Esc 关闭后恢复触发按钮焦点",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险页 768 无文档横向溢出",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "viewport": 768,
+        "document": 753,
+        "body": 753
+      }
+    },
+    {
+      "name": "风险详情 768 当前策略来自实际读取",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险详情 768 抽屉内无横向溢出",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "dialogWidth": 753,
+        "dialogScroll": 753,
+        "bodyWidth": 753,
+        "bodyScroll": 753
+      }
+    },
+    {
+      "name": "风险详情 768 初始焦点在抽屉内",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险详情 768 展开证据不溢出且已脱敏",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "dialog": 753,
+        "width": 753,
+        "pre": 4,
+        "rawIPv4": false,
+        "sensitive": false
+      }
+    },
+    {
+      "name": "风险详情 768 Esc 关闭后恢复触发按钮焦点",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险页 390 无文档横向溢出",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "viewport": 390,
+        "document": 375,
+        "body": 375
+      }
+    },
+    {
+      "name": "风险详情 390 当前策略来自实际读取",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险详情 390 抽屉内无横向溢出",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "dialogWidth": 375,
+        "dialogScroll": 375,
+        "bodyWidth": 375,
+        "bodyScroll": 375
+      }
+    },
+    {
+      "name": "风险详情 390 初始焦点在抽屉内",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "风险详情 390 展开证据不溢出且已脱敏",
+      "passed": true,
+      "source": "real-backend",
+      "details": {
+        "dialog": 375,
+        "width": 375,
+        "pre": 4,
+        "rawIPv4": false,
+        "sensitive": false
+      }
+    },
+    {
+      "name": "风险详情 390 Esc 关闭后恢复触发按钮焦点",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "UNKNOWN + 空策略不被当作没有策略或安全",
+      "passed": true,
+      "source": "injected-policy-response"
+    },
+    {
+      "name": "退出故障注入后真实策略读取恢复",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "本轮没有 chat、审核、策略动作 HTTP 请求",
+      "passed": true,
+      "source": "real-backend"
+    },
+    {
+      "name": "无未捕获浏览器异常",
+      "passed": true,
+      "source": "real-backend"
+    }
+  ],
+  "observations": [
+    {
+      "type": "snapshot-coverage",
+      "overviewScanned": 1,
+      "listReturned": 2,
+      "currentPolicyCoverage": "TOP_CARDS_ONLY",
+      "disabledCount": null,
+      "explanation": "独立概览与卡片端点返回数量不同，前端保留真实口径，未补造数据。"
+    }
+  ],
+  "network": [
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/events?gid=1ff4df996bf244bdb86865533a92b12c&pageNo=1&pageSize=10",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/events?gid=a5368545d24b4cf792c3c874597eb40e&pageNo=1&pageSize=10",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/groups/a5368545d24b4cf792c3c874597eb40e/short-links",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/groups/a5368545d24b4cf792c3c874597eb40e/overview",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/events?gid=1ff4df996bf244bdb86865533a92b12c&pageNo=1&pageSize=10",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/current-policies?linkId=20002",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/short-links?gid=1ff4df996bf244bdb86865533a92b12c&domain=localhost%3A19080&shortUri=68hlRoGwl",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/current-policies?linkId=20002",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/short-links?gid=1ff4df996bf244bdb86865533a92b12c&domain=localhost%3A19080&shortUri=68hlRoGwl",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/current-policies?linkId=20002",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/short-links?gid=1ff4df996bf244bdb86865533a92b12c&domain=localhost%3A19080&shortUri=68hlRoGwl",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/current-policies?linkId=20002",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/short-links?gid=1ff4df996bf244bdb86865533a92b12c&domain=localhost%3A19080&shortUri=68hlRoGwl",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:5174/api/short-link/admin/v1/risk/current-policies?linkId=20002",
+      "status": 200
+    }
+  ],
+  "screenshots": [
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-page-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-expanded-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-bottom-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-page-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-expanded-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-bottom-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-page-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-expanded-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-bottom-390.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-unknown-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-default-1280.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-default-768.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\risk-detail-default-390.png"
+  ],
+  "notTested": [
+    "审核及策略停用等写入动作",
+    "收费 LLM",
+    "真实事件超过 10 条的跨页场景（当前默认组 4 条、样本组 2 条）"
+  ],
+  "screenshotVerification": {
+    "time": "2026-09-14T13:29:03.635Z",
+    "method": "页面先滚动到起点；dialog 使用无 clip 的实际 viewport 截图，避免把顶层抽屉截到页面外。",
+    "evidence": [
+      {
+        "width": 1280,
+        "modalViewportCapture": true,
+        "bounds": {
+          "width": 1280,
+          "left": 660,
+          "right": 1280,
+          "dialogScroll": 604,
+          "dialogClient": 604
+        }
+      },
+      {
+        "width": 768,
+        "modalViewportCapture": true,
+        "bounds": {
+          "width": 768,
+          "left": 0,
+          "right": 768,
+          "dialogScroll": 753,
+          "dialogClient": 753
+        }
+      },
+      {
+        "width": 390,
+        "modalViewportCapture": true,
+        "bounds": {
+          "width": 390,
+          "left": 0,
+          "right": 390,
+          "dialogScroll": 375,
+          "dialogClient": 375
+        }
+      }
+    ]
+  }
+}

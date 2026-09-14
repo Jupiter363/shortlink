@@ -5,6 +5,7 @@
 | 目录 | 内容 |
 | --- | --- |
 | [development](development/repository-layout.md) | 当前开发入口、模块职责、构建方式与仓库布局 |
+| [design](design/README.md) | 前端主题选型、Figma 记录与交互原型档案 |
 | [plan](plan/README.md) | 生产级重构、Agent 开发计划、任务拆分与验收要求 |
 | [压测报告](压测报告/README.md) | 压测过程报告、按日期归档的结果与配置、校验凭据 |
 | [analytics](analytics/runtime.md) | 统计运行、恢复与[查询任务](analytics/query-jobs.md)说明 |
@@ -14,6 +15,8 @@
 当前入口：[APISIX 单网关与 Admin 鉴权](development/single-gateway.md)。
 
 前端入口：[Vue 管理控制台与 Agent 工作台](development/frontend-console.md)。
+
+前后端联调：[2026-09-14 JUPITER RELAY 真实业务验收](integration/relay-console-2026-09-14/README.md)。
 
 Agent UAT：[2026-09-13 新后端与 NageOffer 前端双 Agent 验收](integration/dual-agent-console-uat-2026-09-13/README.md)。
 

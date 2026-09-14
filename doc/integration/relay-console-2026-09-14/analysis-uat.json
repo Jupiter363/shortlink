@@ -1,0 +1,67 @@
+{
+  "time": "2026-09-14T13:21:27.757Z",
+  "checks": [
+    {
+      "name": "Restored session rechecks READY and returns protected workspace",
+      "passed": true
+    },
+    {
+      "name": "Real statistics endpoint responds successfully",
+      "passed": true
+    },
+    {
+      "name": "Analytics viewport 1280 no document overflow",
+      "passed": true
+    },
+    {
+      "name": "Analytics viewport 768 no document overflow",
+      "passed": true
+    },
+    {
+      "name": "Analytics viewport 390 no document overflow",
+      "passed": true
+    },
+    {
+      "name": "Risk page loads authorized group overview",
+      "passed": true
+    },
+    {
+      "name": "投放分析 Agent locks navigation while running",
+      "passed": true
+    },
+    {
+      "name": "投放分析 Agent real chat HTTP response",
+      "passed": true,
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "name": "投放分析 Agent renders completed result",
+      "passed": true
+    },
+    {
+      "name": "安全风控 Agent locks navigation while running",
+      "passed": true
+    },
+    {
+      "name": "安全风控 Agent real chat HTTP response",
+      "passed": true,
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "name": "安全风控 Agent renders completed result",
+      "passed": true
+    },
+    {
+      "name": "Agent session survives navigation independently",
+      "passed": true
+    },
+    {
+      "name": "No uncaught browser exceptions",
+      "passed": true
+    }
+  ]
+}

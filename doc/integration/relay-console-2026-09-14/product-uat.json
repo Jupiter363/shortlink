@@ -1,0 +1,338 @@
+{
+  "time": "2026-09-14T13:23:24.095Z",
+  "checks": [
+    {
+      "name": "Dedicated UAT login and initialization READY",
+      "passed": true
+    },
+    {
+      "name": "Token restoration passes initialization gate",
+      "passed": true
+    },
+    {
+      "name": "Persisted session has no password",
+      "passed": true
+    },
+    {
+      "name": "QR image is real PNG and uses configured HTTP origin",
+      "passed": true,
+      "details": {
+        "url": "http://localhost:19080/H512xqSxG"
+      }
+    },
+    {
+      "name": "Single edit persisted returned title and origin URL",
+      "passed": true
+    },
+    {
+      "name": "Non-empty group deletion blocked",
+      "passed": true
+    },
+    {
+      "name": "Group creation selects returned gid",
+      "passed": true
+    },
+    {
+      "name": "Group rename persisted",
+      "passed": true
+    },
+    {
+      "name": "Group sort persisted server order",
+      "passed": true
+    },
+    {
+      "name": "Empty group deletion completed",
+      "passed": true
+    },
+    {
+      "name": "Recycle hides active link and displays it in recycle bin",
+      "passed": true
+    },
+    {
+      "name": "Restore returns link to original group",
+      "passed": true
+    },
+    {
+      "name": "Unexpected interruption",
+      "passed": false,
+      "details": "Timeout: [...document.querySelectorAll(\".link-table tbody tr\")].some(e=>e.textContent.includes(\"Product UAT disposable\"))"
+    }
+  ],
+  "screenshots": [
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-qr-desktop.png",
+    "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-core-failure.png"
+  ],
+  "batchRun": {
+    "time": "2026-09-14T13:26:00.305Z",
+    "checks": [
+      {
+        "name": "Permanent deletion requires code + confirmation and removes only UAT disposable",
+        "passed": true
+      },
+      {
+        "name": "QR download extension matches real PNG bytes",
+        "passed": true,
+        "details": {
+          "file": "shortlink-H512xqSxG.png"
+        }
+      },
+      {
+        "name": "Profile update preserves masked phone with blank edit field",
+        "passed": true
+      },
+      {
+        "name": "390px account has no horizontal overflow",
+        "passed": true
+      },
+      {
+        "name": "12-row synchronous batch returns 12 confirmed results",
+        "passed": true
+      },
+      {
+        "name": "Synchronous export is a real XLSX ZIP file",
+        "passed": true,
+        "details": {
+          "file": "created-links.xlsx",
+          "bytes": 3992
+        }
+      },
+      {
+        "name": "Create refresh obtains fresh snapshot and real page 1 of 2",
+        "passed": true
+      },
+      {
+        "name": "Unexpected interruption",
+        "passed": false,
+        "details": "Timeout: document.querySelectorAll(\".link-table tbody tr\").length===2"
+      }
+    ],
+    "screenshots": [
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-account-desktop.png",
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-account-mobile.png",
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-batch-sync.png",
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-batch-failure.png"
+    ],
+    "artifacts": [
+      ".work\\relay-uat\\downloads\\shortlink-H512xqSxG.png",
+      ".work\\relay-uat\\downloads\\created-links.xlsx"
+    ]
+  },
+  "asyncRun": {
+    "time": "2026-09-14T13:27:25.688Z",
+    "checks": [
+      {
+        "name": "501-row async input exceeds 1 MiB while staying below 8 MiB",
+        "passed": true,
+        "details": {
+          "inputBytes": 1058456,
+          "validRows": 2,
+          "invalidRows": 499
+        }
+      },
+      {
+        "name": "Real async worker reaches PARTIAL_SUCCESS",
+        "passed": true,
+        "details": {
+          "status": "部分完成\n批量创建任务"
+        }
+      },
+      {
+        "name": "Async actual counts: 501 total, 2 valid, 499 invalid, 2 succeeded",
+        "passed": true,
+        "details": {
+          "counts": [
+            "501",
+            "2 / 499",
+            "2",
+            "0"
+          ]
+        }
+      },
+      {
+        "name": "Async cursor advances 20 -> 40 with no duplicate rows",
+        "passed": true
+      },
+      {
+        "name": "Real terminal CSV export has all 501 rows",
+        "passed": true,
+        "details": {
+          "file": "batch-results.csv",
+          "bytes": 22611,
+          "lines": 502
+        }
+      },
+      {
+        "name": "390px async drawer has no horizontal page overflow",
+        "passed": true
+      },
+      {
+        "name": "Only the 2 valid async links were added",
+        "passed": true
+      },
+      {
+        "name": "Cancel uses same real job and yields a server terminal state",
+        "passed": true,
+        "details": {
+          "final": "已取消\n批量创建任务",
+          "race": false
+        }
+      },
+      {
+        "name": "No uncaught application exceptions",
+        "passed": true
+      }
+    ],
+    "screenshots": [
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-batch-async.png",
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-batch-mobile.png",
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-batch-cancel.png"
+    ],
+    "artifacts": [
+      ".work\\relay-uat\\downloads\\batch-results.csv"
+    ]
+  },
+  "retestRun": {
+    "time": "2026-09-14T13:29:34.699Z",
+    "checks": [
+      {
+        "name": "createTime page 2 loads 4 remaining real records without stale snapshot",
+        "passed": true
+      },
+      {
+        "name": "Returning page 1 still loads 10 real records",
+        "passed": true
+      },
+      {
+        "name": "Password change rejects incorrect current password",
+        "passed": true
+      },
+      {
+        "name": "Confirmed password change clears local session and exits",
+        "passed": true
+      },
+      {
+        "name": "Old token cannot read groups after password change",
+        "passed": true,
+        "details": {
+          "status": 401
+        }
+      },
+      {
+        "name": "Dedicated account remains usable with its new password",
+        "passed": true
+      },
+      {
+        "name": "New session restoration re-runs READY initialization",
+        "passed": true
+      },
+      {
+        "name": "No uncaught application exceptions",
+        "passed": true
+      }
+    ],
+    "screenshots": [
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-page2-retest.png",
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-password-verification.png"
+    ]
+  },
+  "defects": [
+    {
+      "id": "P1",
+      "title": "Write success reused old statistics snapshot",
+      "owner": "product",
+      "file": "frontend/console-vue/src/relay/views/ProductDialogs.vue",
+      "fix": "refreshLinks({reset:true})",
+      "state": "FIXED_VERIFIED",
+      "verifiedBy": "batchRun: Create refresh obtains fresh snapshot and real page 1 of 2"
+    },
+    {
+      "id": "P2",
+      "title": "createTime pagination reused snapshot scoped to previous page IDs",
+      "owner": "root",
+      "file": "frontend/console-vue/src/relay/core/controller.js",
+      "fix": "Only metric ranking reuses a scope-wide snapshot; createTime obtains per-page coverage",
+      "state": "FIXED_VERIFIED",
+      "verifiedBy": "retestRun: createTime page 2 loads 4 remaining real records without stale snapshot"
+    },
+    {
+      "id": "P3",
+      "title": "QR PNG download was labeled SVG",
+      "owner": "product",
+      "file": "frontend/console-vue/src/relay/views/ProductDialogs.vue",
+      "fix": "Select file extension from actual image MIME",
+      "state": "FIXED_VERIFIED",
+      "verifiedBy": "batchRun: QR download extension matches real PNG bytes"
+    }
+  ],
+  "artifactValidation": {
+    "xlsx": {
+      "actualContainer": "OOXML ZIP",
+      "worksheetRows": 13,
+      "dataRows": 12
+    },
+    "csv": {
+      "encoding": "UTF-8",
+      "linesIncludingHeader": 502,
+      "dataRows": 501
+    },
+    "qr": {
+      "actualMime": "image/png",
+      "signatureVerified": true,
+      "configuredPublicOrigin": "http://localhost:19080",
+      "independentDecode": "NOT_RUN_NO_LOCAL_DECODER"
+    }
+  },
+  "isolation": {
+    "account": "Dedicated RelayUAT account",
+    "jupiterMutated": false,
+    "accountDeactivated": false,
+    "bulkLinksCreated": 14,
+    "asyncInvalidRows": 499,
+    "extraCancellationJob": "501 invalid rows; CANCELLED"
+  },
+  "conflictDateRun": {
+    "time": "2026-09-14T13:33:14.891Z",
+    "checks": [
+      {
+        "name": "Concurrent real update triggers expectedVersion conflict in old dialog",
+        "passed": true
+      },
+      {
+        "name": "Conflict refresh shows actual concurrent content before retry",
+        "passed": true
+      },
+      {
+        "name": "Custom expiration returns unchanged Beijing date and time",
+        "passed": true
+      },
+      {
+        "name": "Reopened date control preserves selected local date",
+        "passed": true
+      },
+      {
+        "name": "No uncaught application exceptions",
+        "passed": true
+      }
+    ],
+    "screenshots": [
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-version-conflict.png",
+      "D:\\学习\\Project\\马哥Project\\shortlink\\doc\\integration\\relay-console-2026-09-14\\screenshots\\product-expiry-retest.png"
+    ]
+  },
+  "dateApiValidation": {
+    "input": "2026-09-17T23:00",
+    "apiValidDate": "2026-09-17 23:00:00",
+    "listDisplay": "2026-09-17 23:00",
+    "reopenedControl": "2026-09-17T23:00",
+    "passed": true,
+    "apiCreateTime": "2026-09-14 21:18:56"
+  },
+  "summary": {
+    "finalStatus": "PASS",
+    "successfulChecks": 41,
+    "historicalInterruptions": 2,
+    "unresolvedProductDefects": 0,
+    "passedDateApi": true,
+    "remarks": "Historical two snapshot failures preserved; both repaired and verified in later runs. All browsers closed. No account deactivation."
+  }
+}

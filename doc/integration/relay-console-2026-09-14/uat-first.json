@@ -1,0 +1,33 @@
+{
+  "time": "2026-09-14T13:18:57.859Z",
+  "checks": [
+    {
+      "name": "Existing Jupiter login and initialization through APISIX",
+      "passed": true
+    },
+    {
+      "name": "Server logout and protected session cleared",
+      "passed": true
+    },
+    {
+      "name": "Real registration, automatic login, READY default group",
+      "passed": true
+    },
+    {
+      "name": "Create group and select server-assigned gid",
+      "passed": true
+    },
+    {
+      "name": "Single create returns confirmed success",
+      "passed": true
+    },
+    {
+      "name": "Created short link really returns 302 Location",
+      "passed": false,
+      "details": {
+        "status": 503,
+        "location": null
+      }
+    }
+  ]
+}
