@@ -247,7 +247,11 @@ onBeforeUnmount(() => {
                 <h2>账户安全</h2>
                 <p>停用账户与安全确认</p>
               </div>
-              <span class="account-security-action">管理</span>
+              <span class="account-security-action">
+                <span class="account-security-open-label">管理</span>
+                <span class="account-security-close-label">收起</span>
+                <span class="account-security-chevron" aria-hidden="true" />
+              </span>
             </summary>
             <div class="account-danger-row">
               <div>
@@ -433,10 +437,32 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 .account-security-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--blue);
   font-size: 13px;
   font-weight: 650;
   flex: none;
+}
+.account-security-close-label,
+.account-security[open] .account-security-open-label {
+  display: none;
+}
+.account-security[open] .account-security-close-label {
+  display: inline;
+}
+.account-security-chevron {
+  width: 8px;
+  height: 8px;
+  margin: -4px 2px 0 3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.account-security[open] .account-security-chevron {
+  margin-top: 4px;
+  transform: rotate(225deg);
 }
 .account-security-summary:focus-visible {
   outline: 2px solid var(--blue);
@@ -450,13 +476,6 @@ onBeforeUnmount(() => {
   }
   .account-content > * {
     flex: none;
-  }
-  /* Expanding a form consumes these margins before scrolling is needed. */
-  .account-content > :first-child {
-    margin-top: auto;
-  }
-  .account-content > :last-child {
-    margin-bottom: auto;
   }
   .account-layout,
   .account-sections {
@@ -514,6 +533,14 @@ onBeforeUnmount(() => {
   }
   .account-section > header > button {
     width: 100%;
+  }
+}
+@media (max-width: 420px) {
+  .account-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .account-details > div {
+    padding-block: 12px;
   }
 }
 </style>

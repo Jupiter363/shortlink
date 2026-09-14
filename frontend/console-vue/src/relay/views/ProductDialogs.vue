@@ -1035,3 +1035,43 @@ onBeforeUnmount(() => {
     >
   </RModal>
 </template>
+
+<style scoped>
+.product-created > p,
+.product-created h3,
+.product-qr h3 {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.product-qr-paper {
+  max-width: 100%;
+}
+.product-qr-paper img {
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+@media (max-width: 560px) {
+  .product-link-fields .product-two-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .product-link-fields .product-title-label {
+    gap: 8px;
+  }
+  .batch-editor :deep(textarea) {
+    min-height: 144px;
+    height: clamp(144px, 20dvh, 180px);
+  }
+}
+
+@media (max-height: 700px) {
+  .batch-editor :deep(textarea) {
+    min-height: 128px;
+    height: clamp(128px, 25dvh, 180px);
+  }
+}
+</style>

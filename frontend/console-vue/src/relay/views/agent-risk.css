@@ -14,7 +14,15 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.ar-view :is(.ar-composer, .ar-output, .operation-body):focus-visible {
+.ar-view
+  :is(
+    .ar-composer,
+    .ar-output,
+    .ar-result-content,
+    .ar-table-scroll,
+    .ar-trend,
+    .operation-body
+  ):focus-visible {
   outline: 2px solid var(--blue, #285fee);
   outline-offset: -2px;
 }
@@ -96,6 +104,7 @@
 .ar-agent-layout {
   display: grid;
   grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   align-items: start;
   gap: 20px;
   flex: 1;
@@ -144,7 +153,7 @@
   font-size: 12px;
   white-space: nowrap;
 }
-.ar-composer .ar-inline-scope {
+.ar-composer .ar-inline-scope .r-form-field {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
@@ -182,6 +191,9 @@
 .ar-presets {
   display: grid;
   gap: 4px;
+}
+.ar-mobile-presets {
+  display: none;
 }
 .ar-presets .r-button {
   justify-content: flex-start;
@@ -463,6 +475,7 @@
 }
 .ar-table-scroll {
   width: 100%;
+  min-width: 0;
   overflow-x: auto;
   margin-top: 16px;
   overscroll-behavior-x: contain;
@@ -527,6 +540,10 @@
   gap: 16px;
   flex: none;
 }
+.ar-risk-controls > *,
+.ar-section-head > div {
+  min-width: 0;
+}
 .ar-risk-filters .r-form-field {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -575,6 +592,7 @@
 }
 .ar-risk-hero > div {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ar-risk-hero > svg {
   flex-shrink: 0;
@@ -590,6 +608,7 @@
   gap: 14px;
 }
 .ar-metrics > div {
+  min-width: 0;
   padding: 14px;
   border-radius: 12px;
   background: var(--surface, #fff);
@@ -605,6 +624,7 @@
   font-size: 26px;
   margin-top: 6px;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 .ar-trend {
   display: flex;
@@ -671,6 +691,7 @@
   padding: 14px 0;
 }
 .ar-card-metrics span {
+  min-width: 0;
   padding: 9px 12px;
   border-radius: 8px;
   background: var(--subtle, #f2f6fc);
@@ -682,6 +703,7 @@
   color: var(--text, #182847);
   font-size: 18px;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 .ar-reasons {
   display: flex;
@@ -771,6 +793,14 @@
   .ar-pane-switch > .r-button {
     box-shadow: none;
   }
+  .ar-mobile-presets {
+    display: block;
+    margin-top: 0;
+    padding-block: 4px 0;
+  }
+  .ar-mobile-presets .ar-caption {
+    margin-top: 8px;
+  }
   .ar-agent-layout {
     display: block;
     overflow: visible;
@@ -842,7 +872,8 @@
     width: 30px;
     height: 30px;
   }
-  .ar-metrics {
+  .ar-metrics,
+  .ar-risk-summary .ar-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
   }
@@ -879,7 +910,7 @@
   }
   .ar-risk-hero > div {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
     gap: 4px 8px;
     flex: 1;
@@ -893,7 +924,12 @@
     line-height: 1.4;
   }
   .ar-risk-hero > div > p {
-    font-size: 12px;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+    font-size: 13px;
     line-height: 1.4;
   }
   .ar-risk-hero .ar-score {
@@ -904,7 +940,7 @@
   .ar-risk-summary .ar-metrics span {
     font-size: 12px;
     line-height: 16px;
-    min-height: 32px;
+    min-height: 16px;
   }
   .ar-risk-summary .ar-metrics strong {
     line-height: 1.15;
@@ -921,7 +957,7 @@
   .ar-risk-trend-panel .ar-trend {
     gap: 4px;
     margin: 10px 0 0;
-    padding-bottom: 0;
+    padding-bottom: 3px;
   }
   .ar-risk-trend-panel .ar-trend > div {
     gap: 4px;
@@ -962,6 +998,13 @@
   .ar-risk-card > header h3 {
     min-width: 0;
   }
+  .ar-result-content .ar-evidence-card {
+    padding: 16px 0 0;
+    border: 0;
+    border-top: 1px solid var(--line, #d5dfed);
+    border-radius: 0;
+    background: transparent;
+  }
   .ar-graph {
     grid-template-columns: 1fr;
   }
@@ -973,38 +1016,19 @@
 }
 @media (min-width: 901px) and (min-height: 701px) {
   .ar-agent-layout {
-    grid-template-rows: minmax(0, 1fr);
-    align-items: center;
     gap: 24px;
   }
   .ar-panel.ar-composer {
     padding: 22px;
     gap: 12px;
   }
-  .ar-output {
-    height: auto;
-    max-height: 100%;
-  }
-  .ar-output > .ar-result-content {
-    flex: 0 1 auto;
-  }
-  .ar-output.ar-output-intro {
-    height: min(100%, 460px);
-  }
-  .ar-output-intro > .ar-result-content {
-    flex: 1;
-  }
   .ar-output-intro .ar-empty {
-    flex: 1 0 auto;
-    min-height: 0;
+    flex: none;
+    min-height: 360px;
     padding: 32px;
-  }
-  .ar-risk-body > .ar-overview-grid {
-    margin-block: auto;
   }
   .ar-overview-grid {
     gap: 20px;
-    align-items: center;
   }
   .ar-overview-grid > .ar-panel {
     padding: 24px;

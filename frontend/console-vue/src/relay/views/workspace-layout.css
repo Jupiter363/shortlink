@@ -42,6 +42,9 @@
 .workspace-page .group-item {
   padding: 10px;
 }
+.workspace-page .group-item b {
+  flex: none;
+}
 .workspace-page .group-list {
   display: flex;
   flex-direction: column;
@@ -233,6 +236,48 @@
 .workspace-page .batch-notice {
   margin-top: 10px;
   padding: 12px;
+  flex-wrap: wrap;
+}
+.workspace-page .batch-notice > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workspace-page .batch-notice > .r-button {
+  margin-left: auto;
+}
+
+.workspace-group-options {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.workspace-group-choice .r-button__label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+}
+.workspace-group-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.workspace-group-count {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.workspace-group-actions {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.workspace-detail-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .workspace-settings {
@@ -300,7 +345,6 @@
   }
 
   .workspace-page .link-table-wrap {
-    height: 100%;
     border: 0;
     border-radius: 0;
     padding-inline: 18px;

@@ -9,7 +9,7 @@
 .auth-page {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(440px, 0.92fr);
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--surface);
 }
 .auth-story {
@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 780px;
+  min-height: 100dvh;
   padding: 42px 56px 30px;
   background: var(--sky);
   border-right: 2px solid var(--text);
@@ -1107,7 +1107,7 @@
   }
   .auth-story {
     padding: 32px 24px 24px;
-    min-height: 730px;
+    min-height: 100dvh;
   }
   .auth-story-copy h1 {
     font-size: 36px;
@@ -1185,10 +1185,60 @@
     display: none;
   }
 }
+/* Scale the brand scene with the viewport so the login action stays in reach. */
+@media (min-width: 641px) and (max-height: 800px) {
+  .auth-story {
+    padding: 28px 36px 22px;
+  }
+  .auth-story-copy {
+    margin-top: 30px;
+  }
+  .auth-story-copy h1 {
+    font-size: clamp(30px, 3.4vw, 44px);
+    margin-block: 12px 16px;
+  }
+  .auth-story::before {
+    width: 360px;
+    height: 360px;
+    right: -150px;
+    top: 140px;
+  }
+  .auth-illustration {
+    min-height: 200px;
+    padding-top: 0;
+  }
+  .auth-illustration > .r-robot {
+    width: clamp(160px, 29dvh, 220px) !important;
+    height: auto !important;
+  }
+  .auth-note-left {
+    top: 12px;
+    left: 0;
+  }
+  .auth-note-right {
+    bottom: 14px;
+    right: 0;
+  }
+  .auth-panel {
+    padding: 28px clamp(24px, 4vw, 52px) 20px;
+  }
+  .auth-form-heading {
+    margin-bottom: 20px;
+  }
+  .auth-form-heading h2 {
+    margin-block: 6px 8px;
+  }
+  .auth-form {
+    gap: 14px;
+  }
+  .auth-panel-footer {
+    margin-top: 22px;
+  }
+}
 @media (max-width: 640px) {
   .auth-page {
     display: block;
-    min-height: 100vh;
+    min-height: 100dvh;
     background: var(--canvas);
   }
   .auth-story {
@@ -1205,7 +1255,7 @@
     top: -75px;
   }
   .auth-story-copy {
-    margin-top: 23px;
+    margin-top: 16px;
   }
   .auth-story-copy h1 {
     font-size: 28px;
@@ -1223,7 +1273,7 @@
   .auth-panel {
     padding: 28px 24px 20px;
     background: var(--surface);
-    min-height: 600px;
+    min-height: 0;
   }
   .auth-form-wrap {
     max-width: 440px;
@@ -1242,7 +1292,7 @@
     display: flex;
     gap: 10px;
     margin-top: 30px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .auth-panel-footer span {
     margin: 0;

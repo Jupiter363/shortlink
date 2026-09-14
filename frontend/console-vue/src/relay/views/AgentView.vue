@@ -274,13 +274,14 @@ onBeforeUnmount(() => {
               <p>提问设置</p>
             </div>
           </div>
-          <RSelect
-            v-model="session.groupId"
-            label="分析范围"
-            :options="scopeOptions"
-            :disabled="running"
-            class="ar-inline-scope"
-          />
+          <div class="ar-inline-scope">
+            <RSelect
+              v-model="session.groupId"
+              label="分析范围"
+              :options="scopeOptions"
+              :disabled="running"
+            />
+          </div>
           <RTextarea
             ref="promptInput"
             v-model="session.prompt"
@@ -313,6 +314,20 @@ onBeforeUnmount(() => {
               {{ compiled.length }} / 2000 字
             </p>
           </div>
+          <details v-if="session.runState === 'READY'" class="ar-details ar-mobile-presets">
+            <summary>示例问题</summary>
+            <div class="ar-presets">
+              <RButton
+                v-for="preset in copy.presets"
+                :key="preset"
+                kind="text"
+                :disabled="running || relay.state.agentBusy"
+                @click="choosePreset(preset)"
+                >{{ preset }}</RButton
+              >
+            </div>
+            <p class="ar-caption">选择后只填入问题，确认范围后再开始分析。</p>
+          </details>
           <details
             class="ar-details ar-assistance"
             :open="assistOpen"
@@ -516,7 +531,13 @@ onBeforeUnmount(() => {
                   <h3>{{ card.title }}</h3>
                   <p v-if="card.message">{{ card.message }}</p>
                   <p v-if="card.summary && typeof card.summary === 'string'">{{ card.summary }}</p>
-                  <div v-if="card.type === 'access_records'" class="ar-table-scroll">
+                  <div
+                    v-if="card.type === 'access_records'"
+                    class="ar-table-scroll"
+                    role="region"
+                    aria-label="脱敏访问记录，可横向滚动"
+                    tabindex="0"
+                  >
                     <table>
                       <caption>
                         脱敏访问记录

@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="auth-page">
+  <div class="auth-page">
     <section class="auth-story" aria-label="Jupiter Relay 品牌介绍">
       <RBrand variant="color" :show-text="true" :size="42" />
       <div class="auth-story-copy">
@@ -380,5 +380,5 @@ onBeforeUnmount(() => {
         JUPITER RELAY<span>让每一次连接，都有好结果。</span>
       </footer>
     </section>
-  </main>
+  </div>
 </template>

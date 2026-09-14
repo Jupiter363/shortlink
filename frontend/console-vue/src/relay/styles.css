@@ -30,7 +30,7 @@
 }
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 0;
 }
 button,
 input,
@@ -394,6 +394,25 @@ h3 {
   position: relative;
   z-index: 1;
   flex: none;
+}
+.workspace-mobile-toggle {
+  display: none;
+}
+.mobile-navigation .r-brand {
+  margin-bottom: 28px;
+}
+.mobile-navigation nav {
+  display: grid;
+  gap: 10px;
+}
+.mobile-navigation .nav-item {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 12px 16px;
+}
+.mobile-navigation .nav-item > span:not(.r-icon) {
+  display: inline;
 }
 .operation-page {
   display: flex;
@@ -1011,13 +1030,54 @@ h3 {
 /* Keep page titles and primary actions in the navigation so the work area keeps its height. */
 @media (min-width: 901px) and (min-height: 701px) {
   .relay-workbench .main-content {
-    padding-block: clamp(16px, calc(10dvh - 60px), 40px);
+    padding-block: 24px;
   }
   .workspace-topnav {
-    height: clamp(68px, 9dvh, 96px);
+    height: 76px;
   }
   .workspace-topnav-art {
     display: flex;
+  }
+}
+@media (max-width: 600px) {
+  .relay-workbench {
+    --sidebar-width: 0px;
+  }
+  .sidebar {
+    display: none;
+  }
+  .workspace-topnav {
+    gap: 10px;
+  }
+  .workspace-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 42px;
+    min-height: 42px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--subtle);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 650;
+  }
+  .relay-workbench .workspace-topnav .operation-header {
+    flex-wrap: wrap;
+  }
+  .workspace-topnav .operation-header h1 {
+    font-size: 20px;
+  }
+  .workspace-topnav .operation-header .heading-actions {
+    margin-left: auto;
+  }
+  .main-content {
+    padding-inline: 16px;
+  }
+  .operation-body {
+    scrollbar-gutter: auto;
   }
 }
 @media (max-width: 900px) {
@@ -1086,18 +1146,18 @@ h3 {
   .relay-workbench--compact .sidebar {
     padding-inline: 12px;
   }
-  .relay-workbench--compact .brand-link {
+  .relay-workbench--compact .sidebar .brand-link {
     justify-content: center;
     padding: 9px;
   }
-  .relay-workbench--compact .brand-link .r-brand {
+  .relay-workbench--compact .sidebar .brand-link .r-brand {
     width: auto;
   }
-  .relay-workbench--compact .r-brand__wordmark,
-  .relay-workbench--compact .nav-item > span:not(.r-icon) {
+  .relay-workbench--compact .sidebar .r-brand__wordmark,
+  .relay-workbench--compact .sidebar .nav-item > span:not(.r-icon) {
     display: none;
   }
-  .relay-workbench--compact .nav-item {
+  .relay-workbench--compact .sidebar .nav-item {
     width: min(56px, 100%);
     min-height: 50px;
     margin-inline: auto;
