@@ -1,0 +1,186 @@
+[
+  {
+    "name": "内置浏览器真实登录并完成 READY 初始化",
+    "passed": true,
+    "path": "http://127.0.0.1:5174/home/space"
+  },
+  {
+    "name": "通过真实 UI 创建独立 UAT 分组",
+    "passed": true,
+    "evidence": "POST /group 200, GET /group contains the created group; selected create form group matches"
+  },
+  {
+    "name": "无效 URL 被表单拦截且没有发出创建请求",
+    "passed": true
+  },
+  {
+    "name": "创建短链成功且返回实际网关地址",
+    "passed": true
+  },
+  {
+    "name": "复制短链得到完整 HTTP 地址",
+    "passed": true
+  },
+  {
+    "name": "二维码实际生成 PNG 并可加载",
+    "passed": true,
+    "width": 480
+  },
+  {
+    "name": "内置浏览器真实访问新短链并抵达正确目标站",
+    "passed": true
+  },
+  {
+    "name": "编辑描述与北京时间有效期在真实回读中一致",
+    "passed": true
+  },
+  {
+    "name": "回收写入成功且回收站实际展示该短链",
+    "passed": true
+  },
+  {
+    "name": "恢复写入成功并返回原分组",
+    "passed": true
+  },
+  {
+    "name": "同步批量两条链接全部创建成功",
+    "passed": true
+  },
+  {
+    "name": "同步导出返回真实 XLSX 工作簿数据",
+    "passed": true,
+    "bytes": 3637,
+    "httpStatus": 200,
+    "evidence": "通过 CDP 观察前端已收到的真实 Blob 并留存；PK ZIP 签名",
+    "nativeSave": "UNVERIFIED：IAB 未返回 download 事件，留档不是原生保存验收"
+  },
+  {
+    "name": "真实浏览器点击已进入新分组统计",
+    "passed": true
+  },
+  {
+    "name": "访问记录回读到本次 CLICK 与 HTTP 302",
+    "passed": true,
+    "httpStatus": 302,
+    "evidence": "真实 GET 访问记录响应与截图 07，非重发跳转"
+  },
+  {
+    "name": "ISP 与新老访客语义正确披露",
+    "passed": true
+  },
+  {
+    "name": "超过七天的统计范围在客户端禁用",
+    "passed": true
+  },
+  {
+    "name": "风险中心读取历史事件、证据及当前策略",
+    "passed": true,
+    "scope": "默认分组只读"
+  },
+  {
+    "name": "投放 Agent 真实模型与统计 Tools 调用完成",
+    "passed": true,
+    "httpStatus": 200,
+    "tools": [
+      "get_group_stats",
+      "get_group_access_records"
+    ],
+    "quality": "PARTIAL",
+    "readonly": true
+  },
+  {
+    "name": "安全 Agent 真实 Graph 与只读 Tools 完成",
+    "passed": true,
+    "httpStatus": 200,
+    "tools": [
+      "get_group_stats",
+      "get_group_access_records"
+    ],
+    "scope": "新建 UAT 分组无风险画像",
+    "limitation": "无候选短链，未覆盖模型风险解释与自动策略执行"
+  },
+  {
+    "name": "两个 Agent 页面切换后独立保留回答",
+    "passed": true
+  },
+  {
+    "name": "硬刷新后保持登录并可切回 UAT 分组",
+    "passed": true,
+    "evidence": "刷新后工作区与 UAT 分组可操作",
+    "networkCaveat": "刷新时 CDP 缓冲存在截断，逐次业务证据单独留档"
+  },
+  {
+    "name": "390px 窄屏工作区无页面横向溢出",
+    "passed": true,
+    "scrollWidth": 390,
+    "width": 390
+  },
+  {
+    "name": "窄屏导航可抵达账户中心并读取资料",
+    "passed": true,
+    "accountMutation": false
+  },
+  {
+    "name": "退出请求无 URL 凭据且服务端成功清理会话",
+    "passed": true,
+    "method": "DELETE",
+    "path": "/api/short-link/admin/v1/user/logout",
+    "hasQuery": false
+  },
+  {
+    "name": "退出后直接访问工作区被导回登录",
+    "passed": true
+  },
+  {
+    "name": "批量描述与链接行数不一致会禁止提交",
+    "passed": true
+  },
+  {
+    "name": "501 行批量走真实异步任务并返回混合终态",
+    "passed": true,
+    "scope": "1 行有效、500 行无效",
+    "jobId": "1039caba-e276-40ca-a310-6bc985304671",
+    "state": "PARTIAL_SUCCESS"
+  },
+  {
+    "name": "异步结果使用真实游标追加到 40 行",
+    "passed": true,
+    "loadedRows": 40
+  },
+  {
+    "name": "异步导出包含全部 501 行业务结果",
+    "passed": true,
+    "bytes": 22543,
+    "businessRows": 501,
+    "evidence": "真实前端 Blob 留档并检查 CSV 行数",
+    "nativeSave": "未验证 IAB 原生保存事件"
+  },
+  {
+    "name": "修复后风险卡片与事件展示正确 HTTP 地址",
+    "passed": true,
+    "evidence": "同一内置浏览器加载新构建，默认分组真实风险响应"
+  },
+  {
+    "name": "修复后访问记录显示 HTTP 且保留 CLICK/302",
+    "passed": true,
+    "evidence": "修复后真实访问记录 UI"
+  },
+  {
+    "name": "修复后新分组风险概览返回明确未评估状态",
+    "passed": true,
+    "httpStatus": 200,
+    "evidence": "新分组真实概览与 UI，服务重启后单次 Redis 身份超时另行记录"
+  },
+  {
+    "name": "修复后已有风险画像保持 READY 与真实分数",
+    "passed": true,
+    "httpStatus": 200,
+    "profileStatus": "READY",
+    "evidence": "默认分组真实概览"
+  },
+  {
+    "name": "修复后风险详情与当前策略仍可查询",
+    "passed": true,
+    "evidence": "默认分组真实策略读取，未执行写操作"
+  }
+]

@@ -11,6 +11,7 @@ import {
   metric,
   validLinkId
 } from './riskModel.js'
+import { absoluteShortUrl } from './product-model.js'
 
 test('UNKNOWN policy response cannot be interpreted as no restrictions', () => {
   const value = normalizePolicies({
@@ -83,12 +84,81 @@ test('overview preserves top-cards-only coverage and null group disable count', 
   assert.equal(metric(value.groupRiskScore), '—')
   assert.equal(metric(0), '0')
 })
+test('not-evaluated overview cannot display zero counts, a safe level or a synthetic trend', () => {
+  const value = normalizeOverview({
+    profileStatus: 'NOT_EVALUATED',
+    groupRiskScore: 0,
+    groupRiskLevel: 'LOW',
+    totalShortLinksScanned: 0,
+    highRiskCount: 0,
+    mediumRiskCount: 0,
+    lowRiskCount: 0,
+    avgRiskScore: 0,
+    maxRiskScore: 0,
+    watchingCount: 3,
+    disabledCount: 2,
+    riskTrend7d: [{ date: '2026-09-14', riskScore: 0, riskLevel: 'LOW' }],
+    groupReasonCodes: ['SAFE'],
+    topRiskShortLinks: [{ linkId: '123', riskScore: 48, riskLevel: 'MEDIUM' }],
+    agentSummary: '没有风险'
+  })
+  assert.equal(value.profileStatus, 'NOT_EVALUATED')
+  assert.equal(value.groupRiskLevel, 'UNKNOWN')
+  assert.equal(value.groupRiskScore, null)
+  assert.equal(value.totalShortLinksScanned, null)
+  assert.equal(value.watchingCount, 3)
+  assert.equal(value.disabledCount, 2)
+  assert.equal(metric(value.lowRiskCount), '—')
+  assert.equal(value.avgRiskScore, null)
+  assert.equal(value.maxRiskScore, null)
+  assert.deepEqual(value.riskTrend7d, [])
+  assert.deepEqual(value.groupReasonCodes, [])
+  assert.equal(value.topRiskShortLinks.length, 1)
+  assert.equal(value.topRiskShortLinks[0].riskScore, 48)
+  assert.equal(value.agentSummary, '')
+})
+test('ready and legacy overview responses preserve real profile values', () => {
+  const ready = normalizeOverview({
+    profileStatus: 'READY',
+    groupRiskScore: 72,
+    groupRiskLevel: 'HIGH',
+    totalShortLinksScanned: 4,
+    riskTrend7d: [{ date: '2026-09-14', riskScore: 72, riskLevel: 'HIGH' }]
+  })
+  assert.equal(ready.profileStatus, 'READY')
+  assert.equal(ready.groupRiskScore, 72)
+  assert.equal(ready.totalShortLinksScanned, 4)
+  assert.equal(ready.riskTrend7d[0].score, 72)
+
+  const legacy = normalizeOverview({ groupRiskScore: 18, groupRiskLevel: 'LOW' })
+  assert.equal(legacy.profileStatus, 'READY')
+  assert.equal(legacy.groupRiskScore, 18)
+  assert.equal(normalizeOverview({ profileStatus: 'DEFERRED' }).profileStatus, 'UNKNOWN')
+})
 test('card does not synthesize a safe risk or effective policy from missing facts', () => {
   const value = normalizeCard({ domain: 's.example', shortUri: 'abc' })
   assert.equal(value.riskScore, null)
   assert.equal(value.currentPolicy.state, 'UNKNOWN')
   assert.equal(value.linkId, null)
   assert.deepEqual(value.reasonCodes, [])
+})
+test('display protocol follows only the configured matching origin without mutating identity', () => {
+  const identity = {
+    fullShortUrl: 'https://localhost:19080/AbC9',
+    domain: 'localhost:19080',
+    shortUri: 'AbC9'
+  }
+  const original = structuredClone(identity)
+  assert.equal(absoluteShortUrl(identity, 'http://localhost:19080'), 'http://localhost:19080/AbC9')
+  assert.equal(
+    absoluteShortUrl('localhost:19080/AbC9', 'http://localhost:19080'),
+    'http://localhost:19080/AbC9'
+  )
+  assert.equal(
+    absoluteShortUrl('https://short.example/AbC9', 'http://localhost:19080'),
+    'https://short.example/AbC9'
+  )
+  assert.deepEqual(identity, original)
 })
 test('large numeric identifiers retain precision and unsafe JS numbers are rejected', () => {
   assert.equal(validLinkId('9223372036854775806'), true)
@@ -121,10 +191,12 @@ test('review whitelist cannot invoke a policy action or spoof a reviewer', () =>
     gid: 'g',
     domain: 's.example',
     shortUri: 'abc',
+    fullShortUrl: 'https://localhost:19080/abc',
     reviewAction: 'FALSE_POSITIVE',
     reviewer: 'spoofed'
   }
   assert.ok(!Object.hasOwn(buildReviewBody(base), 'reviewer'))
+  assert.equal(buildReviewBody(base).fullShortUrl, 'https://localhost:19080/abc')
   assert.throws(() => buildReviewBody({ ...base, reviewAction: 'DISABLE' }))
   assert.throws(() => buildReviewBody({ ...base, domain: '' }))
   const group = buildReviewBody({ ...base, targetType: 'GROUP' })

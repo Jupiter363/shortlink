@@ -1,0 +1,1234 @@
+[
+  {
+    "event": "request",
+    "id": "41628.51",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/user/login",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.51",
+    "path": "/api/short-link/admin/v1/user/login",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.52",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.52",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.53",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.53",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.56",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.56",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.57",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.57",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.58",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.58",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.59",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.59",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.60",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/create",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.60",
+    "path": "/api/short-link/admin/v1/create",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.61",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.61",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.62",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.62",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.65",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/update",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.65",
+    "path": "/api/short-link/admin/v1/update",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.66",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.66",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.67",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.67",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.68",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/recycle-bin/save",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.68",
+    "path": "/api/short-link/admin/v1/recycle-bin/save",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.69",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.69",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.70",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.70",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.71",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/recycle-bin/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.71",
+    "path": "/api/short-link/admin/v1/recycle-bin/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.72",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/recycle-bin/recover",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.72",
+    "path": "/api/short-link/admin/v1/recycle-bin/recover",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.73",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.73",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.74",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/recycle-bin/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.74",
+    "path": "/api/short-link/admin/v1/recycle-bin/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.75",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.75",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.76",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/create/batch",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.76",
+    "path": "/api/short-link/admin/v1/create/batch",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.77",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.77",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.78",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.78",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.79",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/create/batch/export",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.79",
+    "path": "/api/short-link/admin/v1/create/batch/export",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.82",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/stats/group",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.82",
+    "path": "/api/short-link/admin/v1/stats/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.83",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/stats/access-record/group",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.83",
+    "path": "/api/short-link/admin/v1/stats/access-record/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.87",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.88",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.89",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.88",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.89",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.87",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "status": 503,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.90",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.91",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.92",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.92",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.91",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.90",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.93",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/current-policies",
+    "hasQuery": true
+  },
+  {
+    "event": "request",
+    "id": "41628.94",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/short-links",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.93",
+    "path": "/api/short-link/admin/v1/risk/current-policies",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.94",
+    "path": "/api/short-link/admin/v1/risk/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.96",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/agent/health",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.96",
+    "path": "/api/short-link/admin/v1/agent/health",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.97",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/agent/chat",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.97",
+    "path": "/api/short-link/admin/v1/agent/chat",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.98",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/agent/health",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.98",
+    "path": "/api/short-link/admin/v1/agent/health",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.99",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/agent/chat",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.99",
+    "path": "/api/short-link/admin/v1/agent/chat",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.100",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/agent/health",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.100",
+    "path": "/api/short-link/admin/v1/agent/health",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.101",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.101",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.102",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/create/batch/export",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.102",
+    "path": "/api/short-link/admin/v1/create/batch/export",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.110",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.110",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.113",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.113",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.116",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.116",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.117",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.117",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.119",
+    "method": "GET",
+    "path": "/api/short-link/v1/user/Jupiter",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.119",
+    "path": "/api/short-link/v1/user/Jupiter",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.120",
+    "method": "DELETE",
+    "path": "/api/short-link/admin/v1/user/logout",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.120",
+    "path": "/api/short-link/admin/v1/user/logout",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.127",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/user/login",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.127",
+    "path": "/api/short-link/admin/v1/user/login",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.128",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.128",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.129",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.129",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.132",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.132",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.133",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.133",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.134",
+    "method": "POST",
+    "path": "/api/short-link/admin/v1/create/batch",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.134",
+    "path": "/api/short-link/admin/v1/create/batch",
+    "status": 202,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.135",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.135",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.136",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.136",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.137",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.137",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.138",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671/rows",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.138",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671/rows",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.139",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.139",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.140",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.140",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.141",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671/rows",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.141",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671/rows",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.142",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671/export",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.142",
+    "path": "/api/short-link/admin/v1/batches/1039caba-e276-40ca-a310-6bc985304671/export",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.146",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.147",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.148",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.147",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.148",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.146",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "status": 503,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.156",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.156",
+    "path": "/api/short-link/admin/v1/user/initialization",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.157",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/group",
+    "hasQuery": false
+  },
+  {
+    "event": "response",
+    "id": "41628.157",
+    "path": "/api/short-link/admin/v1/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.161",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.162",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.163",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.163",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.161",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.162",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.166",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.166",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.167",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.167",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.170",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/stats/group",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.170",
+    "path": "/api/short-link/admin/v1/stats/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.172",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/stats/access-record/group",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.172",
+    "path": "/api/short-link/admin/v1/stats/access-record/group",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.173",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.174",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.175",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.174",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "status": 503,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.175",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.173",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.176",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.177",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.178",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.178",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.176",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/overview",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.177",
+    "path": "/api/short-link/admin/v1/risk/groups/0c6c14619d3e4276983fb88f894d2e0d/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.179",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.180",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+    "hasQuery": false
+  },
+  {
+    "event": "request",
+    "id": "41628.181",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.181",
+    "path": "/api/short-link/admin/v1/risk/events",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.180",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.179",
+    "path": "/api/short-link/admin/v1/risk/groups/1ff4df996bf244bdb86865533a92b12c/overview",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.182",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/current-policies",
+    "hasQuery": true
+  },
+  {
+    "event": "request",
+    "id": "41628.183",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/short-links",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.182",
+    "path": "/api/short-link/admin/v1/risk/current-policies",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "response",
+    "id": "41628.183",
+    "path": "/api/short-link/admin/v1/risk/short-links",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.184",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/risk/current-policies",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.184",
+    "path": "/api/short-link/admin/v1/risk/current-policies",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.185",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.185",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  },
+  {
+    "event": "request",
+    "id": "41628.186",
+    "method": "GET",
+    "path": "/api/short-link/admin/v1/page",
+    "hasQuery": true
+  },
+  {
+    "event": "response",
+    "id": "41628.186",
+    "path": "/api/short-link/admin/v1/page",
+    "status": 200,
+    "type": "Fetch"
+  }
+]

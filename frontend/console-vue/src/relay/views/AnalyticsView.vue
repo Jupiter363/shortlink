@@ -1,6 +1,7 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { analyticsApi } from '../api/analytics.js'
+import { absoluteShortUrl } from '../api/product.js'
 import {
   ANALYTICS_DIMENSIONS,
   AnalyticsContractError,
@@ -22,6 +23,8 @@ if (!relay) throw new Error('AnalyticsView requires relay provider')
 
 const state = relay.state
 const defaultRange = defaultShanghaiDateRange()
+const displayShortUrl = (value) =>
+  absoluteShortUrl(value) || (typeof value === 'string' ? value : '')
 const remembered = state.analyticsScope
 const scopeType = ref(remembered?.type === 'link' ? 'link' : 'group')
 const scopeId = ref(
@@ -744,7 +747,8 @@ onBeforeUnmount(() => {
                   :key="row.eventId || `${row.occurredAt}-${row.visitorIdentifier}-${index}`"
                 >
                   <td>
-                    {{ row.occurredAtDisplay }}<small>{{ row.fullShortUrl || row.linkId }}</small>
+                    {{ row.occurredAtDisplay
+                    }}<small>{{ displayShortUrl(row.fullShortUrl) || row.linkId }}</small>
                   </td>
                   <td>
                     {{ row.visitorType }}<small>访客 {{ row.visitorIdentifier }}</small
@@ -772,7 +776,7 @@ onBeforeUnmount(() => {
               :key="`card-${row.eventId || row.occurredAt}`"
             >
               <strong>{{ row.occurredAtDisplay }}</strong
-              ><span>{{ row.fullShortUrl || row.linkId }}</span>
+              ><span>{{ displayShortUrl(row.fullShortUrl) || row.linkId }}</span>
               <dl>
                 <div>
                   <dt>访客</dt>

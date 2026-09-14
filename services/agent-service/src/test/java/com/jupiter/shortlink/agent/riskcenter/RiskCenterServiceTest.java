@@ -13,12 +13,13 @@ import com.jupiter.shortlink.agent.riskpolicy.service.RiskPolicyService;
 import com.jupiter.shortlink.agent.riskprofile.repository.*;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.util.*;
 
 class RiskCenterServiceTest {
     @Test
-    void groupWithoutEvaluatedProfileIsUnavailableAfterAuthorization() {
+    void groupWithoutEvaluatedProfileIsExplicitlyUnknownAfterAuthorization() {
         var authority = mock(AgentAuthorityClient.class);
         var groups = mock(JdbcGroupRiskProfileRepository.class);
         var scope = new AuthorizedScope("1001", "1", List.of());
@@ -34,12 +35,56 @@ class RiskCenterServiceTest {
                         groups,
                         mock(RiskPolicyService.class),
                         authority);
-        assertThatThrownBy(() -> service.getGroupOverview(principal, "g1"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Group risk profile is not available");
+        var overview = service.getGroupOverview(principal, "g1");
+        assertThat(overview.gid()).isEqualTo("g1");
+        assertThat(overview.profileStatus()).isEqualTo("NOT_EVALUATED");
+        assertThat(overview.totalShortLinksScanned()).isNull();
+        assertThat(overview.lowRiskCount()).isNull();
+        assertThat(overview.mediumRiskCount()).isNull();
+        assertThat(overview.highRiskCount()).isNull();
+        assertThat(overview.avgRiskScore()).isNull();
+        assertThat(overview.maxRiskScore()).isNull();
+        assertThat(overview.groupRiskScore()).isNull();
+        assertThat(overview.groupRiskLevel()).isEqualTo("UNKNOWN");
+        assertThat(overview.disabledCount()).isNull();
+        assertThat(overview.agentSummary()).isNull();
+        assertThat(overview.watchingCount()).isZero();
+        assertThat(overview.groupReasonCodes()).isEmpty();
+        assertThat(overview.topRiskShortLinks()).isEmpty();
+        assertThat(overview.riskTrend7d()).isEmpty();
+        assertThat(overview.manualReview()).isEmpty();
         var order = inOrder(authority, groups);
         order.verify(authority).resolve(principal, "g1", null, null);
         order.verify(groups).findAuthorized(scope, "g1", null);
+    }
+
+    @Test
+    void unavailableProfileDatabaseIsNotReportedAsUnevaluated() {
+        var fixture = new FailureFixture();
+        var failure = new DataAccessResourceFailureException("profile database unavailable");
+        when(fixture.groups.findAuthorized(fixture.scope, "g1", null)).thenThrow(failure);
+        assertThatThrownBy(() -> fixture.service.getGroupOverview(fixture.principal, "g1"))
+                .isSameAs(failure);
+        verifyNoInteractions(fixture.reviews, fixture.profiles);
+    }
+
+    @Test
+    void unavailableManualReviewDatabaseIsNotReportedAsAnEmptyReview() {
+        var fixture = new FailureFixture();
+        var failure = new DataAccessResourceFailureException("review database unavailable");
+        when(fixture.reviews.latestGroupState(fixture.scope, "g1")).thenThrow(failure);
+        assertThatThrownBy(() -> fixture.service.getGroupOverview(fixture.principal, "g1"))
+                .isSameAs(failure);
+    }
+
+    @Test
+    void storedProfileOutsideAuthorizedScopeRemainsForbidden() {
+        var fixture = new FailureFixture();
+        var failure = new SecurityException("profile membership changed");
+        when(fixture.groups.findAuthorized(fixture.scope, "g1", null)).thenThrow(failure);
+        assertThatThrownBy(() -> fixture.service.getGroupOverview(fixture.principal, "g1"))
+                .isSameAs(failure);
+        verifyNoInteractions(fixture.reviews, fixture.profiles);
     }
 
     @Test
@@ -62,10 +107,31 @@ class RiskCenterServiceTest {
                         mock(RiskPolicyService.class),
                         authority);
         assertThatThrownBy(
+                        () -> service.getGroupOverview(
+                                new AgentPrincipal("1001", "trusted-user", 1, false), "g1"))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(
                         () ->
                                 service.listGroupShortLinkCards(
                                         new AgentPrincipal("1001", "trusted-user", 1, false), "g1"))
                 .isInstanceOf(SecurityException.class);
         verifyNoInteractions(events, snapshots, reviews, profiles, groups);
+    }
+
+    private static final class FailureFixture {
+        private final AgentAuthorityClient authority = mock(AgentAuthorityClient.class);
+        private final JdbcGroupRiskProfileRepository groups = mock(JdbcGroupRiskProfileRepository.class);
+        private final JdbcRiskReviewRepository reviews = mock(JdbcRiskReviewRepository.class);
+        private final JdbcShortLinkRiskProfileRepository profiles = mock(JdbcShortLinkRiskProfileRepository.class);
+        private final AuthorizedScope scope = new AuthorizedScope("1001", "1", List.of());
+        private final AgentPrincipal principal = new AgentPrincipal("1001", "trusted-user", 1, false);
+        private final RiskCenterService service = new RiskCenterService(
+                mock(JdbcRiskEventRepository.class), mock(JdbcRiskSnapshotRepository.class),
+                reviews, profiles, groups, mock(RiskPolicyService.class), authority);
+
+        private FailureFixture() {
+            when(authority.resolve(principal, "g1", null, null)).thenReturn(scope);
+            when(groups.findAuthorized(scope, "g1", null)).thenReturn(Optional.empty());
+        }
     }
 }

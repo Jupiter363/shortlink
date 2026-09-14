@@ -1,6 +1,7 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
 import { riskApi } from '../api/agentRisk.js'
+import { absoluteShortUrl } from '../api/product.js'
 import { array, errorMessage, object, pretty, sanitize } from '../domain/agentModel.js'
 import {
   commandKey,
@@ -27,6 +28,12 @@ const groupOptions = computed(() =>
 const groupName = computed(
   () => groups.value.find((group) => String(group.id) === groupId.value)?.name || '所选分组'
 )
+const displayShortUrl = (value) =>
+  absoluteShortUrl(value) || (typeof value === 'string' ? value : '')
+const overviewRiskLabel = (profile) =>
+  profile.profileStatus === 'NOT_EVALUATED' ? '尚未生成风险画像' : riskLevel(profile.groupRiskLevel)
+const overviewRiskTone = (profile) =>
+  profile.profileStatus === 'NOT_EVALUATED' ? 'unknown' : riskTone(profile.groupRiskLevel)
 const overview = ref(null)
 const cards = ref([])
 const loading = ref(false)
@@ -328,7 +335,7 @@ async function queryCommand(command) {
 function cardTitle(card) {
   return (
     relay.state.links?.find((link) => String(link.id) === String(card.linkId))?.title ||
-    card.fullShortUrl ||
+    displayShortUrl(card.fullShortUrl) ||
     card.shortUri ||
     '短链风险档案'
   )
@@ -406,9 +413,7 @@ onBeforeUnmount(() => {
           <div class="ar-risk-hero">
             <RRobot role="guardian" :size="120" />
             <div>
-              <RBadge :tone="riskTone(overview.groupRiskLevel)">{{
-                riskLevel(overview.groupRiskLevel)
-              }}</RBadge>
+              <RBadge :tone="overviewRiskTone(overview)">{{ overviewRiskLabel(overview) }}</RBadge>
               <h2>{{ groupName }}</h2>
               <p>
                 风险分数 <strong class="ar-score">{{ metric(overview.groupRiskScore) }}</strong>
@@ -479,7 +484,13 @@ onBeforeUnmount(() => {
               ><small>{{ riskLevel(point.level) }}</small>
             </div>
           </div>
-          <p v-else class="ar-muted">暂无风险趋势数据。</p>
+          <p v-else class="ar-muted">
+            {{
+              overview.profileStatus === 'NOT_EVALUATED'
+                ? '尚未生成风险画像，暂无风险趋势数据。'
+                : '暂无风险趋势数据。'
+            }}
+          </p>
           <p v-if="overview.agentSummary" class="ar-answer-text">{{ overview.agentSummary }}</p>
         </section>
       </template>
@@ -494,7 +505,11 @@ onBeforeUnmount(() => {
         <p v-if="errors.cards" class="ar-alert ar-alert-danger" role="alert">{{ errors.cards }}</p>
         <div v-else-if="!loading && !cards.length" class="ar-empty ar-empty-compact">
           <RIcon name="shield" :size="44" />
-          <h3>还没有风险档案</h3>
+          <h3>
+            {{
+              overview?.profileStatus === 'NOT_EVALUATED' ? '尚未生成风险画像' : '还没有风险档案'
+            }}
+          </h3>
           <p>等待真实访问与风险画像产出，或前往安全 Agent 发起分析。</p>
           <RButton kind="secondary" @click="relay.go('/home/agent/security-risk')"
             >打开安全风控 Agent</RButton
@@ -512,7 +527,7 @@ onBeforeUnmount(() => {
                 >{{ riskLevel(card.riskLevel) }} · {{ metric(card.riskScore) }}</RBadge
               >
             </header>
-            <p class="ar-break">{{ card.fullShortUrl }}</p>
+            <p class="ar-break">{{ displayShortUrl(card.fullShortUrl) }}</p>
             <div class="ar-card-metrics">
               <span
                 >2 小时 PV <b>{{ metric(card.pv2h) }}</b></span
@@ -591,7 +606,7 @@ onBeforeUnmount(() => {
               <tr v-for="event in events.records" :key="event.eventId">
                 <td>
                   {{ formatTime(event.eventTime)
-                  }}<small>{{ event.fullShortUrl || '分组事件' }}</small>
+                  }}<small>{{ displayShortUrl(event.fullShortUrl) || '分组事件' }}</small>
                 </td>
                 <td>
                   <RBadge :tone="riskTone(event.riskLevel)"
@@ -638,7 +653,7 @@ onBeforeUnmount(() => {
     <RModal :open="detailOpen" title="风险证据与当前策略" drawer @close="closeDetail">
       <div class="ar-detail">
         <h2>{{ selected && cardTitle(selected) }}</h2>
-        <p class="ar-break">{{ selected?.fullShortUrl }}</p>
+        <p class="ar-break">{{ displayShortUrl(selected?.fullShortUrl) }}</p>
         <p v-if="detailLoading" role="status">正在读取详情…</p>
         <p v-if="detailError" class="ar-alert ar-alert-danger" role="alert">{{ detailError }}</p>
         <template v-if="detail"
@@ -763,7 +778,9 @@ onBeforeUnmount(() => {
     <RModal :open="review.open" title="记录人工审核" @close="closeReview"
       ><div class="ar-form-stack">
         <p class="ar-notice">审核只记录判断，不会激活、撤销或停用跳转策略。</p>
-        <p class="ar-break">目标：{{ review.target?.fullShortUrl || groupName }}</p>
+        <p class="ar-break">
+          目标：{{ displayShortUrl(review.target?.fullShortUrl) || groupName }}
+        </p>
         <template v-if="!review.result"
           ><RSelect
             v-model="review.action"
@@ -796,7 +813,7 @@ onBeforeUnmount(() => {
     >
     <RModal :open="policyDialog.open" title="停用现有策略" @close="closePolicy"
       ><div class="ar-form-stack">
-        <p class="ar-break">{{ policyDialog.card?.fullShortUrl }}</p>
+        <p class="ar-break">{{ displayShortUrl(policyDialog.card?.fullShortUrl) }}</p>
         <p class="ar-break">策略：{{ policyDialog.policy?.policyId }}</p>
         <template v-if="!dialogCommand"
           ><p class="ar-alert ar-alert-warning">
