@@ -1,0 +1,47 @@
+[
+  {
+    "style": "sample a",
+    "viewport": 1425,
+    "scrollWidth": 1425,
+    "height": 1204,
+    "rows": 6,
+    "icons": 20,
+    "brokenText": false,
+    "emDash": false,
+    "clippedButtons": []
+  },
+  {
+    "style": "sample b",
+    "viewport": 1425,
+    "scrollWidth": 1425,
+    "height": 1219,
+    "rows": 6,
+    "icons": 20,
+    "brokenText": false,
+    "emDash": false,
+    "clippedButtons": []
+  },
+  {
+    "style": "sample c",
+    "viewport": 1425,
+    "scrollWidth": 1425,
+    "height": 1290,
+    "rows": 6,
+    "icons": 22,
+    "brokenText": false,
+    "emDash": false,
+    "clippedButtons": []
+  },
+  {
+    "createDrawer": "创建短链接"
+  },
+  {
+    "emptyState": "这个分组还没有短链"
+  },
+  {
+    "mobile": {
+      "width": 375,
+      "scroll": 375
+    }
+  }
+]

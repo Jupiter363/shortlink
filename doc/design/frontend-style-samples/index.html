@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShortLink · 视觉方向对比</title>
+  <link rel="stylesheet" href="/vendor/element.css"><link rel="stylesheet" href="styles.css">
+  <script src="/vendor/vue.js"></script><script src="/vendor/element.js"></script><script src="icons.js"></script>
+</head>
+<body>
+<div id="app" v-cloak><div :class="['sample', style]">
+  <header class="samplebar">
+    <div class="sample-title"><span class="sample-letter">{{meta.letter}}</span><div><strong>{{meta.name}}</strong><small>{{meta.description}}</small></div></div>
+    <div class="sample-switch" role="group" aria-label="切换设计风格"><button v-for="(m,key) in styles" :class="{active:style===key}" @click="switchStyle(key)">{{m.letter}} · {{m.name}}</button></div>
+    <div class="swatches"><span v-for="color in meta.colors" :style="{background:color}"></span><small>视觉样例 / 示例数据</small></div>
+  </header>
+  <div class="product">
+    <nav class="navigation" aria-label="主导航">
+      <a class="brand" href="#" @click.prevent="notify('ShortLink 视觉样例')"><span class="brand-symbol"><app-icon name="link"></app-icon></span><b>ShortLink<span class="brand-period">.</span></b></a>
+      <div class="nav-section">工作空间</div>
+      <div class="nav-links"><button v-for="(nav,i) in navs" :class="['nav-item',{selected:i===0}]" @click="i ? notify(nav.label+'：选定风格后展开设计') : null" :title="nav.label"><app-icon :name="nav.icon"></app-icon><span>{{nav.label}}</span><span v-if="i===0" class="nav-index">01</span></button></div>
+      <div class="nav-bottom"><button class="nav-item" @click="notify('回收站：选定风格后展开设计')" title="回收站"><app-icon name="archive"></app-icon><span>回收站</span></button><div class="account"><span class="avatar">J</span><div><b>Jupiter</b><small>个人工作空间</small></div><app-icon name="gear"></app-icon></div></div>
+    </nav>
+    <div class="body">
+      <div class="topbar"><div><span>工作空间</span><span class="breadcrumb-separator">/</span><b>短链接</b></div><div class="topbar-right"><span class="prototype-note">当前为可交互视觉样例</span><span class="avatar small">J</span><span>Jupiter</span></div></div>
+      <div class="workarea">
+        <aside class="groups"><div class="group-title"><span>我的分组</span><button @click="notify('新建分组样式：复用表单抽屉')" aria-label="新建分组">+</button></div><div class="group-list"><button v-for="(group,i) in groups" :class="['group-item',{chosen:activeGroup===i}]" @click="activeGroup=i"><span class="folder-mark"><app-icon name="stack"></app-icon></span><span>{{group.name}}</span><span class="group-count">{{group.count}}</span></button></div><div class="group-help">按投放场景归类<br>更快找到每一条链接</div><button class="group-manage" @click="notify('分组管理：可重命名、排序和删除空分组')"><app-icon name="gear"></app-icon>管理分组</button></aside>
+        <main>
+          <div class="page-heading"><div><div class="page-context">短链接工作台 <span>/</span> {{groups[activeGroup].name}}</div><h1>{{groups[activeGroup].name}}<span class="count-label">{{groups[activeGroup].count}} 条短链</span></h1><p>让每次点击，都有迹可循。</p></div><div class="heading-actions"><el-button @click="openDrawer('batch')"><app-icon name="stack"></app-icon>批量创建</el-button><el-button type="primary" @click="openDrawer('create')"><span class="plus">+</span>创建短链</el-button></div></div>
+          <section class="overview" aria-label="分组统计预览">
+            <div class="overview-summary"><div class="summary-title">分组表现<span>09.08 - 09.14</span></div><div class="metrics"><div class="metric primary-metric"><span>访问量 <b>PV</b></span><strong>{{activeGroup===0?'38,472':'0'}}</strong></div><div class="metric"><span>访客数 <b>UV</b></span><strong>{{activeGroup===0?'12,806':'0'}}</strong></div><div class="metric"><span>独立 IP <b>UIP</b></span><strong>{{activeGroup===0?'10,294':'0'}}</strong></div></div><div class="summary-foot">近 7 天 · 选定分组 · 示例统计</div></div>
+            <div class="mini-trend"><div class="trend-heading"><span><i></i>访问量趋势</span><span class="trend-unit">PV / 日</span></div><svg viewBox="0 0 320 96" role="img" aria-label="示例近七天访问量趋势"><path d="M0 80H320 M0 42H320 M0 4H320" class="chart-grid"/><path d="M2 69L55 58L108 64L160 23L213 40L266 12L318 27L318 90L2 90Z" class="chart-area"/><polyline points="2,69 55,58 108,64 160,23 213,40 266,12 318,27" class="chart-line"/><circle cx="266" cy="12" r="4" class="chart-dot"/></svg><div class="axis"><span>09.08</span><span>09.11</span><span>09.14</span></div></div>
+          </section>
+          <div class="table-toolbar"><div class="table-title">全部短链<span>{{groups[activeGroup].count}}</span></div><div class="table-options"><span>排序</span><el-select v-model="order" aria-label="排序方式" style="width:150px"><el-option label="创建时间" value="created"></el-option><el-option label="累计访问量" value="total"></el-option><el-option label="今日访问量" value="today"></el-option></el-select><el-button class="refresh-button" @click="notify('已刷新示例列表')">刷新</el-button></div></div>
+          <div class="link-content">
+            <section class="link-table" aria-label="短链接列表">
+              <el-table :data="visibleRows" @row-click="selectRow" :row-class-name="rowClass" :height="style==='c'?null:undefined">
+                <el-table-column label="链接信息" :min-width="style==='c'?280:230"><template #default="{row}"><div class="identity"><div :class="['link-art',row.color]"><app-icon :name="row.icon"></app-icon></div><div class="identity-text"><b>{{row.title}}</b><a href="#" @click.stop.prevent="copy(row)">s.example/{{row.code}}</a><small class="original">{{row.url}}</small></div></div></template></el-table-column>
+                <el-table-column v-if="style!=='c'" label="有效期" width="122"><template #default="{row}"><span :class="['status',row.status==='即将到期'?'warning':'success']">{{row.status}}</span><small class="expiry">{{row.expiry}}</small></template></el-table-column>
+                <el-table-column label="访问数据" :width="style==='c'?224:218"><template #header><div class="data-header"><span>访问数据</span><small>PV / UV / UIP</small></div></template><template #default="{row}"><div class="data-line"><span>今日</span><b>{{row.today}}</b></div><div class="data-line muted"><span>累计</span><b>{{row.total}}</b></div></template></el-table-column>
+                <el-table-column v-if="style!=='c'" label="操作" :width="style==='b'?175:148"><template #default="{row}"><div class="row-actions"><button @click.stop="openStats(row)">统计</button><button @click.stop="openDrawer('edit',row)">编辑</button><el-dropdown trigger="click"><button class="more" @click.stop aria-label="更多操作">···</button><template #dropdown><el-dropdown-menu><el-dropdown-item @click="copy(row)">复制短链</el-dropdown-item><el-dropdown-item @click="openDrawer('qr',row)">二维码</el-dropdown-item><el-dropdown-item @click="notify('移入回收站：正式页面将提供二次确认')">移入回收站</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div><small class="created">{{row.created}} 创建</small></template></el-table-column>
+                <template #empty><el-empty description="这个分组还没有短链"><el-button type="primary" @click="openDrawer('create')">创建第一条短链</el-button></el-empty></template>
+              </el-table>
+              <div class="pagination"><span>显示 {{visibleRows.length?'1 - '+visibleRows.length:'0'}} 条，共 {{groups[activeGroup].count}} 条</span><div><el-button disabled aria-label="上一页">‹</el-button><el-button class="current-page">1</el-button><el-button @click="notify('样例仅展示第一页数据')">2</el-button><el-button @click="notify('样例仅展示第一页数据')" aria-label="下一页">›</el-button></div></div>
+            </section>
+            <aside v-if="style==='c'" class="link-detail"><div class="detail-caption">链接详情<span>已选中</span></div><div :class="['detail-art',selectedRow.color]"><app-icon :name="selectedRow.icon"></app-icon></div><h2>{{selectedRow.title}}</h2><span :class="['status',selectedRow.status==='即将到期'?'warning':'success']">{{selectedRow.status}}</span><dl><dt>短链接</dt><dd class="detail-short">s.example/{{selectedRow.code}}<button @click="copy(selectedRow)">复制</button></dd><dt>目标地址</dt><dd>{{selectedRow.url}}</dd><dt>创建时间</dt><dd>{{selectedRow.created}} 10:24</dd><dt>有效期</dt><dd>{{selectedRow.expiry}}</dd></dl><el-button type="primary" @click="openStats(selectedRow)"><app-icon name="chart"></app-icon>查看访问统计</el-button><div class="detail-actions"><button @click="openDrawer('edit',selectedRow)">编辑</button><button @click="openDrawer('qr',selectedRow)">二维码</button><button @click="notify('移入回收站：正式页面将提供二次确认')">回收</button></div></aside>
+          </div>
+          <div class="bottom-note"><app-icon name="chart"></app-icon><span>PV 访问量 · UV 访客数 · UIP 独立 IP</span><span class="sample-data-note">数据仅用于风格对比</span></div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <el-drawer v-model="drawer" :title="drawerTitle" :size="drawerSize">
+    <template v-if="drawerKind==='create'||drawerKind==='edit'"><p class="drawer-note">交互样例，提交不会写入真实业务。</p><el-form label-position="top"><el-form-item label="目标链接"><el-input v-model="form.url" placeholder="https://example.com/campaign"></el-input></el-form-item><el-form-item label="链接描述"><el-input v-model="form.title" placeholder="为这条链接取一个名字"></el-input></el-form-item><el-form-item label="所属分组"><el-select v-model="form.group"><el-option v-for="g in groups" :label="g.name" :value="g.name"></el-option></el-select></el-form-item><el-form-item label="有效期"><el-radio-group v-model="form.valid"><el-radio-button value="永久有效"></el-radio-button><el-radio-button value="自定义时间"></el-radio-button></el-radio-group></el-form-item><el-date-picker v-if="form.valid==='自定义时间'" v-model="form.date" type="datetime" placeholder="选择失效时间"></el-date-picker></el-form><el-button type="primary" @click="submitPreview">{{drawerKind==='edit'?'保存样例':'生成样例短链'}}</el-button></template>
+    <template v-else-if="drawerKind==='batch'"><p class="drawer-note">每行一条目标链接，描述按行对应。</p><el-input type="textarea" :rows="9" placeholder="https://example.com/campaign-a&#10;https://example.com/campaign-b"></el-input><el-alert title="2 - 500 行同步创建；501 - 50,000 行异步处理。请求体最多 8 MiB。" :closable="false"></el-alert><el-button type="primary" @click="notify('批量表单仅作视觉演示，未调用业务接口')">校验并创建</el-button></template>
+    <template v-else-if="drawerKind==='stats'"><p class="drawer-note">{{selectedRow.title}} · 近 7 天 · 示例统计</p><h2>查看每次访问的来源</h2><div class="stat-preview"><div><span>累计 PV</span><strong>{{selectedRow.total.split(' / ')[0]}}</strong></div><div><span>今日 PV</span><strong>{{selectedRow.today.split(' / ')[0]}}</strong></div></div><el-alert title="完整统计页面将在确定风格后展开设计" type="info" :closable="false"></el-alert></template>
+    <template v-else><el-empty description="二维码组件将在确定风格后展开设计"></el-empty><p class="drawer-note">s.example/{{selectedRow.code}}</p></template>
+  </el-drawer>
+</div></div><script src="app.js"></script>
+</body></html>

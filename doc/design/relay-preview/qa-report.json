@@ -1,0 +1,987 @@
+{
+  "passed": true,
+  "verifiedAt": "2026-09-14T20:40:55.682178+08:00",
+  "scope": "本地演示数据的设计原型验收，不是后端或生产 UAT",
+  "summary": "9 个业务页面与 2 个设计辅助页在 1440 / 1280 / 768 / 390px 下完成 44 组布局检查；合计 144 项布局、交互与下载文件检查通过。仅代表本地设计原型。",
+  "environment": {
+    "entry": "http://127.0.0.1:5189/",
+    "browser": "隔离 Chromium headless，经 CDP 操作",
+    "figmaPluginCallsThisIteration": 0,
+    "backendConnected": false
+  },
+  "checks": [
+    {
+      "name": "1440px · /home/space 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /home/recycleBin 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /home/analytics 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /home/agent/campaign-analysis 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /home/risk-center 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /home/agent/security-risk 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /home/account 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /design/components 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /design/coverage 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /register 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1440px · /login 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /home/space 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /home/recycleBin 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /home/analytics 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /home/agent/campaign-analysis 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /home/risk-center 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /home/agent/security-risk 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /home/account 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /design/components 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /design/coverage 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /register 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "1280px · /login 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /home/space 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /home/recycleBin 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /home/analytics 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /home/agent/campaign-analysis 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /home/risk-center 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /home/agent/security-risk 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /home/account 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /design/components 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /design/coverage 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /register 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "768px · /login 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /home/space 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /home/recycleBin 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /home/analytics 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /home/agent/campaign-analysis 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /home/risk-center 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /home/agent/security-risk 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /home/account 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /design/components 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /design/coverage 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /register 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "390px · /login 布局、按钮与文字",
+      "passed": true
+    },
+    {
+      "name": "F01 密码字段校验",
+      "passed": true
+    },
+    {
+      "name": "F01 登录先建立会话，再进入初始化门",
+      "passed": true
+    },
+    {
+      "name": "F01 记住登录不保存密码",
+      "passed": true
+    },
+    {
+      "name": "F01 刷新恢复会话并自动完成初始化",
+      "passed": true
+    },
+    {
+      "name": "工作区今日指标切换",
+      "passed": true
+    },
+    {
+      "name": "F02 分组可调整顺序",
+      "passed": true
+    },
+    {
+      "name": "F02 新建分组进入空工作区",
+      "passed": true
+    },
+    {
+      "name": "F03 单条创建生成可操作结果",
+      "passed": true
+    },
+    {
+      "name": "F06 二维码按新短链动态生成并下载",
+      "passed": true
+    },
+    {
+      "name": "F05 expectedVersion 冲突阻止覆盖",
+      "passed": true
+    },
+    {
+      "name": "F05 刷新后可重新提交",
+      "passed": true
+    },
+    {
+      "name": "F02 有短链分组禁止删除",
+      "passed": true
+    },
+    {
+      "name": "F09 回收与恢复生命周期",
+      "passed": true
+    },
+    {
+      "name": "F09 永久删除要求短码确认",
+      "passed": true
+    },
+    {
+      "name": "F09 永久删除后列表同步",
+      "passed": true
+    },
+    {
+      "name": "F04 描述行数不匹配阻止提交",
+      "passed": true
+    },
+    {
+      "name": "F04 两行走同步批次",
+      "passed": true
+    },
+    {
+      "name": "F04 同步创建导出 XLSX 已触发",
+      "passed": true
+    },
+    {
+      "name": "F04 501 行异步任务关闭后继续",
+      "passed": true
+    },
+    {
+      "name": "F04 取消保留已创建结果",
+      "passed": true
+    },
+    {
+      "name": "窄屏导航将焦点放入弹窗",
+      "passed": true
+    },
+    {
+      "name": "弹窗 Tab 焦点约束",
+      "passed": true
+    },
+    {
+      "name": "窄屏导航 Escape 返回来源页面并恢复焦点",
+      "passed": true
+    },
+    {
+      "name": "F07 趋势图可切数据表",
+      "passed": true
+    },
+    {
+      "name": "F07 ISP 口径独立展示",
+      "passed": true
+    },
+    {
+      "name": "F07 新老访客历史口径",
+      "passed": true
+    },
+    {
+      "name": "F08 访问记录展示快照范围",
+      "passed": true
+    },
+    {
+      "name": "F07 超过七天拒绝查询",
+      "passed": true
+    },
+    {
+      "name": "F10 等待阶段只展示 RUNNING",
+      "passed": true
+    },
+    {
+      "name": "F10 等待期间锁定 Agent 切换",
+      "passed": true
+    },
+    {
+      "name": "F10 完整回答与完成后轨迹",
+      "passed": true
+    },
+    {
+      "name": "F10 调试详情可展开",
+      "passed": true
+    },
+    {
+      "name": "F11 双 Agent 使用独立会话",
+      "passed": true
+    },
+    {
+      "name": "F11 新建安全会话不改投放会话",
+      "passed": true
+    },
+    {
+      "name": "F11 人工审核只记录判断",
+      "passed": true
+    },
+    {
+      "name": "F11 超时保持原 commandId 与待核实状态",
+      "passed": true
+    },
+    {
+      "name": "F11 原编号核验后才展示已执行",
+      "passed": true
+    },
+    {
+      "name": "F12 修改密码核验当前密码",
+      "passed": true
+    },
+    {
+      "name": "F12 资料修改",
+      "passed": true
+    },
+    {
+      "name": "F12 退出清除会话",
+      "passed": true
+    },
+    {
+      "name": "初始化失败阻止受保护回跳",
+      "passed": true
+    },
+    {
+      "name": "初始化重试后回到原账户页",
+      "passed": true
+    },
+    {
+      "name": "8 MiB 按 UTF-8 字节拒绝大文本",
+      "passed": true
+    },
+    {
+      "name": "超过 50,000 行禁止提交",
+      "passed": true
+    },
+    {
+      "name": "初始化 groupId 默认分组 UI 保护",
+      "passed": true
+    },
+    {
+      "name": "空分组没有沿用其他范围统计",
+      "passed": true
+    },
+    {
+      "name": "一天范围同步更新趋势表",
+      "passed": true
+    },
+    {
+      "name": "一天范围图表与辅助说明一致",
+      "passed": true
+    },
+    {
+      "name": "统计范围 500 条上限提示",
+      "passed": true
+    },
+    {
+      "name": "Agent 空范围不产生秋日投放结论",
+      "passed": true
+    },
+    {
+      "name": "切回投放 Agent 保留自己的完整回答",
+      "passed": true
+    },
+    {
+      "name": "Agent 失败后保留问题供重试",
+      "passed": true
+    },
+    {
+      "name": "401 演示保留最近受保护来源",
+      "passed": true
+    },
+    {
+      "name": "401 重新登录后回到原 Agent",
+      "passed": true
+    },
+    {
+      "name": "注册先换取登录会话再初始化",
+      "passed": true
+    },
+    {
+      "name": "1280px 折叠侧栏保留回收站",
+      "passed": true
+    },
+    {
+      "name": "1440px create 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "1440px edit 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "1440px qr 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "1440px batch 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "390px create 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "390px edit 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "390px qr 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "390px batch 浮层无溢出和裁字",
+      "passed": true
+    },
+    {
+      "name": "当前分组入口打开选择器",
+      "passed": true
+    },
+    {
+      "name": "关闭分组抽屉保留当前工作区",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：国家",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：省份",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：24 小时",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：星期",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：高频 IP",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：操作系统",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：浏览器",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：设备",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：运营商 / ISP",
+      "passed": true
+    },
+    {
+      "name": "统计维度入口：新老访客",
+      "passed": true
+    },
+    {
+      "name": "访问记录快照游标前后翻页",
+      "passed": true
+    },
+    {
+      "name": "快照游标失效展示恢复入口",
+      "passed": true
+    },
+    {
+      "name": "游标失效重新读取首批",
+      "passed": true
+    },
+    {
+      "name": "窄屏记录抽屉保留完整字段与局部横向表格",
+      "passed": true
+    },
+    {
+      "name": "三角色 × 四表情都是独立 SVG 变体",
+      "passed": true
+    },
+    {
+      "name": "彩色/单色/小尺寸品牌标志",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：首屏加载 · Skeleton",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：局部刷新 · Skeleton",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：离线 · 网络连接中断",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：网络请求失败",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：401 · 登录状态失效",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：403 · 无权访问",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：429 · 稍后重试",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：504 · 请求超时",
+      "passed": true
+    },
+    {
+      "name": "全局状态展示：成功 · 完成反馈",
+      "passed": true
+    },
+    {
+      "name": "429 冷却时间内禁止重试",
+      "passed": true
+    },
+    {
+      "name": "通用状态重试后展示成功反馈",
+      "passed": true
+    },
+    {
+      "name": "401 状态卡真实回登录并保留来源",
+      "passed": true
+    },
+    {
+      "name": "campaign-analysis 完成状态文字保持单行",
+      "passed": true
+    },
+    {
+      "name": "security-risk 完成状态文字保持单行",
+      "passed": true
+    },
+    {
+      "name": "日期不含 09-14 时不混入该日记录样例",
+      "passed": true
+    },
+    {
+      "name": "异步 CSV 包含全部 501 行及成功/取消状态",
+      "passed": true,
+      "file": "shortlink-job-demo-mu17vje1.csv"
+    },
+    {
+      "name": "二维码下载 SVG 可解析",
+      "passed": true,
+      "file": "shortlink-Nu17vbrfq.svg"
+    },
+    {
+      "name": "下载 XLSX 真实 ZIP / OOXML / CRC 完整性及中文内容",
+      "passed": true,
+      "file": "shortlink-request-demo-mu17vg81.xlsx",
+      "rows": 2
+    }
+  ],
+  "layoutResults": [
+    {
+      "route": "/home/space",
+      "width": 1440,
+      "scroll": 1440,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "短链接"
+    },
+    {
+      "route": "/home/recycleBin",
+      "width": 1440,
+      "scroll": 1440,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "回收站"
+    },
+    {
+      "route": "/home/analytics",
+      "width": 1440,
+      "scroll": 1425,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "访问统计"
+    },
+    {
+      "route": "/home/agent/campaign-analysis",
+      "width": 1440,
+      "scroll": 1425,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "投放分析 Agent"
+    },
+    {
+      "route": "/home/risk-center",
+      "width": 1440,
+      "scroll": 1425,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "风险中心"
+    },
+    {
+      "route": "/home/agent/security-risk",
+      "width": 1440,
+      "scroll": 1425,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "安全风控 Agent"
+    },
+    {
+      "route": "/home/account",
+      "width": 1440,
+      "scroll": 1440,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "账户中心"
+    },
+    {
+      "route": "/design/components",
+      "width": 1440,
+      "scroll": 1425,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "组件与状态"
+    },
+    {
+      "route": "/design/coverage",
+      "width": 1440,
+      "scroll": 1425,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "设计验收"
+    },
+    {
+      "route": "/register",
+      "width": 1440,
+      "scroll": 1425,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "把每一次连接，\n变成新的可能。"
+    },
+    {
+      "route": "/login",
+      "width": 1440,
+      "scroll": 1440,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "每个好主意，\n都值得被抵达。"
+    },
+    {
+      "route": "/home/space",
+      "width": 1280,
+      "scroll": 1280,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "短链接"
+    },
+    {
+      "route": "/home/recycleBin",
+      "width": 1280,
+      "scroll": 1280,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "回收站"
+    },
+    {
+      "route": "/home/analytics",
+      "width": 1280,
+      "scroll": 1265,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "访问统计"
+    },
+    {
+      "route": "/home/agent/campaign-analysis",
+      "width": 1280,
+      "scroll": 1265,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "投放分析 Agent"
+    },
+    {
+      "route": "/home/risk-center",
+      "width": 1280,
+      "scroll": 1265,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "风险中心"
+    },
+    {
+      "route": "/home/agent/security-risk",
+      "width": 1280,
+      "scroll": 1265,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "安全风控 Agent"
+    },
+    {
+      "route": "/home/account",
+      "width": 1280,
+      "scroll": 1280,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "账户中心"
+    },
+    {
+      "route": "/design/components",
+      "width": 1280,
+      "scroll": 1265,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "组件与状态"
+    },
+    {
+      "route": "/design/coverage",
+      "width": 1280,
+      "scroll": 1265,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "设计验收"
+    },
+    {
+      "route": "/register",
+      "width": 1280,
+      "scroll": 1265,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "把每一次连接，\n变成新的可能。"
+    },
+    {
+      "route": "/login",
+      "width": 1280,
+      "scroll": 1280,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "每个好主意，\n都值得被抵达。"
+    },
+    {
+      "route": "/home/space",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "短链接"
+    },
+    {
+      "route": "/home/recycleBin",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "回收站"
+    },
+    {
+      "route": "/home/analytics",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "访问统计"
+    },
+    {
+      "route": "/home/agent/campaign-analysis",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "投放分析 Agent"
+    },
+    {
+      "route": "/home/risk-center",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "风险中心"
+    },
+    {
+      "route": "/home/agent/security-risk",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "安全风控 Agent"
+    },
+    {
+      "route": "/home/account",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "账户中心"
+    },
+    {
+      "route": "/design/components",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "组件与状态"
+    },
+    {
+      "route": "/design/coverage",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "设计验收"
+    },
+    {
+      "route": "/register",
+      "width": 768,
+      "scroll": 753,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "把每一次连接，\n变成新的可能。"
+    },
+    {
+      "route": "/login",
+      "width": 768,
+      "scroll": 768,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "每个好主意，\n都值得被抵达。"
+    },
+    {
+      "route": "/home/space",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "短链接"
+    },
+    {
+      "route": "/home/recycleBin",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "回收站"
+    },
+    {
+      "route": "/home/analytics",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "访问统计"
+    },
+    {
+      "route": "/home/agent/campaign-analysis",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "投放分析 Agent"
+    },
+    {
+      "route": "/home/risk-center",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "风险中心"
+    },
+    {
+      "route": "/home/agent/security-risk",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "安全风控 Agent"
+    },
+    {
+      "route": "/home/account",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "账户中心"
+    },
+    {
+      "route": "/design/components",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "组件与状态"
+    },
+    {
+      "route": "/design/coverage",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "设计验收"
+    },
+    {
+      "route": "/register",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "把每一次连接，\n变成新的可能。"
+    },
+    {
+      "route": "/login",
+      "width": 390,
+      "scroll": 375,
+      "brokenText": false,
+      "buttons": [],
+      "h1": "每个好主意，\n都值得被抵达。"
+    }
+  ],
+  "runtimeErrors": [],
+  "visualReview": [
+    "1440px 登录、短链工作区、统计及完整 Agent 回答",
+    "390px 注册、风险中心、Agent、创建短链浮层",
+    "已核验部分代表截图；其余页面通过结构性溢出、按钮裁字与乱码检查"
+  ],
+  "fixedFindings": [
+    "修复密码显隐重复及功能图标缺失",
+    "对齐记住登录存储键，刷新后继续初始化门",
+    "修复快速关闭后重开弹窗被旧 close 事件误关",
+    "修复被 busy 阻止一次后无法再次关闭弹窗",
+    "修正空范围统计、所选日期与图表/表格数据对应",
+    "分离两个 Agent 的会话、输入与完整回答状态",
+    "补充游标失效、翻页加载、重新读取首批",
+    "修复图表/数据表切换布局与完成状态徽章换行"
+  ],
+  "limitations": [
+    "所有业务响应由本地内存与延迟模拟；未连接真实后端、LLM 或授权链路",
+    "统计演示按范围缩放固定样例，不能作为正式统计计算实现",
+    "未将本轮修改写回 Figma 云端；未替换 5174 现有前端",
+    "未进行真实后端 e2e、UAT 或压测"
+  ],
+  "sourceSha256": {
+    "app.js": "731cfb55f326c87f275697b2b5cd9e7a5cf649cf5d220898abe6f3970be2c16e",
+    "data.js": "78d80e3b9ae5f89b7d227b3af064a746c5211654ade3e79dbd5a0753d0b5bcd6",
+    "export.js": "cf09351a90bfb3f3f7bd0f103baa4eb30bae67914b6908b971ad4d715192a1a5",
+    "index.html": "bfaa54054b28dab6bb988209dad0f4fc86152783aedb9c356d6d984a396d2ed4",
+    "preview.mjs": "7e83f7eefc2fac73b84d53fb2feecb8bf9ff7e757c497a90d6069438cf22bb77",
+    "styles.css": "78d171fedeae7720cacc9e363652c679de34a3288179704e5c5a706d6b5adacf",
+    "assets/qr.svg": "e492b5f26aebc6df253e556c569d336ee097a0e0fe972506fc868602386a284f",
+    "components/primitives.css": "c50d141e3a52afc37b94e0ccb7158f608c54ca025392ac07bbe0fa9d25d8df8f",
+    "components/primitives.js": "cd257026e3bf9f95b9aa5de4e6726796ad98a0ac96274ab8e6314ae7de582605",
+    "views/insights.css": "598344728abf99e50d83fcb7e659d9e7574458df1336dd96b03c4a0cdf710b4e",
+    "views/insights.js": "4806a2bc10f51d71acbe87502d7aee3d25676d097151ac3064d61fd47f8fc4ec",
+    "views/product.css": "3319d372531083254bb36c6fbf15d75c8ef4151c226948ae15195b88f16a9571",
+    "views/product.js": "7ba4820ad897d6a71d6a5fafe2bb22aa34f715f1dd1800a5f24b1447b6f2b218",
+    "views/states.css": "dd29d72dae091c9f25beebd8983a9b9ec1f58c9efe370839097126bc13d314bb",
+    "views/states.js": "3b32faaea06c73a21c7f9ee2d36b9d1fb5aaa0c79bdc62d599fdd86ac5ed2442"
+  }
+}
