@@ -37,13 +37,13 @@ def icon_fragment(kind,size,instance):
         body=body.replace(f'href="#{ref}"',f'href="#{instance}-{ref}"')
     return body
 
-SPACING_CUTS={'redirect': [[318, 14], [368, 15], [440, 14], [475, 8], [503, 12], [571, 14], [612, 8], [644, 14], [650, 20]], 'analytics': [[1853, 16], [1925, 12], [1968, 8], [2000, 10], [2026, 8], [2052, 8], [2147, 8], [2213, 14], [2265, 10], [2300, 10], [2330, 8], [2359, 12]], 'command': [[834, 12], [909, 12], [942, 10], [978, 8], [1003, 10], [1054, 8], [1096, 12], [1142, 8], [1147, 6], [1190, 6], [1220, 9], [1229, 6], [1266, 6], [1276, 10], [1312, 8], [1355, 5], [1364, 10], [1410, 4], [1442, 8], [1508, 8], [1554, 8], [1598, 12], [1626, 6], [1640, 18]], 'agent': [[834, 12], [909, 12], [942, 10], [978, 8], [1003, 10], [1054, 8], [1106, 10], [1148, 8], [1227, 8], [1266, 8], [1308, 8], [1344, 8], [1509, 12], [1550, 12], [1578, 12], [1583, 10], [1589, 10], [1632, 10], [1658, 12]]}
+SPACING_CUTS={'analytics': [[1853, 16], [1925, 12], [1968, 8], [2000, 10], [2026, 8], [2052, 8], [2147, 8], [2213, 14], [2265, 10], [2300, 10], [2330, 8], [2359, 12]], 'agent': [[834, 12], [909, 12], [942, 10], [978, 8], [1003, 10], [1054, 8], [1106, 10], [1148, 8], [1227, 8], [1266, 8], [1308, 8], [1344, 8], [1509, 12], [1550, 12], [1578, 12], [1583, 10], [1589, 10], [1632, 10], [1658, 12]]}
 EXTRA={k:sum(delta for at,delta in v) for k,v in SPACING_CUTS.items()}
-TOP_H=740+EXTRA['redirect']
+TOP_H=1000
 DATA_Y=198+TOP_H+30
 DATA_H=726+EXTRA['analytics']
 MIDDLE_Y=DATA_Y+DATA_H+30
-MIDDLE_H=1430+max(EXTRA['command'],EXTRA['agent'])
+MIDDLE_H=1640
 FOOTER_Y=MIDDLE_Y+MIDDLE_H+18
 W,H=2800,((FOOTER_Y+166+19)//20)*20
 C={'ink':'#17324d','muted':'#4c6279','blue':'#326cd5','teal':'#108980',
@@ -95,6 +95,8 @@ defs={}; bounds={}
 # Deliberate whitespace bands: move glyphs/icons without scaling them.
 SPACING_ZONE=None
 def spread(y):
+    # Rebuilt sections use a direct grid; retain accepted spacing in sections 02/04.
+    if SPACING_ZONE in {'redirect','command'}: return y
     return y+sum(delta for at,delta in SPACING_CUTS.get(SPACING_ZONE,[]) if y>=at)
 
 def f(v): return f'{v:.5f}'.rstrip('0').rstrip('.') if isinstance(v,float) else str(v)
@@ -126,7 +128,6 @@ def text(id,s,x,y,size=26,color='ink',bold=False,anchor='start',parent=None):
     layout['texts'].append(dict(id=id,text=s,x=x,y=y,fontSize=size,bold=bold,bbox=bb,parent=parent,advanceWidth=tw))
 def rect(id,x,y,w,h,fill='white',stroke='#dce5ee',radius=20,parent=None,layer='nodes',shadow=False):
     y,h=spread(y),spread(y+h)-spread(y)
-    if id=='zone-03': h+=EXTRA['command']-EXTRA['agent']
     fill,stroke=frame_paint(id,fill,stroke,layer)
     st=f' filter="url(#card-shadow)"' if shadow else ''
     layers[layer].append(f'<rect id="{id}" x="{x}" y="{y}" width="{w}" height="{h}" rx="{radius}" fill="{C.get(fill,fill)}" stroke="{stroke}" stroke-width="1.5"{st}/>')
@@ -137,7 +138,7 @@ def group(id,x,y,w,h,parent=None):
 def icon(id,kind,x,y,size=64,color='blue',parent=None,badge=0):
     kind=ICON_OVERRIDES.get(id,kind)
     y=spread(y+size/2)-size/2
-    if id in {'redis-icon','route-db-icon','policy-command-icon','query-admin-icon','query-api-icon','agent-admin-icon','llm-icon','redirect-icon','agent-state-icon','outbox-publisher-icon','changes-kafka-icon','invalidate-icon','tools-icon','actions-icon'}:
+    if id in {'redis-icon','route-db-icon','policy-command-icon','query-admin-icon','query-api-icon','agent-admin-icon','llm-icon','redirect-icon','agent-state-icon','changes-kafka-icon','invalidate-icon','tools-icon','actions-icon'}:
         frame=next(b for b in layout['boxes'] if b['id']==parent)
         y=frame['y']+(frame['height']-size)/2
     if badge:
@@ -153,7 +154,7 @@ def icon(id,kind,x,y,size=64,color='blue',parent=None,badge=0):
     layout['icons'].append(dict(id=id,kind=kind,x=x-pad,y=y-pad,width=size+2*pad,height=size+2*pad,parent=parent))
 def edge(id,pts,color='blue',dashed=False,source=None,target=None,meaning='',arrow=True):
     pts=[(x,spread(y)) for x,y in pts]
-    if id in {'follow-location','query-api-call','publish-change','invalidate-change'}:
+    if id in {'follow-location','query-api-call','invalidate-change'}:
         frame=next(b for b in layout['boxes'] if b['id']==source)
         center=frame['y']+frame['height']/2
         pts=[(x,center) for x,y in pts]
@@ -182,9 +183,9 @@ def panel(id,num,title,sub,x,y,w,h,color):
 def tile(id,x,y,w,h,title,sub,kind,color='blue',parent=None,stack=False,size=30):
     rect(id,x,y,w,h,parent=parent,shadow=True)
     if stack:
-        icon(id+'-icon',kind,x+w/2-27,y+13,54,color,id,66)
-        text(id+'-title',title,x+w/2,y+h-43,size,'ink',True,'middle',id)
-        if sub: text(id+'-sub',sub,x+w/2,y+h-10,24,'muted',anchor='middle',parent=id)
+        icon(id+'-icon',kind,x+w/2-27,y+(22 if SPACING_ZONE=='redirect' else 13),54,color,id,66)
+        text(id+'-title',title,x+w/2,y+h-(53 if SPACING_ZONE=='redirect' else 43),size,'ink',True,'middle',id)
+        if sub: text(id+'-sub',sub,x+w/2,y+h-(18 if SPACING_ZONE=='redirect' else 10),24,'muted',anchor='middle',parent=id)
     else:
         icon(id+'-icon',kind,x+27,y+h/2-28,56,color,id,68)
         text(id+'-title',title,x+108,y+h/2-7,size,'ink',True,parent=id)
@@ -213,7 +214,7 @@ def end_shift():
 
 # Layout refresh: preserved architecture, denser landscape composition.
 # DESIGN_VARIANCE=4, MOTION_INTENSITY=0 (static artifact), VISUAL_DENSITY=5.
-# Three reading bands: redirect; command + agent; online + offline analytics.
+# Three reading bands: public redirect; analytics; command + agent.
 layers['background'].append(f'<rect width="{W}" height="{H}" fill="#ffffff"/>')
 icon('brand-symbol','link',66,55,68,'blue',badge=92)
 text('title','ShortLink 全局架构',176,102,62,'ink',True)
@@ -221,138 +222,153 @@ text('subtitle','真实跳转 · 布隆防穿透 · Leaf 发号 · 异步统计�
 rule(64,175,2736,'#dce5ee','background')
 
 SPACING_ZONE='redirect'
-# 01: two explicit browser stages, shared dependency rail below.
-panel('zone-01','01','接入与真实跳转','公开入口、本地 Bloom 防穿透与浏览器 302 跳转',48,198,2704,740,'blue')
-text('stage-request','请求短链并接收 302',90,338,26,'ink',True,parent='zone-01')
-text('same-browser','同一浏览器收到 302 后，按 Location 访问目标',1860,338,25,'muted',parent='zone-01')
-tile('browser-in',90,365,250,142,'Browser','短链访客','browser',parent='zone-01',stack=True)
-tile('apisix',490,365,355,142,'APISIX','TLS · 可信头重写 · 限流','apisix',parent='zone-01',stack=True)
-rect('redirect',995,365,590,142,parent='zone-01',shadow=True,stroke='#adc7ee')
-icon('redirect-icon','link',1028,402,70,'blue','redirect',88)
-text('redirect-title','Redirect',1140,408,36,'ink',True,parent='redirect')
-text('redirect-l1','L1 未命中 → Bloom 预检',1140,449,26,'muted',parent='redirect')
-text('redirect-policy','策略执行 · 真实 302',1140,486,26,'muted',parent='redirect')
-tile('browser-next',1860,365,330,142,'Browser','收到 302 后','browser',parent='zone-01',stack=True)
-tile('target',2425,365,280,142,'目标网站','浏览器访问','globe',parent='zone-01',stack=True)
-edge('request',[(340,400),(490,400)],source='browser-in',target='apisix',meaning='请求短链')
-label('request-label','请求短链',415,384)
-edge('forward',[(845,400),(995,400)],source='apisix',target='redirect',meaning='转发请求')
-label('forward-label','转发请求',920,384)
-edge('return-to-edge',[(995,478),(845,478)],source='redirect',target='apisix',meaning='302 + Location')
-edge('return-to-browser',[(490,478),(340,478)],source='apisix',target='browser-in',meaning='302 + Location')
-label('return-label-a','302 + Location',415,532)
-label('return-label-b','302 + Location',920,532)
-edge('follow-location',[(2190,438),(2425,438)],source='browser-next',target='target',meaning='浏览器随后访问目标网站')
-label('follow-location-label','访问目标地址',2307,419)
-tile('bloom',90,569,470,78,'本地 Bloom','Guava · 默认 OFF','shield',parent='zone-01',size=29)
-tile('redis',730,569,470,78,'Redis','路由 L2 / 限流','database',parent='zone-01',size=29)
-tile('route-db',1370,569,580,78,'业务 MySQL','路由事实 / 限额回源','database',parent='zone-01',size=29)
-tile('policy-command',2120,569,585,78,'Command','权威策略 / 状态校验','gear','purple','zone-01',size=29)
-edge('bloom-precheck',[(1100,507),(1100,548),(325,548),(325,569)],source='redirect',target='bloom',meaning='Redirect 进程内：仅 L1 miss 时预检')
-edge('cache-read',[(560,608),(730,608)],source='bloom',target='redis',meaning='可能存在或状态未知时查询 L2')
-label('cache-read-label','可能 / 未知',645,594,size=24)
-edge('route-proof',[(1200,608),(1370,608)],source='redis',target='route-db',meaning='L2 未命中后受限回源')
-label('route-proof-label','未命中',1285,594,size=24)
-edge('policy-proof',[(1390,507),(1390,521),(2420,521),(2420,569)],source='redirect',target='policy-command',meaning='权威策略读取')
-text('redirect-note','可靠否定：提交前重验 → 404；可能存在 / UNKNOWN：继续 L2。Bloom 阴性不写负缓存、不产生 CLICK。',90,683,25,'muted',parent='zone-01')
-rect('membership-sync-lane',80,720,2640,130,'#edf4ff','none',20,'zone-01','parents')
-for id,x,w,title,sub,kind in [('membership-db',104,650,'业务 MySQL · 地址登记','持久成员 / 租约控制','database'),('membership-sync',978,780,'Redirect 后台同步','主库分页补齐 · 追齐当前版本才领租','gear'),('membership-view',2160,530,'本地 Bloom 视图','同一视图 · 最长 1s 租约','shield')]:
-    group(id,x,737,w,96,'membership-sync-lane')
-    icon(id+'-icon',kind,x+14,755,50,'blue',id,62)
-    text(id+'-title',title,x+100,777,30,'ink',True,parent=id)
-    text(id+'-sub',sub,x+100,817,24,'muted',parent=id)
-edge('membership-authority',[(754,785),(978,785)],source='membership-db',target='membership-sync',meaning='返回持久登记；校验完整版本后授予短期租约')
-edge('membership-publish-view',[(1758,785),(2160,785)],source='membership-sync',target='membership-view',meaning='原子发布本地完整视图与有效租约')
-label('membership-publish-view-label','原子发布视图',1959,768,size=24)
-text('membership-background-note','后台同步独立于每次跳转；Kafka 仅唤醒同步。正常 302 不等待统计落库，也不调用 Leaf。',90,898,25,'muted',parent='zone-01')
+# 01: separate public exchange, in-process control flow and background synchronization.
+panel('zone-01','01','接入与真实跳转','公开入口、本地 Bloom 防穿透与浏览器 302 跳转',48,198,2704,TOP_H,'blue')
+text('stage-request','请求短链',90,347,26,'ink',True,parent='zone-01')
+text('same-browser','同一浏览器收到 302 后，按 Location 访问目标',1860,347,25,'muted',parent='zone-01')
+tile('browser-in',90,372,250,166,'Browser','短链访客','browser',parent='zone-01',stack=True)
+tile('apisix',490,372,355,166,'APISIX','TLS · 可信头重写 · 限流','apisix',parent='zone-01',stack=True)
+rect('redirect',995,372,590,166,parent='zone-01',shadow=True,stroke='#adc7ee')
+icon('redirect-icon','link',1028,408,70,'blue','redirect',88)
+text('redirect-title','Redirect',1140,429,36,'ink',True,parent='redirect')
+text('redirect-l1','路由解析 · 策略执行',1140,470,26,'muted',parent='redirect')
+text('redirect-policy','内部流程见下方展开',1140,507,26,'muted',parent='redirect')
+tile('browser-next',1860,372,330,166,'Browser','收到 302 后','browser',parent='zone-01',stack=True)
+tile('target',2425,372,280,166,'目标网站','浏览器访问','globe',parent='zone-01',stack=True)
+edge('request',[(340,455),(490,455)],source='browser-in',target='apisix',meaning='请求短链')
+label('request-label','请求短链',415,437)
+edge('forward',[(845,455),(995,455)],source='apisix',target='redirect',meaning='转发请求')
+label('forward-label','转发请求',920,437)
+text('return-path','302 + Location 沿原链路返回：Redirect → APISIX → Browser',90,574,25,'muted',parent='zone-01')
+edge('follow-location',[(2190,455),(2425,455)],source='browser-next',target='target',meaning='浏览器随后访问目标网站')
+label('follow-location-label','访问目标地址',2307,437)
 
+# Shift the expanded process and background together below the response caption.
+begin_shift(26)
+rect('redirect-flow',80,578,2640,184,'#edf4ff','none',20,'zone-01','parents')
+text('redirect-flow-title','Redirect 进程内 · 条件查询顺序',104,613,27,'ink',True,parent='redirect-flow')
+for id,x,w,title,sub,kind in [
+    ('l1-step',104,350,'① L1 本地缓存','命中则复用路由','archive'),
+    ('bloom',574,390,'② Bloom 预检','Guava · 默认 OFF','shield'),
+    ('l2-step',1104,360,'③ 查询 L2','由 Redirect 读取','database'),
+    ('origin-step',1604,430,'④ 限额回源','仅 L2 未命中时','database'),
+    ('policy-step',2174,522,'⑤ 策略校验','找到路由后统一执行','gear')]:
+    tile(id,x,636,w,102,title,sub,kind,parent='redirect-flow',size=28)
+for id,x1,x2,src,dst,label_text in [
+    ('l1-miss',454,574,'l1-step','bloom','未命中'),
+    ('bloom-continue',964,1104,'bloom','l2-step','可能 / 未知'),
+    ('l2-miss',1464,1604,'l2-step','origin-step','未命中'),
+    ('origin-found',2034,2174,'origin-step','policy-step','找到路由')]:
+    edge(id,[(x1,687),(x2,687)],source=src,target=dst,meaning='Redirect 进程内条件流程：'+label_text)
+    label(id+'-label',label_text,(x1+x2)/2,668,size=24)
+# These are dependencies of Redirect methods, not calls from one data store to another.
+tile('redis',1104,820,360,92,'Redis','路由 L2 / 限流','database',parent='zone-01',size=29)
+tile('route-db',1604,820,430,92,'业务 MySQL','路由事实 / 受限回源','database',parent='zone-01',size=29)
+tile('policy-command',2174,820,522,92,'Command','权威策略 / 状态校验','gear',parent='zone-01',size=29)
+for id,cx,src,dst in [('cache-read',1284,'l2-step','redis'),('route-proof',1819,'origin-step','route-db'),('policy-proof',2435,'policy-step','policy-command')]:
+    edge(id,[(cx,738),(cx,820)],source=src,target=dst,meaning='Redirect 读取对应存储或权威服务')
+text('redirect-hit-note','任一层命中路由后，统一执行策略校验。',104,818,25,'muted',parent='zone-01')
+text('redirect-negative-note','可靠阴性重验后 404；不写负缓存、不产生 CLICK。',104,858,25,'muted',parent='zone-01')
+text('redirect-unknown-note','租约失效 / UNKNOWN：按原查询链路降级。',104,898,25,'muted',parent='zone-01')
+rect('membership-sync-lane',80,954,2640,128,'#edf4ff','none',20,'zone-01','parents')
+for id,x,w,title,sub,kind in [('membership-db',104,650,'业务 MySQL · 地址登记','持久成员 / 租约控制','database'),('membership-sync',978,780,'Redirect 后台同步','主库分页补齐 · 追齐当前版本才领租','gear'),('membership-view',2160,530,'本地 Bloom 视图','同一视图 · 最长 1s 租约','shield')]:
+    group(id,x,970,w,96,'membership-sync-lane')
+    icon(id+'-icon',kind,x+14,988,50,'blue',id,62)
+    text(id+'-title',title,x+100,1010,30,'ink',True,parent=id)
+    text(id+'-sub',sub,x+100,1050,24,'muted',parent=id)
+edge('membership-authority',[(754,1018),(978,1018)],source='membership-db',target='membership-sync',meaning='返回持久登记；校验完整版本后授予短期租约')
+edge('membership-publish-view',[(1758,1018),(2160,1018)],source='membership-sync',target='membership-view',meaning='原子发布本地完整视图与有效租约')
+label('membership-publish-view-label','原子发布视图',1959,1000,size=24)
+text('membership-background-note','后台同步独立于每次跳转；Kafka 仅唤醒同步。正常 302 不等待统计落库，也不调用 Leaf。',104,1138,25,'muted',parent='zone-01')
+
+end_shift()
 SPACING_ZONE='command'
 begin_shift(MIDDLE_Y-710)
-# 02: widen the Leaf and allocator boundary instead of a tall thin DB column.
-panel('zone-02','03','管理与业务写入','单条 / 批量复用 Leaf，登记完整地址后再发布路由',48,710,1640,1430,'teal')
-for a in [('management',202,'管理调用方','运营 / 开发','user'),('write-apisix',820,'APISIX','统一接入 / 限流','apisix'),('admin',1460,'Admin','会话 / 授权 / 预算','browser')]:
-    entry(a[0],a[1],831,*a[2:],'zone-02')
-for id,x1,x2,src,dst in [('management-entry',238,784,'management','write-apisix'),('admin-entry',856,1424,'write-apisix','admin')]:
-    edge(id,[(x1,867),(x2,867)],'teal',source=src,target=dst,meaning='管理请求')
-rect('command',80,1000,940,470,'#f7fcfa','#b8dcd5',22,'zone-02','parents')
-icon('command-icon','gear',112,1020,56,'teal','command',70)
-text('command-title','Command',206,1038,36,'ink',True,parent='command')
-text('command-sub','创建 · 批量任务 · 写前地址登记',206,1075,26,'muted',parent='command')
-edge('admin-command',[(1460,977),(1460,986),(550,986),(550,1000)],'teal',source='admin',target='command',meaning='管理业务写入')
-rect('leaf',104,1093,892,226,'white','#a8d8c8',18,'command',shadow=True)
-icon('leaf-icon','gear',129,1117,52,'teal','leaf',64)
-text('leaf-title','美团 Leaf Segment',211,1128,34,'ink',True,parent='leaf')
-text('leaf-origin','受控源码适配 · id-generator（进程内）',211,1166,26,'muted',parent='leaf')
-text('leaf-entry','单条 / 批量：reserveRanges(n)',128,1206,26,'ink',parent='leaf')
-rect('current',128,1226,391,46,'#eaf8f4','none',10,'leaf')
-rect('next',543,1226,429,46,'#eaf8f4','none',10,'leaf')
-text('current-text','Current 当前号段',323,1258,26,'teal',True,'middle','current')
-text('next-text','Next 异步预取',757,1258,26,'teal',True,'middle','next')
-text('leaf-note','内存取号 · 有界异步预取 · 双号段切换',128,1304,25,'muted',parent='leaf')
-rect('codec',104,1361,892,87,'white','#d4e4de',18,'command')
-icon('codec-icon','code',129,1378,50,'blue','codec',62)
-text('codec-title','ShortCodeCodec · 项目编码器',209,1396,30,'ink',True,parent='codec')
-text('codec-note','52 位 / 八轮 Feistel 置换 → 固定 9 位 Base62',209,1434,26,'muted',parent='codec')
-edge('id-to-codec',[(550,1319),(550,1361)],'teal',source='leaf',target='codec',meaning='唯一 ID 区间')
-label('id-to-codec-label','唯一 ID 区间',664,1348,'teal')
-rect('business-db',1340,1000,316,470,'#f7fafc','#ccdce7',22,'zone-02','parents')
-icon('business-db-icon','database',1465,1020,62,'blue','business-db',76)
-text('business-db-title','业务 MySQL',1498,1120,31,'ink',True,'middle','business-db')
-rect('facts-outbox',1360,1144,276,81,'white','#d9e4ed',12,'business-db')
-text('facts-title','业务事实',1498,1177,27,'ink',True,'middle','facts-outbox')
-text('outbox-title','同库 Outbox',1498,1212,25,'muted',anchor='middle',parent='facts-outbox')
-rect('allocation',1360,1245,276,203,'#eaf8f4','#b4dcd0',14,'business-db')
-text('allocation-name','t_id_alloc',1498,1284,31,'teal',True,'middle','allocation')
-text('allocation-watermark','全局号段高水位',1498,1331,25,'ink',anchor='middle',parent='allocation')
-text('allocation-lock','锁行预留号段',1498,1378,25,'muted',anchor='middle',parent='allocation')
-text('allocation-tx','独立事务提交',1498,1425,25,'muted',anchor='middle',parent='allocation')
-edge('business-commit',[(1020,1040),(1310,1040),(1310,1178),(1360,1178)],'teal',source='command',target='facts-outbox',meaning='业务事实与 Outbox 同事务提交')
-label('business-commit-1','业务事实持久化',1178,1117,'teal',26)
-label('business-commit-2','发布前核验登记',1178,1155,'teal',25)
-edge('reserve-range',[(996,1252),(1360,1252)],'teal',source='leaf',target='allocation',meaning='独立事务预留号段')
-label('reserve-range-1','申请号段',1178,1210,'teal',25)
-label('reserve-range-2','独立事务预留',1178,1240,'teal',25)
-edge('committed-range',[(1360,1304),(996,1304)],'teal',source='allocation',target='leaf',meaning='返回已提交 ID 区间')
-label('committed-range-1','返回已提交',1178,1343,'teal',25)
-label('committed-range-2','ID 区间',1178,1377,'teal',25)
-# Same primary database, separate registration and business transactions.
-rect('publication-lane',80,1510,1576,180,'#fff6ec','none',18,'zone-02','parents')
-for id,x,w,title,line1,line2,kind in [('registration-step',104,435,'地址登记','登记 + Outbox','独立事务提交','database'),('publication-barrier',655,430,'异步发布屏障','≥ 1.25s / 每发布批次一次','不持有事务或行锁','shield'),('route-publication',1200,432,'路由发布','提交前核验登记','业务事实 + Outbox','outbox')]:
-    group(id,x,1530,w,138,'publication-lane')
-    icon(id+'-icon',kind,x+14,1569,46,'teal',id,58)
-    text(id+'-title',title,x+96,1565,29,'ink',True,parent=id)
-    text(id+'-line1',line1,x+96,1606,25,'muted',parent=id)
-    text(id+'-line2',line2,x+96,1647,24,'muted',parent=id)
-edge('codec-to-register',[(550,1448),(550,1488),(322,1488),(322,1530)],'teal',source='codec',target='registration-step',meaning='编码完成后登记规范化地址')
-edge('register-barrier',[(539,1600),(655,1600)],'teal',source='registration-step',target='publication-barrier',meaning='登记提交确认后异步等待旧租约到期')
-edge('barrier-publication',[(1085,1600),(1200,1600)],'teal',source='publication-barrier',target='route-publication',meaning='最终业务事务核验登记并发布路由')
-text('publication-same-db','登记与路由使用同一业务主库；写前登记与路由发布分别提交，批量重试保留原 ID。',104,1729,25,'muted',parent='zone-02')
-rect('change-lane',80,1801,1576,110,'#f3f9f7','none',16,'zone-02','parents')
-for id,x,w,title,sub,kind in [('outbox-publisher',104,392,'Outbox 发布器','领取已提交意图','database'),('changes-kafka',673,400,'Kafka 路由变更','路由 / 策略失效提示','kafka'),('invalidate',1240,388,'Redirect','使对应缓存失效','link')]:
-    group(id,x,1811,w,90,'change-lane')
-    icon(id+'-icon',kind,x+6,1823,46,'teal',id)
-    text(id+'-title',title,x+76,1846,29,'ink',True,parent=id)
-    text(id+'-sub',sub,x+76,1883,24,'muted',parent=id)
-edge('outbox-read',[(1636,1185),(1670,1185),(1670,1755),(300,1755),(300,1811)],'teal',source='facts-outbox',target='outbox-publisher',meaning='领取已提交业务变更 Outbox 意图')
-label('outbox-read-label','领取已提交业务变更意图',1080,1786,'teal',25)
-edge('publish-change',[(496,1846),(673,1846)],'teal',True,'outbox-publisher','changes-kafka','异步发布路由或策略变更提示')
-edge('invalidate-change',[(1073,1846),(1240,1846)],'teal',True,'changes-kafka','invalidate','异步缓存失效提示')
-rect('membership-hint-lane',80,1940,1576,110,'#fff6ec','none',16,'zone-02','parents')
-for id,x,w,title,sub,kind in [('registration-outbox',104,392,'Outbox 发布器','已提交地址登记意图','outbox'),('membership-kafka',673,400,'Kafka 登记提示','独立 membership Topic','kafka'),('sync-wakeup',1240,388,'Redirect','只唤醒后台同步','gear')]:
-    group(id,x,1950,w,90,'membership-hint-lane')
-    icon(id+'-icon',kind,x+6,1972,46,'teal',id)
-    text(id+'-title',title,x+76,1985,29,'ink',True,parent=id)
-    text(id+'-sub',sub,x+76,2022,24,'muted',parent=id)
-edge('register-hint-outbox',[(104,1600),(64,1600),(64,1995),(104,1995)],'teal',source='registration-step',target='registration-outbox',meaning='领取已提交地址登记 Outbox 意图')
-edge('publish-membership-hint',[(496,1995),(673,1995)],'teal',True,'registration-outbox','membership-kafka','异步登记提示')
-edge('wake-membership-sync',[(1073,1995),(1240,1995)],'teal',True,'membership-kafka','sync-wakeup','Kafka 仅唤醒主库补读，不授予否定权限')
-text('write-note','两类提示复用 Kafka 集群；登记完整性与否定租约由主库校验，不依赖消息及时到达。',80,2104,25,'muted',parent='zone-02')
+# 03: one downward publication sequence; each database role aligns with its caller.
+panel('zone-02','03','管理与业务写入','单条 / 批量复用 Leaf，登记完整地址后再发布路由',48,710,1640,MIDDLE_H,'teal')
+for a in [('management',244,'管理调用方','运营 / 开发','user'),('write-apisix',654,'APISIX','统一接入 / 限流','apisix'),('admin',1064,'Admin','会话 / 授权 / 预算','browser'),('command-entry',1474,'Command','单条 / 批量创建','gear')]:
+    entry(a[0],a[1],849,*a[2:],'zone-02')
+for id,x1,x2,src,dst in [('management-entry',280,618,'management','write-apisix'),('admin-entry',690,1028,'write-apisix','admin'),('admin-command',1100,1438,'admin','command-entry')]:
+    edge(id,[(x1,887),(x2,887)],'teal',source=src,target=dst,meaning='管理业务请求')
+rect('command',80,1022,900,944,'#f7fcfa','#b8dcd5',22,'zone-02','parents')
+text('command-flow-title','Command · 进程内创建流程',104,1065,29,'ink',True,parent='command')
+group('business-db',1180,1022,476,944,'zone-02')
+icon('business-db-icon','database',1200,1031,42,'teal','business-db')
+text('business-db-title','业务 MySQL · 同一主库',1260,1065,28,'ink',True,parent='business-db')
+
+rect('leaf',104,1100,852,235,'white','#a8d8c8',18,'command',shadow=True)
+icon('leaf-icon','gear',129,1125,52,'teal','leaf',64)
+text('leaf-title','美团 Leaf Segment',211,1140,34,'ink',True,parent='leaf')
+text('leaf-origin','受控源码适配 · id-generator（进程内）',211,1180,26,'muted',parent='leaf')
+text('leaf-entry','单条 / 批量：reserveRanges(n)',128,1220,26,'ink',parent='leaf')
+rect('current',128,1240,368,46,'#eaf8f4','none',10,'leaf')
+rect('next',520,1240,412,46,'#eaf8f4','none',10,'leaf')
+text('current-text','Current 当前号段',312,1272,26,'teal',True,'middle','current')
+text('next-text','Next 异步预取',726,1272,26,'teal',True,'middle','next')
+text('leaf-note','内存取号 · 有界异步预取 · 双号段切换',128,1319,25,'muted',parent='leaf')
+rect('allocation',1200,1100,432,235,'#eaf8f4','#b4dcd0',18,'business-db')
+text('allocation-name','t_id_alloc',1416,1149,31,'teal',True,'middle','allocation')
+text('allocation-watermark','全局号段高水位',1416,1201,26,'ink',anchor='middle',parent='allocation')
+text('allocation-lock','锁行预留号段',1416,1253,25,'muted',anchor='middle',parent='allocation')
+text('allocation-tx','独立事务提交',1416,1305,25,'muted',anchor='middle',parent='allocation')
+edge('reserve-range',[(956,1212),(1200,1212)],'teal',source='leaf',target='allocation',meaning='独立事务预留号段')
+label('reserve-range-label','申请 / 预留',1078,1193,'teal',25)
+edge('committed-range',[(1200,1284),(956,1284)],'teal',source='allocation',target='leaf',meaning='返回已提交 ID 区间')
+label('committed-range-label','已提交 ID 区间',1078,1323,'teal',25)
+
+rect('codec',104,1375,852,110,'white','#d4e4de',18,'command')
+icon('codec-icon','code',129,1402,50,'blue','codec',62)
+text('codec-title','ShortCodeCodec · 项目编码器',211,1417,30,'ink',True,parent='codec')
+text('codec-note','52 位 / 八轮 Feistel → 固定 9 位 Base62',211,1460,26,'muted',parent='codec')
+for id,y,title,sub,kind in [
+    ('registration-step',1525,'地址登记','规范化地址 · 登记成功后再推进','database'),
+    ('publication-barrier',1677,'异步发布屏障（每发布批次）','≥ 1.25s · 不持有事务或行锁','shield'),
+    ('route-publication',1829,'路由发布','提交前核验登记与维护代次','outbox')]:
+    tile(id,104,y,852,112,title,sub,kind,'teal','command',size=30)
+for id,y1,y2,src,dst,note in [
+    ('id-to-codec',1335,1375,'leaf','codec','唯一 ID 区间'),
+    ('codec-to-register',1485,1525,'codec','registration-step','规范化短链地址'),
+    ('register-barrier',1637,1677,'registration-step','publication-barrier','登记独立提交后'),
+    ('barrier-publication',1789,1829,'publication-barrier','route-publication','屏障完成后')]:
+    edge(id,[(530,y1),(530,y2)],'teal',source=src,target=dst,meaning='Command 进程内顺序：'+note)
+    label(id+'-label',note,676,y1+29,'teal',24)
+
+for id,y,title,sub in [('registration-record',1525,'成员登记 + Outbox','独立事务提交'),('facts-outbox',1829,'业务事实 + Outbox','同一业务事务提交')]:
+    rect(id,1200,y,432,112,'white','#d9e4ed',18,'business-db')
+    text(id+'-title',title,1416,y+44,29,'ink',True,'middle',id)
+    text(id+'-sub',sub,1416,y+88,25,'muted',anchor='middle',parent=id)
+edge('registration-write',[(956,1581),(1200,1581)],'teal',source='registration-step',target='registration-record',meaning='登记与登记 Outbox 在独立事务持久化')
+label('registration-write-label','登记写入',1078,1562,'teal',25)
+edge('business-commit',[(956,1885),(1200,1885)],'teal',source='route-publication',target='facts-outbox',meaning='核验登记后，业务事实与 Outbox 同事务提交')
+label('business-commit-label','核验并提交',1078,1866,'teal',25)
+text('separate-transactions','登记与路由分别提交',1416,1698,25,'muted',anchor='middle',parent='business-db')
+text('reserved-retry','批量重试保留原 ID',1416,1740,25,'muted',anchor='middle',parent='business-db')
+
+# Reference committed Outbox by its local heading instead of perimeter-sized return wires.
+text('outbox-fanout-title','Outbox 异步通知',104,2020,29,'ink',True,parent='zone-02')
+text('outbox-source','读取同库已提交意图 · 两类 Topic 复用同一 Kafka 集群',540,2020,24,'muted',parent='zone-02')
+rect('outbox-publisher',104,2070,355,212,'#fff6ec','#ffd1ae',18,'zone-02')
+icon('outbox-publisher-icon','outbox',253,2096,56,'teal','outbox-publisher',68)
+text('outbox-publisher-title','Outbox 发布器',281.5,2200,30,'ink',True,'middle','outbox-publisher')
+text('outbox-publisher-sub','领取已提交意图',281.5,2244,25,'muted',anchor='middle',parent='outbox-publisher')
+for id,x,y,w,title,sub,kind in [
+    ('changes-kafka',720,2060,420,'Kafka 路由变更','路由 / 策略失效提示','kafka'),
+    ('membership-kafka',720,2190,420,'Kafka 登记提示','独立 membership Topic','kafka'),
+    ('invalidate',1270,2060,362,'Redirect','使对应缓存失效','link'),
+    ('sync-wakeup',1270,2190,362,'Redirect','只唤醒后台同步','gear')]:
+    tile(id,x,y,w,92,title,sub,kind,'teal','zone-02',size=29)
+edge('outbox-fanout',[(459,2176),(574,2176)],'teal',True,'outbox-publisher',None,'已提交 Outbox 分类发布',arrow=False)
+edge('publish-change',[(574,2176),(574,2106),(720,2106)],'teal',True,'outbox-publisher','changes-kafka','异步路由或策略变更提示')
+edge('publish-membership-hint',[(574,2176),(574,2236),(720,2236)],'teal',True,'outbox-publisher','membership-kafka','异步地址登记提示')
+edge('invalidate-change',[(1140,2106),(1270,2106)],'teal',True,'changes-kafka','invalidate','异步缓存失效提示')
+edge('wake-membership-sync',[(1140,2236),(1270,2236)],'teal',True,'membership-kafka','sync-wakeup','Kafka 仅唤醒主库补读，不授予否定权限')
+text('write-note','登记完整性与否定租约由主库校验；Kafka 不承担权限授予。',104,2324,25,'muted',parent='zone-02')
 
 end_shift()
 SPACING_ZONE='agent'
 begin_shift(MIDDLE_Y-710)
 # 03: align the agent with the write-side levels; keep action and query bands adjacent.
-panel('zone-03','04','Agent 分析与风控','基于 Spring AI Alibaba Graph',1716,710,1036,1430,'purple')
+panel('zone-03','04','Agent 分析与风控','基于 Spring AI Alibaba Graph',1716,710,1036,MIDDLE_H-EXTRA['agent'],'purple')
 tile('agent-admin',1748,841,384,106,'Admin','会话入口','browser','purple','zone-03')
 tile('llm',2336,841,384,106,'LLM','解释与归纳','brain','purple','zone-03')
 rect('agent-service',1748,1000,972,352,'#faf8fe','#d6c9e9',22,'zone-03','parents')
@@ -460,7 +476,7 @@ end_shift()
 SPACING_ZONE=None
 begin_shift(FOOTER_Y-2442)
 edge('legend-solid',[(80,2471),(150,2471)],arrow=True)
-text('legend-solid-text','实线：服务调用 / 存储访问',173,2480,25,'muted')
+text('legend-solid-text','实线：调用 / 存储访问 / 框内流程',173,2480,25,'muted')
 edge('legend-dashed',[(748,2471),(818,2471)],dashed=True)
 text('legend-dashed-text','虚线：异步事件 / 变更通知',841,2480,25,'muted')
 text('embedded-modules','进程内公共模块：event-contract · id-generator · risk-core · route-membership',80,2530,25,'muted')
