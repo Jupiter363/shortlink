@@ -327,6 +327,8 @@
   font-variant-numeric: tabular-nums;
 }
 .r-datetime {
+  height: 48px;
+  padding-block: 10px;
   font-variant-numeric: tabular-nums;
 }
 .r-datetime::-webkit-calendar-picker-indicator {

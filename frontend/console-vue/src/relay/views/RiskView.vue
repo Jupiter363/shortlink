@@ -513,6 +513,7 @@ onBeforeUnmount(() => {
               class="ar-trend"
               role="list"
               aria-label="最近七天风险分数"
+              tabindex="0"
             >
               <div v-for="point in overview.riskTrend7d" :key="point.date" role="listitem">
                 <strong>{{ metric(point.score) }}</strong>
@@ -645,7 +646,13 @@ onBeforeUnmount(() => {
             {{ errors.events }}
           </p>
           <p v-if="eventsLoading" role="status">正在读取风险事件…</p>
-          <div v-else class="ar-table-scroll">
+          <div
+            v-else
+            class="ar-table-scroll"
+            role="region"
+            aria-label="风险事件表格，可横向滚动"
+            tabindex="0"
+          >
             <table>
               <thead>
                 <tr>

@@ -95,8 +95,8 @@
 }
 .analytics-filter {
   display: grid;
-  grid-template-columns: auto minmax(180px, 1.5fr) repeat(2, minmax(145px, 0.8fr)) auto;
-  align-items: end;
+  grid-template-columns: auto minmax(180px, 1.5fr) repeat(2, minmax(150px, 0.8fr)) auto;
+  align-items: start;
   gap: 14px;
   padding: 18px;
 }
@@ -122,7 +122,12 @@
   border-radius: 12px;
 }
 .analytics-scope-tabs {
-  align-self: center;
+  margin-top: 30px;
+  min-height: 48px;
+}
+.analytics-filter-submit {
+  margin-top: 30px;
+  min-height: 48px;
 }
 .analytics-scope-tabs button,
 .analytics-switches button {
@@ -390,7 +395,22 @@
   text-align: left;
 }
 .analytics-trend-panel table {
-  min-width: 0;
+  min-width: 320px;
+}
+.analytics-trend-panel .analytics-table-scroll {
+  max-height: clamp(200px, 35dvh, 360px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.analytics-trend-panel thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.analytics-trend-panel th,
+.analytics-trend-panel td {
+  white-space: nowrap;
 }
 .analytics-table-scroll caption {
   padding: 0 0 12px;
@@ -548,18 +568,33 @@
   flex-wrap: wrap;
 }
 .analytics-record-table table {
-  min-width: 780px;
-  font-size: 12px;
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 13px;
 }
 .analytics-record-table th,
 .analytics-record-table td {
   padding: 12px 10px;
+  overflow-wrap: anywhere;
+}
+.analytics-record-table th:first-child {
+  width: 23%;
+}
+.analytics-record-table th:nth-child(2) {
+  width: 24%;
+}
+.analytics-record-table th:nth-child(3) {
+  width: 18%;
+}
+.analytics-record-table th:nth-child(4) {
+  width: 19%;
 }
 .analytics-record-table small {
   display: block;
   margin-top: 4px;
   max-width: 220px;
   color: var(--muted);
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .analytics-record-cards {
@@ -623,13 +658,6 @@
   .analytics-body {
     gap: clamp(12px, calc(2dvh - 2px), 18px);
   }
-  /* Auto margins center the visible content group only while it fits. */
-  .analytics-body > :first-child {
-    margin-top: auto;
-  }
-  .analytics-body > :is(.analytics-overview, .analytics-dimensions, .analytics-state) {
-    margin-bottom: auto;
-  }
   .analytics-overview {
     gap: clamp(12px, calc(2dvh - 2px), 18px);
   }
@@ -646,16 +674,18 @@
     height: clamp(190px, calc(45dvh - 175px), 260px);
   }
 }
-@media (max-width: 1280px) {
+@media (max-width: 1100px) {
   .analytics-filter {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .analytics-scope-tabs {
-    align-self: end;
-    min-height: 46px;
+    align-self: start;
+  }
+  .analytics-filter-scope {
+    grid-column: span 2;
   }
   .analytics-filter > .r-button {
-    justify-self: start;
+    width: 100%;
   }
   .analytics-history {
     grid-template-columns: 1fr;
@@ -696,12 +726,17 @@
   }
   .analytics-scope-tabs {
     width: 100%;
+    margin-top: 0;
   }
   .analytics-scope-tabs button {
     flex: 1;
   }
   .analytics-filter > .r-button {
     width: 100%;
+    margin-top: 0;
+  }
+  .analytics-filter-scope {
+    grid-column: auto;
   }
   .analytics-view-toolbar {
     grid-template-columns: minmax(0, 1fr);

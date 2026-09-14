@@ -427,15 +427,26 @@ onMounted(async () => {
         <RButton @click="settingsOpen = false">完成</RButton>
       </div>
     </RModal>
-    <RModal :open="groupsOpen" title="分组管理" drawer @close="groupsOpen = false"
-      ><div class="drawer-nav">
+    <RModal
+      :open="groupsOpen"
+      title="分组管理"
+      class="workspace-group-dialog"
+      drawer
+      @close="groupsOpen = false"
+      ><div class="workspace-group-options" role="group" aria-label="选择短链接分组">
         <RButton
           v-for="group in state.groups"
           :key="group.id"
           :kind="group.id === state.groupId ? 'primary' : 'secondary'"
+          class="workspace-group-choice"
+          :aria-pressed="group.id === state.groupId"
           @click="chooseGroup(group.id)"
-          >{{ group.name }} · {{ format(group.count) }}</RButton
-        ><RButton
+          ><span class="workspace-group-name">{{ group.name }}</span
+          ><span class="workspace-group-count mono">{{ format(group.count) }} 条</span></RButton
+        >
+      </div>
+      <div class="workspace-group-actions drawer-nav">
+        <RButton
           kind="text"
           :disabled="state.groups.length >= 20"
           @click="
@@ -483,7 +494,7 @@ onMounted(async () => {
     >
     <RModal :open="!!detail" title="短链接详情" drawer @close="detail = null"
       ><template v-if="detail"
-        ><h2>{{ detail.title }}</h2>
+        ><h2 class="workspace-detail-title">{{ detail.title }}</h2>
         <p class="short-code mono">{{ detail.fullShortUrl }}</p>
         <p class="link-url">{{ detail.url }}</p>
         <dl class="detail-grid">

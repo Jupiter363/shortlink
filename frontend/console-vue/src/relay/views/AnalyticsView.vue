@@ -473,14 +473,16 @@ onBeforeUnmount(() => {
               单条短链
             </button>
           </div>
-          <RSelect
-            v-model="scopeId"
-            label="授权范围"
-            :options="scopeOptions"
-            :placeholder="scopeOptions.length ? '选择范围' : '暂无可用范围'"
-            :disabled="!scopeOptions.length || metricsStatus === 'loading'"
-            :hint="scopeHint"
-          />
+          <div class="analytics-filter-scope">
+            <RSelect
+              v-model="scopeId"
+              label="授权范围"
+              :options="scopeOptions"
+              :placeholder="scopeOptions.length ? '选择范围' : '暂无可用范围'"
+              :disabled="!scopeOptions.length || metricsStatus === 'loading'"
+              :hint="scopeHint"
+            />
+          </div>
           <RDateTime
             v-model="startDate"
             type="date"
@@ -497,6 +499,7 @@ onBeforeUnmount(() => {
             :error="rangeCheck.ok ? '' : rangeCheck.message"
           />
           <RButton
+            class="analytics-filter-submit"
             :loading="metricsStatus === 'loading'"
             loading-text="读取快照"
             :disabled="!scopeId || !rangeCheck.ok"
@@ -720,7 +723,7 @@ onBeforeUnmount(() => {
               v-else
               class="analytics-table-scroll"
               role="region"
-              aria-label="按日趋势表，可横向滚动"
+              aria-label="按日趋势表，可滚动查看更多日期"
               tabindex="0"
             >
               <table>
@@ -767,12 +770,9 @@ onBeforeUnmount(() => {
               qualityLabel(currentDimension.quality.status)
             }}</RBadge>
           </header>
-          <RSelect
-            class="analytics-dimension-select"
-            v-model="dimensionKey"
-            label="统计维度"
-            :options="dimensionOptions"
-          />
+          <div class="analytics-dimension-select">
+            <RSelect v-model="dimensionKey" label="统计维度" :options="dimensionOptions" />
+          </div>
           <div class="analytics-dimension-tabs" role="group" aria-label="统计维度">
             <button
               v-for="item in ANALYTICS_DIMENSIONS"
@@ -836,7 +836,7 @@ onBeforeUnmount(() => {
       title="脱敏访问记录"
       description="使用服务端快照和游标逐批读取；不提供随机页码或推断总数。"
       drawer
-      width="760"
+      :width="760"
       :close-on-backdrop="!recordPaging"
       @close="closeRecords"
     >
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
           <div
             class="analytics-table-scroll analytics-record-table"
             role="region"
-            aria-label="脱敏访问记录表，可横向滚动"
+            aria-label="脱敏访问记录表"
             tabindex="0"
           >
             <table>

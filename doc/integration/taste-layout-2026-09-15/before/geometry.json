@@ -1,0 +1,895 @@
+[
+  {
+    "name": "before/analytics-1440",
+    "document": [
+      1440,
+      1440,
+      900
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "访问统计",
+        "top": 21.200000762939453
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          1196,
+          80
+        ],
+        "height": 81,
+        "scroll": [
+          1196,
+          80
+        ],
+        "width": 1196,
+        "x": 244,
+        "y": 0
+      },
+      {
+        "class": "analytics-body operation-body",
+        "client": [
+          1115,
+          759
+        ],
+        "height": 759,
+        "scroll": [
+          1115,
+          759
+        ],
+        "width": 1129.7750244140625,
+        "x": 277.1125183105469,
+        "y": 111
+      }
+    ],
+    "url": "/home/analytics",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "name": "before/risk-1440",
+    "document": [
+      1440,
+      1440,
+      900
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "风险中心",
+        "top": 21.200000762939453
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          1196,
+          80
+        ],
+        "height": 81,
+        "scroll": [
+          1196,
+          80
+        ],
+        "width": 1196,
+        "x": 244,
+        "y": 0
+      },
+      {
+        "class": "ar-risk-body operation-body",
+        "client": [
+          1115,
+          695
+        ],
+        "height": 695.4000244140625,
+        "scroll": [
+          1115,
+          695
+        ],
+        "width": 1129.7750244140625,
+        "x": 277.1125183105469,
+        "y": 174.60000610351562
+      }
+    ],
+    "url": "/home/risk-center",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "name": "before/agent-campaign-1440",
+    "document": [
+      1440,
+      1440,
+      900
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "投放分析 Agent",
+        "top": 21.200000762939453
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          1196,
+          80
+        ],
+        "height": 81,
+        "scroll": [
+          1196,
+          80
+        ],
+        "width": 1196,
+        "x": 244,
+        "y": 0
+      },
+      {
+        "class": "ar-agent-body operation-body",
+        "client": [
+          1115,
+          759
+        ],
+        "height": 759,
+        "scroll": [
+          1115,
+          759
+        ],
+        "width": 1129.7750244140625,
+        "x": 277.1125183105469,
+        "y": 111
+      },
+      {
+        "class": "ar-agent-layout",
+        "client": [
+          1115,
+          759
+        ],
+        "height": 759,
+        "scroll": [
+          1115,
+          759
+        ],
+        "width": 1114.5750732421875,
+        "x": 277.1125183105469,
+        "y": 111
+      },
+      {
+        "class": "ar-output ar-output-intro",
+        "client": [
+          727,
+          460
+        ],
+        "height": 460,
+        "scroll": [
+          727,
+          460
+        ],
+        "width": 726.5750122070312,
+        "x": 661.1124877929688,
+        "y": 260
+      }
+    ],
+    "url": "/home/agent/campaign-analysis",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "name": "before/account-1440",
+    "document": [
+      1440,
+      1440,
+      900
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "账户中心",
+        "top": 21.200000762939453
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          1196,
+          80
+        ],
+        "height": 81,
+        "scroll": [
+          1196,
+          80
+        ],
+        "width": 1196,
+        "x": 244,
+        "y": 0
+      },
+      {
+        "class": "account-content operation-body",
+        "client": [
+          1115,
+          759
+        ],
+        "height": 759,
+        "scroll": [
+          1115,
+          759
+        ],
+        "width": 1129.7750244140625,
+        "x": 277.1125183105469,
+        "y": 111
+      },
+      {
+        "class": "account-layout",
+        "client": [
+          1107,
+          418
+        ],
+        "height": 417.8999938964844,
+        "scroll": [
+          1107,
+          418
+        ],
+        "width": 1106.5750732421875,
+        "x": 279.1125183105469,
+        "y": 278.5500183105469
+      }
+    ],
+    "url": "/home/account",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "name": "before/analytics-filters-1440",
+    "document": [
+      1440,
+      1440,
+      900
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "访问统计",
+        "top": 21.200000762939453
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          1196,
+          80
+        ],
+        "height": 81,
+        "scroll": [
+          1196,
+          80
+        ],
+        "width": 1196,
+        "x": 244,
+        "y": 0
+      },
+      {
+        "class": "analytics-body operation-body",
+        "client": [
+          1115,
+          759
+        ],
+        "height": 759,
+        "scroll": [
+          1115,
+          765
+        ],
+        "width": 1129.7750244140625,
+        "x": 277.1125183105469,
+        "y": 111
+      }
+    ],
+    "url": "/home/analytics",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "name": "before/workspace-390",
+    "document": [
+      390,
+      390,
+      844
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "短链接",
+        "top": 19.166667938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          326,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          326,
+          63
+        ],
+        "width": 326,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "workspace-results operation-body",
+        "client": [
+          287,
+          589
+        ],
+        "height": 589.3333740234375,
+        "scroll": [
+          287,
+          589
+        ],
+        "width": 302,
+        "x": 76,
+        "y": 179.33334350585938
+      }
+    ],
+    "url": "/home/space",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "before/create-390",
+    "document": [
+      390,
+      390,
+      844
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "短链接",
+        "top": 19.166667938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          326,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          326,
+          63
+        ],
+        "width": 326,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "workspace-results operation-body",
+        "client": [
+          287,
+          589
+        ],
+        "height": 589.3333740234375,
+        "scroll": [
+          287,
+          589
+        ],
+        "width": 302,
+        "x": 76,
+        "y": 179.33334350585938
+      },
+      {
+        "class": "r-modal product-link-dialog",
+        "client": [
+          390,
+          844
+        ],
+        "height": 844,
+        "scroll": [
+          390,
+          844
+        ],
+        "width": 390,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "class": "product-two-fields",
+        "client": [
+          342,
+          80
+        ],
+        "height": 80,
+        "scroll": [
+          342,
+          80
+        ],
+        "width": 342,
+        "x": 24,
+        "y": 307.07293701171875
+      }
+    ],
+    "url": "/home/space",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "before/agent-campaign-320",
+    "document": [
+      320,
+      320,
+      740
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "投放分析 Agent",
+        "top": 19.166667938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          256,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          256,
+          63
+        ],
+        "width": 256,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "ar-agent-body operation-body",
+        "client": [
+          217,
+          587
+        ],
+        "height": 586.6666870117188,
+        "scroll": [
+          217,
+          587
+        ],
+        "width": 232,
+        "x": 76,
+        "y": 137.33334350585938
+      },
+      {
+        "class": "ar-agent-layout",
+        "client": [
+          217,
+          432
+        ],
+        "height": 432.09375,
+        "scroll": [
+          217,
+          432
+        ],
+        "width": 216.6666717529297,
+        "x": 76,
+        "y": 137.33334350585938
+      },
+      {
+        "class": "ar-output ar-output-intro",
+        "client": [
+          0,
+          0
+        ],
+        "height": 0,
+        "scroll": [
+          0,
+          0
+        ],
+        "width": 0,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "url": "/home/agent/campaign-analysis",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "before/risk-320",
+    "document": [
+      320,
+      320,
+      740
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "风险中心",
+        "top": 19.166667938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          256,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          256,
+          63
+        ],
+        "width": 256,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "ar-risk-body operation-body",
+        "client": [
+          217,
+          517
+        ],
+        "height": 516.6666870117188,
+        "scroll": [
+          217,
+          654
+        ],
+        "width": 232,
+        "x": 76,
+        "y": 207.33334350585935
+      }
+    ],
+    "url": "/home/risk-center",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "before/analytics-320",
+    "document": [
+      320,
+      320,
+      740
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "访问统计",
+        "top": 19.166667938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          256,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          256,
+          63
+        ],
+        "width": 256,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "analytics-body operation-body",
+        "client": [
+          217,
+          644
+        ],
+        "height": 644,
+        "scroll": [
+          217,
+          784
+        ],
+        "width": 232,
+        "x": 76,
+        "y": 80
+      }
+    ],
+    "url": "/home/analytics",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "before/account-320",
+    "document": [
+      320,
+      320,
+      740
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "账户中心",
+        "top": 19.15625
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          256,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          256,
+          63
+        ],
+        "width": 256,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "account-content operation-body",
+        "client": [
+          217,
+          644
+        ],
+        "height": 644,
+        "scroll": [
+          217,
+          656
+        ],
+        "width": 232,
+        "x": 76,
+        "y": 80
+      },
+      {
+        "class": "account-layout",
+        "client": [
+          209,
+          642
+        ],
+        "height": 642.1979370117188,
+        "scroll": [
+          209,
+          642
+        ],
+        "width": 208.6666717529297,
+        "x": 78,
+        "y": 84
+      }
+    ],
+    "url": "/home/account",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "before/recycle-320",
+    "document": [
+      320,
+      320,
+      740
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "回收站",
+        "top": 19.166667938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          256,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          256,
+          63
+        ],
+        "width": 256,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "workspace-results operation-body",
+        "client": [
+          217,
+          587
+        ],
+        "height": 587.3333740234375,
+        "scroll": [
+          217,
+          587
+        ],
+        "width": 232,
+        "x": 76,
+        "y": 132.6666717529297
+      }
+    ],
+    "url": "/home/recycleBin",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "before/agent-security-320",
+    "document": [
+      320,
+      320,
+      740
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "安全风控 Agent",
+        "top": 19.166667938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          256,
+          63
+        ],
+        "height": 64,
+        "scroll": [
+          256,
+          63
+        ],
+        "width": 256,
+        "x": 64,
+        "y": 0
+      },
+      {
+        "class": "ar-agent-body operation-body",
+        "client": [
+          217,
+          587
+        ],
+        "height": 586.6666870117188,
+        "scroll": [
+          217,
+          587
+        ],
+        "width": 232,
+        "x": 76,
+        "y": 137.33334350585938
+      },
+      {
+        "class": "ar-agent-layout",
+        "client": [
+          217,
+          485
+        ],
+        "height": 484.9895935058594,
+        "scroll": [
+          217,
+          485
+        ],
+        "width": 216.6666717529297,
+        "x": 76,
+        "y": 137.33334350585938
+      },
+      {
+        "class": "ar-output ar-output-intro",
+        "client": [
+          0,
+          0
+        ],
+        "height": 0,
+        "scroll": [
+          0,
+          0
+        ],
+        "width": 0,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "url": "/home/agent/security-risk",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "before/access-records-fullwidth-1440",
+    "document": [
+      1440,
+      1440,
+      900
+    ],
+    "h1": [
+      {
+        "inHeader": true,
+        "text": "访问统计",
+        "top": 18.760417938232425
+      }
+    ],
+    "regions": [
+      {
+        "class": "workspace-topnav",
+        "client": [
+          1196,
+          75
+        ],
+        "height": 76,
+        "scroll": [
+          1196,
+          75
+        ],
+        "width": 1196,
+        "x": 244,
+        "y": 0
+      },
+      {
+        "class": "analytics-body operation-body",
+        "client": [
+          1114,
+          776
+        ],
+        "height": 776,
+        "scroll": [
+          1114,
+          776
+        ],
+        "width": 1129.7708740234375,
+        "x": 277.1145935058594,
+        "y": 100
+      },
+      {
+        "class": "r-modal r-modal--drawer",
+        "client": [
+          1423,
+          900
+        ],
+        "height": 900,
+        "scroll": [
+          1423,
+          1800
+        ],
+        "width": 1440,
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "url": "/home/analytics",
+    "viewport": [
+      1440,
+      900
+    ]
+  }
+]

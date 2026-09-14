@@ -1,0 +1,217 @@
+[
+  {
+    "name": "after/login-390x844",
+    "document": [
+      390,
+      390,
+      844
+    ],
+    "submit": [
+      {
+        "bottom": 685.3333740234375,
+        "text": "登录工作台",
+        "top": 637.3333740234375
+      }
+    ],
+    "url": "/login",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "after/login-1440x900",
+    "document": [
+      1440,
+      1440,
+      900
+    ],
+    "submit": [
+      {
+        "bottom": 661,
+        "text": "登录工作台",
+        "top": 613
+      }
+    ],
+    "url": "/login",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "name": "after/login-1280x720",
+    "document": [
+      1280,
+      1280,
+      720
+    ],
+    "submit": [
+      {
+        "bottom": 549,
+        "text": "登录工作台",
+        "top": 501
+      }
+    ],
+    "url": "/login",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "after/login-1280x600",
+    "document": [
+      1280,
+      1280,
+      600
+    ],
+    "submit": [
+      {
+        "bottom": 489,
+        "text": "登录工作台",
+        "top": 441
+      }
+    ],
+    "url": "/login",
+    "viewport": [
+      1280,
+      600
+    ]
+  },
+  {
+    "name": "after/login-320x740",
+    "document": [
+      305,
+      305,
+      793
+    ],
+    "submit": [
+      {
+        "bottom": 685.3333740234375,
+        "text": "登录工作台",
+        "top": 637.3333740234375
+      }
+    ],
+    "url": "/login",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "after/register-320x740",
+    "document": [
+      305,
+      305,
+      1125
+    ],
+    "submit": [
+      {
+        "bottom": 1016.3333740234376,
+        "text": "注册并登录",
+        "top": 968.3333740234376
+      }
+    ],
+    "url": "/register",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "after/register-320x740-bottom",
+    "document": [
+      305,
+      305,
+      1125
+    ],
+    "scrollY": 384.6666564941406,
+    "submitBottom": 631.6666870117188,
+    "url": "/register",
+    "viewport": [
+      320,
+      740
+    ]
+  },
+  {
+    "name": "after/register-390x844",
+    "document": [
+      375,
+      375,
+      1107
+    ],
+    "submit": [
+      {
+        "bottom": 998.3333740234376,
+        "text": "注册并登录",
+        "top": 950.3333740234376
+      }
+    ],
+    "url": "/register",
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "name": "after/register-1440x900",
+    "document": [
+      1425,
+      1425,
+      979
+    ],
+    "submit": [
+      {
+        "bottom": 857,
+        "text": "注册并登录",
+        "top": 809
+      }
+    ],
+    "url": "/register",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "name": "after/register-1280x720",
+    "document": [
+      1265,
+      1265,
+      867
+    ],
+    "submit": [
+      {
+        "bottom": 771,
+        "text": "注册并登录",
+        "top": 723
+      }
+    ],
+    "url": "/register",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "name": "after/register-1280x600",
+    "document": [
+      1265,
+      1265,
+      867
+    ],
+    "submit": [
+      {
+        "bottom": 771,
+        "text": "注册并登录",
+        "top": 723
+      }
+    ],
+    "url": "/register",
+    "viewport": [
+      1280,
+      600
+    ]
+  }
+]

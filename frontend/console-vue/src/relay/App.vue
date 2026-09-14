@@ -9,7 +9,9 @@ provide('relay', relay)
 const route = useRoute()
 const isAuth = computed(() => route.meta.public)
 const compactNavigation = ref(false)
+const mobileNavigation = ref(false)
 function navigate(path) {
+  mobileNavigation.value = false
   relay.go(path)
 }
 </script>
@@ -58,6 +60,15 @@ function navigate(path) {
       </aside>
       <div class="main-column">
         <header class="workspace-topnav">
+          <button
+            class="workspace-mobile-toggle"
+            aria-label="打开导航"
+            aria-haspopup="dialog"
+            :aria-expanded="mobileNavigation"
+            @click="mobileNavigation = true"
+          >
+            导航
+          </button>
           <div class="workspace-topnav-art" aria-hidden="true">
             <span class="topnav-orbit"></span>
             <RIcon name="sparkle" class="topnav-star topnav-star--small" :size="18" />
@@ -79,6 +90,26 @@ function navigate(path) {
           <RouterView :key="route.path" />
         </main>
       </div>
+      <RModal
+        :open="mobileNavigation"
+        title="工作台导航"
+        class="mobile-navigation"
+        @close="mobileNavigation = false"
+      >
+        <RBrand :show-text="true" :size="48" />
+        <nav aria-label="手机主导航">
+          <button
+            v-for="item in navigation"
+            :key="item.route"
+            :class="['nav-item', { selected: route.path === item.route }]"
+            :aria-current="route.path === item.route ? 'page' : undefined"
+            :disabled="state.agentBusy && route.path !== item.route"
+            @click="navigate(item.route)"
+          >
+            <RIcon :name="item.icon" /><span>{{ item.label }}</span>
+          </button>
+        </nav>
+      </RModal>
     </template>
     <RModal
       :open="state.modal.type === 'copyFallback'"
