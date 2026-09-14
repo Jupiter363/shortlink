@@ -5,8 +5,8 @@
   "implementationBase": "eb77871af819bef5d938b1f3c30019537d269df5",
   "implementationPullRequest": "https://github.com/Jupiter363/shortlink/pull/16",
   "automatedLayout": {
-    "textCount": 202,
-    "uniqueCharacters": 414,
+    "textCount": 204,
+    "uniqueCharacters": 423,
     "minimumFontSize": 24,
     "missingGlyphs": 0,
     "iconCount": 52,
@@ -17,8 +17,8 @@
     "issues": []
   },
   "svgStructure": {
-    "uniqueIdCount": 1030,
-    "fragmentReferenceCount": 2327,
+    "uniqueIdCount": 1039,
+    "fragmentReferenceCount": 2318,
     "duplicateIds": [],
     "missingFragmentTargets": [],
     "liveTextCount": 0,
@@ -27,7 +27,7 @@
   "artifacts": {
     "svg": {
       "path": "doc/images/shortlink-global-architecture-leaf-hd.svg",
-      "sha256LfNormalized": "bdee432a53bfbd35a1ded0223d38693d7c4a59dd389fa82c938e673d373da89a",
+      "sha256LfNormalized": "9cb021a61b30926329bf561094ff4963c7388ec53ee22fa846a443fc520ffad0",
       "viewBox": [
         0,
         0,
@@ -37,64 +37,69 @@
     },
     "png": {
       "path": "doc/images/shortlink-global-architecture-leaf-hd.png",
-      "sha256": "2a9828bba706421f2cc5528c76abf1b022e97f9016114cc99d9b76ae8dea8100",
+      "sha256": "c0d5708b34d1463da279432297e990b0b8d93eaffc363dfd5671c04c26b0244e",
       "width": 5600,
       "height": 8520,
-      "bytes": 2854362
+      "bytes": 2875241
     }
   },
   "renderer": {
     "sharp": "0.35.4",
     "libvips": "8.18.6",
-    "renderedAt": "2026-09-14T05:53:16.413Z"
+    "renderedAt": "2026-09-14T06:24:05.651Z"
   },
   "manualVisualReview": {
     "status": "PASS",
     "regionsReviewed": [
-      "02-analytics",
-      "03-command"
-    ],
-    "unchangedVerifiedRegionSha256": [
-      "01-redirect",
       "04-agent",
-      "05-title",
-      "06-footer"
+      "full-diagram"
     ],
+    "unchangedVerifiedRegionSha256": {
+      "01-redirect": "309986b37be57fb2970d20b63d6ee42f5c968d69b04baaae0cceef713601f059",
+      "02-analytics": "f483ebae257d46f576b71717fb1a8bde6d37cab2ff38240680b1cb15ab78edd7",
+      "03-command": "b233c01b2c87b8effc612f5c1001e5d3c1b021614ab2419b5b659bb16ba9441b",
+      "05-title": "ba1d4817f7dde1f5cff0ac80c80927e51bcf88b6219ec199d43deebde6c7b693",
+      "06-footer": "22cea04a628d8ec4428ed1f71b1fcfe661ae26e0b3e7c36cbce06bf5306b1850"
+    },
     "checks": [
-      "Analytics title, connector/storage distinction, labels and icon padding checked visually",
-      "Independent archive subscription and both object-storage directions are readable",
-      "Sections 01/03/04 retain their previous relative text, icon, box and connector geometry"
+      "Primary and independent reviewers inspected the final Agent crop and full diagram",
+      "Sections 03 and 04 have equal top, bottom and height in both SVG boxes and PNG crops",
+      "Graph steps, shared Harness, state storage and tool exits fill the section with readable spacing",
+      "All labels, icon padding and arrows are readable; no clipping or overlap found"
     ]
   },
   "independentTechnicalReview": {
     "status": "PASS",
     "checks": [
-      "All 13 analytics edges retained, with no elbows",
-      "One ClickHouse with aligned online/rebuild/query ports",
-      "Worker archives raw Kafka independently of Flink",
-      "Worker writes versioned rebuild results directly; API queries ClickHouse directly",
-      "Worker and API each access the same control MySQL",
-      "Kafka Connect is explicitly identified as the ClickHouse connector"
+      "Campaign summary follows intake, tool calls, deterministic insight computation and model composition",
+      "Security summary follows profile loading, evidence queries, deterministic rules, explanation, event persistence and conditional action",
+      "Shared Harness responsibilities match trusted context, bounded tools, session coordination, Checkpoint and Trace",
+      "Human review is recorded independently; policy commands go through Admin to Command",
+      "Admin, LLM, Graph, persistence and tool relationships remain represented"
     ]
   },
   "localMarkdownLinksChecked": 53,
   "limits": [
-    "Static artifact checks do not assert that Bloom is enabled in a running deployment",
     "No new application tests, E2E or load tests were run for this documentation-only update"
   ],
-  "layoutBase": "50ea4c51b6b9cee026b4844c0a33db53cbace9df",
-  "routingComparison": {
-    "02-analytics": {
-      "before": {
-        "edgeCount": 13,
-        "elbowCount": 8,
-        "longestPolylineDesignUnits": 1457
+  "layoutBase": "8cfb211c75c2ce9d2d872db199282fd75dde2073",
+  "agentLayout": {
+    "outerBoundsDesignUnits": {
+      "03-command": {
+        "top": 2428,
+        "height": 1640,
+        "bottom": 4068
       },
-      "after": {
-        "edgeCount": 13,
-        "elbowCount": 0,
-        "longestPolylineDesignUnits": 634
+      "04-agent": {
+        "top": 2428,
+        "height": 1640,
+        "bottom": 4068
       }
-    }
+    },
+    "graphSummarySteps": {
+      "campaign": 4,
+      "security": 4
+    },
+    "cachePenetrationBoundaryBlockPresent": false
   }
 }

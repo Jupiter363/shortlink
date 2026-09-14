@@ -37,8 +37,6 @@ def icon_fragment(kind,size,instance):
         body=body.replace(f'href="#{ref}"',f'href="#{instance}-{ref}"')
     return body
 
-SPACING_CUTS={'agent': [[834, 12], [909, 12], [942, 10], [978, 8], [1003, 10], [1054, 8], [1106, 10], [1148, 8], [1227, 8], [1266, 8], [1308, 8], [1344, 8], [1509, 12], [1550, 12], [1578, 12], [1583, 10], [1589, 10], [1632, 10], [1658, 12]]}
-EXTRA={k:sum(delta for at,delta in v) for k,v in SPACING_CUTS.items()}
 TOP_H=1000
 DATA_Y=198+TOP_H+30
 DATA_H=1170
@@ -95,9 +93,8 @@ defs={}; bounds={}
 # Deliberate whitespace bands: move glyphs/icons without scaling them.
 SPACING_ZONE=None
 def spread(y):
-    # Rebuilt sections use a direct grid; retain accepted spacing in the Agent section.
-    if SPACING_ZONE in {'redirect','command','analytics'}: return y
-    return y+sum(delta for at,delta in SPACING_CUTS.get(SPACING_ZONE,[]) if y>=at)
+    # Direct coordinates keep sibling section boundaries and node spacing predictable.
+    return y
 
 def f(v): return f'{v:.5f}'.rstrip('0').rstrip('.') if isinstance(v,float) else str(v)
 def glyph(ch,bold=False):
@@ -367,47 +364,53 @@ text('write-note','登记完整性与否定租约由主库校验；Kafka 不承�
 end_shift()
 SPACING_ZONE='agent'
 begin_shift(MIDDLE_Y-710)
-# 03: align the agent with the write-side levels; keep action and query bands adjacent.
-panel('zone-03','04','Agent 分析与风控','基于 Spring AI Alibaba Graph',1716,710,1036,MIDDLE_H-EXTRA['agent'],'purple')
-tile('agent-admin',1748,841,384,106,'Admin','会话入口','browser','purple','zone-03')
-tile('llm',2336,841,384,106,'LLM','解释与归纳','brain','purple','zone-03')
-rect('agent-service',1748,1000,972,352,'#faf8fe','#d6c9e9',22,'zone-03','parents')
-icon('agent-service-icon','robot',1776,1020,60,'purple','agent-service',74)
-text('agent-service-title','Agent Service',1874,1039,36,'ink',True,parent='agent-service')
-text('agent-service-sub','独立服务 · 分析编排与执行约束',1874,1077,26,'muted',parent='agent-service')
-edge('agent-session',[(1940,947),(1940,1000)],'purple',source='agent-admin',target='agent-service',meaning='会话请求')
-label('agent-session-label','会话请求',2040,980,'purple',25)
-edge('llm-request',[(2440,1000),(2440,947)],'purple',source='agent-service',target='llm',meaning='推理请求')
-label('llm-request-label','推理请求',2366,980,'purple',25)
-edge('llm-response',[(2640,947),(2640,1000)],'purple',source='llm',target='agent-service',meaning='解释结果')
-label('llm-response-label','解释结果',2558,980,'purple',25)
-for id,x,w,kind,title1,title2,sub in [('campaign',1776,440,'chart','Campaign','Analysis','投放分析 Graph'),('security',2240,452,'shield','Security','Risk','安全风控 Graph')]:
-    rect(id,x,1103,w,141,'white','none',16,'agent-service')
-    icon(id+'-icon',kind,x+25,1129,60,'purple',id)
-    text(id+'-a',title1,x+113,1138,29,'ink',True,parent=id)
-    text(id+'-b',title2,x+113,1175,29,'ink',True,parent=id)
-    text(id+'-sub',sub,x+113,1217,25,'muted',parent=id)
-rule(1776,1262,2692,'#e5dcf1')
-text('agent-harness','Harness · Tools · Checkpoint · Trace',1776,1296,27,'ink',parent='agent-service')
-text('agent-rules','确定性规则 · 人工审核 · 受控动作',1776,1333,26,'muted',parent='agent-service')
-rect('agent-state',1748,1407,972,85,'white','#dce5ee',18,'zone-03')
-icon('agent-state-icon','database',1778,1426,48,'blue','agent-state',60)
-text('agent-state-title','Agent MySQL',1866,1458,31,'ink',True,parent='agent-state')
-text('agent-state-sub','画像 / 审计 / 状态',2350,1458,26,'muted',parent='agent-state')
-edge('agent-persistence',[(2140,1352),(2140,1407)],'purple',source='agent-service',target='agent-state',meaning='状态持久化 / 查询')
-label('agent-persistence-label','状态读写',2240,1386,'purple',25)
-for id,y,color,kind,title,sub in [('tools',1506,'purple','chart','统计 Tools → Admin → Analytics API','复用统计快照 / 查询 Job；沿用 Admin 授权'),('actions',1586,'orange','shield','审核 / 策略动作 → Admin → Command','人工审核 · 受控动作 · Command 策略仲裁')]:
-    rect(id,1748,y,972,75,TINT[color],'none',14,'zone-03')
-    icon(id+'-icon',kind,1771,y+17,42,color,id)
-    text(id+'-title',title,1842,y+33,27,color,True,parent=id)
-    text(id+'-sub',sub,1842,y+64,24,'muted',parent=id)
-
-rule(1776,1726,2692,'#e5dcf1')
-text('agent-bloom-boundary-title','与防穿透链路的边界',1776,1790,30,'ink',True,parent='zone-03')
-text('agent-bloom-boundary-a','Bloom 只服务于 Redirect 路由预检。',1776,1850,26,'muted',parent='zone-03')
-text('agent-bloom-boundary-b','统计 Tools 继续复用既有 Analytics API。',1776,1903,26,'muted',parent='zone-03')
-text('agent-bloom-boundary-c','拒绝请求不计为成功 CLICK / PV。',1776,1956,26,'muted',parent='zone-03')
-text('agent-bloom-boundary-d','不在 Agent 服务中维护独立 Bloom。',1776,2009,26,'muted',parent='zone-03')
+# 04: equal outer bounds with Command, filled by verified Graph responsibilities rather than empty height.
+panel('zone-03','04','Agent 分析与风控','基于 Spring AI Alibaba Graph',1716,710,1036,MIDDLE_H,'purple')
+tile('agent-admin',1748,849,384,146,'Admin','会话入口','browser','purple','zone-03')
+tile('llm',2336,849,384,146,'LLM','解释与归纳','brain','purple','zone-03')
+rect('agent-service',1748,1100,972,758,'#faf8fe','#d6c9e9',22,'zone-03','parents')
+icon('agent-service-icon','robot',1780,1135,60,'purple','agent-service',74)
+text('agent-service-title','Agent Service',1876,1155,36,'ink',True,parent='agent-service')
+text('agent-service-sub','独立服务 · 分析编排与执行约束',1876,1200,26,'muted',parent='agent-service')
+edge('agent-session',[(1940,995),(1940,1100)],'purple',source='agent-admin',target='agent-service',meaning='会话请求')
+label('agent-session-label','会话请求',2040,1052,'purple',25)
+edge('llm-request',[(2440,1100),(2440,995)],'purple',source='agent-service',target='llm',meaning='推理请求')
+label('llm-request-label','推理请求',2366,1052,'purple',25)
+edge('llm-response',[(2640,995),(2640,1100)],'purple',source='llm',target='agent-service',meaning='解释结果')
+label('llm-response-label','解释结果',2558,1052,'purple',25)
+for id,x,w,kind,title,sub,steps in [
+    ('campaign',1776,440,'chart','Campaign Analysis','投放分析 Graph',[
+        '01  解析分组 / 日期',
+        '02  查询统计 / 访问记录',
+        '03  计算趋势 / 异常洞察',
+        '04  模型归纳 / 结果卡片']),
+    ('security',2240,452,'shield','Security Risk','安全风控 Graph',[
+        '01  画像加载 / 统计取证',
+        '02  确定性风险判定',
+        '03  模型解释 / 事件留痕',
+        '04  受控处置 / 结果返回'])]:
+    rect(id,x,1246,w,380,'white','none',18,'agent-service')
+    icon(id+'-icon',kind,x+25,1271,48,'purple',id,60)
+    text(id+'-title',title,x+101,1288,27,'ink',True,parent=id)
+    text(id+'-sub',sub,x+101,1330,25,'muted',parent=id)
+    rule(x+24,1360,x+w-24,'#e5dcf1')
+    for n,step in enumerate(steps):
+        text(id+f'-step-{n+1}',step,x+28,1410+n*56,25,'muted',parent=id)
+rect('agent-harness-frame',1776,1672,916,152,'#f7f0ff','none',16,'agent-service')
+text('agent-harness-title','统一运行 Harness',1800,1708,29,'ink',True,parent='agent-harness-frame')
+text('agent-harness-context','可信上下文 · 有界工具调用',1800,1750,26,'muted',parent='agent-harness-frame')
+text('agent-harness-state','会话协调 · Checkpoint · Trace',1800,1789,26,'muted',parent='agent-harness-frame')
+rect('agent-state',1748,1918,972,106,'white','#dce5ee',18,'zone-03')
+icon('agent-state-icon','database',1780,1941,60,'blue','agent-state',74)
+text('agent-state-title','Agent MySQL',1876,1958,31,'ink',True,parent='agent-state')
+text('agent-state-sub','画像 · 事件 · 审核留痕 · Checkpoint',1876,1999,24,'muted',parent='agent-state')
+edge('agent-persistence',[(2140,1858),(2140,1918)],'purple',source='agent-service',target='agent-state',meaning='状态、画像、风险事件与 Checkpoint 的持久化及查询')
+label('agent-persistence-label','状态读写',2240,1898,'purple',25)
+for id,y,color,kind,title,sub in [('tools',2060,'purple','chart','统计 Tools → Admin → Analytics API','统计快照 / 查询 Job · 逐次授权'),('actions',2200,'purple','shield','策略命令 → Admin → Command','证据与授权门禁 · 受控限流 · 命令回执')]:
+    rect(id,1748,y,972,106,TINT[color],'none',16,'zone-03')
+    icon(id+'-icon',kind,1780,y+28,50,color,id,64)
+    text(id+'-title',title,1870,y+42,27,color,True,parent=id)
+    text(id+'-sub',sub,1870,y+84,24,'muted',parent=id)
 
 end_shift()
 SPACING_ZONE='analytics'
