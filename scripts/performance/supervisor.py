@@ -19,6 +19,7 @@ import time
 import uuid
 
 from kafka_probe_profile import inspect_actual_profile
+from edge_runtime import prepare_edge_runtime, verify_edge_runtime
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MYSQL = "shortlink-refactor-it-mysql-1"
@@ -370,7 +371,6 @@ def serve(args):
     redis_database = select_empty_redis_database(redis_container, redis_port, requested_redis_database)
     sql("CREATE DATABASE `" + database + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;")
     sql((ROOT / "deploy/mysql/001-business-schema.sql").read_text(encoding="utf-8-sig"), database)
-    sql((ROOT / "deploy/mysql/004-route-membership.sql").read_text(encoding="utf-8-sig"), database)
     suffix = uuid.uuid4().hex[:8]
     app_user, redirect_user = "sl_e2e_app_" + suffix, "sl_e2e_read_" + suffix
     password = uuid.uuid4().hex
@@ -482,20 +482,24 @@ def serve(args):
             comparisonMeaning="Explicit edge affinity keeps four workers and application CPU union 0-7; causal comparison requires other independently selected settings to match")
     state_path = folder / "state.json"
     try:
+        state["edgeRuntimeFiles"] = prepare_edge_runtime(
+            private_dir, run_id, edge_config_path, manifest_path, ROOT / "deploy/apisix/plugins")
+        write_json(state_path, state)
         for dependency in (MYSQL, redis_container, KAFKA, "shortlink-refactor-it-minio-1"):
             command(["docker", "update", "--cpuset-cpus", "8-11", dependency])
         # Inspect the running dependency before opening any business listener.
         # Failure is fixed-code and follows this run's existing cleanup path.
         state["kafkaHealthProbeProfile"] = inspect_actual_profile(KAFKA)
+        verify_edge_runtime(state["edgeRuntimeFiles"])
         command(["docker", "run", "-d", "--name", container, "--network", NETWORK,
                  "--cpuset-cpus", edge_profile["edgeCpuSet"], "--memory", "1g",
                  "--add-host", "host.docker.internal:host-gateway", "-p", "127.0.0.1:19080:9080",
                  "-e", "KAFKA_HOST=kafka", "-e", "APISIX_INSTANCE_ID=e2e-edge-" + suffix,
                  "-e", "MANAGEMENT_HOST=" + MANAGEMENT_HOST, "-e", "SHORTLINK_HOST=" + REDIRECT_HOST,
                  "-e", "ADMIN_UPSTREAM_HOST=host.docker.internal", "-e", "REDIRECT_UPSTREAM_HOST=host.docker.internal",
-                 "-v", str(edge_config_path) + ":/usr/local/apisix/conf/config.yaml:ro",
-                 "-v", str(manifest_path) + ":/usr/local/apisix/conf/apisix.yaml:ro",
-                 "-v", str(ROOT / "deploy/apisix/plugins") + ":/opt/shortlink:ro", "apache/apisix:3.11.0-debian"])
+                 "-v", state["edgeRuntimeFiles"]["config"]["path"] + ":/usr/local/apisix/conf/config.yaml:ro",
+                 "-v", state["edgeRuntimeFiles"]["manifest"]["path"] + ":/usr/local/apisix/conf/apisix.yaml:ro",
+                 "-v", state["edgeRuntimeFiles"]["plugins"]["path"] + ":/opt/shortlink:ro", "apache/apisix:3.11.0-debian"])
         info = json.loads(command(["docker", "inspect", container]).stdout)[0]
         node = info["NetworkSettings"]["Networks"][NETWORK]
         env["APISIX_CIDRS"] = node["IPAddress"] + "/32"

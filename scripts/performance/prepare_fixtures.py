@@ -1,13 +1,13 @@
 """Prepare isolated performance fixtures through real account/create APIs.
 
 This is preparation, not a benchmark. Run only after the performance supervisor
-reports READY. Registration/login/default-group discovery use public APISIX;
-seed writes use Admin's real create APIs with the supervisor's internal identity.
+reports READY. Registration/login/default-group discovery and seed writes use
+public APISIX; authenticated requests carry the account's real login session.
 MySQL access is restricted to read-only SELECT transactions in the named new
 performance schema. No direct link inserts, ID resets, Redis flushes, Agent,
 Analytics, or external target requests are performed.
 
-The raw fixture (including the internal credential) is written exclusively under
+The raw fixture (including login sessions and the legacy internal credential) is written exclusively under
 /var/lib/shortlink-perf/<runId> with verified mode 0600. Only a redacted summary
 is written to the workspace. Target .local hosts are denied by FetchPolicy before
 DNS/network fetch; FAILED metadata is expected and explicitly reported.
@@ -157,22 +157,30 @@ class FixturePreparer:
         return [line.split("\t") for line in result.stdout.splitlines()]
 
     def request(self, method: str, path: str, payload: dict | None = None,
-                account: dict | None = None, session: dict | None = None, public: bool = False) -> Any:
-        if public:
-            require((method, path) in {("POST", _PREFIX + "/user"), ("POST", _PREFIX + "/user/login"),
-                                      ("GET", _PREFIX + "/user/initialization")}, "Public HTTP route is not allowlisted")
-            host, port = "127.0.0.1", 19080
-            headers = {"Host": self.state["managementHost"]}
-            if session is not None:
-                headers.update({"username": session["username"], "token": session["token"]})
+                account: dict | None = None, session: dict | None = None) -> Any:
+        anonymous = {("POST", _PREFIX + "/user"), ("POST", _PREFIX + "/user/login")}
+        authenticated = {("GET", _PREFIX + "/user/initialization"),
+                         ("POST", _PREFIX + "/create"), ("POST", _PREFIX + "/create/batch")}
+        route = (method, path)
+        require(route in anonymous | authenticated, "Public HTTP route is not allowlisted")
+        if account is not None:
+            require(isinstance(account, dict) and session is None,
+                    "Preparation account/session is ambiguous")
+            session = account.get("session")
+        headers = {"Host": self.state["managementHost"]}
+        if route in authenticated:
+            require(isinstance(session, dict)
+                    and isinstance(session.get("username"), str)
+                    and re.fullmatch(r"[A-Za-z0-9_]{1,64}", session["username"]) is not None
+                    and isinstance(session.get("token"), str)
+                    and re.fullmatch(r"[A-Za-z0-9_-]{20,256}", session["token"]) is not None,
+                    "A valid public login session is required for preparation")
+            require(account is None or account.get("username") == session["username"],
+                    "Preparation account does not match its public login session")
+            headers.update({"username": session["username"], "token": session["token"]})
         else:
-            require(method == "POST" and path in {_PREFIX + "/create", _PREFIX + "/create/batch"}
-                    and account is not None, "Internal-identity Admin preparation route is not allowlisted")
-            host, port = "127.0.0.1", 8002
-            headers = {"Host": self.state["managementHost"], "X-Internal-Token": self.internal_token,
-                       "x-shortlink-tenant-id": str(account["tenantId"]),
-                       "x-shortlink-username": account["username"],
-                       "x-shortlink-auth-version": str(account["authVersion"])}
+            require(account is None and session is None,
+                    "Anonymous preparation requests must not carry a session")
         headers.update({"Accept": "application/json", "User-Agent": "Shortlink-Fixture-Preparation/1.0"})
         body = None
         if payload is not None:
@@ -180,7 +188,8 @@ class FixturePreparer:
             body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         self.http_attempts += 1
         request_started = time.monotonic()
-        connection = http.client.HTTPConnection(host, port, timeout=60 if not public else 10)
+        connection = http.client.HTTPConnection(
+            "127.0.0.1", 19080, timeout=60 if path in {_PREFIX + "/create", _PREFIX + "/create/batch"} else 10)
         try:
             connection.request(method, path, body=body, headers=headers)
             response = connection.getresponse()
@@ -222,14 +231,14 @@ class FixturePreparer:
         username = "perf_" + self.seed_id + "_" + str(index)
         password = "Perf!" + uuid.uuid4().hex
         self.request("POST", _PREFIX + "/user", {"username": username, "password": password,
-                                                  "realName": "Performance fixture"}, public=True)
-        login = self.request("POST", _PREFIX + "/user/login", {"username": username, "password": password}, public=True)
+                                                  "realName": "Performance fixture"})
+        login = self.request("POST", _PREFIX + "/user/login", {"username": username, "password": password})
         require(isinstance(login, dict) and isinstance(login.get("token"), str) and bool(login["token"]),
                 "Public login did not issue a session")
         session = {"username": username, "token": login["token"]}
         deadline = time.monotonic() + 60
         while True:
-            initialized = self.request("GET", _PREFIX + "/user/initialization", session=session, public=True)
+            initialized = self.request("GET", _PREFIX + "/user/initialization", session=session)
             require(isinstance(initialized, dict), "Initialization did not return an object")
             if initialized.get("state") == "READY":
                 gid = initialized.get("groupId")
@@ -245,7 +254,8 @@ class FixturePreparer:
         require(len(identities) == 1 and len(identities[0]) == 2, "Registered account identity is not globally unique")
         tenant, version = map(int, identities[0])
         require(tenant > 0 and version > 0, "Registered account identity/version is invalid")
-        return {"username": username, "tenantId": str(tenant), "authVersion": version, "gid": gid}
+        return {"username": username, "tenantId": str(tenant), "authVersion": version,
+                "gid": gid, "session": session}
 
     def creation_body(self, account: dict, purpose: str, index: int) -> dict:
         return {"requestId": "perf-" + self.seed_id + "-" + purpose + "-" + str(index),
