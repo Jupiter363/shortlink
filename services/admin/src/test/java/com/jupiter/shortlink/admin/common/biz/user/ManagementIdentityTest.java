@@ -138,6 +138,33 @@ class ManagementIdentityTest {
         r.addParameter("username","bob");r.addParameter("token",token);rejected(r,401);
         r.setParameter("username","alice");r.addParameter("token",token);rejected(r,401);
     }
+    @ParameterizedTest @ValueSource(strings={"none","username","token","duplicate"})
+    void checkLoginStillRequiresCompleteUniqueQueryCredentials(String supplied) throws Exception {
+        var r=trusted();r.setRequestURI("/api/short-link/v1/user/check-login");
+        if (supplied.equals("username") || supplied.equals("duplicate")) r.addParameter("username","alice");
+        if (supplied.equals("token") || supplied.equals("duplicate")) r.addParameter("token",token);
+        if (supplied.equals("duplicate")) r.addParameter("token",token);
+        rejected(r,401);
+    }
+    @Test void anotherVerifiedRouteCannotAuthorizeLogout() throws Exception {
+        var service=mock(UserService.class);
+        filter.doFilter(trusted(),new MockHttpServletResponse(),(raw,s)-> {
+            assertThatThrownBy(() -> new UserController(service).logout((HttpServletRequest)raw))
+                    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        });
+        verifyNoInteractions(service);
+    }
+    @Test void logoutRechecksQueryBindingOnAsyncRedispatch() throws Exception {
+        var r=trusted();r.setMethod("DELETE");r.setRequestURI("/api/short-link/admin/v1/user/logout");
+        filter.doFilter(r,new MockHttpServletResponse(),new MockFilterChain());
+        r.setDispatcherType(DispatcherType.ASYNC);r.addParameter("username","bob");r.addParameter("token",token);
+        var service=mock(UserService.class);
+        filter.doFilter(r,new MockHttpServletResponse(),(raw,s)-> {
+            assertThatThrownBy(() -> new UserController(service).logout((HttpServletRequest)raw))
+                    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        });
+        verifyNoInteractions(service);
+    }
     @Test void publicLoginPreservesBodyWhileStillCheckingIngress() throws Exception {
         var r=trusted();r.setMethod("POST");r.setRequestURI("/api/short-link/admin/v1/user/login");
         r.removeHeader("username");r.removeHeader("token");r.setContent("login body".getBytes());

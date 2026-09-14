@@ -7,9 +7,11 @@ import com.jupiter.shortlink.risk.IpAddresses;
 import com.jupiter.shortlink.risk.TrustedProxyResolver;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.async.CallableProcessingInterceptor;
 import org.springframework.web.context.request.async.WebAsyncUtils;
+import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.*;
@@ -18,6 +20,7 @@ import java.util.concurrent.Callable;
 /** APISIX peer, server-side session, then current MySQL authority; no caller-issued identity. */
 public class UserTransmitFilter implements Filter {
     private static final String VERIFIED = UserTransmitFilter.class.getName() + ".verified";
+    private static final String LOGOUT = "/api/short-link/admin/v1/user/logout";
     private static final String INTERNAL = "/internal/short-link-admin/v1/agent-tools/";
     private static final Set<String> PUBLIC = Set.of(
             "POST /api/short-link/admin/v1/user/login", "POST /api/short-link/admin/v1/user",
@@ -131,8 +134,7 @@ public class UserTransmitFilter implements Filter {
                     reject(response, 503, "SESSION_OR_AUTHORITY_UNAVAILABLE"); return;
                 }
                 if (isSessionOperation(request.getMethod(), path)
-                        && (!singleParameter(request, "username", username)
-                            || !singleParameter(request, "token", token))) {
+                        && !sessionArgumentsMatch(request, username, token)) {
                     reject(response, 401, "SESSION_ARGUMENT_MISMATCH"); return;
                 }
                 verified = new Verified(path, request.getMethod(), clientIp, scheme, session, token, principal);
@@ -180,6 +182,20 @@ public class UserTransmitFilter implements Filter {
         return request.getAttribute(VERIFIED) instanceof Verified v && v.session() != null
                 && v.session().username().equals(username) && v.token().equals(token);
     }
+    /** Credentials come only from the ingress proof, never from caller-controlled headers or parameters. */
+    public static VerifiedSessionCredentials requireVerifiedLogoutSession(HttpServletRequest request) {
+        if (!(request.getAttribute(VERIFIED) instanceof Verified v)
+                || v.session() == null || v.principal() == null
+                || !"DELETE".equals(v.method()) || !LOGOUT.equals(v.path())
+                || !v.method().equals(request.getMethod()) || !v.path().equals(request.getRequestURI())
+                || !sessionArgumentsMatch(request, v.session().username(), v.token())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Verified logout session required");
+        }
+        return new VerifiedSessionCredentials(v.session().username(), v.token());
+    }
+    public record VerifiedSessionCredentials(String username, String token) {
+        @Override public String toString() { return "VerifiedSessionCredentials[redacted]"; }
+    }
     private static boolean stripped(String name) {
         String n = name.toLowerCase(Locale.ROOT);
         return n.startsWith("x-shortlink-") || n.startsWith("x-agent-") || STRIP.contains(n);
@@ -199,7 +215,14 @@ public class UserTransmitFilter implements Filter {
     }
     private static boolean isSessionOperation(String method, String path) {
         return (method.equals("GET") && path.equals("/api/short-link/v1/user/check-login"))
-                || (method.equals("DELETE") && path.equals("/api/short-link/admin/v1/user/logout"));
+                || (method.equals("DELETE") && path.equals(LOGOUT));
+    }
+    private static boolean sessionArgumentsMatch(HttpServletRequest request, String username, String token) {
+        // New clients keep the token out of URLs. Legacy credentials must be complete, unique and exact.
+        if ("DELETE".equals(request.getMethod()) && LOGOUT.equals(request.getRequestURI())
+                && request.getParameterValues("username") == null
+                && request.getParameterValues("token") == null) return true;
+        return singleParameter(request, "username", username) && singleParameter(request, "token", token);
     }
     private static boolean safePath(String path) {
         return path != null && path.startsWith("/") && !path.contains("//") && !path.contains("..")
