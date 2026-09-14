@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "oldRunOriginalNativeReturnCode": -9,
+  "oldMonitorStop": "EVENT_FAILURE_OR_COUNTER_RESET",
+  "oldFailureMechanism": "Original guard detects failed event accounting, requests stop, then helper imposes a separate 12-second wait followed by SIGKILL even during valid abort-result export. This return code does not erase the earlier EDGE rejection.",
+  "mechanismEvidence": "Parent investigation plus archived ext4 helper stop(process) SIGINT/process.wait(timeout=12)/SIGKILL source; original result retained unchanged.",
+  "followupReceipt": {
+    "status": "SCOPED_UNIT_PASSED",
+    "sourceSha256": {
+      "scripts/performance/native_lifecycle.py": "2bedfd3e1f4b92fafe8a8b221b04c7e5cc1b7dc959c17b766ca0ecf3696c972a",
+      "scripts/performance/test_native_lifecycle.py": "3b92a284a874f9af2ba68a5c0a7d82a3860a390eab2dc7bbc96de997fe593ae3"
+    },
+    "runtime": {
+      "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+      "executable": "C:\\Users\\Jupiter\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe"
+    },
+    "test": {
+      "command": "C:\\Users\\Jupiter\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe -B scripts/performance/test_native_lifecycle.py -v",
+      "exitCode": 0,
+      "tests": 18,
+      "priorTestsPreserved": 10,
+      "newTests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "elapsedSeconds": 0.129
+    },
+    "api": {
+      "request_stop": "request_stop(now_ns, grace_seconds=12) -> Decision; no process signal/kill",
+      "grace": "finite (0,12] seconds, at least 1 ns",
+      "firstStopLatched": true,
+      "requestDeadline": "min(original active_deadline_ns, first_stop_ns+grace_ns)",
+      "observeStates": [
+        "ACTIVE",
+        "STOPPING",
+        "EXPORTING",
+        "EXITED",
+        "FAILED"
+      ],
+      "exportDeadline": "receipt.drainedMonotonicNanos + min(configured_export_budget,60 seconds) once stop requested",
+      "finalize": "Stopped runs cannot return COMPLETE; capacity_pass remains false for every Decision",
+      "newFields": [
+        "stop_requested_ns",
+        "stop_deadline_ns",
+        "request_deadline_ns property"
+      ]
+    },
+    "testsCovered": [
+      "Timely drain followed by 26-second abort export; delayed receipt observation does not invalidate its verified drain time.",
+      "No receipt at stop+12 seconds expires at the next nanosecond, failure sticky.",
+      "Original activity deadline remains earlier if applicable.",
+      "Late/future/wrong-process/not-drained/inconsistent-count receipts never unlock export.",
+      "Repeated stop cannot move either activity deadline or export origin.",
+      "Stopped run configured for 120-second export is capped at 60.",
+      "Invalid grace/reversed observer time rejected.",
+      "Failed HTTP can finish export but remains failed.",
+      "All original 10 tests unchanged."
+    ],
+    "integration": [
+      "Caller latches original user/monitor failure independently.",
+      "Caller sends SIGTERM once and then keeps polling observe with actual monotonic time and process returncode.",
+      "Caller kills only on lifecycle FAILED/real deadline, not a separate fixed 12-second helper while EXPORTING.",
+      "Full JSON parsing/finalize stays within export deadline.",
+      "Receipt requires current runId/label/PID/startTicks, monotonic time, completed workers and conservation."
+    ],
+    "limits": [
+      "Only pure state-machine tests performed; no native generator/process/signal/service/network/pressure run.",
+      "A valid receipt observed after the stop deadline can prove earlier timely drain; once a no-receipt timeout has been observed, failure is sticky and cannot be rescued.",
+      "No new capacity PASS or rewrite of the old failed run.",
+      "No .work stage, ext4 helper or production Lua edits."
+    ]
+  },
+  "validationStatus": "18 pure tests passed by source receipt (10 prior +8 new, not 28); real-process subsequent-run verification is outside this archive."
+}

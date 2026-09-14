@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "kind": "AFTER_LOAD_HOST_IDLE_WINDOW_NOT_CAUSAL_FAILURE_PROOF",
+  "startUtc": "2026-09-12T17:05:56.8274249Z",
+  "endUtc": "2026-09-12T17:06:16.7846752Z",
+  "samples": 21,
+  "logicalProcessors": 16,
+  "actualSpanSeconds": 19.9530076,
+  "intervalSeconds": {
+    "minimum": 0.9653818000000001,
+    "maximum": 1.0158772999999997
+  },
+  "identityMethod": "Match adjacent samples by (PID,startUtc); only nonnegative TotalProcessorTime deltas; missing/new/exited identities are not fabricated as zero. Only matched intervals contribute, whole-window rates can be lower bounds for partially observed processes.",
+  "negativeCounterIntervalsExcluded": 0,
+  "top12NonWslProcesses": [
+    {
+      "name": "QQMusic",
+      "pid": 3236,
+      "startUtc": "2026-09-09T05:01:08.0172773Z",
+      "cpuSecondsDelta": 22.421875,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 143.41987612912627,
+      "meanPercentOneLogicalCpuOverWholeWindow": 112.37340981116051,
+      "meanPercentOf16LogicalProcessors": 7.023338113197532
+    },
+    {
+      "name": "Dell.TechHub.DataManager.SubAgent",
+      "pid": 13032,
+      "startUtc": "2026-09-08T23:22:14.9321600Z",
+      "cpuSecondsDelta": 19.671875,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 100.59971514184656,
+      "meanPercentOneLogicalCpuOverWholeWindow": 98.59102644756173,
+      "meanPercentOf16LogicalProcessors": 6.161939152972608
+    },
+    {
+      "name": "WmiPrvSE",
+      "pid": 4344,
+      "startUtc": "2026-09-08T23:20:39.5192156Z",
+      "cpuSecondsDelta": 14.59375,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 93.82284651896448,
+      "meanPercentOneLogicalCpuOverWholeWindow": 73.14060262273443,
+      "meanPercentOf16LogicalProcessors": 4.571287663920902
+    },
+    {
+      "name": "svchost",
+      "pid": 3076,
+      "startUtc": "2026-09-08T23:20:39.1242441Z",
+      "cpuSecondsDelta": 13.453125,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 88.57367234138792,
+      "meanPercentOneLogicalCpuOverWholeWindow": 67.4240458866963,
+      "meanPercentOf16LogicalProcessors": 4.214002867918519
+    },
+    {
+      "name": "ChatGPT",
+      "pid": 23556,
+      "startUtc": "2026-09-08T23:29:28.6222228Z",
+      "cpuSecondsDelta": 11.96875,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 272.0477079056915,
+      "meanPercentOneLogicalCpuOverWholeWindow": 59.98469123020832,
+      "meanPercentOf16LogicalProcessors": 3.74904320188802
+    },
+    {
+      "name": "ChatGPT",
+      "pid": 23280,
+      "startUtc": "2026-09-08T23:22:11.0858142Z",
+      "cpuSecondsDelta": 5.953125,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 82.70033353762283,
+      "meanPercentOneLogicalCpuOverWholeWindow": 29.835727622335995,
+      "meanPercentOf16LogicalProcessors": 1.8647329763959997
+    },
+    {
+      "name": "dwm",
+      "pid": 1876,
+      "startUtc": "2026-09-08T23:20:38.6899787Z",
+      "cpuSecondsDelta": 4.796875,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 40.463265414782,
+      "meanPercentOneLogicalCpuOverWholeWindow": 24.04086188991378,
+      "meanPercentOf16LogicalProcessors": 1.5025538681196113
+    },
+    {
+      "name": "ChatGPT",
+      "pid": 14652,
+      "startUtc": "2026-09-08T23:22:13.5263852Z",
+      "cpuSecondsDelta": 4.796875,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 35.574719681107965,
+      "meanPercentOneLogicalCpuOverWholeWindow": 24.04086188991378,
+      "meanPercentOf16LogicalProcessors": 1.5025538681196113
+    },
+    {
+      "name": "msedge",
+      "pid": 24632,
+      "startUtc": "2026-09-08T23:22:16.3397394Z",
+      "cpuSecondsDelta": 4.75,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 73.4923032105041,
+      "meanPercentOneLogicalCpuOverWholeWindow": 23.805934900761528,
+      "meanPercentOf16LogicalProcessors": 1.4878709312975955
+    },
+    {
+      "name": "System",
+      "pid": 4,
+      "startUtc": "2026-09-08T23:20:30.0483217Z",
+      "cpuSecondsDelta": 4.203125,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 37.12144662376484,
+      "meanPercentOneLogicalCpuOverWholeWindow": 21.06512002731859,
+      "meanPercentOf16LogicalProcessors": 1.3165700017074118
+    },
+    {
+      "name": "codex",
+      "pid": 5560,
+      "startUtc": "2026-09-08T23:29:30.5303405Z",
+      "cpuSecondsDelta": 2.8125,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 83.69106822138797,
+      "meanPercentOneLogicalCpuOverWholeWindow": 14.095619349135116,
+      "meanPercentOf16LogicalProcessors": 0.8809762093209448
+    },
+    {
+      "name": "msedgewebview2",
+      "pid": 18656,
+      "startUtc": "2026-09-08T23:21:10.6057733Z",
+      "cpuSecondsDelta": 2.71875,
+      "matchedIntervalSeconds": 19.9530076,
+      "matchedIntervals": 20,
+      "maximumIntervalPercentOneLogicalCpu": 27.841084967823626,
+      "meanPercentOneLogicalCpuOverWholeWindow": 13.625765370830612,
+      "meanPercentOf16LogicalProcessors": 0.8516103356769132
+    }
+  ],
+  "wslAggregate": {
+    "cpuSecondsDelta": 10.28125,
+    "meanPercentOneLogicalCpu": 51.527319620727255,
+    "meanPercentOf16LogicalProcessors": 3.2204574762954534,
+    "vmmemWSL": [
+      {
+        "name": "vmmemWSL",
+        "pid": 50752,
+        "startUtc": "2026-09-12T16:21:11.0290241Z",
+        "cpuSecondsDelta": 10.28125,
+        "matchedIntervalSeconds": 19.9530076,
+        "matchedIntervals": 20,
+        "maximumIntervalPercentOneLogicalCpu": 185.05570828468547,
+        "meanPercentOneLogicalCpuOverWholeWindow": 51.527319620727255,
+        "meanPercentOf16LogicalProcessors": 3.2204574762954534
+      }
+    ]
+  },
+  "observedOtherProcessesAggregate": {
+    "identities": 397,
+    "meanPercentOneLogicalCpu": 637.905084544748,
+    "meaning": "Observed matched-process CPU, not authoritative whole-host processor utilization; protected/missing process data is absent."
+  },
+  "excludedFromNonWslRanking": [
+    "Idle",
+    "vmmem",
+    "vmmemWSL",
+    "process names beginning with wsl"
+  ],
+  "privacy": "Raw host process inventory not copied. Only twelve highest non-WSL process identities plus vmmemWSL details retained; remaining names omitted.",
+  "limits": [
+    "This window occurred after load ended; it cannot attribute earlier request failures.",
+    "WSL logical cpuset is not exclusive allocation of host physical CPUs.",
+    "Process counters do not measure clocks, power, thermals or CPU scheduling delay."
+  ]
+}

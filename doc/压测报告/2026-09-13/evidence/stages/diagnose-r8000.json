@@ -1,0 +1,534 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260912T162855Z-3dbd69ad",
+  "label": "diagnose-r8000",
+  "startedAt": "2026-09-12T16:39:50.364922+00:00",
+  "finishedAt": "2026-09-12T16:41:29.491358+00:00",
+  "status": "CAPACITY_STAGE_FAILED",
+  "capacityPassed": false,
+  "stageConfig": {
+    "label": "diagnose-r8000",
+    "rate": 8000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 121500,
+    "formalRequests": 480000,
+    "maximumRequests": 601500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 22173696000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+  "stopReasons": [
+    "EVENT_FAILURE_OR_COUNTER_RESET",
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "harnessCpuAffinity": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "1d4ed47fa991c237e1f330659c5b5d700feda93983baf8e70325badfc51d91de",
+    "edgePathProofSha256": "972a6fbae6441b05c2bc28f13f72abf9cfa167d55aaec7eb266a117cb2f9bf7f",
+    "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+    "containerId": "ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea",
+    "containerPid": 14314
+  },
+  "clientLaunch": {
+    "pid": 19905,
+    "startedAt": "2026-09-12T16:40:01.183806+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "nativeLifecycle": {
+    "state": "FAILED",
+    "reason": "PROCESS_EXIT_NONZERO",
+    "activityBudgetSeconds": 115,
+    "exportBudgetSeconds": 60,
+    "requestsDrainedReceipt": {
+      "schemaVersion": 1,
+      "kind": "NATIVE_GO_REQUESTS_DRAINED",
+      "version": "1.4.1-drained-receipt",
+      "runId": "20260912T162855Z-3dbd69ad",
+      "label": "diagnose-r8000",
+      "pid": 19905,
+      "startTicks": 112947,
+      "drainedMonotonicNanos": 1174189387181,
+      "requestElapsedNanos": 44565664545,
+      "requestsDrained": true,
+      "workersFinished": 2048,
+      "activeRequests": 0,
+      "measurementComplete": false,
+      "stopReason": "EXTERNAL_STOP",
+      "planned": 601500,
+      "scheduled": 237926,
+      "sent": 237925,
+      "completed": 237925,
+      "correct": 237925,
+      "errors": 0,
+      "dropped": 1,
+      "cancelled": 363574
+    }
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": false,
+    "checks": {
+      "observerExited": true,
+      "observerCpuIsolation": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": false,
+      "noSampleBudgetLoss": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "e4bde2bce241ba213cb6aa5a6152fc32ff124e562cc6966ae4bab1967b8e60e8",
+    "scripts/performance/observe.py": "d317ee7fa9a4dcd3fda20362f87d83debf6e06d991a17a83d5741552664c8020",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": false,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": false,
+    "noCancelledArrivals": false,
+    "sentAtLeast99PercentOfTarget": false,
+    "roundtripP99WithinBudget": false,
+    "scheduledCompletionP99WithinBudget": false,
+    "eventFailuresUnchanged": false,
+    "afterDrained": true,
+    "noMonitorStop": false,
+    "threeProducerLanesMatch": false,
+    "actualKafkaOffsetsMatch": false,
+    "sourceDistributionVerified": true,
+    "measurementComplete": false,
+    "nativeConservationVerified": false,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": false
+  },
+  "failedChecks": [
+    "clientExitedSuccessfully",
+    "noDroppedArrivals",
+    "noCancelledArrivals",
+    "sentAtLeast99PercentOfTarget",
+    "roundtripP99WithinBudget",
+    "scheduledCompletionP99WithinBudget",
+    "eventFailuresUnchanged",
+    "noMonitorStop",
+    "threeProducerLanesMatch",
+    "actualKafkaOffsetsMatch",
+    "measurementComplete",
+    "nativeConservationVerified",
+    "requestedSystemDiagnosticsComplete"
+  ],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 962.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": null,
+  "accountingProblems": {
+    "delivery": "GET_DELIVERY_MULTIPLICITY_OR_UNLISTED_REQUESTS",
+    "kafka": "KAFKA_OFFSET_MULTIPLICITY_FAILED"
+  },
+  "all": {
+    "planned_arrivals": 601500,
+    "scheduled": 237926,
+    "sent": 237925,
+    "completed": 237925,
+    "received_http": 237925,
+    "correct": 237925,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1,
+    "cancelled_arrivals": 363574,
+    "roundtrip_ms": {
+      "count": 237925,
+      "mean": 11.190044129713167,
+      "p50": 1.868731,
+      "p95": 61.970218,
+      "p99": 153.552614,
+      "p99_9": 253.211937,
+      "max": 499.465472
+    },
+    "scheduled_to_completion_ms": {
+      "count": 237925,
+      "mean": 11.477740383112387,
+      "p50": 2.066825,
+      "p95": 62.76002,
+      "p99": 154.675578,
+      "p99_9": 253.857333,
+      "max": 500.054792
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 121500,
+    "scheduled": 121500,
+    "sent": 121500,
+    "completed": 121500,
+    "received_http": 121500,
+    "correct": 121500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 121500,
+      "mean": 3.9469536551110975,
+      "p50": 1.138194,
+      "p95": 13.497167,
+      "p99": 48.47728,
+      "p99_9": 174.373208,
+      "max": 210.458023
+    },
+    "scheduled_to_completion_ms": {
+      "count": 121500,
+      "mean": 4.205702106321003,
+      "p50": 1.307011,
+      "p95": 14.117476,
+      "p99": 49.89027,
+      "p99_9": 174.737273,
+      "max": 210.581531
+    }
+  },
+  "measure": {
+    "planned_arrivals": 480000,
+    "scheduled": 116426,
+    "sent": 116425,
+    "completed": 116425,
+    "received_http": 116425,
+    "correct": 116425,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 1,
+    "cancelled_arrivals": 363574,
+    "roundtrip_ms": {
+      "count": 116425,
+      "mean": 18.74886304888122,
+      "p50": 3.725917,
+      "p95": 102.417956,
+      "p99": 183.176014,
+      "p99_9": 283.633847,
+      "max": 499.465472
+    },
+    "scheduled_to_completion_ms": {
+      "count": 116425,
+      "mean": 19.06676894768316,
+      "p50": 3.955999,
+      "p95": 103.563268,
+      "p99": 184.054177,
+      "p99_9": 285.352502,
+      "max": 500.054792
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 14553.21785,
+      "start": "2026-09-12T16:40:31.339425346Z",
+      "end": "2026-09-12T16:41:31.339425346Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-12T16:40:01.339425346Z",
+      "end": "2026-09-12T16:40:31.339425346Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 121478,
+      "measure": 116447,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 1940.7833333333333,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 1940.7833333333333,
+  "measuredCorrectCohortQps": 1940.4166666666667,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 2,
+  "nativeSummarySha256": "6c8ef1c650ca59a24bbd47692ac213cce127f96c5947fd4139b1c2a7c9df7b11",
+  "monitorStop": "EVENT_FAILURE_OR_COUNTER_RESET",
+  "nativeClientProcess": {
+    "samples": 56,
+    "cpuPercentMean": 146.28828072216072,
+    "cpuPercentPeak": 203.96653521057155,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 3192225792,
+    "rssBytesSampleMean": 545167067.4285715,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 55.02833145799991,
+    "timelineBytes": 14967,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-12T16:40:01.183806+00:00",
+    "end": "2026-09-12T16:40:56.749341+00:00"
+  },
+  "archiveScope": "Allowlisted compact extraction; not a rerun or replacement verdict.",
+  "partialMeasurement": true,
+  "effectiveQpsInterpretation": "Incomplete measurement; QPS fields retain original planned-duration denominator and are not steady throughput or ceiling.",
+  "http504": {
+    "count": 0,
+    "basis": "Derived: all.received_http == all.correct == all.completed == all.sent, incorrect_http == client_errors == 0; 504 cannot be a correct redirect response. Original compact result has no dedicated status504 field."
+  },
+  "edgeRejectionsByReason": {
+    "sourceFields": [
+      "before.json:apisix.rejectionRaw",
+      "after.json:apisix.rejectionRaw"
+    ],
+    "before": {
+      "worker_exiting": 0,
+      "event_size": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "identity_unavailable": 0,
+      "timer_unavailable": 0,
+      "queue_count": 0
+    },
+    "after": {
+      "worker_exiting": 0,
+      "event_size": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "identity_unavailable": 0,
+      "timer_unavailable": 0,
+      "queue_count": 962
+    },
+    "delta": {
+      "worker_exiting": 0,
+      "event_size": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "identity_unavailable": 0,
+      "timer_unavailable": 0,
+      "queue_count": 962
+    }
+  },
+  "observedProducerLaneCounters": {
+    "source": "before/after services.shortlink-redirect.metrics and edgeSnapshot.rawCounters",
+    "lanes": {
+      "click": {
+        "delivered": {
+          "before": 553003.0,
+          "after": 790928.0,
+          "delta": 237925.0
+        },
+        "failed": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        },
+        "rejected": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "result": {
+        "delivered": {
+          "before": 553071.0,
+          "after": 790996.0,
+          "delta": 237925.0
+        },
+        "failed": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        },
+        "rejected": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "edge": {
+        "attempted": {
+          "before": 553075.0,
+          "after": 791000.0,
+          "delta": 237925.0
+        },
+        "delivered": {
+          "before": 553075.0,
+          "after": 790038.0,
+          "delta": 236963.0
+        },
+        "failed": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        },
+        "rejected": {
+          "before": 0.0,
+          "after": 962.0,
+          "delta": 962.0
+        }
+      }
+    },
+    "verdictUnchanged": false,
+    "meaning": "Endpoint counter differences for diagnosis. They do not replace the original complete request/accounting gate."
+  },
+  "observedKafkaOffsets": {
+    "sourceFields": [
+      "kafka-before.json:kafka.endOffsets.output",
+      "kafka-after.json:kafka.endOffsets.output"
+    ],
+    "status": "DIAGNOSTIC_ONLY",
+    "nonzeroPartitionDeltas": [
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 0,
+        "before": 22379294,
+        "after": 22515401,
+        "delta": 136107
+      },
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 1,
+        "before": 16953725,
+        "after": 17055543,
+        "delta": 101818
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 0,
+        "before": 35299806,
+        "after": 35536610,
+        "delta": 236804
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 1,
+        "before": 35293628,
+        "after": 35531712,
+        "delta": 238084
+      }
+    ],
+    "nonzeroTopicDeltas": {
+      "shortlink.click.raw.v1": 237925,
+      "shortlink.gateway.request.v1": 474888
+    },
+    "totalOffsetDelta": 712813,
+    "originalConservationPresent": false,
+    "originalVerdict": false
+  },
+  "originalKafkaConservation": null,
+  "systemObservation": {
+    "kind": "SYSTEM_STOPPED",
+    "observerCpuSetAtStart": [
+      12,
+      13,
+      14,
+      15
+    ],
+    "observerCpuSetAtStop": [
+      12,
+      13,
+      14,
+      15
+    ],
+    "stopReason": "CLIENT_EXITED_OR_PID_REUSED",
+    "failure": null,
+    "samples": 55,
+    "skippedScheduledSamples": 0,
+    "limitations": [
+      "Per-process/thread reads are sequential, not atomic global snapshots.",
+      "schedstat zero is not proof of zero waiting when kernel schedstats is disabled.",
+      "cgroup v1 or missing files are explicitly unavailable; ancestor quotas are retained.",
+      "JFR cleanup is separately bounded and may extend beyond the collection deadline.",
+      "JFR isolation is checked once before start; concurrent external recordings are prohibited.",
+      "Sampling stops itself only; no application is signalled or restarted."
+    ]
+  },
+  "stageEndpointMemoryAndDisk": {
+    "source": "before/after host.data; covers whole stage boundary, not formal last-eight-second I/O",
+    "before": {
+      "cpuCount": 16,
+      "memory": {
+        "MemTotalBytes": 16699817984,
+        "MemAvailableBytes": 13367427072,
+        "SwapTotalBytes": 4294967296,
+        "SwapFreeBytes": 4294967296,
+        "DirtyBytes": 204800,
+        "WritebackBytes": 40960
+      },
+      "disk": {
+        "totalBytes": 808120741888,
+        "usedBytes": 650816901120,
+        "freeBytes": 157303840768
+      },
+      "diskScope": "PERFORMANCE_EVIDENCE_FILESYSTEM_NOT_KAFKA_VOLUME"
+    },
+    "after": {
+      "cpuCount": 16,
+      "memory": {
+        "MemTotalBytes": 16699817984,
+        "MemAvailableBytes": 12362125312,
+        "SwapTotalBytes": 4294967296,
+        "SwapFreeBytes": 4294967296,
+        "DirtyBytes": 128073728,
+        "WritebackBytes": 0
+      },
+      "disk": {
+        "totalBytes": 808120741888,
+        "usedBytes": 651675496448,
+        "freeBytes": 156445245440
+      },
+      "diskScope": "PERFORMANCE_EVIDENCE_FILESYSTEM_NOT_KAFKA_VOLUME"
+    }
+  }
+}

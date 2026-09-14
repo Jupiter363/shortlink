@@ -1,0 +1,628 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260912T172134Z-bfc094fe",
+  "label": "linger10-smoke-r1000",
+  "startedAt": "2026-09-12T17:25:18.729940+00:00",
+  "finishedAt": "2026-09-12T17:26:25.833489+00:00",
+  "capacityPassed": true,
+  "status": "CAPACITY_STAGE_PASSED",
+  "stageConfig": {
+    "label": "linger10-smoke-r1000",
+    "rate": 1000,
+    "duration": 10,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 16500,
+    "formalRequests": 10000,
+    "maximumRequests": 26500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 976896000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "sourceIpCount": 64,
+  "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+  "stopReasons": [],
+  "harnessCpuAffinity": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "084165d6a9d87be3766d2189a0d459ed97fcdb8bf8e0cea8f50044ae845dc4db",
+    "edgePathProofSha256": "53dcf0178df2f92bd74e411719e4c2b39f754ed1ab0c720694757766b5f3899c",
+    "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+    "containerId": "a425e0f32d9b8a5c1ee436f93a604e9b0afa78f635269235d3dcff2be4f97e75",
+    "containerPid": 14457
+  },
+  "clientLaunch": {
+    "pid": 27795,
+    "startedAt": "2026-09-12T17:25:30.274811+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "nativeLifecycle": {
+    "state": "COMPLETE",
+    "reason": "CAPACITY_GATES_STILL_REQUIRED",
+    "activityBudgetSeconds": 65,
+    "exportBudgetSeconds": 60,
+    "requestsDrainedReceipt": {
+      "schemaVersion": 1,
+      "kind": "NATIVE_GO_REQUESTS_DRAINED",
+      "version": "1.4.1-drained-receipt",
+      "runId": "20260912T172134Z-bfc094fe",
+      "label": "linger10-smoke-r1000",
+      "pid": 27795,
+      "startTicks": 385856,
+      "drainedMonotonicNanos": 3898709760584,
+      "requestElapsedNanos": 40011028859,
+      "requestsDrained": true,
+      "workersFinished": 2048,
+      "activeRequests": 0,
+      "measurementComplete": true,
+      "stopReason": "COMPLETED",
+      "planned": 26500,
+      "scheduled": 26500,
+      "sent": 26500,
+      "completed": 26500,
+      "correct": 26500,
+      "errors": 0,
+      "dropped": 0,
+      "cancelled": 0
+    }
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": true,
+    "checks": {
+      "observerExited": true,
+      "observerCpuIsolation": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": true,
+      "noSampleBudgetLoss": true
+    }
+  },
+  "checks": {
+    "clientExitedSuccessfully": true,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": true,
+    "noCancelledArrivals": true,
+    "sentAtLeast99PercentOfTarget": true,
+    "roundtripP99WithinBudget": true,
+    "scheduledCompletionP99WithinBudget": true,
+    "eventFailuresUnchanged": true,
+    "afterDrained": true,
+    "noMonitorStop": true,
+    "threeProducerLanesMatch": true,
+    "actualKafkaOffsetsMatch": true,
+    "sourceDistributionVerified": true,
+    "measurementComplete": true,
+    "nativeConservationVerified": true,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": true
+  },
+  "failedChecks": [],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 0.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": {
+    "lanes": {
+      "click": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "result": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "edge": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      }
+    },
+    "failureDeltas": {
+      "edge.failed": 0,
+      "edge.rejected": 0,
+      "metadata.intake_batches_failed": 0,
+      "metadata.intake_offset_commits_failed": 0,
+      "metadata.intake_records_rejected": 0,
+      "outbox.ack_failures": 0,
+      "outbox.broker_failures": 0,
+      "outbox.claim_failures": 0,
+      "outbox.fenced_acknowledgements": 0,
+      "outbox.retry_failures": 0,
+      "redirect.click.failed": 0,
+      "redirect.click.rejected": 0,
+      "redirect.result.failed": 0,
+      "redirect.result.rejected": 0
+    }
+  },
+  "accountingProblems": {},
+  "all": {
+    "planned_arrivals": 26500,
+    "scheduled": 26500,
+    "sent": 26500,
+    "completed": 26500,
+    "received_http": 26500,
+    "correct": 26500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 26500,
+      "mean": 1.4487441374716945,
+      "p50": 0.884373,
+      "p95": 4.401362,
+      "p99": 12.732232,
+      "p99_9": 19.384537,
+      "max": 40.154766
+    },
+    "scheduled_to_completion_ms": {
+      "count": 26500,
+      "mean": 1.5369966747924575,
+      "p50": 0.969432,
+      "p95": 4.522483,
+      "p99": 12.785061,
+      "p99_9": 19.447891,
+      "max": 40.191674
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 16500,
+    "scheduled": 16500,
+    "sent": 16500,
+    "completed": 16500,
+    "received_http": 16500,
+    "correct": 16500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 16500,
+      "mean": 1.717001294363633,
+      "p50": 1.0543,
+      "p95": 5.597539,
+      "p99": 14.133972,
+      "p99_9": 21.426466,
+      "max": 40.154766
+    },
+    "scheduled_to_completion_ms": {
+      "count": 16500,
+      "mean": 1.7710224541818163,
+      "p50": 1.107573,
+      "p95": 5.720745,
+      "p99": 14.181569,
+      "p99_9": 21.480172,
+      "max": 40.191674
+    }
+  },
+  "measure": {
+    "planned_arrivals": 10000,
+    "scheduled": 10000,
+    "sent": 10000,
+    "completed": 10000,
+    "received_http": 10000,
+    "correct": 10000,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 10000,
+      "mean": 1.0061198285999993,
+      "p50": 0.696999,
+      "p95": 3.092165,
+      "p99": 7.845911,
+      "p99_9": 10.968132,
+      "max": 18.266096
+    },
+    "scheduled_to_completion_ms": {
+      "count": 10000,
+      "mean": 1.150854138799999,
+      "p50": 0.831969,
+      "p95": 3.340215,
+      "p99": 8.004695,
+      "p99_9": 11.168871,
+      "max": 18.411611
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 10000,
+      "elapsedMillis": 10000,
+      "start": "2026-09-12T17:26:00.414433683Z",
+      "end": "2026-09-12T17:26:10.414433683Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-12T17:25:30.414433683Z",
+      "end": "2026-09-12T17:26:00.414433683Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 16500,
+      "measure": 10000,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 1000.0,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 1000.0,
+  "measuredCorrectCohortQps": 1000.0,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 0,
+  "nativeSummarySha256": "6aeb7d98458b87ecf0c4541f19304dcb272631edaaa28141331c7e41e2cbc252",
+  "monitorStop": null,
+  "nativeClientProcess": {
+    "samples": 41,
+    "cpuPercentMean": 60.5385272967747,
+    "cpuPercentPeak": 114.9838177524018,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 70647808,
+    "rssBytesSampleMean": 49311843.90243903,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 40.00758043099995,
+    "timelineBytes": 10893,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-12T17:25:30.274811+00:00",
+    "end": "2026-09-12T17:26:11.241587+00:00"
+  },
+  "originalKafkaConservation": {
+    "brokerId": 1,
+    "totalOffsetDelta": 79500,
+    "topicDeltas": {
+      "shortlink.batch.ready.v1": 0,
+      "shortlink.click.dlq.v1": 0,
+      "shortlink.click.enriched.v1": 0,
+      "shortlink.click.late.v1": 0,
+      "shortlink.click.raw.v1": 26500,
+      "shortlink.gateway.request.v1": 53000,
+      "shortlink.it.adapter.4f89a76cdcf8.invalid": 0,
+      "shortlink.it.adapter.4f89a76cdcf8.valid": 0,
+      "shortlink.it.adapter.83cfe442806e.invalid": 0,
+      "shortlink.it.adapter.83cfe442806e.valid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.invalid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.valid": 0,
+      "shortlink.it.adapter.d7f7254a1971.invalid": 0,
+      "shortlink.it.adapter.d7f7254a1971.valid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.invalid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.valid": 0,
+      "shortlink.it.connect.configs": 0,
+      "shortlink.it.connect.offsets": 0,
+      "shortlink.it.connect.status": 0,
+      "shortlink.metadata.dlq.v1": 0,
+      "shortlink.metadata.fetch.v1": 0,
+      "shortlink.request.enriched.v1": 0,
+      "shortlink.risk.policy.change.v1": 0,
+      "shortlink.risk.signal.v1": 0,
+      "shortlink.route.change.v1": 0,
+      "shortlink.stats.5m.v1": 0
+    }
+  },
+  "partialMeasurement": false,
+  "archiveScope": "Retain original verdict and stop reason. Final endpoint deltas do not rewrite a transient monitoring-unavailable stop as another reason; partial rate is not a capacity ceiling.",
+  "edgeRejectionsByReasonEndpoint": {
+    "before": {
+      "queue_count": 0,
+      "identity_unavailable": 0,
+      "worker_exiting": 0,
+      "event_size": 0,
+      "encoding": 0,
+      "queue_bytes": 0,
+      "timer_unavailable": 0
+    },
+    "after": {
+      "queue_count": 0,
+      "identity_unavailable": 0,
+      "worker_exiting": 0,
+      "event_size": 0,
+      "encoding": 0,
+      "queue_bytes": 0,
+      "timer_unavailable": 0
+    },
+    "delta": {
+      "queue_count": 0,
+      "identity_unavailable": 0,
+      "worker_exiting": 0,
+      "event_size": 0,
+      "encoding": 0,
+      "queue_bytes": 0,
+      "timer_unavailable": 0
+    },
+    "meaning": "Available endpoint counters; they do not prove counters were valid at the triggering monitoring sample."
+  },
+  "monitorSampleAvailability": [
+    {
+      "observedAt": "2026-09-12T17:25:22.457053+00:00",
+      "phase": "before_drain",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:25:25.912785+00:00",
+      "phase": "before",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:25:30.303842+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:25:35.872220+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:25:41.485775+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:25:47.111307+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:25:52.810654+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:25:58.496089+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:26:04.131333+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:26:09.732369+00:00",
+      "phase": "running",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    },
+    {
+      "observedAt": "2026-09-12T17:26:11.779704+00:00",
+      "phase": "after_drain",
+      "services": {
+        "shortlink-command": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "admin": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        },
+        "shortlink-redirect": {
+          "status": "AVAILABLE",
+          "pipelineFailureSeriesInvalid": false
+        }
+      },
+      "apisix": {
+        "status": "AVAILABLE",
+        "pipelineFailureSeriesInvalid": false
+      }
+    }
+  ]
+}

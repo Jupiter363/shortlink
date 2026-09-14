@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260912T162855Z-3dbd69ad",
+  "sourceCommitFromArtifactAudit": "14273abaa779178c885553cab4a064b90e705ab2",
+  "sourceReceiptLimitation": "Earlier Admin unit receipt is not a complete final source manifest. Current raw hashes are not all equal, and several remain unmatched after uniform LF/CRLF conversion. Do not claim all current source bytes independently match that receipt. Exact final JARs and actual E2E match; no source change after accepted merge observed.",
+  "jarSha256": {
+    "shortlink-command": "c66f334b10001542b3691f73073a3b85bae31d98c6432f3d6203fa74ca525945",
+    "admin": "8f4262656f5329ba0509fe8c642886371012bdb097d01057d8999fbb544ac5f8",
+    "shortlink-redirect": "a1ed4bc74546d3581106432be9da9fad5c8644fb5b7654252a0ba627a659cbff"
+  },
+  "supervisorSha256": "0f6fd7af8c41e5ba0a0208e4d02e144bff7636552793840c3144afa59292ac52",
+  "launchArguments": [
+    "python3",
+    "-B",
+    "/mnt/d/学习/Project/马哥Project/shortlink/scripts/performance/supervisor.py",
+    "--allow-test-database",
+    "--metadata-workers",
+    "8",
+    "--metadata-poll-millis",
+    "50",
+    "--edge-workers",
+    "4",
+    "--application-cpu-set",
+    "0-7",
+    "--edge-cpu-set",
+    "0-7",
+    "--edge-send-concurrency",
+    "2",
+    "--edge-send-linger-millis",
+    "5",
+    "--redis-container",
+    "shortlink-perf-redis-20260909-functional",
+    "--redis-port",
+    "16380",
+    "--redis-database",
+    "12",
+    "--max-runtime-seconds",
+    "7200",
+    "--publisher-diagnostics-required",
+    "--redirect-functional-routing"
+  ],
+  "redisDatabase": 12,
+  "gateway": "APISIX only; Java Gateway removed",
+  "applicationCpuAffinity": "0-7",
+  "edgeCpuAffinity": "0-7",
+  "edgeWorkers": 4,
+  "edgeSendConcurrencyPerWorker": 2,
+  "edgeSendLingerMillis": 5,
+  "maximumConfiguredNodeSendParallelism": 8,
+  "loadGeneratorCpuAffinity": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "loadGeneratorGomaxprocs": 4,
+  "sourceIpCount": 64,
+  "owners": 2048,
+  "jvmLoadOptionsVerification": "Not present in allowed load-runtime evidence. Archived E2E JVM options are not asserted as current load options.",
+  "formalAnalyticsScope": "EDGE + Redirect click/result through producer delivery and Kafka partition offsets; analytics consumers/Flink/Agent not measured.",
+  "highFrequencyObserver": {
+    "baseline-r7000": {
+      "manifest": ".work/load-fix-20260913/diagnostics-baseline-r7000/manifest.json",
+      "sampleIntervalMillis": 20,
+      "systemIntervalMillis": 1000
+    },
+    "diagnose-r8000": {
+      "manifest": ".work/load-fix-20260913/diagnostics-diagnose-r8000/manifest.json",
+      "sampleIntervalMillis": 20,
+      "systemIntervalMillis": 1000
+    },
+    "control-r8000": {
+      "enabled": false,
+      "basis": "Parent-run control classification; no control high-frequency archive in allowed current-run directory. Ordinary 1-second system observation and 5-second stage monitoring remain enabled."
+    }
+  },
+  "rootCauseStatus": "EDGE queue_count rejection is established; cause of sender progress/backlog is unresolved. ext4 control is a separate later stage, not included here.",
+  "diagnosticLimits": [
+    "20ms sequential proc snapshots cannot prove continuous off-CPU duration or syscall duration. schedstat deltas can be charged after waits, so a delta greater than the wall sample interval is not a matching contiguous pause.",
+    "No pipe_write/write log-FD sample is not proof logging never blocked. Pipe descriptors establish container stdout/stderr sharing, not reader ownership.",
+    "p9_client_rpc shows 9P filesystem wait at sample time; sampled syscall is a later independent proc read and need not be the same operation. File identity and causal performance effect remain unknown.",
+    "Packet timestamps are userspace reads; duplicate directions/interfaces and capture drops prevent complete handshake attribution or per-worker connection ownership.",
+    "One-second TCP/softnet counter deltas cover only first-to-last available formal samples, not every instant.",
+    "EDGE queue first-growth timestamp, sender batch/ACK timings and rejection-reason raw counters are not present in this lane input; root owns their alignment.",
+    "No confirmed blocking duration was measured. A same-SHA Linux-ext4 A/B can test the Windows/9P-path candidate while holding production behavior fixed.",
+    "8k formal duration uses actual admission cutoff rather than planned 60s or later requests-drained timestamp."
+  ]
+}

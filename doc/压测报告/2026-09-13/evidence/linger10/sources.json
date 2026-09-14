@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/result.json": {
+      "sha256": "b6715e763ec9a5e4de9d5ab5db02391b5e1545322670f127863c8b871836755e",
+      "bytes": 25754
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/requests-drained.json": {
+      "sha256": "2a253c57435d51aaf9adc33ed32fd4fa80565fd05d195faa95f18f837d275e8e",
+      "bytes": 496
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/before.json": {
+      "sha256": "3df77d4089a4ba6ec875d1d9d0d9ffe69c3a685e44ac4a925a8fd9086bdd888d",
+      "bytes": 183898
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/after.json": {
+      "sha256": "bb88b4b1543338580d25fde83fd01a78e549922e6cff5345f719bb42abdf99cd",
+      "bytes": 182607
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/kafka-before.json": {
+      "sha256": "e473732b73a81ee9661d469ea461a11adcce9240172e7e2ca0401a0979055f6c",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/kafka-after.json": {
+      "sha256": "d0666092c354e19992bdde3563534c27867cca36cc41480712042aa91b030599",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/metrics.jsonl": {
+      "sha256": "309264ea275ce6fae7893d46cc9d44e62a94b0ebd8a81470a530f73562f682ad",
+      "bytes": 1144681
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-smoke-r1000/native-summary.json": {
+      "sha256": "6aeb7d98458b87ecf0c4541f19304dcb272631edaaa28141331c7e41e2cbc252",
+      "bytes": 34520391,
+      "verification": "Recorded by stage; large raw summary not reread/copied"
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/result.json": {
+      "sha256": "834b9ecc459493dc40337e7a24dc35e0c316de4d254ecd188d9706dbdf6689eb",
+      "bytes": 11115
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/requests-drained.json": {
+      "sha256": "1688af8879892f988d5a30c7944fcfe710fba9c0aaa9f9290d1811dc1a7251c3",
+      "bytes": 509
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/before.json": {
+      "sha256": "4858043874a4ec9744961927392fc05a3807c0c4068b477979799074d8bd25ed",
+      "bytes": 182504
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/after.json": {
+      "sha256": "18390ef4c616a5896aa12e6dbc1a53316c4cc1a19b83a09291fa152b3dad7463",
+      "bytes": 182726
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/kafka-before.json": {
+      "sha256": "7061fff882f7e2f0182c8385314a4d78dab9a48a02c2d55ced69d32db62c3d15",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/kafka-after.json": {
+      "sha256": "4ea1aa03fe2dfe05a7d5fac8e97ddeaaa7a00e184ec3f6b748c4fae917739e56",
+      "bytes": 41278
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/metrics.jsonl": {
+      "sha256": "428d6f72e809bc608fae3ecae3f59d2542c13c1006eeb543078735cb98458aab",
+      "bytes": 1025843
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/stages/linger10-r6000-a/native-summary.json": {
+      "sha256": "423b2d488daacd16d94ab1d7603ab638cde3e047b35b1a5e2037732328976eb7",
+      "bytes": 351993063,
+      "verification": "Recorded by stage; large raw summary not reread/copied"
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/runtime-identity.json": {
+      "sha256": "084165d6a9d87be3766d2189a0d459ed97fcdb8bf8e0cea8f50044ae845dc4db",
+      "bytes": 7557
+    },
+    ".work/performance/20260912T172134Z-bfc094fe/state.json": {
+      "sha256": "601d769e6f4c8cf3195e16fab37c502b8d85e5c094b17c70e104e8e3412b9428",
+      "bytes": 12070
+    },
+    ".work/load-fix-20260913-linger10/user-pause.json": {
+      "sha256": "13280212025669540067369ee37959c2560ab2e34beaf9a315260bf62b25f619",
+      "bytes": 426
+    }
+  },
+  "rawStateEnvPrivateConfigurationCopied": false,
+  "largeNativeSummaryCopied": false,
+  "unfinished4kResultsRead": false,
+  "serviceTestOrLoadActions": false
+}

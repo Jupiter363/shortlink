@@ -1,0 +1,29 @@
+{
+  "at": "2026-09-13T01:35:05.361243+08:00",
+  "servicesStopped": true,
+  "runningContainers": 0,
+  "dependenciesStopped": true,
+  "originalCpuSetsRestored": true,
+  "kafkaHealthScriptRestoredSha256": "bec7535636637038a6901f8ff22f49f4514e10debe2d19d752c04ddd792a37cd",
+  "ownedPortsClosed": [
+    8001,
+    8002,
+    8003,
+    18001,
+    18002,
+    18003,
+    13306,
+    16380,
+    19000,
+    19001,
+    19080,
+    19092
+  ],
+  "enginePid": 14,
+  "preservedData": true,
+  "otherUserApplicationsUntouched": true,
+  "dedicatedWslStopped": true,
+  "windowsObserverCount": 0,
+  "vmmemWslProcessCount": 1,
+  "verifiedAt": "2026-09-12T17:35:38.6834743Z"
+}

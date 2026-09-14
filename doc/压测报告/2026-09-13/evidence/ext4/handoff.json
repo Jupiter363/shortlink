@@ -1,0 +1,69 @@
+{
+  "status": "EXT4_ENDED_RUN_ARCHIVED",
+  "runId": "20260912T165811Z-a308ae92",
+  "createdAtUtc": "2026-09-12T17:23:16.477105+00:00",
+  "files": [
+    {
+      "path": "host-idle-summary.json",
+      "bytes": 7259,
+      "sha256": "810e48f1feed976ada96002527361733f758e6e90bf49026d6f804cf601993a8"
+    },
+    {
+      "path": "native-stop-followup.json",
+      "bytes": 4148,
+      "sha256": "ec9d61ff61c1e6eb1f41a9aa2d06e5cd2e9f69df3cf9113bc9feac2f16eb8652"
+    },
+    {
+      "path": "resource-diagnosis.json",
+      "bytes": 136374,
+      "sha256": "75b2c80107a48cdd1b4a0ad3d8b5d69f6c4f63a9e1782043ac2c589272c61923"
+    },
+    {
+      "path": "resource-diagnosis.md",
+      "bytes": 4655,
+      "sha256": "7855aa8d3c00961a3079802584bb6c6f56d19275d77a738dbc3c19fb437aec32"
+    },
+    {
+      "path": "runtime-comparison.json",
+      "bytes": 7198,
+      "sha256": "e8901daa707c6072966182ed2d053095f8f3b7e2c626db81da9770a2481fefd6"
+    },
+    {
+      "path": "sources.json",
+      "bytes": 5646,
+      "sha256": "4d416c6abe85b8f5c9573133f7f1afa5f5a1e93dbfabdbe5852abe0da2343b99"
+    },
+    {
+      "path": "stages/ext4-baseline-r7000.json",
+      "bytes": 11871,
+      "sha256": "b4d555d1501c8acc432a19d38877e92c036d2307cf94eb6ba62c096901819afe"
+    },
+    {
+      "path": "stages/ext4-smoke-r1000.json",
+      "bytes": 12942,
+      "sha256": "dd7d03998169ad479ec68a1f3747d2ef7bf04a1717e22c3e1b873f4eea686495"
+    },
+    {
+      "path": "阶段验收摘要.md",
+      "bytes": 4509,
+      "sha256": "b3f6434d351bf50b334c1939dfb9d23df090281f6f74d6bdb66377af06d8320d"
+    }
+  ],
+  "checks": {
+    "jsonParsed": 7,
+    "localLinks": 10,
+    "linksValid": true,
+    "sensitiveValuePatternScan": true,
+    "configHashEqual": 2,
+    "pluginRecordedHashEqual": 7,
+    "jarRecordedHashEqual": 3,
+    "onlyOwnedExt4DirectoryWritten": true,
+    "priorFourteenFilesModified": false,
+    "newPrefixRunRead": false
+  },
+  "remaining": [
+    "Subsequent prefix run real-process validation and simultaneous host/load analysis are separate.",
+    "No causal ext4 regression or final hardware ceiling conclusion."
+  ],
+  "scope": "No test/service/load actions; original nativeReturnCode=-9 and capacity FAILED retained; pure lifecycle18 followup indexed from receipt."
+}

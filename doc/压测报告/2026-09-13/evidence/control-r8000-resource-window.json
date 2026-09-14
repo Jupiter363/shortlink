@@ -1,0 +1,914 @@
+{
+  "schemaVersion": 1,
+  "label": "control-r8000",
+  "source": ".work/performance/20260912T162855Z-3dbd69ad/stages/control-r8000/system/system-samples.jsonl",
+  "window": {
+    "formalPlannedSeconds": 60,
+    "formalActuallyCoveredMillis": 8437.265511999998,
+    "formalStartMonotonicNanosDerived": 1749227807177,
+    "actualFormalEndMonotonicNanosDerived": 1757665072688,
+    "requestedLastEightSecondStartMonotonicNanos": 1749665072688,
+    "selectedSamples": 8,
+    "firstSampleUtc": "2026-09-12T16:50:22.312959+00:00",
+    "lastSampleUtc": "2026-09-12T16:50:29.315649+00:00",
+    "firstSampleMonotonicNanos": 1750597251410,
+    "lastSampleMonotonicNanos": 1757599940139,
+    "actualDeltaSeconds": 7.002688729,
+    "clockBinding": "Formal monotonic start derived from drainMono - requestElapsed + warmup; adjacent native clock reads introduce tiny sequencing uncertainty. System samples are sequential about 1s apart, not atomic exact eight-second coverage."
+  },
+  "processCpu": {
+    "redirect": {
+      "pid": 17219,
+      "startTicks": 53227,
+      "cpuSet": "0-7",
+      "cpuTicksDelta": 1828,
+      "cpuSeconds": 18.28,
+      "meanCpuPercentOneLogicalCpu": 261.0425896027286,
+      "rssBytesRange": [
+        364761088,
+        364761088
+      ]
+    },
+    "apisix-master": {
+      "pid": 14314,
+      "startTicks": 47144,
+      "cpuSet": "0-7",
+      "cpuTicksDelta": 0,
+      "cpuSeconds": 0.0,
+      "meanCpuPercentOneLogicalCpu": 0.0,
+      "rssBytesRange": [
+        18481152,
+        18481152
+      ]
+    },
+    "apisix-worker-0": {
+      "pid": 14409,
+      "startTicks": 47199,
+      "cpuSet": "0-7",
+      "cpuTicksDelta": 517,
+      "cpuSeconds": 5.17,
+      "meanCpuPercentOneLogicalCpu": 73.8287849149949,
+      "rssBytesRange": [
+        34115584,
+        35500032
+      ]
+    },
+    "apisix-worker-1": {
+      "pid": 14410,
+      "startTicks": 47199,
+      "cpuSet": "0-7",
+      "cpuTicksDelta": 541,
+      "cpuSeconds": 5.41,
+      "meanCpuPercentOneLogicalCpu": 77.25603992072,
+      "rssBytesRange": [
+        34377728,
+        35020800
+      ]
+    },
+    "apisix-worker-2": {
+      "pid": 14411,
+      "startTicks": 47199,
+      "cpuSet": "0-7",
+      "cpuTicksDelta": 574,
+      "cpuSeconds": 5.74,
+      "meanCpuPercentOneLogicalCpu": 81.96851555359201,
+      "rssBytesRange": [
+        31715328,
+        33624064
+      ]
+    },
+    "apisix-worker-3": {
+      "pid": 14412,
+      "startTicks": 47199,
+      "cpuSet": "0-7",
+      "cpuTicksDelta": 545,
+      "cpuSeconds": 5.45,
+      "meanCpuPercentOneLogicalCpu": 77.82724908834085,
+      "rssBytesRange": [
+        32907264,
+        34492416
+      ]
+    },
+    "kafka": {
+      "pid": 1131,
+      "startTicks": 22479,
+      "cpuSet": "8-11",
+      "cpuTicksDelta": 427,
+      "cpuSeconds": 4.27,
+      "meanCpuPercentOneLogicalCpu": 60.976578643525755,
+      "rssBytesRange": [
+        504365056,
+        504627200
+      ]
+    }
+  },
+  "hostCpu": {
+    "cpu": {
+      "ticksDelta": [
+        4172,
+        0,
+        1526,
+        4318,
+        44,
+        0,
+        661,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 59.313496875291484,
+      "ioWaitPercent": 0.41040947672791717
+    },
+    "cpu0": {
+      "ticksDelta": [
+        350,
+        0,
+        102,
+        155,
+        1,
+        0,
+        73,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 77.09251101321586,
+      "ioWaitPercent": 0.14684287812041116
+    },
+    "cpu1": {
+      "ticksDelta": [
+        371,
+        0,
+        104,
+        155,
+        1,
+        0,
+        56,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 77.29257641921397,
+      "ioWaitPercent": 0.14556040756914118
+    },
+    "cpu2": {
+      "ticksDelta": [
+        351,
+        0,
+        109,
+        168,
+        0,
+        0,
+        58,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 75.51020408163265,
+      "ioWaitPercent": 0.0
+    },
+    "cpu3": {
+      "ticksDelta": [
+        349,
+        0,
+        94,
+        176,
+        1,
+        0,
+        63,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 74.08491947291361,
+      "ioWaitPercent": 0.14641288433382138
+    },
+    "cpu4": {
+      "ticksDelta": [
+        345,
+        0,
+        102,
+        165,
+        1,
+        0,
+        58,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 75.2608047690015,
+      "ioWaitPercent": 0.14903129657228018
+    },
+    "cpu5": {
+      "ticksDelta": [
+        361,
+        0,
+        97,
+        169,
+        0,
+        0,
+        58,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 75.32846715328468,
+      "ioWaitPercent": 0.0
+    },
+    "cpu6": {
+      "ticksDelta": [
+        353,
+        0,
+        104,
+        163,
+        0,
+        0,
+        60,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 76.02941176470588,
+      "ioWaitPercent": 0.0
+    },
+    "cpu7": {
+      "ticksDelta": [
+        353,
+        0,
+        92,
+        172,
+        0,
+        0,
+        59,
+        0
+      ],
+      "busyPercentExcludingIdleAndIoWait": 74.55621301775147,
+      "ioWaitPercent": 0.0
+    }
+  },
+  "cgroups": {
+    "/sys/fs/cgroup": {
+      "cpuStatDelta": {
+        "usage_usec": 63924000,
+        "user_usec": 42048000,
+        "system_usec": 21876000,
+        "nr_periods": 0,
+        "nr_throttled": 0,
+        "throttled_usec": 0,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "cpuMax": {
+        "value": null,
+        "unavailableReason": "NOT_PRESENT_OR_EXITED"
+      },
+      "effectiveCpuSet": {
+        "value": "0-15",
+        "unavailableReason": null
+      },
+      "memoryMax": {
+        "value": null,
+        "unavailableReason": "NOT_PRESENT_OR_EXITED"
+      },
+      "memoryCurrentLast": {
+        "value": null,
+        "unavailableReason": "NOT_PRESENT_OR_EXITED"
+      },
+      "memoryEventsBefore": {
+        "value": null,
+        "unavailableReason": "NOT_PRESENT_OR_EXITED"
+      },
+      "memoryEventsAfter": {
+        "value": null,
+        "unavailableReason": "NOT_PRESENT_OR_EXITED"
+      },
+      "ioStatDelta": {
+        "8:48": {
+          "rbytes": 0,
+          "wbytes": 4636672,
+          "rios": 0,
+          "wios": 404,
+          "dbytes": 53248,
+          "dios": 3
+        }
+      }
+    },
+    "/sys/fs/cgroup/docker/ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea": {
+      "cpuStatDelta": {
+        "usage_usec": 21750415,
+        "user_usec": 15121791,
+        "system_usec": 6628623,
+        "nr_periods": 0,
+        "nr_throttled": 0,
+        "throttled_usec": 0,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "cpuMax": {
+        "value": {
+          "unlimited": true,
+          "quotaMicros": null,
+          "periodMicros": 100000
+        },
+        "unavailableReason": null
+      },
+      "effectiveCpuSet": {
+        "value": "0-7",
+        "unavailableReason": null
+      },
+      "memoryMax": {
+        "value": {
+          "unlimited": false,
+          "bytes": 1073741824
+        },
+        "unavailableReason": null
+      },
+      "memoryCurrentLast": {
+        "value": 121012224,
+        "unavailableReason": null
+      },
+      "memoryEventsBefore": {
+        "value": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "unavailableReason": null
+      },
+      "memoryEventsAfter": {
+        "value": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "unavailableReason": null
+      },
+      "ioStatDelta": {}
+    },
+    "/sys/fs/cgroup/docker": {
+      "cpuStatDelta": {
+        "usage_usec": 28007415,
+        "user_usec": 18408139,
+        "system_usec": 9599275,
+        "nr_periods": 0,
+        "nr_throttled": 0,
+        "throttled_usec": 0,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "cpuMax": {
+        "value": {
+          "unlimited": true,
+          "quotaMicros": null,
+          "periodMicros": 100000
+        },
+        "unavailableReason": null
+      },
+      "effectiveCpuSet": {
+        "value": "0-15",
+        "unavailableReason": null
+      },
+      "memoryMax": {
+        "value": {
+          "unlimited": true,
+          "bytes": null
+        },
+        "unavailableReason": null
+      },
+      "memoryCurrentLast": {
+        "value": 3926581248,
+        "unavailableReason": null
+      },
+      "memoryEventsBefore": {
+        "value": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "unavailableReason": null
+      },
+      "memoryEventsAfter": {
+        "value": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "unavailableReason": null
+      },
+      "ioStatDelta": {
+        "8:48": {
+          "rbytes": 0,
+          "wbytes": 598016,
+          "rios": 0,
+          "wios": 130,
+          "dbytes": 0,
+          "dios": 0
+        }
+      }
+    },
+    "/sys/fs/cgroup/docker/950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5": {
+      "cpuStatDelta": {
+        "usage_usec": 4771467,
+        "user_usec": 2296404,
+        "system_usec": 2475062,
+        "nr_periods": 0,
+        "nr_throttled": 0,
+        "throttled_usec": 0,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "cpuMax": {
+        "value": {
+          "unlimited": true,
+          "quotaMicros": null,
+          "periodMicros": 100000
+        },
+        "unavailableReason": null
+      },
+      "effectiveCpuSet": {
+        "value": "8-11",
+        "unavailableReason": null
+      },
+      "memoryMax": {
+        "value": {
+          "unlimited": true,
+          "bytes": null
+        },
+        "unavailableReason": null
+      },
+      "memoryCurrentLast": {
+        "value": 2545950720,
+        "unavailableReason": null
+      },
+      "memoryEventsBefore": {
+        "value": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "unavailableReason": null
+      },
+      "memoryEventsAfter": {
+        "value": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "unavailableReason": null
+      },
+      "ioStatDelta": {
+        "8:48": {
+          "rbytes": 0,
+          "wbytes": 73728,
+          "rios": 0,
+          "wios": 44,
+          "dbytes": 0,
+          "dios": 0
+        }
+      }
+    }
+  },
+  "processCgroupPaths": {
+    "redirect": {
+      "value": [
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    },
+    "apisix-master": {
+      "value": [
+        "/sys/fs/cgroup/docker/ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea",
+        "/sys/fs/cgroup/docker",
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    },
+    "apisix-worker-0": {
+      "value": [
+        "/sys/fs/cgroup/docker/ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea",
+        "/sys/fs/cgroup/docker",
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    },
+    "apisix-worker-1": {
+      "value": [
+        "/sys/fs/cgroup/docker/ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea",
+        "/sys/fs/cgroup/docker",
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    },
+    "apisix-worker-2": {
+      "value": [
+        "/sys/fs/cgroup/docker/ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea",
+        "/sys/fs/cgroup/docker",
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    },
+    "apisix-worker-3": {
+      "value": [
+        "/sys/fs/cgroup/docker/ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea",
+        "/sys/fs/cgroup/docker",
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    },
+    "kafka": {
+      "value": [
+        "/sys/fs/cgroup/docker/950c7fdb507b6df66477588b693bd4ad11be427b738475996f21166865a0c5a5",
+        "/sys/fs/cgroup/docker",
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    },
+    "client": {
+      "value": [
+        "/sys/fs/cgroup"
+      ],
+      "unavailableReason": null
+    }
+  },
+  "hostMemory": {
+    "minimumMemAvailableBytes": 13092323328,
+    "maximumDirtyBytes": 176603136,
+    "maximumWritebackBytes": 98304,
+    "swapFreeBytesMin": 4294967296
+  },
+  "hostPressure": {
+    "pressure/cpu": {
+      "before": {
+        "some": {
+          "avg10": 12.31,
+          "avg60": 4.07,
+          "avg300": 1.66,
+          "total": 34521562
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "after": {
+        "some": {
+          "avg10": 15.87,
+          "avg60": 5.9,
+          "avg300": 2.13,
+          "total": 35774175
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "totalUsecDelta": {
+        "some": 1252613,
+        "full": 0
+      }
+    },
+    "pressure/memory": {
+      "before": {
+        "some": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "after": {
+        "some": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "totalUsecDelta": {
+        "some": 0,
+        "full": 0
+      }
+    },
+    "pressure/io": {
+      "before": {
+        "some": {
+          "avg10": 0.15,
+          "avg60": 0.32,
+          "avg300": 0.48,
+          "total": 11953210
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.27,
+          "avg300": 0.45,
+          "total": 11231279
+        }
+      },
+      "after": {
+        "some": {
+          "avg10": 0.06,
+          "avg60": 0.28,
+          "avg300": 0.47,
+          "total": 11985925
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.24,
+          "avg300": 0.43,
+          "total": 11249471
+        }
+      },
+      "totalUsecDelta": {
+        "some": 32715,
+        "full": 18192
+      }
+    }
+  },
+  "diskScope": "cgroup io.stat differences are I/O byte/operation counters, not disk utilization or Windows/9P latency. Physical-disk latency is not provided by this source. Whole-stage disk free-space endpoints are in stage compact JSON.",
+  "cpuMeaning": "100% = one logical CPU; process/cgroup counters overlap and must not be added. Low interval average cannot exclude short pauses, hot-worker stalls, sender scheduling delays or a narrower bottleneck.",
+  "sendTimingMeaning": "shortlink_edge_send_seconds_sum is entire send work including encoding, metadata, network and scheduling; it is not isolated broker ACK time.",
+  "samples": [
+    {
+      "observedAt": "2026-09-12T16:50:22.312959+00:00",
+      "monotonicStartNanos": 1750597251410,
+      "monotonicEndNanos": 1750749090087,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 12.31,
+          "avg60": 4.07,
+          "avg300": 1.66,
+          "total": 34521562
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.15,
+          "avg60": 0.32,
+          "avg300": 0.48,
+          "total": 11953210
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.27,
+          "avg300": 0.45,
+          "total": 11231279
+        }
+      }
+    },
+    {
+      "observedAt": "2026-09-12T16:50:23.318135+00:00",
+      "monotonicStartNanos": 1751602422891,
+      "monotonicEndNanos": 1751736597777,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 14.43,
+          "avg60": 4.72,
+          "avg300": 1.82,
+          "total": 34722076
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.12,
+          "avg60": 0.31,
+          "avg300": 0.48,
+          "total": 11957441
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.26,
+          "avg300": 0.45,
+          "total": 11233795
+        }
+      }
+    },
+    {
+      "observedAt": "2026-09-12T16:50:24.312661+00:00",
+      "monotonicStartNanos": 1752596952023,
+      "monotonicEndNanos": 1752704894730,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 14.43,
+          "avg60": 4.72,
+          "avg300": 1.82,
+          "total": 34889128
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.12,
+          "avg60": 0.31,
+          "avg300": 0.48,
+          "total": 11960028
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.26,
+          "avg300": 0.45,
+          "total": 11235731
+        }
+      }
+    },
+    {
+      "observedAt": "2026-09-12T16:50:25.316547+00:00",
+      "monotonicStartNanos": 1753600838758,
+      "monotonicEndNanos": 1753714739420,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 14.53,
+          "avg60": 5.06,
+          "avg300": 1.91,
+          "total": 35014344
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.1,
+          "avg60": 0.3,
+          "avg300": 0.47,
+          "total": 11964359
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.25,
+          "avg300": 0.44,
+          "total": 11237977
+        }
+      }
+    },
+    {
+      "observedAt": "2026-09-12T16:50:26.312828+00:00",
+      "monotonicStartNanos": 1754597120213,
+      "monotonicEndNanos": 1754706642820,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 14.53,
+          "avg60": 5.06,
+          "avg300": 1.91,
+          "total": 35136887
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.1,
+          "avg60": 0.3,
+          "avg300": 0.47,
+          "total": 11968828
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.25,
+          "avg300": 0.44,
+          "total": 11240165
+        }
+      }
+    },
+    {
+      "observedAt": "2026-09-12T16:50:27.316266+00:00",
+      "monotonicStartNanos": 1755600556290,
+      "monotonicEndNanos": 1755718808173,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 14.07,
+          "avg60": 5.29,
+          "avg300": 1.98,
+          "total": 35274032
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.08,
+          "avg60": 0.29,
+          "avg300": 0.47,
+          "total": 11973757
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.24,
+          "avg300": 0.44,
+          "total": 11243174
+        }
+      }
+    },
+    {
+      "observedAt": "2026-09-12T16:50:28.312624+00:00",
+      "monotonicStartNanos": 1756596916112,
+      "monotonicEndNanos": 1756733066795,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 14.07,
+          "avg60": 5.29,
+          "avg300": 1.98,
+          "total": 35515136
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.08,
+          "avg60": 0.29,
+          "avg300": 0.47,
+          "total": 11980286
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.24,
+          "avg300": 0.44,
+          "total": 11246569
+        }
+      }
+    },
+    {
+      "observedAt": "2026-09-12T16:50:29.315649+00:00",
+      "monotonicStartNanos": 1757599940139,
+      "monotonicEndNanos": 1757729515867,
+      "hostCpuPressure": {
+        "some": {
+          "avg10": 15.87,
+          "avg60": 5.9,
+          "avg300": 2.13,
+          "total": 35774175
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.0,
+          "avg300": 0.0,
+          "total": 0
+        }
+      },
+      "hostIoPressure": {
+        "some": {
+          "avg10": 0.06,
+          "avg60": 0.28,
+          "avg300": 0.47,
+          "total": 11985925
+        },
+        "full": {
+          "avg10": 0.0,
+          "avg60": 0.24,
+          "avg300": 0.43,
+          "total": 11249471
+        }
+      }
+    }
+  ]
+}

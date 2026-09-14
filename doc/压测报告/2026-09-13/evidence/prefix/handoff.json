@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "status": "PREFIX_ENDED_RUN_AND_SYNCHRONOUS_HOST_EVIDENCE_ARCHIVED",
+  "runId": "20260912T171106Z-b5674ed0",
+  "createdAtUtc": "2026-09-12T17:32:07.508875+00:00",
+  "files": [
+    {
+      "path": "host-window-summary.json",
+      "bytes": 12052,
+      "sha256": "cf817c7ed99dbe96aeab6b64fc50d6c3032fa90ca256798fc0557c2c0964ef9c"
+    },
+    {
+      "path": "runtime-and-scope.json",
+      "bytes": 2971,
+      "sha256": "9cd8dd57f0b573fb2e70d65ffa76d6a5a36543f8ee3c791d358b853f8fead2f6"
+    },
+    {
+      "path": "sources.json",
+      "bytes": 4952,
+      "sha256": "ae7633b775da2db71b0e30e4989a02d48040789bb92d9e88879c7797438f23a6"
+    },
+    {
+      "path": "stages/prefix-r6000-a.json",
+      "bytes": 11814,
+      "sha256": "09d84cd9eadec7c8e578c9c35c1ce465d6a3659f8d93a1d9f39e66042a763964"
+    },
+    {
+      "path": "stages/prefix-smoke-r1000.json",
+      "bytes": 12951,
+      "sha256": "f84e044a713d74ee5633242ef2626c42f494ba2bfc77fa7170e660ce7550a041"
+    },
+    {
+      "path": "tests/canonical-prefix-final.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "tests/canonical-prefix-final.stdout.log",
+      "bytes": 12538,
+      "sha256": "214bac809f6829510f46bcadefa6327a337fd0a7f65a8f8f761f5c4b75e1c2ca"
+    },
+    {
+      "path": "tests/index.json",
+      "bytes": 2022,
+      "sha256": "16b43c5ae5676ee51c95ad2eeb5cfaf70ec17987ba9c4ae6ddb9a734bb1ee476"
+    },
+    {
+      "path": "tests/native-lifecycle-final.stderr.log",
+      "bytes": 3327,
+      "sha256": "d90702e1c4fff84626acdb859da041e0076b8eb377099bacb3e4153c0398c531"
+    },
+    {
+      "path": "tests/native-lifecycle-final.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "阶段验收摘要.md",
+      "bytes": 4780,
+      "sha256": "967d4271fe9ba5364fe0a42c37ac6d3f8a7c5aade5643822c7289f5f48a55dd8"
+    }
+  ],
+  "checks": {
+    "jsonParsed": 6,
+    "markdownLocalLinks": 12,
+    "linksValid": true,
+    "canonicalLuaPassLinesRecounted": 135,
+    "nativeLifecycleOkLinesRecounted": 18,
+    "hostProcessIdentityDetailsRemovedFromPublicSummary": true,
+    "sensitiveValuePatternScan": true,
+    "original6kFailureAndExit2Preserved": true,
+    "previousEvidenceFilesModified": false,
+    "runningLinger10StageRead": false,
+    "testsOrServicesOrLoadRunByArchiveLane": false
+  },
+  "remaining": [
+    "New linger10 run and its final analysis are excluded.",
+    "Host contention is concurrently measured; exact causal mechanism to EDGE rejection remains unresolved."
+  ]
+}

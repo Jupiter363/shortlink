@@ -1,0 +1,27 @@
+{
+  "kind": "OFFLINE_FIXTURE_TEST_CAPTURE",
+  "command": [
+    "wsl.exe",
+    "-d",
+    "shortlink-refactor-it",
+    "--",
+    "python3",
+    "-B",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "/mnt/d/学习/Project/马哥Project/shortlink/scripts/performance",
+    "-p",
+    "test_fixture_public_ingress.py",
+    "-v"
+  ],
+  "exitCode": 0,
+  "capturedAtUtc": "2026-09-12T16:54:56.119555+00:00",
+  "rawLog": "fixture-linux-capture.raw.bin",
+  "sha256": "97c23586ec301f152ddc3891cd7e46614e6859e88dbe071beb614fc49b977d92",
+  "rerunScope": "Only test_fixture_public_ingress.py; no services or load tests",
+  "normalizedLog": "fixture-linux.log",
+  "normalizedLogSha256": "9b0ecc89d107b63576d9c9db6ac0f99645fa5d050f85799d3e21723537d6e34d",
+  "encodingNote": "WSL launcher emitted a 132-byte UTF-16LE localhost-proxy warning before UTF-8 unittest output. Raw bytes retained; normalized log decodes each segment without rerunning tests."
+}

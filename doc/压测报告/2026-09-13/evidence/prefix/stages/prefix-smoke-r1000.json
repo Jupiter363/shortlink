@@ -1,0 +1,442 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260912T171106Z-b5674ed0",
+  "label": "prefix-smoke-r1000",
+  "startedAt": "2026-09-12T17:14:50.158587+00:00",
+  "finishedAt": "2026-09-12T17:15:58.799491+00:00",
+  "capacityPassed": true,
+  "status": "CAPACITY_STAGE_PASSED",
+  "stageConfig": {
+    "label": "prefix-smoke-r1000",
+    "rate": 1000,
+    "duration": 10,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 16500,
+    "formalRequests": 10000,
+    "maximumRequests": 26500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 976896000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "sourceIpCount": 64,
+  "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+  "stopReasons": [],
+  "harnessCpuAffinity": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "4bb3faa0e20350d6b38c923ecfaab5d93db827774be3d364d7a7402d538a9776",
+    "edgePathProofSha256": "4b25bc185918480a9881e49f148fef6719e9a9ffde508cfd822d09c130de8de5",
+    "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+    "containerId": "94c4f915f84f95e51c49149c82ecbadb7fbcff143523e59591f4d670f168642f",
+    "containerPid": 12269
+  },
+  "clientLaunch": {
+    "pid": 25110,
+    "startedAt": "2026-09-12T17:15:03.163390+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "nativeLifecycle": {
+    "state": "COMPLETE",
+    "reason": "CAPACITY_GATES_STILL_REQUIRED",
+    "activityBudgetSeconds": 65,
+    "exportBudgetSeconds": 60,
+    "requestsDrainedReceipt": {
+      "schemaVersion": 1,
+      "kind": "NATIVE_GO_REQUESTS_DRAINED",
+      "version": "1.4.1-drained-receipt",
+      "runId": "20260912T171106Z-b5674ed0",
+      "label": "prefix-smoke-r1000",
+      "pid": 25110,
+      "startTicks": 323145,
+      "drainedMonotonicNanos": 3271609917533,
+      "requestElapsedNanos": 40013926107,
+      "requestsDrained": true,
+      "workersFinished": 2048,
+      "activeRequests": 0,
+      "measurementComplete": true,
+      "stopReason": "COMPLETED",
+      "planned": 26500,
+      "scheduled": 26500,
+      "sent": 26500,
+      "completed": 26500,
+      "correct": 26500,
+      "errors": 0,
+      "dropped": 0,
+      "cancelled": 0
+    }
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": true,
+    "checks": {
+      "observerExited": true,
+      "observerCpuIsolation": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": true,
+      "noSampleBudgetLoss": true
+    }
+  },
+  "checks": {
+    "clientExitedSuccessfully": true,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": true,
+    "noCancelledArrivals": true,
+    "sentAtLeast99PercentOfTarget": true,
+    "roundtripP99WithinBudget": true,
+    "scheduledCompletionP99WithinBudget": true,
+    "eventFailuresUnchanged": true,
+    "afterDrained": true,
+    "noMonitorStop": true,
+    "threeProducerLanesMatch": true,
+    "actualKafkaOffsetsMatch": true,
+    "sourceDistributionVerified": true,
+    "measurementComplete": true,
+    "nativeConservationVerified": true,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": true
+  },
+  "failedChecks": [],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 0.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": {
+    "lanes": {
+      "click": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "result": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "edge": {
+        "attempted": 26500,
+        "delivered": 26500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      }
+    },
+    "failureDeltas": {
+      "edge.failed": 0,
+      "edge.rejected": 0,
+      "metadata.intake_batches_failed": 0,
+      "metadata.intake_offset_commits_failed": 0,
+      "metadata.intake_records_rejected": 0,
+      "outbox.ack_failures": 0,
+      "outbox.broker_failures": 0,
+      "outbox.claim_failures": 0,
+      "outbox.fenced_acknowledgements": 0,
+      "outbox.retry_failures": 0,
+      "redirect.click.failed": 0,
+      "redirect.click.rejected": 0,
+      "redirect.result.failed": 0,
+      "redirect.result.rejected": 0
+    }
+  },
+  "accountingProblems": {},
+  "all": {
+    "planned_arrivals": 26500,
+    "scheduled": 26500,
+    "sent": 26500,
+    "completed": 26500,
+    "received_http": 26500,
+    "correct": 26500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 26500,
+      "mean": 2.0146526557358553,
+      "p50": 1.156389,
+      "p95": 6.940013,
+      "p99": 16.079556,
+      "p99_9": 31.248443,
+      "max": 51.095459
+    },
+    "scheduled_to_completion_ms": {
+      "count": 26500,
+      "mean": 2.133639753320752,
+      "p50": 1.277646,
+      "p95": 7.1088,
+      "p99": 16.219423,
+      "p99_9": 31.407917,
+      "max": 51.228562
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 16500,
+    "scheduled": 16500,
+    "sent": 16500,
+    "completed": 16500,
+    "received_http": 16500,
+    "correct": 16500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 16500,
+      "mean": 2.3887939568484886,
+      "p50": 1.387703,
+      "p95": 8.607848,
+      "p99": 18.675685,
+      "p99_9": 33.190755,
+      "max": 51.095459
+    },
+    "scheduled_to_completion_ms": {
+      "count": 16500,
+      "mean": 2.4646465373333197,
+      "p50": 1.464394,
+      "p95": 8.717842,
+      "p99": 18.941522,
+      "p99_9": 33.39861,
+      "max": 51.228562
+    }
+  },
+  "measure": {
+    "planned_arrivals": 10000,
+    "scheduled": 10000,
+    "sent": 10000,
+    "completed": 10000,
+    "received_http": 10000,
+    "correct": 10000,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 10000,
+      "mean": 1.3973195088999995,
+      "p50": 0.93616,
+      "p95": 4.847451,
+      "p99": 10.509057,
+      "p99_9": 16.198295,
+      "max": 27.652705
+    },
+    "scheduled_to_completion_ms": {
+      "count": 10000,
+      "mean": 1.5874785596999992,
+      "p50": 1.10511,
+      "p95": 5.100307,
+      "p99": 10.869152,
+      "p99_9": 16.462204,
+      "max": 28.077729
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 10000,
+      "elapsedMillis": 10000,
+      "start": "2026-09-12T17:15:33.311693876Z",
+      "end": "2026-09-12T17:15:43.311693876Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-12T17:15:03.311693876Z",
+      "end": "2026-09-12T17:15:33.311693876Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 16499,
+      "measure": 10001,
+      "afterWindow": 0
+    },
+    "measureCorrectQps": 1000.1,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 1000.1,
+  "measuredCorrectCohortQps": 1000.0,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 0,
+  "nativeSummarySha256": "a9e4686bbc4d529c574bd7481dfb1697c57993e14b3c83db80174c765cf2ce21",
+  "monitorStop": null,
+  "nativeClientProcess": {
+    "samples": 41,
+    "cpuPercentMean": 62.9138773628233,
+    "cpuPercentPeak": 119.96341751570306,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 64094208,
+    "rssBytesSampleMean": 48004320.780487806,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 40.00707165899985,
+    "timelineBytes": 10880,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-12T17:15:03.163390+00:00",
+    "end": "2026-09-12T17:15:44.387204+00:00"
+  },
+  "originalKafkaConservation": {
+    "brokerId": 1,
+    "totalOffsetDelta": 79500,
+    "topicDeltas": {
+      "shortlink.batch.ready.v1": 0,
+      "shortlink.click.dlq.v1": 0,
+      "shortlink.click.enriched.v1": 0,
+      "shortlink.click.late.v1": 0,
+      "shortlink.click.raw.v1": 26500,
+      "shortlink.gateway.request.v1": 53000,
+      "shortlink.it.adapter.4f89a76cdcf8.invalid": 0,
+      "shortlink.it.adapter.4f89a76cdcf8.valid": 0,
+      "shortlink.it.adapter.83cfe442806e.invalid": 0,
+      "shortlink.it.adapter.83cfe442806e.valid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.invalid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.valid": 0,
+      "shortlink.it.adapter.d7f7254a1971.invalid": 0,
+      "shortlink.it.adapter.d7f7254a1971.valid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.invalid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.valid": 0,
+      "shortlink.it.connect.configs": 0,
+      "shortlink.it.connect.offsets": 0,
+      "shortlink.it.connect.status": 0,
+      "shortlink.metadata.dlq.v1": 0,
+      "shortlink.metadata.fetch.v1": 0,
+      "shortlink.request.enriched.v1": 0,
+      "shortlink.risk.policy.change.v1": 0,
+      "shortlink.risk.signal.v1": 0,
+      "shortlink.route.change.v1": 0,
+      "shortlink.stats.5m.v1": 0
+    }
+  },
+  "observedLaneDeltas": {
+    "lanes": {
+      "click": {
+        "delivered": 26500.0,
+        "failed": 0.0,
+        "rejected": 0.0
+      },
+      "result": {
+        "delivered": 26500.0,
+        "failed": 0.0,
+        "rejected": 0.0
+      },
+      "edge": {
+        "attempted": 26500.0,
+        "delivered": 26500.0,
+        "failed": 0.0,
+        "rejected": 0.0
+      }
+    },
+    "meaning": "Diagnostic endpoint delta, not a replacement for original failed or null conservation verdict."
+  },
+  "edgeRejectionsByReason": {
+    "before": {
+      "identity_unavailable": 0,
+      "worker_exiting": 0,
+      "event_size": 0,
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "queue_count": 0
+    },
+    "after": {
+      "identity_unavailable": 0,
+      "worker_exiting": 0,
+      "event_size": 0,
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "queue_count": 0
+    },
+    "delta": {
+      "identity_unavailable": 0,
+      "worker_exiting": 0,
+      "event_size": 0,
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "queue_count": 0
+    }
+  },
+  "observedKafkaOffsets": {
+    "nonzeroPartitionDeltas": [
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 0,
+        "before": 22739364,
+        "after": 22754464,
+        "delta": 15100
+      },
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 1,
+        "before": 17223705,
+        "after": 17235105,
+        "delta": 11400
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 0,
+        "before": 35926690,
+        "after": 35953250,
+        "delta": 26560
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 1,
+        "before": 35922873,
+        "after": 35949313,
+        "delta": 26440
+      }
+    ],
+    "nonzeroTopicDeltas": {
+      "shortlink.click.raw.v1": 26500,
+      "shortlink.gateway.request.v1": 53000
+    },
+    "totalOffsetDelta": 79500,
+    "originalVerdict": true
+  },
+  "partialMeasurement": false,
+  "scopeNote": "HTTP-correct counts do not erase failed event/latency/measurement gates. Failed partial window is not stable throughput or a hardware ceiling."
+}

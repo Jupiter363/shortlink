@@ -1,0 +1,573 @@
+{
+  "kind": "REAL_GATEWAY_NATIVE_CAPACITY_STAGE",
+  "schemaVersion": 1,
+  "runId": "20260912T162855Z-3dbd69ad",
+  "label": "baseline-r7000",
+  "startedAt": "2026-09-12T16:36:27.563363+00:00",
+  "finishedAt": "2026-09-12T16:39:08.100140+00:00",
+  "status": "CAPACITY_STAGE_PASSED",
+  "capacityPassed": true,
+  "stageConfig": {
+    "label": "baseline-r7000",
+    "rate": 7000,
+    "duration": 60,
+    "warmup": 30,
+    "owners": 2048,
+    "warmupRequests": 106500,
+    "formalRequests": 420000,
+    "maximumRequests": 526500,
+    "recordsPerRequest": 3,
+    "recordAttemptMultiplier": 3,
+    "reservedBytes": 19408896000,
+    "minimumRemainingBytes": 26843545600
+  },
+  "samplingOwner": "real_native_stage",
+  "sampleIntervalSeconds": 5,
+  "sourceIpCount": 64,
+  "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+  "stopReasons": [],
+  "harnessCpuAffinity": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "runtimeBinding": {
+    "runtimeIdentitySha256": "1d4ed47fa991c237e1f330659c5b5d700feda93983baf8e70325badfc51d91de",
+    "edgePathProofSha256": "972a6fbae6441b05c2bc28f13f72abf9cfa167d55aaec7eb266a117cb2f9bf7f",
+    "binarySha256": "6b2c1990925c44070df14afc302021ba2cf33894c4deefb2ece194448d88839e",
+    "containerId": "ccfb40245c846fe615499ed18ebe9caa7c2798cc197c931e00fb2b954960c0ea",
+    "containerPid": 14314
+  },
+  "clientLaunch": {
+    "pid": 7710,
+    "startedAt": "2026-09-12T16:36:38.883150+00:00",
+    "cpuSet": "12-15",
+    "gomaxprocs": 4
+  },
+  "nativeLifecycle": {
+    "state": "COMPLETE",
+    "reason": "CAPACITY_GATES_STILL_REQUIRED",
+    "activityBudgetSeconds": 115,
+    "exportBudgetSeconds": 60,
+    "requestsDrainedReceipt": {
+      "schemaVersion": 1,
+      "kind": "NATIVE_GO_REQUESTS_DRAINED",
+      "version": "1.4.1-drained-receipt",
+      "runId": "20260912T162855Z-3dbd69ad",
+      "label": "baseline-r7000",
+      "pid": 7710,
+      "startTicks": 92717,
+      "drainedMonotonicNanos": 1017365980178,
+      "requestElapsedNanos": 90039917971,
+      "requestsDrained": true,
+      "workersFinished": 2048,
+      "activeRequests": 0,
+      "measurementComplete": true,
+      "stopReason": "COMPLETED",
+      "planned": 526500,
+      "scheduled": 526500,
+      "sent": 526500,
+      "completed": 526500,
+      "correct": 526500,
+      "errors": 0,
+      "dropped": 0,
+      "cancelled": 0
+    }
+  },
+  "systemObserverExitCode": 0,
+  "systemDiagnostics": {
+    "passed": true,
+    "checks": {
+      "observerExited": true,
+      "observerCpuIsolation": true,
+      "observerFollowedClient": true,
+      "sufficientSamples": true,
+      "noSampleBudgetLoss": true
+    }
+  },
+  "accountingSourceSha256": {
+    ".work/redirect-breakthrough-20260908/account-get-ledger.py": "b55790f9746c035df8db7177e88652a686d5147fbb1e331d5bdff71f61b8977f",
+    ".work/performance-peak/edge_source_distribution.py": "b4cad4bfc8ea8556d39297c8afce473bc894a547cc32b0e38b251b025db7acdb",
+    "scripts/performance/run_stage.py": "e4bde2bce241ba213cb6aa5a6152fc32ff124e562cc6966ae4bab1967b8e60e8",
+    "scripts/performance/observe.py": "d317ee7fa9a4dcd3fda20362f87d83debf6e06d991a17a83d5741552664c8020",
+    ".work/performance-peak/check_wave_budget.py": "b16135d253969625a1eb592b033c79c898077bd9442c2135e9e2bbb525caa98c",
+    ".work/performance-optimization/ledger-tools/verify_ledger.py": "23aeb0e6be3c88293c117301007f04b68d79a2d4046d0f09006d8ac410bd13d6"
+  },
+  "checks": {
+    "clientExitedSuccessfully": true,
+    "allHttpCompleteAndCorrect": true,
+    "noDroppedArrivals": true,
+    "noCancelledArrivals": true,
+    "sentAtLeast99PercentOfTarget": true,
+    "roundtripP99WithinBudget": true,
+    "scheduledCompletionP99WithinBudget": true,
+    "eventFailuresUnchanged": true,
+    "afterDrained": true,
+    "noMonitorStop": true,
+    "threeProducerLanesMatch": true,
+    "actualKafkaOffsetsMatch": true,
+    "sourceDistributionVerified": true,
+    "measurementComplete": true,
+    "nativeConservationVerified": true,
+    "fixtureVerified": true,
+    "noStartsOutsideScheduledWindow": true,
+    "allCompletedRequestsTimed": true,
+    "generatorFourCPUs": true,
+    "actualCompletionWindowsVerified": true,
+    "allResponsesCorrelated": true,
+    "requestedSystemDiagnosticsComplete": true
+  },
+  "failedChecks": [],
+  "eventFailureDeltas": {
+    "outbox.claim_failures": 0.0,
+    "metadata.intake_batches_failed": 0.0,
+    "metadata.intake_offset_commits_failed": 0.0,
+    "metadata.intake_records_rejected": 0.0,
+    "edge.failed": 0.0,
+    "edge.rejected": 0.0,
+    "redirect.click.failed": 0,
+    "redirect.click.rejected": 0,
+    "redirect.result.failed": 0,
+    "redirect.result.rejected": 0,
+    "outbox.ack_failures": 0.0,
+    "outbox.broker_failures": 0.0,
+    "outbox.retry_failures": 0.0,
+    "outbox.fenced_acknowledgements": 0.0
+  },
+  "delivery": {
+    "lanes": {
+      "click": {
+        "attempted": 526500,
+        "delivered": 526500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "result": {
+        "attempted": 526500,
+        "delivered": 526500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      },
+      "edge": {
+        "attempted": 526500,
+        "delivered": 526500,
+        "failed": 0,
+        "rejected": 0,
+        "afterPending": 0
+      }
+    },
+    "failureDeltas": {
+      "edge.failed": 0,
+      "edge.rejected": 0,
+      "metadata.intake_batches_failed": 0,
+      "metadata.intake_offset_commits_failed": 0,
+      "metadata.intake_records_rejected": 0,
+      "outbox.ack_failures": 0,
+      "outbox.broker_failures": 0,
+      "outbox.claim_failures": 0,
+      "outbox.fenced_acknowledgements": 0,
+      "outbox.retry_failures": 0,
+      "redirect.click.failed": 0,
+      "redirect.click.rejected": 0,
+      "redirect.result.failed": 0,
+      "redirect.result.rejected": 0
+    }
+  },
+  "accountingProblems": {},
+  "all": {
+    "planned_arrivals": 526500,
+    "scheduled": 526500,
+    "sent": 526500,
+    "completed": 526500,
+    "received_http": 526500,
+    "correct": 526500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 526500,
+      "mean": 5.251320711760716,
+      "p50": 1.563326,
+      "p95": 18.604734,
+      "p99": 72.598071,
+      "p99_9": 158.217538,
+      "max": 288.375042
+    },
+    "scheduled_to_completion_ms": {
+      "count": 526500,
+      "mean": 5.488536455922076,
+      "p50": 1.746056,
+      "p95": 19.047107,
+      "p99": 73.951204,
+      "p99_9": 161.169434,
+      "max": 288.525897
+    }
+  },
+  "warmup": {
+    "planned_arrivals": 106500,
+    "scheduled": 106500,
+    "sent": 106500,
+    "completed": 106500,
+    "received_http": 106500,
+    "correct": 106500,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 106500,
+      "mean": 4.796691598103271,
+      "p50": 0.936969,
+      "p95": 15.939687,
+      "p99": 95.3376,
+      "p99_9": 185.155573,
+      "max": 288.375042
+    },
+    "scheduled_to_completion_ms": {
+      "count": 106500,
+      "mean": 5.006026235436596,
+      "p50": 1.096971,
+      "p95": 16.301852,
+      "p99": 96.114328,
+      "p99_9": 185.373967,
+      "max": 288.525897
+    }
+  },
+  "measure": {
+    "planned_arrivals": 420000,
+    "scheduled": 420000,
+    "sent": 420000,
+    "completed": 420000,
+    "received_http": 420000,
+    "correct": 420000,
+    "incorrect_http": 0,
+    "client_errors": 0,
+    "errors": 0,
+    "status429": 0,
+    "status503": 0,
+    "not_completed": 0,
+    "dropped": 0,
+    "cancelled_arrivals": 0,
+    "roundtrip_ms": {
+      "count": 420000,
+      "mean": 5.366601665580979,
+      "p50": 1.850424,
+      "p95": 18.824622,
+      "p99": 63.629804,
+      "p99_9": 141.988192,
+      "max": 245.696413
+    },
+    "scheduled_to_completion_ms": {
+      "count": 420000,
+      "mean": 5.610887261830894,
+      "p50": 2.040165,
+      "p95": 19.271117,
+      "p99": 64.905543,
+      "p99_9": 145.670204,
+      "max": 247.78841
+    }
+  },
+  "windows": {
+    "measure": {
+      "scheduledMillis": 60000,
+      "elapsedMillis": 60000,
+      "start": "2026-09-12T16:37:09.041764677Z",
+      "end": "2026-09-12T16:38:09.041764677Z"
+    },
+    "warmup": {
+      "scheduledMillis": 30000,
+      "elapsedMillis": 30000,
+      "start": "2026-09-12T16:36:39.041764677Z",
+      "end": "2026-09-12T16:37:09.041764677Z"
+    }
+  },
+  "p99BudgetMs": 80,
+  "actualCompletionWindows": {
+    "correctCompletedInsideWindow": {
+      "warmup": 105721,
+      "measure": 420677,
+      "afterWindow": 102
+    },
+    "measureCorrectQps": 7011.283333333334,
+    "convention": "Completion timestamp in [formal start, formal end), across both scheduled cohorts; drain completions excluded."
+  },
+  "measuredCorrectQps": 7011.283333333334,
+  "measuredCorrectCohortQps": 7000.0,
+  "scope": "Real gateway and Java redirect with cache/authority; statistics through broker ACK and offsets. Analytics consumers and Agent excluded.",
+  "drained": true,
+  "nativeReturnCode": 0,
+  "nativeSummarySha256": "7ddcf4d6005bf1cdd3ef9bc236a74151bb4f75ff837313d46b06e5c28000e89b",
+  "monitorStop": null,
+  "nativeClientProcess": {
+    "samples": 107,
+    "cpuPercentMean": 158.30664450300048,
+    "cpuPercentPeak": 199.90643938841183,
+    "cpuPercentMeaning": "100 percent is one logical CPU; allowed CPUs are 12-15",
+    "rssBytesPeak": 4375547904,
+    "rssBytesSampleMean": 611145517.4579439,
+    "samplingIntervalSeconds": 1,
+    "samplingMode": "INDEPENDENT_OWNED_PID_THREAD",
+    "actualSampleSpanSeconds": 106.04734913499988,
+    "timelineBytes": 28429,
+    "fault": null
+  },
+  "clientInterval": {
+    "start": "2026-09-12T16:36:38.883150+00:00",
+    "end": "2026-09-12T16:38:26.524105+00:00"
+  },
+  "archiveScope": "Allowlisted compact extraction; not a rerun or replacement verdict.",
+  "partialMeasurement": false,
+  "effectiveQpsInterpretation": "Full formal cohort",
+  "http504": {
+    "count": 0,
+    "basis": "Derived: all.received_http == all.correct == all.completed == all.sent, incorrect_http == client_errors == 0; 504 cannot be a correct redirect response. Original compact result has no dedicated status504 field."
+  },
+  "edgeRejectionsByReason": {
+    "sourceFields": [
+      "before.json:apisix.rejectionRaw",
+      "after.json:apisix.rejectionRaw"
+    ],
+    "before": {
+      "event_size": 0,
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "worker_exiting": 0,
+      "identity_unavailable": 0,
+      "queue_count": 0
+    },
+    "after": {
+      "worker_exiting": 0,
+      "event_size": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "identity_unavailable": 0,
+      "timer_unavailable": 0,
+      "queue_count": 0
+    },
+    "delta": {
+      "event_size": 0,
+      "timer_unavailable": 0,
+      "queue_bytes": 0,
+      "encoding": 0,
+      "worker_exiting": 0,
+      "identity_unavailable": 0,
+      "queue_count": 0
+    }
+  },
+  "observedProducerLaneCounters": {
+    "source": "before/after services.shortlink-redirect.metrics and edgeSnapshot.rawCounters",
+    "lanes": {
+      "click": {
+        "delivered": {
+          "before": 26503.0,
+          "after": 553003.0,
+          "delta": 526500.0
+        },
+        "failed": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        },
+        "rejected": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "result": {
+        "delivered": {
+          "before": 26571.0,
+          "after": 553071.0,
+          "delta": 526500.0
+        },
+        "failed": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        },
+        "rejected": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "edge": {
+        "attempted": {
+          "before": 26575.0,
+          "after": 553075.0,
+          "delta": 526500.0
+        },
+        "delivered": {
+          "before": 26575.0,
+          "after": 553075.0,
+          "delta": 526500.0
+        },
+        "failed": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        },
+        "rejected": {
+          "before": 0.0,
+          "after": 0.0,
+          "delta": 0.0
+        }
+      }
+    },
+    "verdictUnchanged": true,
+    "meaning": "Endpoint counter differences for diagnosis. They do not replace the original complete request/accounting gate."
+  },
+  "observedKafkaOffsets": {
+    "sourceFields": [
+      "kafka-before.json:kafka.endOffsets.output",
+      "kafka-after.json:kafka.endOffsets.output"
+    ],
+    "status": "ORIGINAL_LEDGER_GATE_PASSED",
+    "nonzeroPartitionDeltas": [
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 0,
+        "before": 22079403,
+        "after": 22379294,
+        "delta": 299891
+      },
+      {
+        "topic": "shortlink.click.raw.v1",
+        "partition": 1,
+        "before": 16727116,
+        "after": 16953725,
+        "delta": 226609
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 0,
+        "before": 34772599,
+        "after": 35299806,
+        "delta": 527207
+      },
+      {
+        "topic": "shortlink.gateway.request.v1",
+        "partition": 1,
+        "before": 34767835,
+        "after": 35293628,
+        "delta": 525793
+      }
+    ],
+    "nonzeroTopicDeltas": {
+      "shortlink.click.raw.v1": 526500,
+      "shortlink.gateway.request.v1": 1053000
+    },
+    "totalOffsetDelta": 1579500,
+    "originalConservationPresent": true,
+    "originalVerdict": true
+  },
+  "originalKafkaConservation": {
+    "brokerId": 1,
+    "totalOffsetDelta": 1579500,
+    "topicDeltas": {
+      "shortlink.batch.ready.v1": 0,
+      "shortlink.click.dlq.v1": 0,
+      "shortlink.click.enriched.v1": 0,
+      "shortlink.click.late.v1": 0,
+      "shortlink.click.raw.v1": 526500,
+      "shortlink.gateway.request.v1": 1053000,
+      "shortlink.it.adapter.4f89a76cdcf8.invalid": 0,
+      "shortlink.it.adapter.4f89a76cdcf8.valid": 0,
+      "shortlink.it.adapter.83cfe442806e.invalid": 0,
+      "shortlink.it.adapter.83cfe442806e.valid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.invalid": 0,
+      "shortlink.it.adapter.b32c4c9263d6.valid": 0,
+      "shortlink.it.adapter.d7f7254a1971.invalid": 0,
+      "shortlink.it.adapter.d7f7254a1971.valid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.invalid": 0,
+      "shortlink.it.adapter.f3fe5d51487b.valid": 0,
+      "shortlink.it.connect.configs": 0,
+      "shortlink.it.connect.offsets": 0,
+      "shortlink.it.connect.status": 0,
+      "shortlink.metadata.dlq.v1": 0,
+      "shortlink.metadata.fetch.v1": 0,
+      "shortlink.request.enriched.v1": 0,
+      "shortlink.risk.policy.change.v1": 0,
+      "shortlink.risk.signal.v1": 0,
+      "shortlink.route.change.v1": 0,
+      "shortlink.stats.5m.v1": 0
+    }
+  },
+  "systemObservation": {
+    "kind": "SYSTEM_STOPPED",
+    "observerCpuSetAtStart": [
+      12,
+      13,
+      14,
+      15
+    ],
+    "observerCpuSetAtStop": [
+      12,
+      13,
+      14,
+      15
+    ],
+    "stopReason": "CLIENT_EXITED_OR_PID_REUSED",
+    "failure": null,
+    "samples": 107,
+    "skippedScheduledSamples": 0,
+    "limitations": [
+      "Per-process/thread reads are sequential, not atomic global snapshots.",
+      "schedstat zero is not proof of zero waiting when kernel schedstats is disabled.",
+      "cgroup v1 or missing files are explicitly unavailable; ancestor quotas are retained.",
+      "JFR cleanup is separately bounded and may extend beyond the collection deadline.",
+      "JFR isolation is checked once before start; concurrent external recordings are prohibited.",
+      "Sampling stops itself only; no application is signalled or restarted."
+    ]
+  },
+  "stageEndpointMemoryAndDisk": {
+    "source": "before/after host.data; covers whole stage boundary, not formal last-eight-second I/O",
+    "before": {
+      "cpuCount": 16,
+      "memory": {
+        "MemTotalBytes": 16699817984,
+        "MemAvailableBytes": 13432311808,
+        "SwapTotalBytes": 4294967296,
+        "SwapFreeBytes": 4294967296,
+        "DirtyBytes": 188416,
+        "WritebackBytes": 8192
+      },
+      "disk": {
+        "totalBytes": 808120741888,
+        "usedBytes": 649022025728,
+        "freeBytes": 159098716160
+      },
+      "diskScope": "PERFORMANCE_EVIDENCE_FILESYSTEM_NOT_KAFKA_VOLUME"
+    },
+    "after": {
+      "cpuCount": 16,
+      "memory": {
+        "MemTotalBytes": 16699817984,
+        "MemAvailableBytes": 11851059200,
+        "SwapTotalBytes": 4294967296,
+        "SwapFreeBytes": 4294967296,
+        "DirtyBytes": 24576,
+        "WritebackBytes": 24576
+      },
+      "disk": {
+        "totalBytes": 808120741888,
+        "usedBytes": 650814332928,
+        "freeBytes": 157306408960
+      },
+      "diskScope": "PERFORMANCE_EVIDENCE_FILESYSTEM_NOT_KAFKA_VOLUME"
+    }
+  }
+}

@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "kind": "FORMAL_LOAD_SYNCHRONIZED_WINDOWS_PROCESS_CPU_ANALYSIS",
+  "runId": "20260912T171106Z-b5674ed0",
+  "label": "prefix-r6000-a",
+  "formalWindow": {
+    "startUtc": "2026-09-12T17:16:42.986083986Z",
+    "plannedEndUtc": "2026-09-12T17:17:42.986083986Z",
+    "actualElapsedSeconds": 6.815803472,
+    "actualEndUtcDerived": "2026-09-12T17:16:49.801887+00:00",
+    "meaning": "Uses actual elapsed formal window, not planned 60s and not post-load idle."
+  },
+  "hostFileWindow": {
+    "firstUtc": "2026-09-12T17:16:00.2884578Z",
+    "lastUtc": "2026-09-12T17:17:24.2513351Z",
+    "samples": 85,
+    "logicalProcessors": 16,
+    "nominalIntervalSeconds": 1
+  },
+  "insideFormalSamples": {
+    "firstIndex": 43,
+    "lastIndex": 49,
+    "startUtc": "2026-09-12T17:16:43.2872563Z",
+    "endUtc": "2026-09-12T17:16:49.2877078Z",
+    "elapsedSecondsByStopwatch": 6.000640699999998,
+    "elapsedSecondsByUtc": 6.00045108795166,
+    "matchedIdentityCount": 400,
+    "leftOnlyIdentityCount": 0,
+    "rightOnlyIdentityCount": 0,
+    "negativeCounterIdentityCount": 0
+  },
+  "outerBracketingSamples": {
+    "firstIndex": 42,
+    "lastIndex": 50,
+    "startUtc": "2026-09-12T17:16:42.2901740Z",
+    "endUtc": "2026-09-12T17:16:50.2677471Z",
+    "elapsedSecondsByStopwatch": 7.977435999999997,
+    "elapsedSecondsByUtc": 7.977572917938232,
+    "matchedIdentityCount": 400,
+    "leftOnlyIdentityCount": 2,
+    "rightOnlyIdentityCount": 0,
+    "negativeCounterIdentityCount": 0
+  },
+  "insideMatchedGroups": {
+    "allObservedBusyProcesses": {
+      "matchedIdentities": 400,
+      "cpuSecondsDelta": 93.578125,
+      "logicalCpuEquivalent": 15.594688913802159,
+      "meanPercentOneLogicalCpu": 1559.4688913802158,
+      "meanPercentOf16LogicalProcessors": 97.46680571126349
+    },
+    "wsl": {
+      "matchedIdentities": 12,
+      "cpuSecondsDelta": 43.984375,
+      "logicalCpuEquivalent": 7.329946450551525,
+      "meanPercentOneLogicalCpu": 732.9946450551524,
+      "meanPercentOf16LogicalProcessors": 45.81216531594703
+    },
+    "nonWslIncludingObserverCandidate": {
+      "matchedIdentities": 388,
+      "cpuSecondsDelta": 49.59375,
+      "logicalCpuEquivalent": 8.264742463250634,
+      "meanPercentOneLogicalCpu": 826.4742463250634,
+      "meanPercentOf16LogicalProcessors": 51.65464039531646
+    },
+    "nonWslExcludingObserverCandidate": {
+      "matchedIdentities": 387,
+      "cpuSecondsDelta": 49.28125,
+      "logicalCpuEquivalent": 8.21266469095542,
+      "meanPercentOneLogicalCpu": 821.2664690955419,
+      "meanPercentOf16LogicalProcessors": 51.32915431847137
+    }
+  },
+  "fullFormalBusyBounds": {
+    "matchedInnerCpuLowerPercentOf16": 85.80988047156534,
+    "outerMatchedCountersDividedByFormalDurationRawPercent": 113.20485316510897,
+    "physicalUpperPercentOf16": 100,
+    "interpretation": "Inner counters lie inside formal window and establish an observed counter lower bound; bracketing CPU includes time outside formal and is not a utilization measurement. Missing/protected process activity is unknown, so only physical upper bound 100% applies to all-host busy. Bounds remain sampling estimates because collection is non-atomic and counter/wall clocks have finite resolution."
+  },
+  "innerOneSecondIntervals": [
+    {
+      "firstIndex": 43,
+      "lastIndex": 44,
+      "startUtc": "2026-09-12T17:16:43.2872563Z",
+      "endUtc": "2026-09-12T17:16:44.3262613Z",
+      "elapsedSecondsByStopwatch": 1.0397673000000012,
+      "elapsedSecondsByUtc": 1.0390050411224365,
+      "matchedIdentityCount": 400,
+      "leftOnlyIdentityCount": 0,
+      "rightOnlyIdentityCount": 0,
+      "negativeCounterIdentityCount": 0,
+      "totalMatchedCpuSeconds": 15.953125,
+      "meanPercentOf16LogicalProcessors": 95.89360162605603,
+      "wslMeanPercentOf16LogicalProcessors": 49.12081650384653,
+      "nonWslMeanPercentOf16LogicalProcessors": 46.772785122209505
+    },
+    {
+      "firstIndex": 44,
+      "lastIndex": 45,
+      "startUtc": "2026-09-12T17:16:44.3262613Z",
+      "endUtc": "2026-09-12T17:16:45.2642150Z",
+      "elapsedSecondsByStopwatch": 0.9375377,
+      "elapsedSecondsByUtc": 0.9379539489746094,
+      "matchedIdentityCount": 400,
+      "leftOnlyIdentityCount": 0,
+      "rightOnlyIdentityCount": 0,
+      "negativeCounterIdentityCount": 0,
+      "totalMatchedCpuSeconds": 14.796875,
+      "meanPercentOf16LogicalProcessors": 98.64186661507051,
+      "wslMeanPercentOf16LogicalProcessors": 48.123064811153725,
+      "nonWslMeanPercentOf16LogicalProcessors": 50.51880180391679
+    },
+    {
+      "firstIndex": 45,
+      "lastIndex": 46,
+      "startUtc": "2026-09-12T17:16:45.2642150Z",
+      "endUtc": "2026-09-12T17:16:46.2884696Z",
+      "elapsedSecondsByStopwatch": 1.0241876999999988,
+      "elapsedSecondsByUtc": 1.0242540836334229,
+      "matchedIdentityCount": 400,
+      "leftOnlyIdentityCount": 0,
+      "rightOnlyIdentityCount": 0,
+      "negativeCounterIdentityCount": 0,
+      "totalMatchedCpuSeconds": 15.90625,
+      "meanPercentOf16LogicalProcessors": 97.06625309013192,
+      "wslMeanPercentOf16LogicalProcessors": 45.291228111800265,
+      "nonWslMeanPercentOf16LogicalProcessors": 51.77502497833167
+    },
+    {
+      "firstIndex": 46,
+      "lastIndex": 47,
+      "startUtc": "2026-09-12T17:16:46.2884696Z",
+      "endUtc": "2026-09-12T17:16:47.2738459Z",
+      "elapsedSecondsByStopwatch": 0.986144000000003,
+      "elapsedSecondsByUtc": 0.9853758811950684,
+      "matchedIdentityCount": 400,
+      "leftOnlyIdentityCount": 0,
+      "rightOnlyIdentityCount": 0,
+      "negativeCounterIdentityCount": 0,
+      "totalMatchedCpuSeconds": 15.4375,
+      "meanPercentOf16LogicalProcessors": 97.8400466868933,
+      "wslMeanPercentOf16LogicalProcessors": 47.83071108276262,
+      "nonWslMeanPercentOf16LogicalProcessors": 50.00933560413069
+    },
+    {
+      "firstIndex": 47,
+      "lastIndex": 48,
+      "startUtc": "2026-09-12T17:16:47.2738459Z",
+      "endUtc": "2026-09-12T17:16:48.2566404Z",
+      "elapsedSecondsByStopwatch": 0.9832362000000003,
+      "elapsedSecondsByUtc": 0.982795000076294,
+      "matchedIdentityCount": 400,
+      "leftOnlyIdentityCount": 0,
+      "rightOnlyIdentityCount": 0,
+      "negativeCounterIdentityCount": 0,
+      "totalMatchedCpuSeconds": 15.359375,
+      "meanPercentOf16LogicalProcessors": 97.63279032037264,
+      "wslMeanPercentOf16LogicalProcessors": 42.50949568374312,
+      "nonWslMeanPercentOf16LogicalProcessors": 55.12329463662952
+    },
+    {
+      "firstIndex": 48,
+      "lastIndex": 49,
+      "startUtc": "2026-09-12T17:16:48.2566404Z",
+      "endUtc": "2026-09-12T17:16:49.2877078Z",
+      "elapsedSecondsByStopwatch": 1.0297677999999948,
+      "elapsedSecondsByUtc": 1.031067132949829,
+      "matchedIdentityCount": 400,
+      "leftOnlyIdentityCount": 0,
+      "rightOnlyIdentityCount": 0,
+      "negativeCounterIdentityCount": 0,
+      "totalMatchedCpuSeconds": 16.125,
+      "meanPercentOf16LogicalProcessors": 97.8679368300315,
+      "wslMeanPercentOf16LogicalProcessors": 42.10597282222285,
+      "nonWslMeanPercentOf16LogicalProcessors": 55.76196400780864
+    }
+  ],
+  "exampleCrossCheck": {
+    "hypotheticalOtherLogicalCpuEquivalent": 3.5,
+    "hypotheticalPercentOf16": 21.875,
+    "measuredNonWslLogicalCpuEquivalent": 8.264742463250634,
+    "measuredNonWslPercentOf16": 51.65464039531646,
+    "meaning": "3.5 logical CPUs was an illustration, not this run measurement. Here measured non-WSL use is approximately 8.26 logical CPU equivalents."
+  },
+  "verdict": "Substantial concurrent host CPU competition is supported by same-formal-window counters. The exact causal chain to EDGE queue rejection remains unproven.",
+  "limits": [
+    "Process snapshots are sequential; this is not Windows Processor(_Total) performance-counter telemetry.",
+    "GetProcesses records only accessible process identities; missing/new/exited entries are never synthesized as zero.",
+    "Inner matched endpoints have no identity additions/removals; entire raw process inventory is not copied.",
+    "No frequency/thermal/power/host scheduler trace; logical CPU utilization does not identify physical-core saturation or application architectural ceiling.",
+    "Observer PID is inferred, not independently logged; main non-WSL total retains it to avoid hiding unknown overhead.",
+    "Guest cpuset does not reserve physical host CPU; cannot assume physical mapping of guest CPU0-7.",
+    "A -9-to-2 transition verifies this stopped run reached normal native failure exit; it is not a capacity pass."
+  ],
+  "observerCandidate": {
+    "name": "powershell",
+    "cpuSecondsDelta": 0.3125,
+    "meanPercentOneLogicalCpu": 5.207777229521509,
+    "logicalCpuEquivalent": 0.05207777229521509,
+    "meanPercentOf16LogicalProcessors": 0.3254860768450943,
+    "identityConfidence": "INFERRED_NOT_EXPLICITLY_LOGGED",
+    "basis": "Only powershell/pwsh identity starting within 2s before first host sample; matches launch script executable and lifetime. Neither host sampler nor launcher stores its Windows selfPid, so do not claim confirmed identity."
+  },
+  "topNonWslProcessNamesAndCpu": [
+    {
+      "name": "msedge",
+      "meanPercentOneLogicalCpu": 126.02820895442053,
+      "logicalCpuEquivalent": 1.2602820895442053,
+      "meanPercentOf16LogicalProcessors": 7.876763059651283
+    },
+    {
+      "name": "QQMusic",
+      "meanPercentOneLogicalCpu": 105.19710003633449,
+      "logicalCpuEquivalent": 1.051971000363345,
+      "meanPercentOf16LogicalProcessors": 6.574818752270906
+    },
+    {
+      "name": "msedge",
+      "meanPercentOneLogicalCpu": 94.5211567158154,
+      "logicalCpuEquivalent": 0.9452115671581539,
+      "meanPercentOf16LogicalProcessors": 5.907572294738462
+    },
+    {
+      "name": "System",
+      "meanPercentOneLogicalCpu": 74.47121438215758,
+      "logicalCpuEquivalent": 0.7447121438215758,
+      "meanPercentOf16LogicalProcessors": 4.654450898884849
+    },
+    {
+      "name": "Dell.TechHub.DataManager.SubAgent",
+      "meanPercentOneLogicalCpu": 71.60693690592075,
+      "logicalCpuEquivalent": 0.7160693690592075,
+      "meanPercentOf16LogicalProcessors": 4.475433556620047
+    },
+    {
+      "name": "WmiPrvSE",
+      "meanPercentOneLogicalCpu": 67.70110398377962,
+      "logicalCpuEquivalent": 0.6770110398377962,
+      "meanPercentOf16LogicalProcessors": 4.231318998986226
+    },
+    {
+      "name": "svchost",
+      "meanPercentOneLogicalCpu": 61.19138244687773,
+      "logicalCpuEquivalent": 0.6119138244687773,
+      "meanPercentOf16LogicalProcessors": 3.8244614029298583
+    },
+    {
+      "name": "msedge",
+      "meanPercentOneLogicalCpu": 39.83949580583955,
+      "logicalCpuEquivalent": 0.3983949580583955,
+      "meanPercentOf16LogicalProcessors": 2.4899684878649717
+    },
+    {
+      "name": "ChatGPT",
+      "meanPercentOneLogicalCpu": 36.97521832960272,
+      "logicalCpuEquivalent": 0.36975218329602716,
+      "meanPercentOf16LogicalProcessors": 2.31095114560017
+    },
+    {
+      "name": "msedge",
+      "meanPercentOneLogicalCpu": 27.601219316463997,
+      "logicalCpuEquivalent": 0.27601219316464,
+      "meanPercentOf16LogicalProcessors": 1.7250762072789998
+    },
+    {
+      "name": "dwm",
+      "meanPercentOneLogicalCpu": 20.57072005660996,
+      "logicalCpuEquivalent": 0.20570720056609962,
+      "meanPercentOf16LogicalProcessors": 1.2856700035381226
+    },
+    {
+      "name": "msedgewebview2",
+      "meanPercentOneLogicalCpu": 19.52916461070566,
+      "logicalCpuEquivalent": 0.1952916461070566,
+      "meanPercentOf16LogicalProcessors": 1.2205727881691038
+    }
+  ],
+  "identityMethod": "Original analysis matched PID+startUtc and nonnegative CPU deltas. Public summary retains aggregate counts and generic process names/CPU only, no process IDs, start times, paths, command lines or browser titles."
+}
