@@ -186,9 +186,9 @@ onMounted(async () => {
       <section class="link-workspace">
         <div class="list-toolbar">
           <RButton v-if="!recycle" kind="text" class="scope-trigger" @click="groupsOpen = true"
-            >{{ currentGroup?.name || '选择分组' }} · {{ state.list.total }} 条短链</RButton
+            >{{ currentGroup?.name || '选择分组' }} · {{ format(state.list.total) }} 条短链</RButton
           >
-          <h2 v-else>已回收短链 · {{ state.list.total }} 条</h2>
+          <h2 v-else>已回收短链 · {{ format(state.list.total) }} 条</h2>
           <RButton v-if="!recycle" kind="text" :disabled="!state.groupId" @click="stats()"
             >分组统计</RButton
           ><RButton kind="text" :loading="state.list.loading" @click="refresh">刷新</RButton
@@ -316,7 +316,7 @@ onMounted(async () => {
             </article>
           </div>
           <footer class="list-footer">
-            <span>{{ state.list.total }} 条 · 每页 {{ state.list.size }} 条</span>
+            <span>{{ format(state.list.total) }} 条 · 每页 {{ state.list.size }} 条</span>
             <div>
               <RButton
                 kind="text"

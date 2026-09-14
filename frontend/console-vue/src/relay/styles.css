@@ -820,8 +820,17 @@ h3 {
     flex: 1;
   }
   .scope-trigger {
-    max-width: 52%;
+    flex: 1 0 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
     font-size: 15px !important;
+  }
+  .scope-trigger .r-button__label {
+    min-width: 0;
+    white-space: normal;
   }
   .list-toolbar > .r-form-field {
     width: 144px;

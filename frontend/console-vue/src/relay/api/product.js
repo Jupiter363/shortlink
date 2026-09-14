@@ -24,8 +24,8 @@ export const getProfile = (username, options = {}) =>
   request(`${USER}/${encodeURIComponent(username)}`, options)
 export const updateProfile = (body, options = {}) =>
   request(USER, { ...options, method: 'PUT', body })
-export const logout = ({ username, token }, options = {}) =>
-  request(`${ADMIN}/user/logout`, { ...options, method: 'DELETE', query: { username, token } })
+export const logout = (options = {}) =>
+  request(`${ADMIN}/user/logout`, { signal: options.signal, method: 'DELETE' })
 
 export async function listGroups(options = {}) {
   const data = await request(`${ADMIN}/group`, options)

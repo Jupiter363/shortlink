@@ -13,6 +13,8 @@ Browser -> Nginx /api -> APISIX (management host) -> Admin
 
 登录、注册后均查询真实初始化状态。只有 READY 且默认分组可见时进入工作台；刷新浏览器恢复 token 也需要重新核验。未就绪、初始化失败和状态不可确认有独立界面。退出登录清空用户数据和内存中的 Agent 会话、批量任务、风险命令。
 
+退出使用不含参数的 `DELETE /api/short-link/admin/v1/user/logout`，凭据仅放在既有认证头；Admin 从入站已验证的会话取得退出对象，避免 token 进入 URL 和代理错误日志。旧客户端若仍传 query，必须提供与已验证会话完全匹配的一对参数。先部署兼容的 Admin，再部署新前端。
+
 ## 页面与行为
 
 | 页面 | 路由 |

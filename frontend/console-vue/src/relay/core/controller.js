@@ -22,8 +22,8 @@ export const state = reactive({
   list: {
     current: 1,
     size: 10,
-    total: 0,
-    pages: 0,
+    total: null,
+    pages: null,
     orderTag: 'createTime',
     statsMeta: null,
     loading: false,
@@ -85,8 +85,8 @@ function resetPrivateState() {
   state.analyticsScope = null
   Object.assign(state.list, {
     current: 1,
-    total: 0,
-    pages: 0,
+    total: null,
+    pages: null,
     orderTag: 'createTime',
     statsMeta: null,
     loading: false,
@@ -127,11 +127,22 @@ async function refreshLinks({ reset = false, targetCurrent = null } = {}) {
   state.list.loading = true
   state.list.error = ''
   state.links = []
+  if (reset)
+    Object.assign(state.list, {
+      current: 1,
+      total: null,
+      pages: null,
+      statsMeta: null
+    })
   try {
     const recycled = state.route === '/home/recycleBin'
     if (!recycled && !state.groupId) {
-      state.list.total = 0
-      state.list.pages = 0
+      Object.assign(state.list, {
+        current: 1,
+        total: 0,
+        pages: 0,
+        statsMeta: null
+      })
       return
     }
     const { size, orderTag } = state.list

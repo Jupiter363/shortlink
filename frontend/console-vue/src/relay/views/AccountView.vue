@@ -86,10 +86,7 @@ async function logout() {
   if (loggingOut.value) return
   loggingOut.value = true
   try {
-    await api.logout(
-      { username: state.session.username, token: state.session.token },
-      { signal: controller.signal }
-    )
+    await api.logout({ signal: controller.signal })
   } catch (error) {
     if (!isAborted(error) && error.status !== 401)
       notify('服务端退出暂未确认，已清除本机登录。', 'warning')
