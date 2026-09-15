@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import AnalyticsMethodHint from './AnalyticsMethodHint.vue'
 import { dimensionView, formatCount, formatRatio, formatShanghaiDate } from '../domain/analytics.js'
 
 const props = defineProps({
@@ -130,7 +131,27 @@ onBeforeUnmount(() => chartObserver?.disconnect())
 <template>
   <article class="analytics-dimension-panel" :aria-label="title">
     <header class="dimension-heading">
-      <h2>{{ title }}</h2>
+      <div class="dimension-title">
+        <h2>{{ title }}</h2>
+        <AnalyticsMethodHint v-if="current" :key="selectedKey" :label="`${title}：统计口径`">
+          <strong>{{ current.label }}统计口径</strong>
+          <p>{{ current.note }}</p>
+          <template v-if="selectedKey === 'newvisitor'">
+            <p v-if="current.quality.historyStart && current.quality.historyEnd">
+              保留数据范围：{{ formatShanghaiDate(current.quality.historyStart) }} 至
+              {{ formatShanghaiDate(current.quality.historyEnd) }}
+            </p>
+            <p v-else>尚未提供历史保留区间。</p>
+            <p>
+              首次观测覆盖率：{{ formatRatio(current.quality.coverage) }}
+              <template v-if="current.quality.maxHistoryDays">
+                · 最多 {{ current.quality.maxHistoryDays }} 天
+              </template>
+            </p>
+          </template>
+          <p v-if="current.quality.reason">{{ current.quality.reason }}</p>
+        </AnalyticsMethodHint>
+      </div>
       <span
         v-if="qualityLabel"
         class="dimension-quality"
@@ -257,27 +278,6 @@ onBeforeUnmount(() => chartObserver?.disconnect())
             current.quality.status === 'EMPTY' ? '所选范围暂无访问。' : '尚未返回该维度的可用数据。'
           }}
         </p>
-
-        <details class="dimension-method">
-          <summary>统计口径</summary>
-          <div>
-            <p>{{ current.note }}</p>
-            <template v-if="selectedKey === 'newvisitor'">
-              <p v-if="current.quality.historyStart && current.quality.historyEnd">
-                保留数据范围：{{ formatShanghaiDate(current.quality.historyStart) }} 至
-                {{ formatShanghaiDate(current.quality.historyEnd) }}
-              </p>
-              <p v-else>尚未提供历史保留区间。</p>
-              <p>
-                首次观测覆盖率：{{ formatRatio(current.quality.coverage) }}
-                <template v-if="current.quality.maxHistoryDays"
-                  >· 最多 {{ current.quality.maxHistoryDays }} 天</template
-                >
-              </p>
-            </template>
-            <p v-if="current.quality.reason">{{ current.quality.reason }}</p>
-          </div>
-        </details>
       </template>
       <p v-else class="dimension-empty">尚未返回该维度的可用数据。</p>
     </div>
@@ -310,6 +310,13 @@ onBeforeUnmount(() => chartObserver?.disconnect())
   margin: 0;
   font-size: 16px;
   line-height: 24px;
+}
+
+.dimension-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 2px;
 }
 
 .dimension-quality {
@@ -356,8 +363,7 @@ onBeforeUnmount(() => chartObserver?.disconnect())
 }
 
 .dimension-tabs button:focus-visible,
-.dimension-body:focus-visible,
-.dimension-method summary:focus-visible {
+.dimension-body:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
@@ -512,28 +518,6 @@ onBeforeUnmount(() => chartObserver?.disconnect())
 
 .dimension-empty {
   padding: 22px 0;
-}
-
-.dimension-method {
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 20px;
-}
-
-.dimension-method summary {
-  width: fit-content;
-  max-width: 100%;
-  cursor: pointer;
-}
-
-.dimension-method > div {
-  padding-top: 6px;
-  overflow-wrap: anywhere;
-}
-
-.dimension-method p {
-  margin: 0 0 6px;
 }
 
 .dimension-chart-readout,
