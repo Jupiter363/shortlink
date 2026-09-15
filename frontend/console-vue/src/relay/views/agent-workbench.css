@@ -74,9 +74,6 @@
   min-height: 0;
   overflow: visible;
 }
-.ar-agent-view .ar-section-switch {
-  flex: none;
-}
 
 .aw-toolbar {
   display: flex;
@@ -130,7 +127,6 @@
   background: var(--danger);
 }
 .aw-toolbar-actions,
-.aw-result-actions > div,
 .aw-history-actions {
   display: flex;
   align-items: center;
@@ -139,7 +135,6 @@
   min-width: 0;
 }
 .aw-toolbar-actions .r-button,
-.aw-result-actions .r-button,
 .aw-history-actions .r-button {
   min-width: 0;
   min-height: 36px;
@@ -150,7 +145,6 @@
   box-shadow: none;
 }
 .aw-toolbar-actions .r-button__label,
-.aw-result-actions .r-button__label,
 .aw-history-actions .r-button__label {
   display: flex;
   align-items: center;
@@ -243,95 +237,6 @@
   font-size: 12px;
   line-height: 1.5;
   overflow-wrap: anywhere;
-}
-.aw-data-panel {
-  min-width: 0;
-  padding: 17px 20px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-}
-.aw-data-panel > header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  min-width: 0;
-  margin-bottom: 12px;
-}
-.ar-agent-view .aw-data-panel h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 15px;
-  line-height: 1.4;
-}
-.aw-data-panel > header > span {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.aw-data-links {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  min-width: 0;
-}
-.aw-data-links > button {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  min-height: 72px;
-  padding: 11px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--raised);
-  color: var(--blue);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.aw-data-links > button > span {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-.aw-data-links strong {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.5;
-}
-.aw-data-links small {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.aw-data-links > button:hover:not(:disabled) {
-  border-color: var(--blue);
-  background: var(--subtle);
-}
-.aw-data-links > button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-.aw-result-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  min-width: 0;
-  padding: 2px 0 3px;
-}
-.aw-result-actions > span {
-  color: var(--muted);
-  font-size: 12px;
 }
 
 /* The modal already owns scrolling. Its history columns stay natural height. */
@@ -534,7 +439,6 @@
   resize: vertical;
 }
 .aw-draft-tools > button:focus-visible,
-.aw-data-links > button:focus-visible,
 .aw-history-list > button:focus-visible,
 .aw-copy-fallback:focus-visible {
   outline: 2px solid var(--blue);
@@ -545,13 +449,6 @@
   .ar-agent-view .ar-agent-layout {
     grid-template-columns: minmax(280px, 325px) minmax(0, 1fr);
     gap: 16px;
-  }
-  .aw-data-panel {
-    padding-inline: 16px;
-  }
-  .aw-data-links > button {
-    gap: 7px;
-    padding-inline: 10px;
   }
 }
 
@@ -604,7 +501,6 @@
     gap: 6px;
   }
   .aw-toolbar-actions .r-button,
-  .aw-result-actions .r-button,
   .aw-history-actions .r-button {
     min-height: 36px;
     padding-inline: 8px;
@@ -625,27 +521,6 @@
   .aw-draft-tools > span {
     flex-basis: 100%;
     margin-left: 0;
-  }
-  .aw-data-panel {
-    padding: 15px;
-  }
-  .aw-data-links {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-  .aw-data-links > button {
-    min-height: 66px;
-    padding: 10px 12px;
-    gap: 10px;
-  }
-  .aw-data-links small {
-    font-size: 12px;
-  }
-  .aw-result-actions {
-    align-items: flex-start;
-  }
-  .aw-result-actions > span {
-    flex-basis: 100%;
   }
   .aw-history-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -675,8 +550,6 @@
 @media (prefers-reduced-motion: reduce) {
   .aw-toolbar button,
   .aw-draft-tools button,
-  .aw-data-links button,
-  .aw-result-actions button,
   .aw-history-layout button,
   .aw-assistance-content button {
     transition: none;
