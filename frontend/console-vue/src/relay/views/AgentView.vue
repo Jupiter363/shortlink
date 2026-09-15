@@ -2,6 +2,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { agentApi } from '../api/agentRisk.js'
 import PageHeading from '../components/PageHeading.vue'
+import { agentHistoryEntries, buildAgentReport } from '../domain/agentWorkspace.js'
 import {
   compileMessage,
   errorMessage,
@@ -10,6 +11,7 @@ import {
   pretty
 } from '../domain/agentModel.js'
 import './agent-risk.css'
+import './agent-workbench.css'
 
 const props = defineProps({ type: { type: String, default: 'campaign-analysis' } })
 const relay = inject('relay')
@@ -45,6 +47,9 @@ const session = ref(newAgentSession(agentType.value))
 const activePane = ref('compose')
 const resultView = ref('answer')
 const assistOpen = ref(false)
+const historyOpen = ref(false)
+const historyKey = ref('current')
+const copyFallback = ref('')
 const workspaceBody = ref(null)
 const outputPane = ref(null)
 const promptInput = ref(null)
@@ -84,6 +89,21 @@ const selectedGroup = computed(() =>
 )
 const compiled = computed(() => compileMessage(session.value.prompt, selectedGroup.value))
 const result = computed(() => session.value.result)
+const historyEntries = computed(() => agentHistoryEntries(session.value))
+const historyEntry = computed(
+  () =>
+    historyEntries.value.find((entry) => entry.key === historyKey.value) || historyEntries.value[0]
+)
+const currentEntry = computed(() => historyEntries.value.find((entry) => entry.key === 'current'))
+const sessionStatus = computed(
+  () =>
+    ({
+      READY: '等待提问',
+      RUNNING: '分析中',
+      SUCCESS: '已返回结果',
+      ERROR: '上次未完成'
+    })[session.value.runState] || '状态未知'
+)
 const health = ref({ state: 'UNKNOWN', checkedAt: '', error: '' })
 let healthController
 let runController
@@ -120,6 +140,82 @@ function startNewSession() {
   relay.state.agentSessions[agentType.value] = session.value
   activePane.value = 'compose'
   resultView.value = 'answer'
+  historyOpen.value = false
+  historyKey.value = 'current'
+}
+
+function openHistory(key = 'current') {
+  historyKey.value = key
+  historyOpen.value = true
+}
+
+async function clearPrompt() {
+  if (relay.state.agentBusy) return
+  session.value.prompt = ''
+  if (session.value.runState !== 'ERROR') session.value.error = ''
+  await nextTick()
+  promptInput.value?.focus()
+}
+
+async function reusePrompt() {
+  if (relay.state.agentBusy || !session.value.lastPrompt) return
+  session.value.prompt = session.value.lastPrompt
+  const previousGroup = session.value.lastGroupId || ''
+  const available =
+    !previousGroup || groups.value.some((group) => String(group.id) === previousGroup)
+  session.value.groupId = available ? previousGroup : ''
+  if (!available) relay.notify('上次的分组已不可用，请重新选择分析范围。', 'warning')
+  activePane.value = 'compose'
+  await nextTick()
+  promptInput.value?.focus()
+}
+
+function openDataPage(path) {
+  if (relay.state.agentBusy) return
+  if (selectedGroup.value) relay.state.groupId = String(selectedGroup.value.id)
+  relay.go(path)
+}
+
+function onPromptKeydown(event) {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+    event.preventDefault()
+    run()
+  }
+}
+
+async function copyAnswer(entry = currentEntry.value) {
+  if (!entry?.result?.answer) return
+  const sourceSession = session.value
+  const sourceType = agentType.value
+  const isCurrent = () =>
+    !disposed && session.value === sourceSession && agentType.value === sourceType
+  try {
+    await navigator.clipboard.writeText(entry.result.answer)
+    if (isCurrent()) relay.notify('已复制分析回答', 'success')
+  } catch {
+    if (isCurrent()) copyFallback.value = entry.result.answer
+  }
+}
+
+function exportReport(entry = currentEntry.value) {
+  if (!entry) return
+  let url
+  let anchor
+  try {
+    const report = buildAgentReport(copy.value.title, entry)
+    url = URL.createObjectURL(new Blob([report], { type: 'text/markdown;charset=utf-8' }))
+    anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${agentType.value}-${new Date().toISOString().slice(0, 10)}.md`
+    document.body.appendChild(anchor)
+    anchor.click()
+    relay.notify('分析报告已导出', 'success')
+  } catch {
+    relay.notify('报告导出失败，请重试。', 'warning')
+  } finally {
+    anchor?.remove()
+    if (url) setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 }
 
 async function choosePreset(preset) {
@@ -146,6 +242,11 @@ async function run() {
   const id = crypto.randomUUID()
   const originalSessionId = entry.id
   const message = compiled.value
+  const submittedPrompt = entry.prompt
+  const submittedGroupId = entry.groupId
+  const submittedScopeLabel = selectedGroup.value
+    ? `分组：${selectedGroup.value.name}`
+    : '按问题描述选择授权范围'
   const controller = new AbortController()
   activeRun = { id, entry }
   runController = controller
@@ -173,11 +274,16 @@ async function run() {
     if (entry.result)
       entry.history.push({
         result: entry.result,
+        prompt: entry.lastPrompt,
         message: entry.lastMessage,
+        scopeLabel: entry.lastScopeLabel,
         completedAt: entry.completedAt
       })
     entry.result = response
     entry.lastMessage = message
+    entry.lastPrompt = submittedPrompt
+    entry.lastGroupId = submittedGroupId
+    entry.lastScopeLabel = submittedScopeLabel
     entry.completedAt = new Date().toLocaleString('zh-CN')
     if (typeof response.sessionId === 'string' && response.sessionId) entry.id = response.sessionId
     entry.runState = 'SUCCESS'
@@ -209,6 +315,9 @@ watch(
   () => props.type,
   () => {
     if (activeRun) cancelWaiting()
+    historyOpen.value = false
+    assistOpen.value = false
+    copyFallback.value = ''
   }
 )
 onMounted(checkHealth)
@@ -232,10 +341,26 @@ onBeforeUnmount(() => {
         <h1 :id="`agent-heading-${agentType}`">{{ copy.title }}</h1>
         <p>{{ copy.intro }}</p>
       </div>
-      <RButton kind="secondary" :disabled="relay.state.agentBusy" @click="startNewSession"
-        >新会话</RButton
-      >
     </PageHeading>
+    <div class="aw-toolbar">
+      <div class="aw-toolbar-state">
+        <span :data-state="session.runState" class="aw-state-dot" aria-hidden="true" /><strong>{{
+          sessionStatus
+        }}</strong
+        ><span>{{ selectedGroup?.name || '范围由问题指定' }}</span>
+      </div>
+      <div class="aw-toolbar-actions">
+        <RButton kind="secondary" :disabled="relay.state.agentBusy" @click="startNewSession"
+          ><RIcon name="pencil" :size="16" />新会话</RButton
+        >
+        <RButton kind="secondary" @click="openHistory()"
+          ><RIcon name="clock" :size="16" />历史分析<span class="aw-count">{{
+            historyEntries.length
+          }}</span></RButton
+        >
+        <RButton kind="text" @click="assistOpen = true">使用说明</RButton>
+      </div>
+    </div>
     <div class="ar-pane-switch view-switch" role="group" aria-label="Agent 工作区视图">
       <RButton
         kind="secondary"
@@ -288,10 +413,28 @@ onBeforeUnmount(() => {
             label="你想了解什么？"
             :placeholder="copy.placeholder"
             :maxlength="2000"
-            :rows="4"
+            :rows="7"
             :count="false"
             :disabled="running"
+            @keydown="onPromptKeydown"
           />
+          <div class="aw-draft-tools">
+            <button
+              type="button"
+              :disabled="relay.state.agentBusy || !session.prompt"
+              @click="clearPrompt"
+            >
+              清空问题
+            </button>
+            <button
+              type="button"
+              :disabled="relay.state.agentBusy || !session.lastPrompt"
+              @click="reusePrompt"
+            >
+              复用上次提问
+            </button>
+            <span>Ctrl / ⌘ + Enter</span>
+          </div>
           <p
             v-if="session.error && session.runState !== 'ERROR'"
             class="ar-alert ar-alert-danger"
@@ -314,6 +457,7 @@ onBeforeUnmount(() => {
               {{ compiled.length }} / 2000 字
             </p>
           </div>
+          <RButton v-if="running" kind="secondary" @click="cancelWaiting">停止等待</RButton>
           <details v-if="session.runState === 'READY'" class="ar-details ar-mobile-presets">
             <summary>示例问题</summary>
             <div class="ar-presets">
@@ -328,63 +472,19 @@ onBeforeUnmount(() => {
             </div>
             <p class="ar-caption">选择后只填入问题，确认范围后再开始分析。</p>
           </details>
-          <details
-            class="ar-details ar-assistance"
-            :open="assistOpen"
-            @toggle="assistOpen = $event.currentTarget.open"
-          >
-            <summary>
-              {{ session.runState === 'READY' ? '会话与权限说明' : '示例问题与会话说明' }}
-            </summary>
-            <div v-if="session.runState !== 'READY'" class="ar-presets">
-              <RButton
-                v-for="preset in copy.presets"
-                :key="preset"
-                kind="text"
-                :disabled="running"
-                @click="choosePreset(preset)"
-                >{{ preset }}</RButton
-              >
+          <div class="aw-session-summary">
+            <div>
+              <span>本会话完整回答</span
+              ><strong>{{ historyEntries.length }} <small>次</small></strong>
             </div>
-            <p class="ar-caption">
-              范围会写入问题文本；服务端按当前登录账户校验数据权限。两个 Agent
-              的会话独立保留，含范围最多 2000 字。
+            <p>
+              {{
+                session.completedAt
+                  ? '最近完成 · ' + session.completedAt
+                  : '分析完成后，可查看证据、历史与导出报告。'
+              }}
             </p>
-            <p class="ar-caption">同步请求最多等待 60 秒；完成后展示回答与真实执行轨迹。</p>
-            <p v-if="agentType === 'security-risk'" class="ar-caption">
-              安全 Agent 可能依据服务端策略自动限流；人工审核和现有策略管理在风险中心进行。
-            </p>
-            <div class="ar-actions">
-              <RBadge
-                :tone="
-                  health.state === 'REACHABLE'
-                    ? 'success'
-                    : health.state === 'ERROR'
-                      ? 'danger'
-                      : 'unknown'
-                "
-                >{{
-                  {
-                    REACHABLE: 'HTTP 入口可达',
-                    CHECKING: '检查入口中',
-                    ERROR: '入口检查失败',
-                    UNKNOWN: '入口状态未知'
-                  }[health.state]
-                }}</RBadge
-              ><RButton
-                kind="text"
-                :disabled="health.state === 'CHECKING' || running"
-                @click="checkHealth"
-                >检查入口</RButton
-              >
-            </div>
-            <p class="ar-caption">
-              {{ health.checkedAt ? `${health.checkedAt} 检查 · ` : '' }}入口状态只表示 HTTP
-              可达性，不表示 Graph、工具或模型分别就绪。{{ health.error }}
-            </p>
-            <p class="ar-caption">当前会话</p>
-            <code class="ar-break">{{ session.id }}</code>
-          </details>
+          </div>
         </aside>
         <section
           id="agent-output"
@@ -425,6 +525,16 @@ onBeforeUnmount(() => {
             tabindex="0"
             aria-label="当前分析内容"
           >
+            <div v-if="result && !running" class="aw-result-actions">
+              <span>{{ currentEntry?.label }}</span>
+              <div>
+                <RButton kind="secondary" :disabled="!result.answer" @click="copyAnswer()"
+                  ><RIcon name="copy" :size="16" />复制回答</RButton
+                ><RButton kind="secondary" @click="exportReport()"
+                  ><RIcon name="download" :size="16" />导出报告</RButton
+                >
+              </div>
+            </div>
             <section v-if="session.runState === 'READY'" class="ar-panel ar-empty ar-suggestions">
               <div class="ar-suggestion-intro">
                 <RRobot :role="copy.role" :size="64" />
@@ -459,12 +569,39 @@ onBeforeUnmount(() => {
               </div>
               <p class="ar-caption">也可以直接输入问题。证据不完整时，回答会保留缺口与不确定项。</p>
             </section>
+            <section v-if="session.runState === 'READY'" class="aw-data-panel">
+              <header>
+                <h2>数据核验</h2>
+                <span>{{ selectedGroup ? '按当前所选分组打开' : '进入页面后可选择分组' }}</span>
+              </header>
+              <div class="aw-data-links">
+                <button
+                  type="button"
+                  :disabled="relay.state.agentBusy"
+                  @click="openDataPage('/home/analytics')"
+                >
+                  <RIcon name="chart" :size="22" /><span
+                    ><strong>访问统计</strong><small>查看趋势与来源分布</small></span
+                  ><RIcon name="arrow-right" :size="16" />
+                </button>
+                <button
+                  type="button"
+                  :disabled="relay.state.agentBusy"
+                  @click="openDataPage('/home/risk-center')"
+                >
+                  <RIcon name="shield" :size="22" /><span
+                    ><strong>风险中心</strong><small>核查证据与现行策略</small></span
+                  ><RIcon name="arrow-right" :size="16" />
+                </button>
+              </div>
+            </section>
             <section v-else-if="running" class="ar-panel ar-empty" role="status">
               <RRobot :role="copy.role" expression="waiting" :size="96" /><RBadge tone="info"
                 >RUNNING</RBadge
               >
               <h2>正在等待完整分析结果</h2>
               <p>请求期间暂不能切换 Agent 或新建会话；工具与 Graph 轨迹将在响应完成后展示。</p>
+              <RButton kind="secondary" @click="cancelWaiting">停止等待</RButton>
             </section>
             <section
               v-else-if="session.runState === 'ERROR'"
@@ -509,18 +646,6 @@ onBeforeUnmount(() => {
                   @click="resultView = 'evidence'"
                   >查看 {{ result.pendingActions.length }} 项动作与待处理事项</RButton
                 >
-                <details v-if="session.history.length" class="ar-details">
-                  <summary>本会话历史回答（{{ session.history.length }}）</summary>
-                  <details
-                    v-for="(entry, index) in session.history"
-                    :key="index"
-                    class="ar-details"
-                  >
-                    <summary>{{ entry.completedAt }} · 第 {{ index + 1 }} 次回答</summary>
-                    <p class="ar-answer-text">{{ entry.result.answer }}</p>
-                    <pre class="ar-json">{{ pretty(entry.result) }}</pre>
-                  </details>
-                </details>
               </section>
               <section v-if="resultView === 'evidence'" class="ar-panel">
                 <h2>回答证据</h2>
@@ -675,5 +800,146 @@ onBeforeUnmount(() => {
         </section>
       </div>
     </div>
+    <RModal
+      :open="assistOpen"
+      title="会话与使用说明"
+      :description="copy.title"
+      :width="680"
+      @close="assistOpen = false"
+    >
+      <div class="aw-assistance-content">
+        <div v-if="session.runState !== 'READY'" class="ar-presets">
+          <RButton
+            v-for="preset in copy.presets"
+            :key="preset"
+            kind="text"
+            :disabled="running"
+            @click="choosePreset(preset)"
+            >{{ preset }}</RButton
+          >
+        </div>
+        <p class="ar-caption">
+          范围会写入问题文本；服务端按当前登录账户校验数据权限。两个 Agent
+          的会话独立保留，含范围最多 2000 字。
+        </p>
+        <p class="ar-caption">同步请求最多等待 60 秒；完成后展示回答与真实执行轨迹。</p>
+        <p v-if="agentType === 'security-risk'" class="ar-caption">
+          安全 Agent 可能依据服务端策略自动限流；人工审核和现有策略管理在风险中心进行。
+        </p>
+        <div class="ar-actions">
+          <RBadge
+            :tone="
+              health.state === 'REACHABLE'
+                ? 'success'
+                : health.state === 'ERROR'
+                  ? 'danger'
+                  : 'unknown'
+            "
+            >{{
+              {
+                REACHABLE: 'HTTP 入口可达',
+                CHECKING: '检查入口中',
+                ERROR: '入口检查失败',
+                UNKNOWN: '入口状态未知'
+              }[health.state]
+            }}</RBadge
+          ><RButton
+            kind="text"
+            :disabled="health.state === 'CHECKING' || running"
+            @click="checkHealth"
+            >检查入口</RButton
+          >
+        </div>
+        <p class="ar-caption">
+          {{ health.checkedAt ? `${health.checkedAt} 检查 · ` : '' }}入口状态只表示 HTTP
+          可达性，不表示 Graph、工具或模型分别就绪。{{ health.error }}
+        </p>
+        <p class="ar-caption">当前会话</p>
+        <code class="ar-break">{{ session.id }}</code>
+
+        <p class="ar-caption">
+          记录仅保留在当前页面会话中。新会话会清空当前问题与回答；刷新页面或退出登录后不保留历史。
+        </p>
+        <p class="ar-caption">“停止等待”只结束前端等待，后台可能仍在处理，不会自动重试。</p>
+      </div>
+    </RModal>
+    <RModal
+      :open="historyOpen"
+      title="历史分析"
+      :description="copy.title + ' · 仅当前会话'"
+      :width="1000"
+      drawer
+      @close="historyOpen = false"
+    >
+      <div v-if="historyEntries.length" class="aw-history-layout">
+        <nav class="aw-history-list" aria-label="选择历史分析">
+          <button
+            v-for="entry in historyEntries"
+            :key="entry.key"
+            type="button"
+            :aria-pressed="historyEntry?.key === entry.key"
+            @click="historyKey = entry.key"
+          >
+            <span>{{ entry.label }}</span
+            ><strong>{{ entry.message || '未保留问题文本' }}</strong
+            ><time>{{ entry.completedAt || '未提供完成时间' }}</time>
+          </button>
+        </nav>
+        <article v-if="historyEntry" class="aw-history-detail">
+          <header>
+            <div>
+              <h3>{{ historyEntry.label }}</h3>
+              <p>{{ historyEntry.completedAt }}</p>
+            </div>
+            <div class="aw-history-actions">
+              <RButton
+                kind="secondary"
+                :disabled="!historyEntry.result.answer"
+                @click="copyAnswer(historyEntry)"
+                >复制回答</RButton
+              ><RButton kind="secondary" @click="exportReport(historyEntry)">导出报告</RButton>
+            </div>
+          </header>
+          <p class="ar-caption">
+            {{ historyEntry.scopeLabel || '未单独记录分析范围，请核对原始问题。' }}
+          </p>
+          <p class="aw-history-question">{{ historyEntry.message || '未保留问题文本' }}</p>
+          <p class="ar-answer-text">{{ historyEntry.result.answer || '本次响应没有回答正文。' }}</p>
+          <p
+            v-for="(warning, index) in historyEntry.result.warnings"
+            :key="index"
+            class="ar-alert ar-alert-warning"
+          >
+            {{ warning }}
+          </p>
+          <details class="ar-details">
+            <summary>查看证据与执行记录</summary>
+            <pre class="ar-json">{{ pretty(historyEntry.result) }}</pre>
+          </details>
+        </article>
+      </div>
+      <div v-else class="aw-history-empty">
+        <RIcon name="clock" :size="36" />
+        <h3>当前会话还没有完整回答</h3>
+        <p>完成分析后，可以在这里复查回答与证据。</p>
+        <p class="ar-caption">记录不会跨新会话、页面刷新或退出登录保留。</p>
+        <RButton kind="secondary" @click="historyOpen = false">返回工作区</RButton>
+      </div>
+    </RModal>
+    <RModal
+      :open="Boolean(copyFallback)"
+      title="复制分析回答"
+      :width="720"
+      @close="copyFallback = ''"
+    >
+      <p class="ar-caption">浏览器未允许自动复制，可选中文本后手动复制。</p>
+      <textarea
+        class="aw-copy-fallback"
+        aria-label="待复制的分析回答"
+        :value="copyFallback"
+        readonly
+        rows="10"
+      />
+    </RModal>
   </section>
 </template>
