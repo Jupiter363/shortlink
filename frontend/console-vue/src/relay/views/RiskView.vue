@@ -1,7 +1,9 @@
 <script setup>
-import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
 import { riskApi } from '../api/agentRisk.js'
 import PageHeading from '../components/PageHeading.vue'
+import AnalyticsMethodHint from '../components/AnalyticsMethodHint.vue'
+import RiskTrendChart from '../components/RiskTrendChart.vue'
 import { absoluteShortUrl } from '../api/product.js'
 import { array, errorMessage, object, pretty, sanitize } from '../domain/agentModel.js'
 import {
@@ -18,14 +20,15 @@ import {
   riskTone
 } from '../domain/riskModel.js'
 import './agent-risk.css'
+import './risk-dashboard.css'
 
 const relay = inject('relay')
-const riskView = ref('overview')
-const riskBody = ref(null)
-watch(riskView, async () => {
-  await nextTick()
-  if (riskBody.value) riskBody.value.scrollTop = 0
-})
+const listPanel = ref('')
+const infoOpen = ref(false)
+const eventDetail = ref(null)
+const searchText = ref('')
+const levelFilter = ref('ALL')
+const eventPreview = ref({ records: [], total: null, loading: false, error: '' })
 relay.state.riskCommands ||= {}
 const groupId = ref(String(relay.state.groupId || relay.state.groups?.[0]?.id || ''))
 const groups = computed(() => relay.state.groups || [])
@@ -89,6 +92,96 @@ const dialogCommand = computed(() =>
 const loadedCommands = computed(() =>
   Object.values(relay.state.riskCommands).filter((command) => command.gid === groupId.value)
 )
+const pendingCommands = computed(() => loadedCommands.value.filter((command) => command.canQuery))
+const priorityCards = computed(() =>
+  (overview.value?.topRiskShortLinks?.length
+    ? overview.value.topRiskShortLinks
+    : cards.value
+  ).slice(0, 3)
+)
+const filteredCards = computed(() => {
+  const query = searchText.value.trim().toLocaleLowerCase()
+  return cards.value.filter(
+    (card) =>
+      (levelFilter.value === 'ALL' ||
+        (['LOW', 'MEDIUM', 'HIGH'].includes(String(card.riskLevel).toUpperCase())
+          ? String(card.riskLevel).toUpperCase()
+          : 'UNKNOWN') === levelFilter.value) &&
+      (!query ||
+        [
+          cardTitle(card),
+          card.fullShortUrl,
+          ...card.reasonCodes,
+          ...card.reasonCodes.map(riskReasonLabel)
+        ]
+          .join(' ')
+          .toLocaleLowerCase()
+          .includes(query))
+  )
+})
+const distribution = computed(() =>
+  [
+    { key: 'highRiskCount', label: '高风险', color: '#c44949' },
+    { key: 'mediumRiskCount', label: '中风险', color: '#be8426' },
+    { key: 'lowRiskCount', label: '低风险', color: '#2d8471' }
+  ].map((item) => ({ ...item, count: overview.value?.[item.key] ?? null }))
+)
+const scorePosition = computed(() => {
+  const score = overview.value?.groupRiskScore
+  return typeof score === 'number' && score >= 0 && score <= 100 ? score : null
+})
+const situationNote = computed(() => {
+  if (!overview.value || overview.value.profileStatus === 'NOT_EVALUATED')
+    return '等待画像产出后，再判断分组风险。'
+  if (overview.value.groupReasonCodes.length) return reasonSummary(overview.value.groupReasonCodes)
+  return overview.value.groupRiskLevel === 'LOW'
+    ? '低风险画像，历史事件仍可追溯。'
+    : '结合短链证据与事件记录进一步核查。'
+})
+const listPanelTitle = computed(
+  () =>
+    ({ cards: '短链风险档案', events: '短链风险事件', commands: '本次登录的策略回执' })[
+      listPanel.value
+    ] || ''
+)
+const coverageLabel = computed(() =>
+  overview.value?.currentPolicyCoverage === 'TOP_CARDS_ONLY'
+    ? '仅覆盖头部短链档案'
+    : '策略覆盖范围待核实'
+)
+
+function refreshDashboard() {
+  loadGroup()
+  loadEvents(1)
+}
+function openList(panel) {
+  listPanel.value = panel
+}
+function closeList() {
+  if (!mutationBusy.value) listPanel.value = ''
+}
+function showEvent(event) {
+  eventDetail.value = event
+}
+function clearArchiveFilters() {
+  searchText.value = ''
+  levelFilter.value = 'ALL'
+}
+const riskReasonLabel = (value) =>
+  ({
+    TRAFFIC_SPIKE: '访问量突增',
+    IP_CONCENTRATION: 'IP 访问集中',
+    HIGH_REPEAT_VISIT: '重复访问偏高',
+    PEAK_HOUR_BURST: '高峰时段突发访问',
+    DEVICE_CONCENTRATION: '设备类型集中',
+    REGION_CONCENTRATION: '访问地域集中',
+    BROWSER_CONCENTRATION: '浏览器类型集中'
+  })[value] || value
+const reasonSummary = (values) => values.map(riskReasonLabel).join(' · ')
+const watchStatusLabel = (value) =>
+  ({ WATCHING: '关注中', NONE: '未关注' })[value] || value || '未提供'
+const eventTargetLabel = (event) =>
+  event.shortUri ? `短链 · ${event.shortUri}` : displayShortUrl(event.fullShortUrl) || '短链事件'
 
 async function loadGroup() {
   groupController?.abort()
@@ -122,6 +215,8 @@ async function loadEvents(pageNo = 1) {
   const version = ++eventVersion
   const gid = groupId.value
   events.value = { records: [], total: 0, pageNo, pageSize: 10 }
+  if (pageNo === 1)
+    eventPreview.value = { records: [], total: null, loading: Boolean(gid), error: '' }
   errors.value.events = ''
   if (!gid) {
     eventsLoading.value = false
@@ -139,11 +234,23 @@ async function loadEvents(pageNo = 1) {
       pageNo: Number(response?.pageNo) || pageNo,
       pageSize: Number(response?.pageSize) || 10
     }
+    if (pageNo === 1)
+      eventPreview.value = {
+        records: events.value.records.slice(0, 3),
+        total: events.value.total,
+        loading: false,
+        error: ''
+      }
   } catch (error) {
-    if (!disposed && version === eventVersion && !controller.signal.aborted)
+    if (!disposed && version === eventVersion && !controller.signal.aborted) {
       errors.value.events = errorMessage(error)
+      if (pageNo === 1) eventPreview.value.error = errors.value.events
+    }
   } finally {
-    if (version === eventVersion) eventsLoading.value = false
+    if (version === eventVersion) {
+      eventsLoading.value = false
+      if (pageNo === 1) eventPreview.value.loading = false
+    }
   }
 }
 
@@ -342,8 +449,7 @@ async function queryCommand(command) {
 function cardTitle(card) {
   return (
     relay.state.links?.find((link) => String(link.id) === String(card.linkId))?.title ||
-    displayShortUrl(card.fullShortUrl) ||
-    card.shortUri ||
+    (card.shortUri ? `短链 · ${card.shortUri}` : displayShortUrl(card.fullShortUrl)) ||
     '短链风险档案'
   )
 }
@@ -351,6 +457,9 @@ watch(
   groupId,
   () => {
     relay.state.groupId = groupId.value
+    listPanel.value = ''
+    eventDetail.value = null
+    clearArchiveFilters()
     closeDetail()
     loadGroup()
     loadEvents(1)
@@ -372,7 +481,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="ar-view ar-risk-view operation-page" aria-labelledby="risk-heading">
+  <section class="ar-view risk-dashboard-page operation-page" aria-labelledby="risk-heading">
     <PageHeading class="ar-page-head">
       <div>
         <p class="ar-kicker">JUPITER RELAY / 风险中继台</p>
@@ -380,320 +489,481 @@ onBeforeUnmount(() => {
         <p>查看风险事实、记录人工结论，独立核验策略执行。</p>
       </div>
     </PageHeading>
-    <div class="ar-risk-controls">
-      <div class="ar-actions ar-risk-filters">
-        <RSelect
-          v-model="groupId"
-          label="分组"
-          :options="groupOptions"
-          :disabled="mutationBusy"
-        /><RButton
-          kind="secondary"
-          :disabled="loading || !groupId || mutationBusy"
-          @click="
-            () => {
-              loadGroup()
-              loadEvents(1)
-            }
-          "
-          >刷新</RButton
-        >
+    <div class="risk-context-bar">
+      <div class="risk-context-select">
+        <RSelect v-model="groupId" label="分组" :options="groupOptions" :disabled="mutationBusy" />
       </div>
-      <div v-if="groupId" class="ar-risk-switch view-switch" role="group" aria-label="风险中心视图">
-        <button
-          v-for="item in [
-            { value: 'overview', label: '概览' },
-            { value: 'cards', label: '短链档案' },
-            { value: 'events', label: '风险事件' },
-            { value: 'commands', label: '策略回执' }
-          ]"
-          :key="item.value"
-          type="button"
-          :aria-pressed="riskView === item.value"
-          @click="riskView = item.value"
+      <div class="risk-context-actions">
+        <RButton
+          kind="secondary"
+          :disabled="loading || eventsLoading || !groupId || mutationBusy"
+          @click="refreshDashboard"
+          >{{ loading || eventsLoading ? '读取中…' : '刷新' }}</RButton
         >
-          {{ item.label }}
-        </button>
+
+        <RButton kind="text" @click="infoOpen = true">数据说明</RButton>
       </div>
     </div>
     <div
-      ref="riskBody"
-      class="ar-risk-body operation-body"
+      class="risk-dashboard-body operation-body"
       role="region"
-      aria-label="风险概览与事件"
+      aria-label="风险仪表盘"
       tabindex="0"
     >
       <div v-if="!groupId" class="ar-panel ar-empty">
-        <RRobot role="guardian" :size="136" />
+        <RRobot role="guardian" :size="120" />
         <h2>先创建一个短链分组</h2>
-        <p>风险档案会在真实访问与异步统计链路产出数据后出现。</p>
+        <p>风险档案会在真实访问与异步统计产出数据后出现。</p>
         <RButton @click="relay.go('/home/space')">前往短链空间</RButton>
       </div>
       <template v-else>
-        <p
-          v-if="errors.overview && riskView === 'overview'"
-          class="ar-alert ar-alert-danger"
-          role="alert"
-        >
-          概览：{{ errors.overview }}
+        <p v-if="errors.overview" class="risk-inline-error" role="alert">
+          风险画像读取失败：{{ errors.overview }}
         </p>
-        <div v-if="loading" class="ar-panel ar-loading" role="status">
-          正在读取风险概览和短链档案…
-        </div>
-        <div v-if="overview && riskView === 'overview'" class="ar-overview-grid">
-          <section class="ar-risk-summary ar-panel">
-            <div class="ar-risk-hero">
-              <RRobot role="guardian" :size="48" />
-              <div>
-                <RBadge :tone="overviewRiskTone(overview)">{{
-                  overviewRiskLabel(overview)
-                }}</RBadge>
-                <h2>{{ groupName }}</h2>
+        <p v-if="loading" class="risk-sr-only" role="status">正在读取风险画像与短链档案…</p>
+        <section class="risk-situation" aria-label="分组风险态势" :aria-busy="loading">
+          <div
+            class="risk-status-console"
+            :data-tone="overview ? overviewRiskTone(overview) : 'unknown'"
+          >
+            <div class="risk-console-heading">
+              <RIcon name="shield" :size="18" />
+              <span>风险态势</span>
+              <AnalyticsMethodHint label="风险态势：评分口径">
+                <strong>分组风险画像</strong>
                 <p>
-                  风险分数 <strong class="ar-score">{{ metric(overview.groupRiskScore) }}</strong>
+                  评分来自服务端综合画像，不是短链平均分。0–39 分为低风险、40–69 分为中风险、70–100
+                  分为高风险。低风险不等于没有风险；未评估时不显示零分。
                 </p>
+              </AnalyticsMethodHint>
+            </div>
+            <div class="risk-console-verdict">
+              <span class="risk-status-dot" aria-hidden="true" />
+              <h2>{{ overview ? overviewRiskLabel(overview) : '等待风险画像' }}</h2>
+            </div>
+            <div class="risk-console-score">
+              <strong>{{ metric(overview?.groupRiskScore) }}</strong
+              ><span>风险分数<small>/ 100</small></span>
+            </div>
+            <div class="risk-score-ruler" aria-hidden="true">
+              <div class="risk-score-bands"><span /><span /><span /></div>
+              <i v-if="scorePosition !== null" :style="{ left: `${scorePosition}%` }" />
+              <div class="risk-score-ticks">
+                <span>0</span><span>40</span><span>70</span><span>100</span>
               </div>
             </div>
-            <div class="ar-metrics">
-              <div>
-                <span>已扫描短链</span
-                ><strong>{{ metric(overview.totalShortLinksScanned) }}</strong>
-              </div>
-              <div>
-                <span>高风险</span><strong>{{ metric(overview.highRiskCount) }}</strong>
-              </div>
-              <div>
-                <span>中风险</span><strong>{{ metric(overview.mediumRiskCount) }}</strong>
-              </div>
-              <div>
-                <span>低风险</span><strong>{{ metric(overview.lowRiskCount) }}</strong>
-              </div>
-              <div>
-                <span>正在关注</span><strong>{{ metric(overview.watchingCount) }}</strong>
-              </div>
-              <div>
-                <span>全组策略停用数</span><strong>{{ metric(overview.disabledCount) }}</strong>
-              </div>
-            </div>
-            <details class="ar-details ar-risk-context">
-              <summary>策略口径与分组审核</summary>
-              <p class="ar-caption">
-                人工审核不会自动撤销策略。自动限流、审核记录和现有策略停用是三条独立链路；UNKNOWN
-                表示待核实。
-              </p>
-              <p class="ar-caption">
-                当前策略覆盖：{{
-                  overview.currentPolicyCoverage === 'TOP_CARDS_ONLY'
-                    ? '仅头部卡片；不能推断全分组停用总数'
-                    : overview.currentPolicyCoverage
-                }}。卡片策略为观测快照，操作前请读取当前策略。
-              </p>
-              <div class="ar-actions">
-                <span v-for="reason in overview.groupReasonCodes" :key="reason" class="ar-reason">{{
-                  reason
-                }}</span
-                ><RButton
-                  kind="secondary"
-                  :disabled="mutationBusy"
-                  @click="openReview({ targetType: 'GROUP', gid: groupId })"
-                  >记录分组审核</RButton
+            <p class="risk-console-note">{{ situationNote }}</p>
+          </div>
+          <div class="risk-situation-detail">
+            <header class="risk-panel-header">
+              <div class="risk-panel-title">
+                <h2 id="risk-trend-title">近 7 天风险轨迹</h2>
+                <AnalyticsMethodHint label="风险轨迹：统计口径"
+                  ><strong>按画像日期追踪评分</strong>
+                  <p>
+                    分数是风险画像评分，不是事件数量。仅展示返回的日期；缺失日期不补零，零分在基线显示。
+                  </p></AnalyticsMethodHint
                 >
               </div>
-            </details>
-          </section>
-          <section class="ar-panel ar-risk-trend-panel">
-            <header class="ar-section-head">
-              <div>
-                <h2 class="ar-icon-heading"><RIcon name="chart" :size="24" />最近 7 天风险趋势</h2>
-                <p>使用风险画像返回的日期与分数；缺失日期不补零。</p>
-              </div>
+              <span class="risk-scan-caption"
+                >已扫描 <strong>{{ metric(overview?.totalShortLinksScanned) }}</strong> 条短链</span
+              >
             </header>
-            <div
-              v-if="overview.riskTrend7d.length"
-              class="ar-trend"
-              role="list"
-              aria-label="最近七天风险分数"
-              tabindex="0"
-            >
-              <div v-for="point in overview.riskTrend7d" :key="point.date" role="listitem">
-                <strong>{{ metric(point.score) }}</strong>
-                <div class="ar-trend-track">
-                  <span
-                    v-if="point.score !== null"
-                    :style="{ height: Math.max(2, Math.min(100, point.score)) + '%' }"
-                  ></span>
-                </div>
-                <time>{{ point.date }}</time
-                ><small>{{ riskLevel(point.level) }}</small>
+            <div class="risk-trajectory">
+              <RiskTrendChart
+                :points="overview?.riskTrend7d || []"
+                :unavailable="overview?.profileStatus === 'NOT_EVALUATED'"
+              />
+            </div>
+            <div class="risk-severity-strip" aria-label="画像中的短链风险等级数量">
+              <div
+                v-for="item in distribution"
+                :key="item.key"
+                :style="{ '--severity-color': item.color }"
+              >
+                <span><i aria-hidden="true" />{{ item.label }}</span
+                ><strong>{{ metric(item.count) }}<small> 条</small></strong>
               </div>
             </div>
-            <p v-else class="ar-muted">
-              {{
-                overview.profileStatus === 'NOT_EVALUATED'
-                  ? '尚未生成风险画像，暂无风险趋势数据。'
-                  : '暂无风险趋势数据。'
-              }}
-            </p>
-            <details v-if="overview.agentSummary" class="ar-details">
-              <summary>Agent 风险摘要</summary>
-              <p class="ar-answer-text">{{ overview.agentSummary }}</p>
-            </details>
+          </div>
+        </section>
+
+        <div class="risk-investigation-grid">
+          <section
+            class="risk-investigation-panel risk-targets-panel"
+            aria-labelledby="risk-priority-title"
+          >
+            <header class="risk-panel-header">
+              <div class="risk-panel-title">
+                <h2 id="risk-priority-title">短链核查</h2>
+                <AnalyticsMethodHint label="短链核查：列表范围"
+                  ><strong>优先核查服务端头部档案</strong>
+                  <p>
+                    按服务端顺序预览最多 3 条，可能包含低风险短链。完整档案最多返回 500
+                    条；头部档案和列表数量不能推断全组总数。风险原因属于画像，当前策略需进入详情读取。
+                  </p></AnalyticsMethodHint
+                >
+              </div>
+              <button type="button" class="risk-panel-action" @click="openList('cards')">
+                全部档案 <span aria-hidden="true">↗</span>
+              </button>
+            </header>
+            <p class="risk-panel-lead">从风险档案定位短链，进入详情核查证据与当前策略。</p>
+            <div class="risk-target-list" tabindex="0" aria-label="短链核查列表">
+              <p v-if="loading" class="risk-muted" role="status">正在读取档案…</p>
+              <p
+                v-else-if="errors.cards && !priorityCards.length"
+                class="risk-inline-error"
+                role="alert"
+              >
+                {{ errors.cards }}
+              </p>
+              <ol v-else-if="priorityCards.length" class="risk-targets">
+                <li
+                  v-for="card in priorityCards"
+                  :key="`${card.gid}:${card.domain}:${card.shortUri}`"
+                >
+                  <button
+                    type="button"
+                    class="risk-target"
+                    :disabled="mutationBusy"
+                    @click="openDetail(card)"
+                  >
+                    <span class="risk-target-score" :data-tone="riskTone(card.riskLevel)"
+                      ><strong>{{ metric(card.riskScore) }}</strong
+                      ><small>{{ riskLevel(card.riskLevel) }}</small></span
+                    >
+                    <span class="risk-target-body"
+                      ><strong class="risk-target-name">{{ cardTitle(card) }}</strong>
+                      <span class="risk-target-facts"
+                        >2 小时 PV {{ metric(card.pv2h) }} <span>·</span> UV {{ metric(card.uv2h) }}
+                        <span>·</span> {{ watchStatusLabel(card.watchStatus) }}</span
+                      >
+                      <span class="risk-target-reason">{{
+                        reasonSummary(card.reasonCodes) || '暂未提供风险原因'
+                      }}</span>
+                    </span>
+                    <span class="risk-target-open">核查<span aria-hidden="true">↗</span></span>
+                  </button>
+                </li>
+              </ol>
+              <div v-else class="risk-panel-empty">
+                <RIcon name="shield" :size="28" /><strong>尚无可核查的档案</strong
+                ><span>等待风险画像产出</span>
+              </div>
+            </div>
+            <footer class="risk-targets-footer">
+              <span
+                >画像平均分 <strong>{{ metric(overview?.avgRiskScore) }}</strong></span
+              ><span
+                >最高分 <strong>{{ metric(overview?.maxRiskScore) }}</strong></span
+              ><span>头部档案预览</span>
+            </footer>
+          </section>
+
+          <section
+            class="risk-investigation-panel risk-timeline-panel"
+            aria-labelledby="risk-events-title"
+          >
+            <header class="risk-panel-header">
+              <div class="risk-panel-title">
+                <h2 id="risk-events-title">事件时间线</h2>
+                <AnalyticsMethodHint label="事件时间线：查询范围"
+                  ><strong>短链事件的历史证据</strong>
+                  <p>
+                    预览当前分组最近的短链风险事件，不包含分组事件。这里的评分、风险原因及建议均反映事件发生时的状态，不等于当前画像或当前生效策略。
+                  </p></AnalyticsMethodHint
+                >
+              </div>
+              <button type="button" class="risk-panel-action" @click="openList('events')">
+                全部事件 <span aria-hidden="true">↗</span>
+              </button>
+            </header>
+            <p class="risk-panel-lead">保留发生时的风险信号，逐条追溯证据。</p>
+            <div class="risk-timeline-scroll" tabindex="0" aria-label="近期短链事件时间线">
+              <p v-if="eventPreview.loading" class="risk-muted" role="status">正在读取事件…</p>
+              <p v-else-if="eventPreview.error" class="risk-inline-error" role="alert">
+                {{ eventPreview.error }}
+              </p>
+              <ol v-else-if="eventPreview.records.length" class="risk-timeline">
+                <li
+                  v-for="event in eventPreview.records"
+                  :key="event.eventId"
+                  :data-tone="riskTone(event.riskLevel)"
+                >
+                  <button type="button" class="risk-timeline-event" @click="showEvent(event)">
+                    <span class="risk-timeline-top"
+                      ><time>{{ formatTime(event.eventTime) }}</time
+                      ><span class="risk-event-level"
+                        >{{ riskLevel(event.riskLevel) }} · {{ metric(event.riskScore) }}</span
+                      ></span
+                    >
+                    <strong>{{ reasonSummary(event.reasonCodes) || '风险事件' }}</strong>
+                    <span class="risk-event-target"
+                      >{{ eventTargetLabel(event) }}<span aria-hidden="true">↗</span></span
+                    >
+                  </button>
+                </li>
+              </ol>
+              <div v-else class="risk-panel-empty">
+                <RIcon name="shield" :size="28" /><strong>暂无短链风险事件</strong
+                ><span>当前查询未返回事件记录</span>
+              </div>
+            </div>
           </section>
         </div>
-        <section v-if="riskView === 'cards'" class="ar-panel">
-          <header class="ar-section-head">
-            <div>
-              <h2>短链风险档案</h2>
-              <p>按服务端风险顺序返回，最多 500 条；无档案不表示没有风险。</p>
+
+        <section class="risk-action-rail" aria-label="人工研判与执行核验">
+          <div class="risk-action-station">
+            <span class="risk-station-icon"><RIcon name="shield" :size="20" /></span>
+            <div class="risk-station-body">
+              <h2>深入研判</h2>
+              <p>结合访问证据分析异常原因</p>
+              <button
+                type="button"
+                class="risk-panel-action"
+                @click="relay.go('/home/agent/security-risk')"
+              >
+                打开风控 Agent <span aria-hidden="true">↗</span>
+              </button>
             </div>
-            <RBadge tone="info">{{ cards.length }} 条已返回</RBadge>
-          </header>
-          <p v-if="errors.cards" class="ar-alert ar-alert-danger" role="alert">
-            {{ errors.cards }}
-          </p>
-          <div v-else-if="!loading && !cards.length" class="ar-empty ar-empty-compact">
-            <RIcon name="shield" :size="44" />
-            <h3>
-              {{
-                overview?.profileStatus === 'NOT_EVALUATED' ? '尚未生成风险画像' : '还没有风险档案'
-              }}
-            </h3>
-            <p>等待真实访问与风险画像产出，或前往安全 Agent 发起分析。</p>
-            <RButton kind="secondary" @click="relay.go('/home/agent/security-risk')"
-              >打开安全风控 Agent</RButton
-            >
           </div>
-          <div class="ar-risk-grid">
-            <article
-              v-for="card in cards"
-              :key="`${card.gid}:${card.domain}:${card.shortUri}`"
-              class="ar-risk-card"
-            >
-              <header>
-                <h3>{{ cardTitle(card) }}</h3>
-                <RBadge :tone="riskTone(card.riskLevel)"
-                  >{{ riskLevel(card.riskLevel) }} · {{ metric(card.riskScore) }}</RBadge
-                >
-              </header>
-              <p class="ar-break">{{ displayShortUrl(card.fullShortUrl) }}</p>
-              <div class="ar-card-metrics">
-                <span
-                  >2 小时 PV <b>{{ metric(card.pv2h) }}</b></span
-                ><span
-                  >2 小时 UV <b>{{ metric(card.uv2h) }}</b></span
-                ><span
-                  >7 天 PV <b>{{ metric(card.pv7d) }}</b></span
-                ><span
-                  >7 天 UV <b>{{ metric(card.uv7d) }}</b></span
+          <div class="risk-action-station">
+            <span class="risk-station-icon"><RIcon name="pencil" :size="20" /></span>
+            <div class="risk-station-body">
+              <div class="risk-station-heading">
+                <h2>人工审核</h2>
+                <AnalyticsMethodHint label="人工审核：统计口径"
+                  ><strong>人工结论独立于策略</strong>
+                  <p>
+                    人工关注数量来自审核状态，不是待处置数量。记录关注、确认风险或标记误报只保存人工判断，不自动变更跳转策略。
+                  </p></AnalyticsMethodHint
                 >
               </div>
               <p>
-                <RBadge tone="unknown">关注：{{ card.watchStatus || '未提供' }}</RBadge>
+                关注中 <strong>{{ metric(overview?.watchingCount) }}</strong> 条 · 审核仅记录判断
               </p>
-              <details class="ar-details">
-                <summary>原因与画像信息</summary>
-                <div class="ar-reasons">
-                  <span v-for="reason in card.reasonCodes" :key="reason" class="ar-reason">{{
-                    reason
-                  }}</span
-                  ><span v-if="!card.reasonCodes.length" class="ar-muted">未提供原因码</span>
-                </div>
-                <p class="ar-caption">画像窗口：{{ formatTime(card.profileWindowEnd) }}</p>
-                <p class="ar-caption">
-                  历史动作：{{ card.latestPolicyActions.join(' · ') || '未提供' }}
-                </p>
-              </details>
-              <details class="ar-details">
-                <summary>数据完整度</summary>
-                <pre class="ar-json">{{ pretty(card.statsMeta) }}</pre>
-              </details>
-              <RButton kind="secondary" :disabled="mutationBusy" @click="openDetail(card)"
-                >查看证据与当前策略</RButton
+              <button
+                type="button"
+                class="risk-panel-action"
+                :disabled="!groupId || mutationBusy"
+                @click="openReview({ targetType: 'GROUP', gid: groupId })"
+              >
+                记录分组审核 <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </div>
+          <div class="risk-action-station">
+            <span class="risk-station-icon"><RIcon name="database" :size="20" /></span>
+            <div class="risk-station-body">
+              <div class="risk-station-heading">
+                <h2>执行核验</h2>
+                <AnalyticsMethodHint label="执行核验：统计范围"
+                  ><strong>本次登录保留的策略命令</strong>
+                  <p>
+                    结果待核实
+                    {{ pendingCommands.length }}
+                    条。提交不等于节点已同步；结果未知时只查询原命令。全组策略停用数：{{
+                      metric(overview?.disabledCount)
+                    }}。{{ coverageLabel }}，不能回算全组停用数。
+                  </p></AnalyticsMethodHint
+                >
+              </div>
+              <p>
+                本次登录 <strong>{{ loadedCommands.length }}</strong> 条命令<span
+                  v-if="pendingCommands.length"
+                >
+                  · {{ pendingCommands.length }} 条待核实</span
+                >
+              </p>
+              <button type="button" class="risk-panel-action" @click="openList('commands')">
+                查看策略回执 <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </template>
+    </div>
+
+    <RModal
+      :open="infoOpen"
+      title="风险数据说明"
+      :description="groupName"
+      :width="620"
+      @close="infoOpen = false"
+    >
+      <div class="ar-form-stack">
+        <section>
+          <h3>风险画像与覆盖范围</h3>
+          <p>
+            风险分数、高中低数量、均分及最高分来自当前分组画像。未评估或未返回时展示未知；短链档案与事件接口独立读取，某一项失败不代表其他数据为空。
+          </p>
+          <p class="risk-section-note">
+            当前策略覆盖：{{ coverageLabel }}。头部档案不能用于回算全组停用总数。
+          </p>
+        </section>
+        <section>
+          <h3>审核、策略与回执</h3>
+          <p>
+            人工审核只记录判断。历史事件建议和画像动作不等于当前策略；停用前仍需读取现行策略。命令提交与节点传播分开核验，结果未知时只查询原命令。
+          </p>
+        </section>
+        <section v-if="overview?.groupReasonCodes.length">
+          <h3>分组风险原因</h3>
+          <div class="ar-reasons">
+            <span v-for="reason in overview.groupReasonCodes" :key="reason" class="ar-reason">{{
+              reason
+            }}</span>
+          </div>
+        </section>
+        <section v-if="overview?.agentSummary">
+          <h3>Agent 风险摘要</h3>
+          <p class="ar-answer-text">{{ overview.agentSummary }}</p>
+        </section>
+      </div>
+    </RModal>
+    <RModal
+      :open="Boolean(listPanel)"
+      :title="listPanelTitle"
+      :description="groupName"
+      :width="1080"
+      drawer
+      @close="closeList"
+    >
+      <template v-if="listPanel === 'cards'">
+        <div class="risk-list-tools">
+          <label class="risk-search"
+            ><span class="risk-sr-only">搜索风险档案</span
+            ><input
+              v-model="searchText"
+              type="search"
+              placeholder="搜索短链或风险原因"
+              aria-label="搜索风险档案" /></label
+          ><RSelect
+            v-model="levelFilter"
+            label="风险等级"
+            :options="[
+              { value: 'ALL', label: '全部等级' },
+              { value: 'HIGH', label: '高风险' },
+              { value: 'MEDIUM', label: '中风险' },
+              { value: 'LOW', label: '低风险' },
+              { value: 'UNKNOWN', label: '风险未知' }
+            ]"
+          /><span v-if="!loading && !errors.cards" class="risk-muted"
+            >{{ filteredCards.length }} / {{ cards.length }} 条已返回</span
+          >
+        </div>
+        <p class="risk-section-note">
+          按服务端风险顺序排列，最多返回 500 条；无档案不代表没有风险。
+        </p>
+        <p v-if="loading" role="status">正在读取短链档案…</p>
+        <p v-else-if="errors.cards" class="risk-inline-error" role="alert">{{ errors.cards }}</p>
+        <template v-else-if="filteredCards.length">
+          <table class="risk-archive-table">
+            <thead>
+              <tr>
+                <th>短链 / 风险原因</th>
+                <th>风险等级</th>
+                <th>2 小时 PV / UV</th>
+                <th>7 天 PV / UV</th>
+                <th>关注状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="card in filteredCards"
+                :key="`${card.gid}:${card.domain}:${card.shortUri}`"
+              >
+                <td>
+                  <strong>{{ cardTitle(card) }}</strong
+                  ><small>{{ displayShortUrl(card.fullShortUrl) }}</small
+                  ><small>{{ reasonSummary(card.reasonCodes) || '未提供风险原因' }}</small>
+                </td>
+                <td>
+                  <RBadge :tone="riskTone(card.riskLevel)"
+                    >{{ riskLevel(card.riskLevel) }} · {{ metric(card.riskScore) }}</RBadge
+                  >
+                </td>
+                <td>{{ metric(card.pv2h) }} / {{ metric(card.uv2h) }}</td>
+                <td>{{ metric(card.pv7d) }} / {{ metric(card.uv7d) }}</td>
+                <td>{{ watchStatusLabel(card.watchStatus) }}</td>
+                <td>
+                  <RButton kind="text" :disabled="mutationBusy" @click="openDetail(card)"
+                    >查看证据与策略</RButton
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="risk-archive-cards">
+            <article
+              v-for="card in filteredCards"
+              :key="`${card.gid}:${card.domain}:${card.shortUri}`"
+            >
+              <header class="risk-preview-heading">
+                <strong>{{ cardTitle(card) }}</strong
+                ><RBadge :tone="riskTone(card.riskLevel)"
+                  >{{ riskLevel(card.riskLevel) }} · {{ metric(card.riskScore) }}</RBadge
+                >
+              </header>
+              <p class="ar-break risk-section-note">{{ displayShortUrl(card.fullShortUrl) }}</p>
+              <p class="risk-section-note">
+                2 小时 PV {{ metric(card.pv2h) }} / UV {{ metric(card.uv2h) }}
+              </p>
+              <p class="risk-section-note">
+                7 天 PV {{ metric(card.pv7d) }} / UV {{ metric(card.uv7d) }}
+              </p>
+              <p class="risk-section-note">关注：{{ watchStatusLabel(card.watchStatus) }}</p>
+              <p class="risk-section-note">
+                {{ reasonSummary(card.reasonCodes) || '未提供风险原因' }}
+              </p>
+              <RButton kind="text" :disabled="mutationBusy" @click="openDetail(card)"
+                >查看证据与策略</RButton
               >
             </article>
           </div>
-        </section>
-        <section v-if="riskView === 'commands'" class="ar-panel">
-          <h2>本次登录的策略命令</h2>
-          <p class="ar-caption">保留原 commandId；等待超时后只查询原命令，不重复发送停用动作。</p>
-          <p v-if="!loadedCommands.length" class="ar-muted">
-            本次登录尚未提交策略命令。策略回执会在操作后保留在这里。
-          </p>
-          <article v-for="command in loadedCommands" :key="command.commandId" class="ar-command">
-            <div>
-              <RBadge :tone="command.tone">{{ command.label }}</RBadge>
-              <p class="ar-break">{{ command.commandId }}</p>
-              <small>传播：{{ command.propagation }} · 策略 {{ command.policyId }}</small>
-              <p v-if="command.error" class="ar-text-danger">{{ command.error }}</p>
-            </div>
-            <RButton
-              v-if="command.canQuery"
-              kind="secondary"
-              :loading="command.querying"
-              @click="queryCommand(command)"
-              >查询原命令</RButton
-            >
-          </article>
-        </section>
-        <section v-if="riskView === 'events'" class="ar-panel">
-          <header class="ar-section-head">
-            <div>
-              <h2>风险事件</h2>
-              <p>事件证据与当时的建议，不等同于当前策略。</p>
-            </div>
-          </header>
-          <p v-if="errors.events" class="ar-alert ar-alert-danger" role="alert">
-            {{ errors.events }}
-          </p>
-          <p v-if="eventsLoading" role="status">正在读取风险事件…</p>
-          <div
-            v-else
-            class="ar-table-scroll"
-            role="region"
-            aria-label="风险事件表格，可横向滚动"
-            tabindex="0"
+        </template>
+        <div v-else class="risk-panel-empty">
+          <strong>{{ cards.length ? '没有符合条件的档案' : '尚无可展示的风险档案' }}</strong
+          ><RButton v-if="cards.length" kind="text" @click="clearArchiveFilters">清除筛选</RButton
+          ><RButton v-else kind="text" @click="relay.go('/home/agent/security-risk')"
+            >打开安全风控 Agent</RButton
           >
-            <table>
-              <thead>
-                <tr>
-                  <th>时间 / 目标</th>
-                  <th>风险</th>
-                  <th>原因与证据</th>
-                  <th>人工审核</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="event in events.records" :key="event.eventId">
-                  <td>
-                    {{ formatTime(event.eventTime)
-                    }}<small>{{ displayShortUrl(event.fullShortUrl) || '分组事件' }}</small>
-                  </td>
-                  <td>
-                    <RBadge :tone="riskTone(event.riskLevel)"
-                      >{{ riskLevel(event.riskLevel) }} · {{ metric(event.riskScore) }}</RBadge
-                    >
-                  </td>
-                  <td>
-                    <span v-for="reason in event.reasonCodes" :key="reason" class="ar-reason">{{
-                      reason
-                    }}</span>
-                    <details class="ar-details">
-                      <summary>脱敏事件证据</summary>
-                      <pre class="ar-json">{{ pretty(event) }}</pre>
-                    </details>
-                  </td>
-                  <td>
-                    <RButton kind="text" :disabled="mutationBusy" @click="openReview(event)"
-                      >记录审核</RButton
-                    >
-                  </td>
-                </tr>
-                <tr v-if="!events.records.length && !errors.events">
-                  <td colspan="4">暂无风险事件。</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        </div>
+      </template>
+      <template v-else-if="listPanel === 'events'">
+        <p class="risk-section-note">
+          仅包含当前分组的短链事件。证据与建议反映事件发生时的情况，不等于当前策略。
+        </p>
+        <p v-if="errors.events" class="risk-inline-error" role="alert">{{ errors.events }}</p>
+        <p v-else-if="eventsLoading" role="status">正在读取风险事件…</p>
+        <template v-else
+          ><ol class="risk-event-list">
+            <li v-for="event in events.records" :key="event.eventId">
+              <header class="risk-preview-heading">
+                <strong class="ar-break">{{
+                  displayShortUrl(event.fullShortUrl) || '短链事件'
+                }}</strong
+                ><RBadge :tone="riskTone(event.riskLevel)"
+                  >{{ riskLevel(event.riskLevel) }} · {{ metric(event.riskScore) }}</RBadge
+                >
+              </header>
+              <time class="risk-preview-time">{{ formatTime(event.eventTime) }}</time>
+              <div class="ar-reasons">
+                <span v-for="reason in event.reasonCodes" :key="reason" class="ar-reason">{{
+                  reason
+                }}</span>
+              </div>
+              <div class="ar-actions">
+                <RButton kind="text" @click="showEvent(event)">查看事件证据</RButton
+                ><RButton kind="text" :disabled="mutationBusy" @click="openReview(event)"
+                  >记录审核</RButton
+                >
+              </div>
+            </li>
+          </ol>
+          <p v-if="!events.records.length" class="risk-muted">暂无短链风险事件。</p>
           <div class="ar-pagination">
             <span>共 {{ metric(events.total) }} 条 · 第 {{ events.pageNo }} 页</span
             ><RButton
@@ -707,10 +977,86 @@ onBeforeUnmount(() => {
               @click="loadEvents(events.pageNo + 1)"
               >下一页</RButton
             >
-          </div>
-        </section>
+          </div></template
+        >
+        <RButton v-if="errors.events" kind="text" @click="loadEvents(events.pageNo)"
+          >重试事件查询</RButton
+        >
       </template>
-    </div>
+      <template v-else-if="listPanel === 'commands'">
+        <p class="risk-section-note">
+          仅展示本次登录保留的策略命令。等待超时后只查询原命令，不重复发送停用动作。
+        </p>
+        <div v-if="!loadedCommands.length" class="risk-panel-empty">
+          <strong>本次登录尚未提交策略命令</strong><span>策略回执会在操作后保留在这里。</span>
+        </div>
+        <article v-for="command in loadedCommands" :key="command.commandId" class="ar-command">
+          <div>
+            <RBadge :tone="command.tone">{{ command.label }}</RBadge>
+            <p class="ar-break">{{ command.commandId }}</p>
+            <small>传播：{{ command.propagation }} · 策略 {{ command.policyId }}</small>
+            <p v-if="command.error" class="ar-text-danger">{{ command.error }}</p>
+          </div>
+          <RButton
+            v-if="command.canQuery"
+            kind="secondary"
+            :loading="command.querying"
+            @click="queryCommand(command)"
+            >查询原命令</RButton
+          >
+        </article>
+      </template>
+    </RModal>
+    <RModal
+      :open="Boolean(eventDetail)"
+      title="短链风险事件证据"
+      :width="760"
+      drawer
+      @close="eventDetail = null"
+    >
+      <template v-if="eventDetail"
+        ><p class="risk-section-note">这是事件发生时的证据与建议，不代表当前生效策略。</p>
+        <header class="risk-preview-heading">
+          <strong class="ar-break">{{
+            displayShortUrl(eventDetail.fullShortUrl) || '短链事件'
+          }}</strong
+          ><RBadge :tone="riskTone(eventDetail.riskLevel)"
+            >{{ riskLevel(eventDetail.riskLevel) }} · {{ metric(eventDetail.riskScore) }}</RBadge
+          >
+        </header>
+        <p class="risk-section-note">{{ formatTime(eventDetail.eventTime) }}</p>
+        <div class="ar-reasons">
+          <span v-for="reason in eventDetail.reasonCodes" :key="reason" class="ar-reason">{{
+            riskReasonLabel(reason)
+          }}</span>
+        </div>
+        <dl class="risk-event-evidence">
+          <div
+            v-for="item in [
+              { field: 'pv2h', label: '2 小时访问 PV' },
+              { field: 'uv2h', label: '2 小时访客 UV' },
+              { field: 'pv24h', label: '24 小时访问 PV' },
+              { field: 'pv7d', label: '7 天访问 PV' }
+            ]"
+            :key="item.field"
+          >
+            <dt>{{ item.label }}</dt>
+            <dd>{{ metric(eventDetail.evidence?.[item.field]) }}</dd>
+          </div>
+        </dl>
+        <details v-if="eventDetail.agentSummary" class="ar-details">
+          <summary>查看当时的风险分析</summary>
+          <p class="ar-answer-text">{{ eventDetail.agentSummary }}</p>
+        </details>
+        <details class="ar-details">
+          <summary>原始事件与数据口径</summary>
+          <pre class="ar-json">{{ pretty(eventDetail) }}</pre>
+        </details>
+        <RButton kind="secondary" :disabled="mutationBusy" @click="openReview(eventDetail)"
+          >记录审核</RButton
+        ></template
+      >
+    </RModal>
     <RModal :open="detailOpen" title="风险证据与当前策略" drawer @close="closeDetail">
       <div class="ar-detail">
         <h2>{{ selected && cardTitle(selected) }}</h2>
