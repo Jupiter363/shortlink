@@ -3,15 +3,12 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { analyticsApi } from '../api/analytics.js'
 import { absoluteShortUrl } from '../api/product.js'
 import PageHeading from '../components/PageHeading.vue'
+import AnalyticsDimensionPanel from '../components/AnalyticsDimensionPanel.vue'
 import {
-  ANALYTICS_DIMENSIONS,
   AnalyticsContractError,
   classifyAnalyticsError,
   defaultShanghaiDateRange,
-  dimensionView,
   formatCount,
-  formatRatio,
-  formatShanghaiDate,
   formatShanghaiTime,
   resolveAnalyticsScope,
   validateAccessContinuation,
@@ -36,17 +33,50 @@ const endDate = ref(defaultRange.endDate)
 const today = defaultRange.endDate
 const metricKey = ref('pv')
 const viewMode = ref('chart')
-const dimensionKey = ref('country')
-const dimensionOptions = ANALYTICS_DIMENSIONS.map((dimension) => ({
-  value: dimension.key,
-  label: dimension.label
-}))
-const sectionKey = ref('overview')
-const sections = [
-  { key: 'overview', label: '概览' },
-  { key: 'dimensions', label: '访问维度' }
+const dashboardGroups = [
+  {
+    title: '访问时段',
+    className: 'analytics-time-panel',
+    dimensions: [
+      { key: 'hour', label: '24 小时' },
+      { key: 'weekday', label: '星期' }
+    ]
+  },
+  {
+    title: '访客构成',
+    className: 'analytics-visitors-panel',
+    dimensions: [
+      { key: 'newvisitor', label: '新老访客' },
+      { key: 'ip', label: '高频 IP' }
+    ]
+  },
+  {
+    title: '设备环境',
+    className: 'analytics-devices-panel',
+    dimensions: [
+      { key: 'device', label: '设备' },
+      { key: 'os', label: '操作系统' },
+      { key: 'browser', label: '浏览器' }
+    ]
+  },
+  {
+    title: '地域与网络',
+    className: 'analytics-location-panel',
+    dimensions: [
+      { key: 'country', label: '国家' },
+      { key: 'province', label: '省份' },
+      { key: 'isp', label: '运营商 / ISP' }
+    ]
+  }
+]
+const metricCards = [
+  { key: 'pv', label: '访问次数', abbreviation: 'PV' },
+  { key: 'uv', label: '独立访客', abbreviation: 'UV' },
+  { key: 'uip', label: '独立 IP', abbreviation: 'UIP' },
+  { key: 'denied', label: '拒绝访问', abbreviation: '' }
 ]
 const filtersOpen = ref(false)
+const qualityOpen = ref(false)
 const chartElement = ref(null)
 const chartWidth = ref(760)
 const chartHeight = ref(238)
@@ -110,9 +140,6 @@ const dirty = computed(
   () => Boolean(appliedContext.value) && inputSignature.value !== appliedContext.value.signature
 )
 const currentPage = computed(() => recordPages.value[recordIndex.value] || null)
-const currentDimension = computed(() =>
-  metricsModel.value ? dimensionView(metricsModel.value, dimensionKey.value) : null
-)
 const trend = computed(() => metricsModel.value?.summary.daily || [])
 const selectedMetricLabel = computed(() => ({ pv: 'PV', uv: 'UV', uip: 'UIP' })[metricKey.value])
 const hasQualityWarning = computed(() =>
@@ -123,20 +150,6 @@ const hasQualityWarning = computed(() =>
       metricsModel.value.meta.collectionQuality?.status !== 'NORMAL')
   )
 )
-
-function navigateSection(event) {
-  const index = sections.findIndex((section) => section.key === sectionKey.value)
-  const target = {
-    ArrowRight: (index + 1) % sections.length,
-    ArrowLeft: (index + sections.length - 1) % sections.length,
-    Home: 0,
-    End: sections.length - 1
-  }[event.key]
-  if (target === undefined) return
-  event.preventDefault()
-  sectionKey.value = sections[target].key
-  event.currentTarget.querySelectorAll('[role="tab"]')[target]?.focus()
-}
 
 watch(chartElement, (element) => {
   chartObserver?.disconnect()
@@ -151,40 +164,47 @@ watch(chartElement, (element) => {
   chartObserver.observe(element)
 })
 
+const axisFormatter = new Intl.NumberFormat('zh-CN', {
+  notation: 'compact',
+  maximumFractionDigits: 1
+})
 const chartModel = computed(() => {
   const rows = trend.value
-  if (!rows.length) return { points: '', dots: [], max: 0, desc: '后端没有返回按日趋势。' }
-  const values = rows.map((row) => row[metricKey.value])
-  const max = Math.max(...values, 0)
-  const scale = max || 1
-  const plotWidth = chartWidth.value - 64
+  if (!rows.length)
+    return { points: '', area: '', dots: [], ticks: [], desc: '没有可展示的按日趋势。' }
+  const max = Math.max(...rows.map((row) => row[metricKey.value]), 0)
+  const ceiling = Math.max(4, Math.ceil(max / 4) * 4)
+  const left = Math.max(38, axisFormatter.format(ceiling).length * 8 + 14),
+    right = chartWidth.value - 22
+  const top = 22,
+    bottom = chartHeight.value - 30
+  const plotWidth = Math.max(1, right - left)
   const labelStep = Math.max(
     1,
-    Math.ceil((rows.length - 1) / Math.max(1, Math.floor(plotWidth / 72)))
+    Math.ceil((rows.length - 1) / Math.max(1, Math.floor(plotWidth / 62)))
   )
-  const dots = rows.map((row, index) => {
-    const x =
-      rows.length === 1 ? chartWidth.value / 2 : 32 + index * (plotWidth / (rows.length - 1))
-    const y = chartHeight.value - 38 - (row[metricKey.value] / scale) * (chartHeight.value - 66)
-    const labelled =
+  const dots = rows.map((row, index) => ({
+    x: rows.length === 1 ? (left + right) / 2 : left + (index * plotWidth) / (rows.length - 1),
+    y: bottom - (row[metricKey.value] / ceiling) * (bottom - top),
+    value: row[metricKey.value],
+    date: row.date,
+    labelled:
       index === 0 ||
       index === rows.length - 1 ||
       (index % labelStep === 0 && index < rows.length - 1 - labelStep / 2)
-    return { x, y, value: row[metricKey.value], date: row.date, labelled }
-  })
+  }))
   return {
+    left,
     points: dots.map((point) => `${point.x},${point.y}`).join(' '),
+    area: `${dots[0].x},${bottom} ${dots.map((point) => `${point.x},${point.y}`).join(' ')} ${dots.at(-1).x},${bottom}`,
     dots,
-    max,
-    desc: `${rows[0].date} 至 ${rows.at(-1).date} 的 ${selectedMetricLabel.value} 趋势，最大值 ${max}。`
+    ticks: Array.from({ length: 5 }, (_, index) => ({
+      value: (ceiling * (4 - index)) / 4,
+      y: top + (index * (bottom - top)) / 4
+    })),
+    desc: `${rows[0].date} 至 ${rows.at(-1).date} 的 ${selectedMetricLabel.value} 趋势，最高 ${max}。`
   }
 })
-
-function qualityTone(status) {
-  if (['AVAILABLE', 'COMPLETE', 'NORMAL'].includes(status)) return 'success'
-  if (['PARTIAL', 'DEGRADED'].includes(status)) return 'warning'
-  return 'unknown'
-}
 
 function qualityLabel(status) {
   return (
@@ -227,6 +247,16 @@ function inputContext() {
     signature: inputSignature.value,
     label: scope.label
   }
+}
+
+function closeFilters() {
+  if (appliedContext.value) {
+    scopeType.value = appliedContext.value.scope.type
+    scopeId.value = appliedContext.value.scope.id
+    startDate.value = appliedContext.value.range.startDate
+    endDate.value = appliedContext.value.range.endDate
+  }
+  filtersOpen.value = false
 }
 
 function rememberScope(scope) {
@@ -282,11 +312,6 @@ async function loadMetrics() {
     metricsError.value = presentation
     metricsStatus.value = 'error'
   }
-}
-
-function rowWidth(row) {
-  const max = Math.max(...(currentDimension.value?.rows || []).map((item) => item.count), 0)
-  return max ? `${Math.max(2, (row.count / max) * 100)}%` : '0%'
 }
 
 function openRecords() {
@@ -424,94 +449,58 @@ onBeforeUnmount(() => {
     <PageHeading class="analytics-heading">
       <div>
         <h1 id="analytics-heading">访问统计</h1>
-        <p>从后端统计快照读取真实趋势、维度质量与脱敏访问记录。</p>
+        <p>查看访问趋势、访客构成与访问环境。</p>
       </div>
-      <RButton
-        kind="secondary"
-        :disabled="!appliedContext || dirty || metricsStatus === 'loading'"
-        @click="openRecords"
-      >
-        <RIcon name="database" :size="20" />访问记录
-      </RButton>
     </PageHeading>
 
     <div class="analytics-body operation-body" role="region" aria-label="访问统计内容" tabindex="0">
-      <details
-        class="analytics-filter-panel"
-        :open="filtersOpen"
-        @toggle="filtersOpen = $event.target.open"
-      >
-        <summary>
-          <span class="analytics-filter-label"><RIcon name="gear" :size="18" />统计筛选</span>
-          <span class="analytics-filter-summary">
+      <div class="analytics-context-bar" aria-label="当前统计范围">
+        <div class="analytics-context-scope">
+          <RIcon :name="appliedContext?.scope.type === 'link' ? 'link' : 'folder'" :size="18" />
+          <strong :title="appliedContext?.label">{{
+            appliedContext?.label || '选择统计范围'
+          }}</strong>
+          <span class="analytics-context-dates">
             <template v-if="appliedContext"
-              >{{ appliedContext.label }} · {{ appliedContext.range.startDate }} —
-              {{ appliedContext.range.endDate }}</template
+              >{{ appliedContext.range.startDate }} 至 {{ appliedContext.range.endDate }}</template
             >
-            <template v-else>选择统计范围与日期</template>
+            <template v-else>请选择日期</template>
           </span>
-          <span v-if="dirty" class="analytics-filter-pending">未应用</span>
-          <span class="analytics-filter-action">{{ filtersOpen ? '收起' : '修改范围' }}</span>
-          <span class="analytics-filter-chevron" aria-hidden="true" />
-        </summary>
-        <section class="analytics-filter" aria-label="统计筛选条件">
-          <div class="analytics-scope-tabs" role="group" aria-label="统计范围类型">
-            <button
-              :class="{ active: scopeType === 'group' }"
-              :aria-pressed="scopeType === 'group'"
-              type="button"
-              @click="scopeType = 'group'"
-            >
-              分组
-            </button>
-            <button
-              :class="{ active: scopeType === 'link' }"
-              :aria-pressed="scopeType === 'link'"
-              type="button"
-              @click="scopeType = 'link'"
-            >
-              单条短链
-            </button>
-          </div>
-          <div class="analytics-filter-scope">
-            <RSelect
-              v-model="scopeId"
-              label="授权范围"
-              :options="scopeOptions"
-              :placeholder="scopeOptions.length ? '选择范围' : '暂无可用范围'"
-              :disabled="!scopeOptions.length || metricsStatus === 'loading'"
-              :hint="scopeHint"
-            />
-          </div>
-          <RDateTime
-            v-model="startDate"
-            type="date"
-            label="开始日期"
-            :max="today"
-            :disabled="metricsStatus === 'loading'"
-          />
-          <RDateTime
-            v-model="endDate"
-            type="date"
-            label="结束日期"
-            :max="today"
-            :disabled="metricsStatus === 'loading'"
-            :error="rangeCheck.ok ? '' : rangeCheck.message"
-          />
+        </div>
+        <div class="analytics-context-actions">
           <RButton
-            class="analytics-filter-submit"
-            :loading="metricsStatus === 'loading'"
-            loading-text="读取快照"
-            :disabled="!scopeId || !rangeCheck.ok"
-            @click="loadMetrics"
-            >应用范围</RButton
+            kind="secondary"
+            class="analytics-context-button"
+            :disabled="!appliedContext || dirty || metricsStatus === 'loading'"
+            @click="openRecords"
           >
-        </section>
-      </details>
-
-      <p v-if="dirty" class="analytics-alert analytics-alert--warning" role="status">
-        筛选条件已修改；下方仍显示上一次已应用范围，点击“应用范围”后更新。
-      </p>
+            <RIcon name="database" :size="16" />访问记录
+          </RButton>
+          <RButton
+            kind="secondary"
+            class="analytics-context-button"
+            aria-haspopup="dialog"
+            :disabled="metricsStatus === 'loading'"
+            @click="filtersOpen = true"
+          >
+            <RIcon name="gear" :size="16" />筛选
+          </RButton>
+          <RButton
+            kind="text"
+            class="analytics-context-button"
+            aria-haspopup="dialog"
+            :disabled="!metricsModel"
+            @click="qualityOpen = true"
+          >
+            <RIcon name="database" :size="16" />数据说明
+            <span
+              v-if="hasQualityWarning"
+              class="analytics-quality-indicator"
+              aria-label="部分数据尚未确认"
+            />
+          </RButton>
+        </div>
+      </div>
 
       <section
         v-if="metricsStatus === 'loading'"
@@ -544,106 +533,36 @@ onBeforeUnmount(() => {
         <h2>{{ appliedContext?.label || '所选范围' }}暂无可展示访问</h2>
         <p>
           查询窗口为 {{ appliedContext?.range.startDate }} 至
-          {{ appliedContext?.range.endDate }}；没有用示例数值填充空结果。
+          {{ appliedContext?.range.endDate }}。可调整范围或日期查看其他访问。
         </p>
         <RButton kind="secondary" @click="openRecords">核对访问记录</RButton>
       </section>
 
       <template v-else-if="metricsStatus === 'ready' && metricsModel">
-        <div class="analytics-view-toolbar">
-          <div
-            class="analytics-section-tabs view-switch"
-            role="tablist"
-            aria-label="统计内容"
-            @keydown="navigateSection"
+        <section class="analytics-metrics" aria-label="核心指标">
+          <article
+            v-for="item in metricCards"
+            :key="item.key"
+            :class="{ 'analytics-metric-primary': item.key === 'pv' }"
           >
-            <button
-              v-for="section in sections"
-              :id="`analytics-tab-${section.key}`"
-              :key="section.key"
-              type="button"
-              role="tab"
-              :aria-selected="sectionKey === section.key"
-              :aria-controls="`analytics-${section.key}`"
-              :tabindex="sectionKey === section.key ? 0 : -1"
-              @click="sectionKey = section.key"
-            >
-              {{ section.label }}
-            </button>
-          </div>
-          <details
-            class="analytics-quality"
-            :class="{ 'analytics-quality--warning': hasQualityWarning }"
-          >
-            <summary>
-              <span>{{ hasQualityWarning ? '数据尚不完整' : '统计快照' }}</span>
-              <RBadge :tone="qualityTone(metricsModel.meta.completeness)">{{
-                qualityLabel(metricsModel.meta.completeness)
-              }}</RBadge>
-              <RBadge :tone="qualityTone(metricsModel.meta.collectionQuality?.status)">{{
-                qualityLabel(metricsModel.meta.collectionQuality?.status)
-              }}</RBadge>
-              <span class="analytics-quality-action">口径说明</span>
-            </summary>
-            <div class="analytics-quality-content">
-              <div class="analytics-snapshot">
-                <strong>{{ appliedContext.label }}</strong>
-                <span
-                  >{{ appliedContext.range.startDate }} — {{ appliedContext.range.endDate }} ·
-                  Asia/Shanghai</span
-                >
-              </div>
-              <p class="analytics-snapshot-time">
-                生成于 {{ formatShanghaiTime(metricsModel.meta.generatedAt) }}
-              </p>
-
-              <p v-if="hasQualityWarning" class="analytics-alert analytics-alert--warning">
-                该快照的数据并非完全可用。<template v-if="metricsModel.meta.missingMetrics.length">
-                  缺失项：{{ metricsModel.meta.missingMetrics.join('、') }}。</template
-                ><template v-if="metricsModel.missingCoreMetrics.length">
-                  核心指标缺失：{{
-                    metricsModel.missingCoreMetrics.map((item) => item.toUpperCase()).join('、')
-                  }}。</template
-                >
-                <template v-if="metricsModel.meta.collectionQuality?.reasons?.length">
-                  采集说明：{{ metricsModel.meta.collectionQuality.reasons.join('、') }}。</template
-                >
-              </p>
+            <div class="analytics-metric-label">
+              <span>{{ item.label }}</span
+              ><small>{{ item.abbreviation }}</small>
             </div>
-          </details>
-        </div>
+            <strong>{{ formatCount(metricsModel.summary[item.key]) }}</strong>
+            <small>{{ approximationLabel(item.key) }}</small>
+          </article>
+        </section>
 
-        <section
-          v-show="sectionKey === 'overview'"
-          id="analytics-overview"
-          class="analytics-overview"
-          role="tabpanel"
-          aria-labelledby="analytics-tab-overview"
-          tabindex="0"
-        >
-          <section class="analytics-metrics" aria-label="核心指标">
-            <article>
-              <span>访问次数 PV</span><strong>{{ formatCount(metricsModel.summary.pv) }}</strong
-              ><small>{{ approximationLabel('pv') }}</small>
-            </article>
-            <article>
-              <span>独立访客 UV</span><strong>{{ formatCount(metricsModel.summary.uv) }}</strong
-              ><small>{{ approximationLabel('uv') }}</small>
-            </article>
-            <article>
-              <span>独立 IP UIP</span><strong>{{ formatCount(metricsModel.summary.uip) }}</strong
-              ><small>{{ approximationLabel('uip') }}</small>
-            </article>
-            <article>
-              <span>拒绝访问</span><strong>{{ formatCount(metricsModel.summary.denied) }}</strong
-              ><small>{{ approximationLabel('denied') }}</small>
-            </article>
-          </section>
-
-          <section class="analytics-panel analytics-trend-panel">
+        <div class="analytics-dashboard">
+          <section
+            class="analytics-panel analytics-trend-panel"
+            aria-labelledby="analytics-trend-title"
+          >
             <header class="analytics-panel-head">
               <div>
-                <h2>按日趋势</h2>
+                <h2 id="analytics-trend-title">访问趋势</h2>
+                <p>按日统计 · 北京时间</p>
               </div>
               <div class="analytics-switches">
                 <div role="group" aria-label="趋势指标">
@@ -665,8 +584,9 @@ onBeforeUnmount(() => {
                     :aria-pressed="viewMode === 'chart'"
                     @click="viewMode = 'chart'"
                   >
-                    图</button
-                  ><button
+                    图
+                  </button>
+                  <button
                     type="button"
                     :class="{ active: viewMode === 'table' }"
                     :aria-pressed="viewMode === 'table'"
@@ -677,9 +597,7 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </header>
-            <div v-if="!trend.length" class="analytics-inline-empty">
-              后端未返回按日趋势，核心指标仍按原响应展示。
-            </div>
+            <div v-if="!trend.length" class="analytics-inline-empty">此范围暂无按日趋势。</div>
             <div v-else-if="viewMode === 'chart'" ref="chartElement" class="analytics-chart-wrap">
               <svg
                 class="analytics-chart"
@@ -689,30 +607,35 @@ onBeforeUnmount(() => {
               >
                 <title>{{ selectedMetricLabel }} 按日趋势</title>
                 <desc>{{ chartModel.desc }}</desc>
-                <g class="analytics-chart-grid">
-                  <line
-                    v-for="y in [0, 1, 2, 3].map((index) => 28 + index * ((chartHeight - 66) / 3))"
-                    :key="y"
-                    x1="32"
-                    :y1="y"
-                    :x2="chartWidth - 32"
-                    :y2="y"
-                  />
+                <g v-for="tick in chartModel.ticks" :key="tick.value" class="analytics-chart-grid">
+                  <line :x1="chartModel.left" :y1="tick.y" :x2="chartWidth - 22" :y2="tick.y" />
+                  <text :x="chartModel.left - 8" :y="tick.y + 4">
+                    <title>{{ formatCount(tick.value) }}</title>
+                    {{ axisFormatter.format(tick.value) }}
+                  </text>
                 </g>
+                <polygon :points="chartModel.area" class="analytics-chart-area" />
                 <polyline :points="chartModel.points" />
-                <g v-for="point in chartModel.dots" :key="point.date">
-                  <circle :cx="point.x" :cy="point.y" r="5" />
+                <g
+                  v-for="point in chartModel.dots"
+                  :key="point.date"
+                  class="analytics-chart-point"
+                  tabindex="0"
+                  role="img"
+                  :aria-label="`${point.date}，${selectedMetricLabel} ${formatCount(point.value)}`"
+                >
                   <title>
                     {{ point.date }} · {{ selectedMetricLabel }} {{ formatCount(point.value) }}
                   </title>
-                  <text v-if="point.labelled" :x="point.x" :y="point.y - 13">
+                  <circle :cx="point.x" :cy="point.y" r="4" />
+                  <text :x="point.x" :y="point.y - 11" class="analytics-chart-value">
                     {{ formatCount(point.value) }}
                   </text>
                   <text
                     v-if="point.labelled"
                     class="analytics-chart-date"
                     :x="point.x"
-                    :y="chartHeight - 12"
+                    :y="chartHeight - 6"
                   >
                     {{ point.date.slice(5) }}
                   </text>
@@ -728,10 +651,7 @@ onBeforeUnmount(() => {
             >
               <table>
                 <caption>
-                  {{
-                    selectedMetricLabel
-                  }}
-                  按日统计
+                  所选日期的每日访问统计
                 </caption>
                 <thead>
                   <tr>
@@ -752,84 +672,135 @@ onBeforeUnmount(() => {
               </table>
             </div>
           </section>
-        </section>
-
-        <section
-          v-show="sectionKey === 'dimensions'"
-          id="analytics-dimensions"
-          class="analytics-panel analytics-dimensions"
-          role="tabpanel"
-          aria-labelledby="analytics-tab-dimensions"
-          tabindex="0"
-        >
-          <header class="analytics-panel-head">
-            <div>
-              <h2>访问维度</h2>
-            </div>
-            <RBadge :tone="qualityTone(currentDimension.quality.status)">{{
-              qualityLabel(currentDimension.quality.status)
-            }}</RBadge>
-          </header>
-          <div class="analytics-dimension-select">
-            <RSelect v-model="dimensionKey" label="统计维度" :options="dimensionOptions" />
-          </div>
-          <div class="analytics-dimension-tabs" role="group" aria-label="统计维度">
-            <button
-              v-for="item in ANALYTICS_DIMENSIONS"
-              :key="item.key"
-              type="button"
-              :class="{ active: dimensionKey === item.key }"
-              :aria-pressed="dimensionKey === item.key"
-              @click="dimensionKey = item.key"
-            >
-              {{ item.label }}
-            </button>
-          </div>
-          <p class="analytics-dimension-note">{{ currentDimension.note }}</p>
-          <div v-if="dimensionKey === 'newvisitor'" class="analytics-history">
-            <strong>首次观测口径</strong>
-            <span
-              v-if="currentDimension.quality.historyStart && currentDimension.quality.historyEnd"
-              >保留数据范围：{{ formatShanghaiDate(currentDimension.quality.historyStart) }} —
-              {{ formatShanghaiDate(currentDimension.quality.historyEnd) }}</span
-            >
-            <span v-else>后端未返回历史保留区间。</span>
-            <span
-              >覆盖率：{{ formatRatio(currentDimension.quality.coverage)
-              }}<template v-if="currentDimension.quality.maxHistoryDays">
-                · 最多 {{ currentDimension.quality.maxHistoryDays }} 天</template
-              ></span
-            >
-          </div>
-          <div v-if="currentDimension.rows.length" class="analytics-distribution">
-            <article
-              v-for="(row, index) in currentDimension.rows"
-              :key="`${row.label}-${index}`"
-              :class="{ unknown: row.unknown }"
-            >
-              <div>
-                <strong>{{ row.label }}</strong
-                ><span
-                  >{{ formatCount(row.count) }} · {{ formatRatio(row.ratio)
-                  }}<template v-if="row.error !== null && row.error !== undefined">
-                    · 误差 ≤ {{ formatCount(row.error) }}</template
-                  ></span
-                >
-              </div>
-              <div class="analytics-bar" aria-hidden="true">
-                <span :style="{ width: rowWidth(row) }" />
-              </div>
-            </article>
-          </div>
-          <div v-else class="analytics-inline-empty">
-            该维度未返回可展示数据；不将缺失字段补为 0。
-          </div>
-          <p v-if="currentDimension.quality.reason" class="analytics-quality-reason">
-            后端说明：{{ currentDimension.quality.reason }}
-          </p>
-        </section>
+          <AnalyticsDimensionPanel
+            v-for="group in dashboardGroups"
+            :key="group.title"
+            :class="group.className"
+            :model="metricsModel"
+            :title="group.title"
+            :dimensions="group.dimensions"
+          />
+        </div>
       </template>
     </div>
+
+    <RModal
+      :open="filtersOpen"
+      title="统计筛选"
+      description="选择统计范围与日期，最多查看连续 7 天。"
+      :width="640"
+      @close="closeFilters"
+    >
+      <section class="analytics-filter" aria-label="统计筛选条件">
+        <div class="analytics-scope-tabs" role="group" aria-label="统计范围类型">
+          <button
+            type="button"
+            :class="{ active: scopeType === 'group' }"
+            :aria-pressed="scopeType === 'group'"
+            @click="scopeType = 'group'"
+          >
+            分组
+          </button>
+          <button
+            type="button"
+            :class="{ active: scopeType === 'link' }"
+            :aria-pressed="scopeType === 'link'"
+            @click="scopeType = 'link'"
+          >
+            单条短链
+          </button>
+        </div>
+        <div class="analytics-filter-scope">
+          <RSelect
+            v-model="scopeId"
+            label="授权范围"
+            :options="scopeOptions"
+            :placeholder="scopeOptions.length ? '选择范围' : '暂无可用范围'"
+            :disabled="!scopeOptions.length || metricsStatus === 'loading'"
+            :hint="scopeHint"
+          />
+        </div>
+        <RDateTime
+          v-model="startDate"
+          type="date"
+          label="开始日期"
+          :max="today"
+          :disabled="metricsStatus === 'loading'"
+        />
+        <RDateTime
+          v-model="endDate"
+          type="date"
+          label="结束日期"
+          :max="today"
+          :disabled="metricsStatus === 'loading'"
+          :error="rangeCheck.ok ? '' : rangeCheck.message"
+        />
+      </section>
+      <template #footer>
+        <div class="analytics-dialog-actions">
+          <RButton kind="secondary" @click="closeFilters">取消</RButton>
+          <RButton
+            :loading="metricsStatus === 'loading'"
+            loading-text="读取快照"
+            :disabled="!scopeId || !rangeCheck.ok"
+            @click="loadMetrics"
+            >应用范围</RButton
+          >
+        </div>
+      </template>
+    </RModal>
+
+    <RModal
+      :open="qualityOpen"
+      title="数据说明"
+      description="了解当前统计的完整度与计数口径。"
+      :width="560"
+      @close="qualityOpen = false"
+    >
+      <div v-if="metricsModel" class="analytics-quality-content">
+        <dl class="analytics-quality-facts">
+          <div>
+            <dt>数据完整度</dt>
+            <dd>{{ qualityLabel(metricsModel.meta.completeness) }}</dd>
+          </div>
+          <div>
+            <dt>采集状态</dt>
+            <dd>{{ qualityLabel(metricsModel.meta.collectionQuality?.status) }}</dd>
+          </div>
+          <div class="analytics-quality-time">
+            <dt>快照生成时间</dt>
+            <dd>{{ formatShanghaiTime(metricsModel.meta.generatedAt) }} · 北京时间</dd>
+          </div>
+        </dl>
+        <p v-if="hasQualityWarning" class="analytics-alert analytics-alert--warning">
+          部分数据尚未确认；缺失数值显示为「—」，不计作零。
+        </p>
+        <div class="analytics-quality-methods">
+          <h3>核心指标口径</h3>
+          <dl>
+            <div v-for="item in metricCards" :key="item.key">
+              <dt>{{ item.label }} {{ item.abbreviation }}</dt>
+              <dd>{{ approximationLabel(item.key) }}</dd>
+            </div>
+          </dl>
+        </div>
+        <details v-if="hasQualityWarning" class="analytics-quality-details">
+          <summary>查看缺失项与采集详情</summary>
+          <p v-if="metricsModel.meta.missingMetrics.length">
+            缺失项：{{ metricsModel.meta.missingMetrics.join('、') }}。
+          </p>
+          <p v-if="metricsModel.missingCoreMetrics.length">
+            核心指标缺失：{{
+              metricsModel.missingCoreMetrics.map((item) => item.toUpperCase()).join('、')
+            }}。
+          </p>
+          <p v-if="metricsModel.meta.collectionQuality?.reasons?.length">
+            采集说明：{{ metricsModel.meta.collectionQuality.reasons.join('、') }}。
+          </p>
+        </details>
+      </div>
+      <template #footer><RButton @click="qualityOpen = false">知道了</RButton></template>
+    </RModal>
 
     <RModal
       :open="recordsOpen"
