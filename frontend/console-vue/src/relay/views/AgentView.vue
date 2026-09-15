@@ -2,6 +2,10 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { agentApi } from '../api/agentRisk.js'
 import PageHeading from '../components/PageHeading.vue'
+import AgentComposer from '../components/AgentComposer.vue'
+import AgentReport from '../components/AgentReport.vue'
+import AgentResultDetails from '../components/AgentResultDetails.vue'
+import AgentAnswer from '../components/AgentAnswer.vue'
 import { agentHistoryEntries, buildAgentReport } from '../domain/agentWorkspace.js'
 import {
   compileMessage,
@@ -12,6 +16,7 @@ import {
 } from '../domain/agentModel.js'
 import './agent-risk.css'
 import './agent-workbench.css'
+import './agent-report.css'
 
 const props = defineProps({ type: { type: String, default: 'campaign-analysis' } })
 const relay = inject('relay')
@@ -47,6 +52,11 @@ const session = ref(newAgentSession(agentType.value))
 const activePane = ref('compose')
 const resultView = ref('answer')
 const assistOpen = ref(false)
+const followupOpen = ref(false)
+const promptError = ref('')
+const detailsOpen = ref(false)
+const detailsModal = ref(null)
+const dialogPromptInput = ref(null)
 const historyOpen = ref(false)
 const historyKey = ref('current')
 const copyFallback = ref('')
@@ -54,10 +64,17 @@ const workspaceBody = ref(null)
 const outputPane = ref(null)
 const promptInput = ref(null)
 const resultContent = ref(null)
-watch([resultView, () => session.value.result], async () => {
+watch(
+  () => session.value.result,
+  async () => {
+    await nextTick()
+    if (resultContent.value) resultContent.value.scrollTop = 0
+    if (workspaceBody.value) workspaceBody.value.scrollTop = 0
+  }
+)
+watch([resultView, detailsOpen], async () => {
   await nextTick()
-  if (resultContent.value) resultContent.value.scrollTop = 0
-  if (workspaceBody.value) workspaceBody.value.scrollTop = 0
+  if (detailsOpen.value) detailsModal.value?.dialog?.scrollTo({ top: 0 })
 })
 watch(activePane, async () => {
   await nextTick()
@@ -79,6 +96,7 @@ watch(
   { immediate: true }
 )
 const running = computed(() => session.value.runState === 'RUNNING')
+const reportMode = computed(() => session.value.runState !== 'READY')
 const groups = computed(() => relay.state.groups || [])
 const scopeOptions = computed(() => [
   { value: '', label: '按问题描述选择授权范围' },
@@ -142,6 +160,9 @@ function startNewSession() {
   resultView.value = 'answer'
   historyOpen.value = false
   historyKey.value = 'current'
+  followupOpen.value = false
+  detailsOpen.value = false
+  promptError.value = ''
 }
 
 function openHistory(key = 'current') {
@@ -149,31 +170,39 @@ function openHistory(key = 'current') {
   historyOpen.value = true
 }
 
+async function focusPrompt() {
+  if (reportMode.value) followupOpen.value = true
+  await nextTick()
+  // RModal opens its native dialog after the post-render watcher settles.
+  if (reportMode.value) await nextTick()
+  if (reportMode.value) dialogPromptInput.value?.focus()
+  else promptInput.value?.focus()
+}
+
+function openDetails(view = 'evidence') {
+  resultView.value = view
+  detailsOpen.value = true
+}
+
 async function clearPrompt() {
   if (relay.state.agentBusy) return
+  promptError.value = ''
   session.value.prompt = ''
   if (session.value.runState !== 'ERROR') session.value.error = ''
-  await nextTick()
-  promptInput.value?.focus()
+  await focusPrompt()
 }
 
 async function reusePrompt() {
   if (relay.state.agentBusy || !session.value.lastPrompt) return
+  promptError.value = ''
   session.value.prompt = session.value.lastPrompt
   const previousGroup = session.value.lastGroupId || ''
   const available =
     !previousGroup || groups.value.some((group) => String(group.id) === previousGroup)
   session.value.groupId = available ? previousGroup : ''
   if (!available) relay.notify('上次的分组已不可用，请重新选择分析范围。', 'warning')
-  activePane.value = 'compose'
-  await nextTick()
-  promptInput.value?.focus()
-}
-
-function openDataPage(path) {
-  if (relay.state.agentBusy) return
-  if (selectedGroup.value) relay.state.groupId = String(selectedGroup.value.id)
-  relay.go(path)
+  activePane.value = reportMode.value ? 'output' : 'compose'
+  await focusPrompt()
 }
 
 function onPromptKeydown(event) {
@@ -220,24 +249,25 @@ function exportReport(entry = currentEntry.value) {
 
 async function choosePreset(preset) {
   if (running.value || relay.state.agentBusy) return
+  promptError.value = ''
   session.value.prompt = preset
   assistOpen.value = false
-  activePane.value = 'compose'
-  await nextTick()
-  promptInput.value?.focus()
+  activePane.value = reportMode.value ? 'output' : 'compose'
+  await focusPrompt()
 }
 
 async function run() {
   if (relay.state.agentBusy || running.value) return
   const entry = session.value
   if (!compiled.value || compiled.value.length > 2000) {
-    entry.error = !compiled.value ? '请输入问题。' : '问题与分析范围合计不能超过 2000 字。'
+    promptError.value = !compiled.value ? '请输入问题。' : '问题与分析范围合计不能超过 2000 字。'
     return
   }
   if (entry.groupId && !selectedGroup.value) {
-    entry.error = '所选分组已不可用，请重新选择分析范围。'
+    promptError.value = '所选分组已不可用，请重新选择分析范围。'
     return
   }
+  promptError.value = ''
   const type = agentType.value
   const id = crypto.randomUUID()
   const originalSessionId = entry.id
@@ -252,6 +282,8 @@ async function run() {
   runController = controller
   entry.runId = id
   entry.runState = 'RUNNING'
+  followupOpen.value = false
+  detailsOpen.value = false
   activePane.value = 'output'
   resultView.value = 'answer'
   entry.error = ''
@@ -316,8 +348,11 @@ watch(
   () => {
     if (activeRun) cancelWaiting()
     historyOpen.value = false
+    followupOpen.value = false
+    detailsOpen.value = false
     assistOpen.value = false
     copyFallback.value = ''
+    promptError.value = ''
   }
 )
 onMounted(checkHealth)
@@ -331,6 +366,7 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="ar-view ar-agent-view operation-page"
+    :class="{ 'ap-report-mode': reportMode }"
     :aria-labelledby="`agent-heading-${agentType}`"
   >
     <PageHeading class="ar-page-head">
@@ -347,7 +383,7 @@ onBeforeUnmount(() => {
         <span :data-state="session.runState" class="aw-state-dot" aria-hidden="true" /><strong>{{
           sessionStatus
         }}</strong
-        ><span>{{ selectedGroup?.name || '范围由问题指定' }}</span>
+        ><span v-if="!reportMode">{{ selectedGroup?.name || '范围由问题指定' }}</span>
       </div>
       <div class="aw-toolbar-actions">
         <RButton kind="secondary" :disabled="relay.state.agentBusy" @click="startNewSession"
@@ -361,7 +397,12 @@ onBeforeUnmount(() => {
         <RButton kind="text" @click="assistOpen = true">使用说明</RButton>
       </div>
     </div>
-    <div class="ar-pane-switch view-switch" role="group" aria-label="Agent 工作区视图">
+    <div
+      v-if="!reportMode"
+      class="ar-pane-switch view-switch"
+      role="group"
+      aria-label="Agent 工作区视图"
+    >
       <RButton
         kind="secondary"
         :aria-pressed="activePane === 'compose'"
@@ -386,105 +427,33 @@ onBeforeUnmount(() => {
     >
       <div class="ar-agent-layout">
         <aside
+          v-if="!reportMode"
           id="agent-composer"
           class="ar-panel ar-composer"
           :class="{ 'ar-pane-active': activePane === 'compose' }"
           aria-label="提问设置"
           tabindex="0"
         >
-          <div class="ar-identity">
-            <RRobot :role="copy.role" :expression="running ? 'waiting' : 'neutral'" :size="48" />
-            <div>
-              <strong>{{ copy.name }}</strong>
-              <p>提问设置</p>
-            </div>
-          </div>
-          <div class="ar-inline-scope">
-            <RSelect
-              v-model="session.groupId"
-              label="分析范围"
-              :options="scopeOptions"
-              :disabled="running"
-            />
-          </div>
-          <RTextarea
+          <AgentComposer
             ref="promptInput"
-            v-model="session.prompt"
-            label="你想了解什么？"
-            :placeholder="copy.placeholder"
-            :maxlength="2000"
-            :rows="7"
-            :count="false"
-            :disabled="running"
+            :session="session"
+            :copy="copy"
+            :agent-type="agentType"
+            :scope-options="scopeOptions"
+            :running="running"
+            :busy="relay.state.agentBusy"
+            :compiled-length="compiled.length"
+            :answer-count="historyEntries.length"
+            :input-error="promptError"
+            @update:prompt="session.prompt = $event"
+            @update:groupId="session.groupId = $event"
+            @clear="clearPrompt"
+            @reuse="reusePrompt"
+            @submit="run"
+            @stop="cancelWaiting"
+            @preset="choosePreset"
             @keydown="onPromptKeydown"
           />
-          <div class="aw-draft-tools">
-            <button
-              type="button"
-              :disabled="relay.state.agentBusy || !session.prompt"
-              @click="clearPrompt"
-            >
-              清空问题
-            </button>
-            <button
-              type="button"
-              :disabled="relay.state.agentBusy || !session.lastPrompt"
-              @click="reusePrompt"
-            >
-              复用上次提问
-            </button>
-            <span>Ctrl / ⌘ + Enter</span>
-          </div>
-          <p
-            v-if="session.error && session.runState !== 'ERROR'"
-            class="ar-alert ar-alert-danger"
-            role="alert"
-          >
-            {{ session.error }}
-          </p>
-          <p v-if="agentType === 'security-risk'" class="ar-caption ar-security-notice">
-            分析可能按服务端策略自动限流。
-          </p>
-          <div class="ar-submit-row">
-            <RButton
-              :loading="running"
-              loading-text="等待完整响应"
-              :disabled="compiled.length > 2000 || (!running && relay.state.agentBusy)"
-              @click="run"
-              >开始分析</RButton
-            >
-            <p class="ar-count" :class="{ 'ar-text-danger': compiled.length > 2000 }">
-              {{ compiled.length }} / 2000 字
-            </p>
-          </div>
-          <RButton v-if="running" kind="secondary" @click="cancelWaiting">停止等待</RButton>
-          <details v-if="session.runState === 'READY'" class="ar-details ar-mobile-presets">
-            <summary>示例问题</summary>
-            <div class="ar-presets">
-              <RButton
-                v-for="preset in copy.presets"
-                :key="preset"
-                kind="text"
-                :disabled="running || relay.state.agentBusy"
-                @click="choosePreset(preset)"
-                >{{ preset }}</RButton
-              >
-            </div>
-            <p class="ar-caption">选择后只填入问题，确认范围后再开始分析。</p>
-          </details>
-          <div class="aw-session-summary">
-            <div>
-              <span>本会话完整回答</span
-              ><strong>{{ historyEntries.length }} <small>次</small></strong>
-            </div>
-            <p>
-              {{
-                session.completedAt
-                  ? '最近完成 · ' + session.completedAt
-                  : '分析完成后，可查看证据、历史与导出报告。'
-              }}
-            </p>
-          </div>
         </aside>
         <section
           id="agent-output"
@@ -500,41 +469,12 @@ onBeforeUnmount(() => {
           :aria-busy="running"
         >
           <div
-            v-if="result && !running"
-            class="ar-section-switch view-switch"
-            role="group"
-            aria-label="分析结果内容"
-          >
-            <RButton
-              v-for="item in [
-                { value: 'answer', label: '回答' },
-                { value: 'evidence', label: '证据' },
-                { value: 'trace', label: '执行轨迹' }
-              ]"
-              :key="item.value"
-              kind="text"
-              :aria-pressed="resultView === item.value"
-              @click="resultView = item.value"
-              >{{ item.label }}</RButton
-            >
-          </div>
-          <div
             ref="resultContent"
             class="ar-result-content"
             role="region"
             tabindex="0"
             aria-label="当前分析内容"
           >
-            <div v-if="result && !running" class="aw-result-actions">
-              <span>{{ currentEntry?.label }}</span>
-              <div>
-                <RButton kind="secondary" :disabled="!result.answer" @click="copyAnswer()"
-                  ><RIcon name="copy" :size="16" />复制回答</RButton
-                ><RButton kind="secondary" @click="exportReport()"
-                  ><RIcon name="download" :size="16" />导出报告</RButton
-                >
-              </div>
-            </div>
             <section v-if="session.runState === 'READY'" class="ar-panel ar-empty ar-suggestions">
               <div class="ar-suggestion-intro">
                 <RRobot :role="copy.role" :size="64" />
@@ -569,32 +509,6 @@ onBeforeUnmount(() => {
               </div>
               <p class="ar-caption">也可以直接输入问题。证据不完整时，回答会保留缺口与不确定项。</p>
             </section>
-            <section v-if="session.runState === 'READY'" class="aw-data-panel">
-              <header>
-                <h2>数据核验</h2>
-                <span>{{ selectedGroup ? '按当前所选分组打开' : '进入页面后可选择分组' }}</span>
-              </header>
-              <div class="aw-data-links">
-                <button
-                  type="button"
-                  :disabled="relay.state.agentBusy"
-                  @click="openDataPage('/home/analytics')"
-                >
-                  <RIcon name="chart" :size="22" /><span
-                    ><strong>访问统计</strong><small>查看趋势与来源分布</small></span
-                  ><RIcon name="arrow-right" :size="16" />
-                </button>
-                <button
-                  type="button"
-                  :disabled="relay.state.agentBusy"
-                  @click="openDataPage('/home/risk-center')"
-                >
-                  <RIcon name="shield" :size="22" /><span
-                    ><strong>风险中心</strong><small>核查证据与现行策略</small></span
-                  ><RIcon name="arrow-right" :size="16" />
-                </button>
-              </div>
-            </section>
             <section v-else-if="running" class="ar-panel ar-empty" role="status">
               <RRobot :role="copy.role" expression="waiting" :size="96" /><RBadge tone="info"
                 >RUNNING</RBadge
@@ -618,188 +532,86 @@ onBeforeUnmount(() => {
                 @click="relay.go('/home/risk-center')"
                 >先到风险中心核验</RButton
               >
-              <p class="ar-caption">问题已保留；确认后可在“提问设置”中重新提交。</p>
-            </section>
-            <template v-if="result && !running">
-              <section v-if="resultView === 'answer'" class="ar-panel ar-answer">
-                <header class="ar-section-head">
-                  <div>
-                    <RBadge tone="info">{{
-                      session.runState === 'ERROR' ? '上一次完整结果' : '完整响应'
-                    }}</RBadge>
-                    <h2>分析回答</h2>
-                    <small>{{ session.completedAt }}</small>
-                  </div>
-                  <RRobot :role="copy.role" expression="success" :size="48" />
-                </header>
-                <p class="ar-answer-text">{{ result.answer || '本次响应没有回答正文。' }}</p>
-                <p
-                  v-for="(warning, index) in result.warnings"
-                  :key="index"
-                  class="ar-alert ar-alert-warning"
-                >
-                  {{ warning }}
-                </p>
-                <RButton
-                  v-if="result.pendingActions.length"
-                  kind="secondary"
-                  @click="resultView = 'evidence'"
-                  >查看 {{ result.pendingActions.length }} 项动作与待处理事项</RButton
-                >
-              </section>
-              <section v-if="resultView === 'evidence'" class="ar-panel">
-                <h2>回答证据</h2>
-                <p v-if="!result.cards.length" class="ar-muted">
-                  本次响应未返回证据卡片，不能据此推断数据已完整。
-                </p>
-                <article v-for="card in result.cards" :key="card.key" class="ar-evidence-card">
-                  <h3>{{ card.title }}</h3>
-                  <p v-if="card.message">{{ card.message }}</p>
-                  <p v-if="card.summary && typeof card.summary === 'string'">{{ card.summary }}</p>
-                  <div
-                    v-if="card.type === 'access_records'"
-                    class="ar-table-scroll"
-                    role="region"
-                    aria-label="脱敏访问记录，可横向滚动"
-                    tabindex="0"
-                  >
-                    <table>
-                      <caption>
-                        脱敏访问记录
-                      </caption>
-                      <thead>
-                        <tr>
-                          <th>时间</th>
-                          <th>来源</th>
-                          <th>地域 / 运营商</th>
-                          <th>设备 / 系统</th>
-                          <th>访客</th>
-                          <th>响应</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr v-for="(row, index) in card.rows" :key="index">
-                          <td>{{ row.createTime }}</td>
-                          <td>{{ row.ip }}</td>
-                          <td>
-                            {{ row.locale }}<small>{{ row.network }}</small>
-                          </td>
-                          <td>
-                            {{ row.device }}<small>{{ row.os }} / {{ row.browser }}</small>
-                          </td>
-                          <td>{{ row.visitorType }}</td>
-                          <td>
-                            {{ row.status }}<small>{{ row.eventType }}</small>
-                          </td>
-                        </tr>
-                        <tr v-if="!card.rows.length">
-                          <td colspan="6">未返回访问记录</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <template v-else>
-                    <details class="ar-details">
-                      <summary>指标与证据数据</summary>
-                      <pre v-if="card.metrics" class="ar-json">{{ pretty(card.metrics) }}</pre>
-                      <pre v-if="card.evidence" class="ar-json">{{ pretty(card.evidence) }}</pre>
-                      <pre v-if="card.reasonCodes" class="ar-json">{{
-                        pretty(card.reasonCodes)
-                      }}</pre>
-                    </details>
-                    <details class="ar-details">
-                      <summary>完整证据卡片</summary>
-                      <pre class="ar-json">{{ pretty(card) }}</pre>
-                    </details></template
-                  >
-                </article>
-                <details class="ar-details">
-                  <summary>数据来源（{{ result.dataSources.length }}）</summary>
-                  <pre class="ar-json">{{ pretty(result.dataSources) }}</pre>
-                </details>
-              </section>
-              <section
-                v-if="resultView === 'evidence' && result.pendingActions.length"
-                class="ar-panel"
+              <RButton kind="secondary" :disabled="relay.state.agentBusy" @click="focusPrompt"
+                >调整问题</RButton
               >
-                <h2>动作与待处理事项</h2>
-                <p class="ar-caption">
-                  以下为 Agent
-                  返回的实际结果。自动限流、人工审核与现有策略停用分别核验；已提交不代表传播完成。
-                </p>
-                <article
-                  v-for="(action, index) in result.pendingActions"
-                  :key="index"
-                  class="ar-evidence-card"
-                >
-                  <h3>{{ action.title || action.type }}</h3>
-                  <RBadge :tone="action.status === 'executed' ? 'info' : 'warning'">{{
-                    {
-                      executed: '命令已执行 · 传播待核实',
-                      pending_confirmation: '待人工核实',
-                      not_fully_applied: '未完全执行'
-                    }[action.status] || '结果未知'
-                  }}</RBadge>
-                  <details class="ar-details">
-                    <summary>动作详情</summary>
-                    <pre class="ar-json">{{ pretty(action) }}</pre>
-                  </details>
-                </article>
-                <RButton kind="secondary" @click="relay.go('/home/risk-center')"
-                  >到风险中心核验</RButton
-                >
-              </section>
-              <section v-if="resultView === 'trace'" class="ar-panel">
-                <h2>工具执行记录</h2>
-                <p class="ar-caption">响应返回的工具记录，保留失败和未提供的状态。</p>
-                <p v-if="!result.toolCalls.length" class="ar-muted">本次响应未提供工具执行记录。</p>
-                <ol class="ar-timeline">
-                  <li v-for="(tool, index) in result.toolCalls" :key="tool.key">
-                    <span class="ar-step">{{ index + 1 }}</span>
-                    <div>
-                      <strong>{{ tool.label }}</strong
-                      ><small v-if="tool.durationMs != null">{{ tool.durationMs }} ms</small>
-                      <details class="ar-details">
-                        <summary>执行详情</summary>
-                        <pre class="ar-json">{{ pretty(tool) }}</pre>
-                      </details>
-                    </div>
-                    <RBadge :tone="tool.tone">{{ tool.outcome }}</RBadge>
-                  </li>
-                </ol>
-                <details class="ar-details">
-                  <summary>Graph 节点轨迹（{{ result.traceEvents.length }}）</summary>
-                  <p v-if="!result.traceEvents.length" class="ar-muted">
-                    本次响应未提供 Graph 节点轨迹。
-                  </p>
-                  <div class="ar-graph">
-                    <article v-for="node in result.traceEvents" :key="node.key">
-                      <strong>{{ node.label }}</strong
-                      ><RBadge tone="unknown">{{ node.status }}</RBadge
-                      ><small v-if="node.timing?.durationMs != null"
-                        >{{ node.timing.durationMs }} ms</small
-                      >
-                      <details>
-                        <summary>节点详情</summary>
-                        <pre class="ar-json">{{ pretty(node) }}</pre>
-                      </details>
-                    </article>
-                  </div>
-                </details>
-                <details
-                  class="ar-details"
-                  :open="session.debugOpen"
-                  @toggle="session.debugOpen = $event.currentTarget.open"
-                >
-                  <summary>脱敏调试数据</summary>
-                  <pre class="ar-json">{{ pretty(result) }}</pre>
-                </details>
-              </section>
-            </template>
+              <p class="ar-caption">问题已保留，确认范围后再重新提交。</p>
+            </section>
+            <AgentReport
+              v-if="result && !running"
+              :result="result"
+              :entry="currentEntry"
+              :agent-type="agentType"
+              :busy="relay.state.agentBusy"
+              @followup="focusPrompt"
+              @copy="copyAnswer()"
+              @export="exportReport()"
+              @details="openDetails"
+            />
           </div>
         </section>
       </div>
     </div>
+    <RModal
+      :open="followupOpen"
+      title="继续分析"
+      :description="copy.title"
+      :width="660"
+      @close="followupOpen = false"
+    >
+      <div class="ar-composer ap-followup-composer">
+        <AgentComposer
+          ref="dialogPromptInput"
+          :session="session"
+          :copy="copy"
+          :agent-type="agentType"
+          :scope-options="scopeOptions"
+          :running="running"
+          :busy="relay.state.agentBusy"
+          :compiled-length="compiled.length"
+          :answer-count="historyEntries.length"
+          :input-error="promptError"
+          @update:prompt="session.prompt = $event"
+          @update:groupId="session.groupId = $event"
+          @clear="clearPrompt"
+          @reuse="reusePrompt"
+          @submit="run"
+          @stop="cancelWaiting"
+          @preset="choosePreset"
+          @keydown="onPromptKeydown"
+        />
+      </div>
+    </RModal>
+    <RModal
+      ref="detailsModal"
+      :open="detailsOpen"
+      title="分析依据与执行记录"
+      :description="currentEntry?.scopeLabel || copy.title"
+      :width="1080"
+      drawer
+      @close="detailsOpen = false"
+    >
+      <div class="ap-detail-tabs" role="group" aria-label="分析详情内容">
+        <RButton
+          v-for="item in [
+            { value: 'evidence', label: '证据与动作' },
+            { value: 'sources', label: '来源说明' },
+            { value: 'trace', label: '执行轨迹' }
+          ]"
+          :key="item.value"
+          kind="secondary"
+          :aria-pressed="resultView === item.value"
+          @click="resultView = item.value"
+          >{{ item.label }}</RButton
+        >
+      </div>
+      <AgentResultDetails
+        v-if="result"
+        :result="result"
+        :view="resultView"
+        @navigate-risk="relay.go('/home/risk-center')"
+      />
+    </RModal>
     <RModal
       :open="assistOpen"
       title="会话与使用说明"
@@ -904,7 +716,7 @@ onBeforeUnmount(() => {
             {{ historyEntry.scopeLabel || '未单独记录分析范围，请核对原始问题。' }}
           </p>
           <p class="aw-history-question">{{ historyEntry.message || '未保留问题文本' }}</p>
-          <p class="ar-answer-text">{{ historyEntry.result.answer || '本次响应没有回答正文。' }}</p>
+          <AgentAnswer :text="historyEntry.result.answer || '本次响应没有回答正文。'" />
           <p
             v-for="(warning, index) in historyEntry.result.warnings"
             :key="index"
