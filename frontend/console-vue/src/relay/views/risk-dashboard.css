@@ -1,4 +1,7 @@
 .risk-dashboard-page.ar-view.operation-page {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
   gap: 12px;
   color: var(--text);
   font-size: 13px;
@@ -10,6 +13,11 @@
   gap: 14px;
   min-width: 0;
   padding: 2px 5px 6px 2px;
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+}
+.risk-dashboard-body.operation-body::-webkit-scrollbar {
+  display: none;
 }
 .risk-dashboard-body > * {
   flex: none;
@@ -93,44 +101,52 @@
   background: var(--surface);
 }
 .risk-status-console {
-  --risk-status-color: #bac8cd;
+  --risk-status-color: #536571;
+  --risk-status-background: #f0f4f7;
+  --risk-status-muted: #5d707a;
   display: flex;
   flex-direction: column;
   min-width: 0;
   padding: 20px 22px;
   border-radius: 15px 0 0 15px;
-  background: #172b30;
-  color: #f4faf9;
+  background: var(--risk-status-background);
+  color: var(--risk-status-color);
 }
 .risk-status-console[data-tone='success'] {
-  --risk-status-color: #77d4b0;
+  --risk-status-color: #237455;
+  --risk-status-background: #eaf6ee;
+  --risk-status-muted: #507264;
 }
 .risk-status-console[data-tone='warning'] {
-  --risk-status-color: #edc379;
+  --risk-status-color: #976319;
+  --risk-status-background: #fff5df;
+  --risk-status-muted: #7c6949;
 }
 .risk-status-console[data-tone='danger'] {
-  --risk-status-color: #f1a095;
+  --risk-status-color: #a33d40;
+  --risk-status-background: #fdefef;
+  --risk-status-muted: #876067;
 }
 .risk-console-heading {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  color: #b7c9cb;
+  color: var(--risk-status-muted);
   font-size: 12px;
   font-weight: 600;
 }
 .risk-console-heading > .analytics-method-trigger {
   margin-left: auto;
-  color: #b7c9cb;
+  color: var(--risk-status-muted);
 }
 .risk-console-heading > .analytics-method-trigger:hover,
 .risk-console-heading > .analytics-method-trigger[aria-expanded='true'] {
-  background: #ffffff14;
-  color: #f4faf9;
+  background: #ffffffa6;
+  color: var(--risk-status-color);
 }
 .risk-console-heading > .analytics-method-trigger:focus-visible {
-  outline-color: #b7d4ff;
+  outline-color: var(--risk-status-color);
 }
 .risk-console-verdict {
   display: flex;
@@ -161,7 +177,7 @@
 }
 .risk-console-score > strong {
   min-width: 0;
-  color: #f4faf9;
+  color: var(--risk-status-color);
   font-size: 68px;
   font-weight: 650;
   line-height: 1;
@@ -173,11 +189,11 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  color: #b7c9cb;
+  color: var(--risk-status-muted);
   font-size: 12px;
 }
 .risk-console-score small {
-  color: #8fa7ac;
+  color: var(--risk-status-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -198,11 +214,11 @@
   background: #75b8a0;
 }
 .risk-score-bands > span:nth-child(2) {
-  border-left: 2px solid #172b30;
+  border-left: 2px solid var(--risk-status-background);
   background: #d3ad71;
 }
 .risk-score-bands > span:nth-child(3) {
-  border-left: 2px solid #172b30;
+  border-left: 2px solid var(--risk-status-background);
   background: #d48e86;
 }
 .risk-score-ruler > i {
@@ -211,15 +227,15 @@
   width: 2px;
   height: 11px;
   border-radius: 1px;
-  background: #fff;
-  box-shadow: 0 0 0 1px #172b30;
+  background: var(--risk-status-color);
+  box-shadow: 0 0 0 1px var(--risk-status-background);
   transform: translateX(-50%);
 }
 .risk-score-ticks {
   position: relative;
   height: 19px;
   margin-top: 4px;
-  color: #a7bdc1;
+  color: var(--risk-status-muted);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
@@ -243,7 +259,7 @@
 }
 .risk-dashboard-page .risk-console-note {
   margin: auto 0 0;
-  color: #b7c9cb;
+  color: var(--risk-status-muted);
   font-size: 12px;
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -293,6 +309,17 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
+}
+.risk-situation:has(.risk-trend-table) {
+  height: auto;
+  min-height: 300px;
+}
+.risk-situation-detail:has(.risk-trend-table) {
+  height: auto;
+  min-height: 298px;
+}
+.risk-trajectory:has(.risk-trend-table) {
+  flex: 1 0 auto;
 }
 .risk-severity-strip {
   display: grid;
@@ -348,7 +375,7 @@
 /* Evidence is presented as work rows and a chronological thread. */
 .risk-investigation-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.13fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) 224px;
   gap: 14px;
   min-width: 0;
 }
@@ -357,7 +384,7 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  height: 350px;
+  height: auto;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -405,9 +432,7 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
+  overflow: visible;
 }
 .risk-targets {
   margin: 0;
@@ -643,12 +668,13 @@
   color: var(--blue);
 }
 
-/* One continuous action rail, with dividers rather than separate cards. */
+/* Actions sit beside the evidence, in one compact vertical column. */
 .risk-action-rail {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   min-width: 0;
-  padding: 15px 0;
+  padding: 0 14px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #eef3f7;
@@ -658,10 +684,10 @@
   align-items: flex-start;
   gap: 10px;
   min-width: 0;
-  padding: 0 18px;
+  padding: 14px 0;
 }
 .risk-action-station + .risk-action-station {
-  border-left: 1px solid #d3dee6;
+  border-top: 1px solid #d3dee6;
 }
 .risk-station-icon {
   display: inline-grid;
@@ -947,14 +973,26 @@
   outline-offset: 2px;
 }
 .risk-target:focus-visible,
-.risk-timeline-event:focus-visible,
-.risk-target-list:focus-visible,
-.risk-timeline-scroll:focus-visible {
+.risk-timeline-event:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: -2px;
 }
 
 @media (max-width: 1100px) {
+  .risk-investigation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .risk-action-rail {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto;
+    padding: 14px 0;
+  }
+  .risk-action-station + .risk-action-station {
+    border-top: 0;
+    border-left: 1px solid #d3dee6;
+  }
   .risk-situation {
     grid-template-columns: 230px minmax(0, 1fr);
   }
@@ -978,7 +1016,7 @@
   }
   .risk-action-station {
     gap: 8px;
-    padding-inline: 13px;
+    padding: 0 13px;
   }
   .risk-station-icon {
     width: 26px;
@@ -1035,7 +1073,6 @@
     gap: 12px;
   }
   .risk-investigation-panel {
-    height: 350px;
     padding: 15px;
   }
   .risk-target {
@@ -1065,6 +1102,8 @@
     padding-left: 14px;
   }
   .risk-action-rail {
+    grid-column: auto;
+    grid-row: auto;
     grid-template-columns: minmax(0, 1fr);
     padding: 0 16px;
   }

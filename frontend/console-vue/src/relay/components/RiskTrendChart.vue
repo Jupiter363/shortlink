@@ -120,9 +120,8 @@ function onKeydown(event, index) {
     <div
       v-else-if="mode === 'table'"
       class="risk-trend-table-scroll"
-      tabindex="0"
       role="region"
-      aria-label="风险趋势数据表，可滚动查看所有日期"
+      aria-label="风险趋势数据表"
     >
       <table class="risk-trend-table">
         <caption class="risk-trend-sr-only">
@@ -429,10 +428,12 @@ function onKeydown(event, index) {
   line-height: 16px;
 }
 .risk-trend-table-scroll {
-  flex: 1;
+  flex: none;
   min-height: 0;
-  overflow: auto;
-  scrollbar-width: thin;
+  overflow: visible;
+}
+.risk-trend-chart:has(.risk-trend-table) {
+  height: auto;
 }
 .risk-trend-table {
   width: 100%;

@@ -608,8 +608,8 @@ onBeforeUnmount(() => {
                 全部档案 <span aria-hidden="true">↗</span>
               </button>
             </header>
-            <p class="risk-panel-lead">从风险档案定位短链，进入详情核查证据与当前策略。</p>
-            <div class="risk-target-list" tabindex="0" aria-label="短链核查列表">
+            <p class="risk-panel-lead">核查短链的访问证据与当前策略。</p>
+            <div class="risk-target-list">
               <p v-if="loading" class="risk-muted" role="status">正在读取档案…</p>
               <p
                 v-else-if="errors.cards && !priorityCards.length"
@@ -618,7 +618,7 @@ onBeforeUnmount(() => {
               >
                 {{ errors.cards }}
               </p>
-              <ol v-else-if="priorityCards.length" class="risk-targets">
+              <ol v-else-if="priorityCards.length" class="risk-targets" aria-label="短链核查列表">
                 <li
                   v-for="card in priorityCards"
                   :key="`${card.gid}:${card.domain}:${card.shortUri}`"
@@ -680,12 +680,16 @@ onBeforeUnmount(() => {
               </button>
             </header>
             <p class="risk-panel-lead">保留发生时的风险信号，逐条追溯证据。</p>
-            <div class="risk-timeline-scroll" tabindex="0" aria-label="近期短链事件时间线">
+            <div class="risk-timeline-scroll">
               <p v-if="eventPreview.loading" class="risk-muted" role="status">正在读取事件…</p>
               <p v-else-if="eventPreview.error" class="risk-inline-error" role="alert">
                 {{ eventPreview.error }}
               </p>
-              <ol v-else-if="eventPreview.records.length" class="risk-timeline">
+              <ol
+                v-else-if="eventPreview.records.length"
+                class="risk-timeline"
+                aria-label="近期短链事件时间线"
+              >
                 <li
                   v-for="event in eventPreview.records"
                   :key="event.eventId"
@@ -711,77 +715,76 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </section>
+          <section class="risk-action-rail" aria-label="人工研判与执行核验">
+            <div class="risk-action-station">
+              <span class="risk-station-icon"><RIcon name="shield" :size="20" /></span>
+              <div class="risk-station-body">
+                <h2>深入研判</h2>
+                <p>结合访问证据分析异常原因</p>
+                <button
+                  type="button"
+                  class="risk-panel-action"
+                  @click="relay.go('/home/agent/security-risk')"
+                >
+                  打开风控 Agent <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+            </div>
+            <div class="risk-action-station">
+              <span class="risk-station-icon"><RIcon name="pencil" :size="20" /></span>
+              <div class="risk-station-body">
+                <div class="risk-station-heading">
+                  <h2>人工审核</h2>
+                  <AnalyticsMethodHint label="人工审核：统计口径"
+                    ><strong>人工结论独立于策略</strong>
+                    <p>
+                      人工关注数量来自审核状态，不是待处置数量。记录关注、确认风险或标记误报只保存人工判断，不自动变更跳转策略。
+                    </p></AnalyticsMethodHint
+                  >
+                </div>
+                <p>
+                  人工关注 <strong>{{ metric(overview?.watchingCount) }}</strong> 条
+                </p>
+                <button
+                  type="button"
+                  class="risk-panel-action"
+                  :disabled="!groupId || mutationBusy"
+                  @click="openReview({ targetType: 'GROUP', gid: groupId })"
+                >
+                  记录分组审核 <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+            </div>
+            <div class="risk-action-station">
+              <span class="risk-station-icon"><RIcon name="database" :size="20" /></span>
+              <div class="risk-station-body">
+                <div class="risk-station-heading">
+                  <h2>执行核验</h2>
+                  <AnalyticsMethodHint label="执行核验：统计范围"
+                    ><strong>本次登录保留的策略命令</strong>
+                    <p>
+                      结果待核实
+                      {{ pendingCommands.length }}
+                      条。提交不等于节点已同步；结果未知时只查询原命令。全组策略停用数：{{
+                        metric(overview?.disabledCount)
+                      }}。{{ coverageLabel }}，不能回算全组停用数。
+                    </p></AnalyticsMethodHint
+                  >
+                </div>
+                <p>
+                  本次登录 <strong>{{ loadedCommands.length }}</strong> 条命令<span
+                    v-if="pendingCommands.length"
+                  >
+                    · {{ pendingCommands.length }} 条待核实</span
+                  >
+                </p>
+                <button type="button" class="risk-panel-action" @click="openList('commands')">
+                  查看策略回执 <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
-
-        <section class="risk-action-rail" aria-label="人工研判与执行核验">
-          <div class="risk-action-station">
-            <span class="risk-station-icon"><RIcon name="shield" :size="20" /></span>
-            <div class="risk-station-body">
-              <h2>深入研判</h2>
-              <p>结合访问证据分析异常原因</p>
-              <button
-                type="button"
-                class="risk-panel-action"
-                @click="relay.go('/home/agent/security-risk')"
-              >
-                打开风控 Agent <span aria-hidden="true">↗</span>
-              </button>
-            </div>
-          </div>
-          <div class="risk-action-station">
-            <span class="risk-station-icon"><RIcon name="pencil" :size="20" /></span>
-            <div class="risk-station-body">
-              <div class="risk-station-heading">
-                <h2>人工审核</h2>
-                <AnalyticsMethodHint label="人工审核：统计口径"
-                  ><strong>人工结论独立于策略</strong>
-                  <p>
-                    人工关注数量来自审核状态，不是待处置数量。记录关注、确认风险或标记误报只保存人工判断，不自动变更跳转策略。
-                  </p></AnalyticsMethodHint
-                >
-              </div>
-              <p>
-                关注中 <strong>{{ metric(overview?.watchingCount) }}</strong> 条 · 审核仅记录判断
-              </p>
-              <button
-                type="button"
-                class="risk-panel-action"
-                :disabled="!groupId || mutationBusy"
-                @click="openReview({ targetType: 'GROUP', gid: groupId })"
-              >
-                记录分组审核 <span aria-hidden="true">↗</span>
-              </button>
-            </div>
-          </div>
-          <div class="risk-action-station">
-            <span class="risk-station-icon"><RIcon name="database" :size="20" /></span>
-            <div class="risk-station-body">
-              <div class="risk-station-heading">
-                <h2>执行核验</h2>
-                <AnalyticsMethodHint label="执行核验：统计范围"
-                  ><strong>本次登录保留的策略命令</strong>
-                  <p>
-                    结果待核实
-                    {{ pendingCommands.length }}
-                    条。提交不等于节点已同步；结果未知时只查询原命令。全组策略停用数：{{
-                      metric(overview?.disabledCount)
-                    }}。{{ coverageLabel }}，不能回算全组停用数。
-                  </p></AnalyticsMethodHint
-                >
-              </div>
-              <p>
-                本次登录 <strong>{{ loadedCommands.length }}</strong> 条命令<span
-                  v-if="pendingCommands.length"
-                >
-                  · {{ pendingCommands.length }} 条待核实</span
-                >
-              </p>
-              <button type="button" class="risk-panel-action" @click="openList('commands')">
-                查看策略回执 <span aria-hidden="true">↗</span>
-              </button>
-            </div>
-          </div>
-        </section>
       </template>
     </div>
 
