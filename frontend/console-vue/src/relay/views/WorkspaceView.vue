@@ -135,12 +135,6 @@ onMounted(async () => {
           }}
         </p>
       </div>
-      <div v-if="!recycle" class="heading-actions">
-        <RButton :disabled="!state.groupId" @click="dialog('create')">创建短链</RButton
-        ><RButton kind="secondary" :disabled="!state.groupId" @click="dialog('batch')"
-          >批量创建</RButton
-        >
-      </div>
     </PageHeading>
     <div class="workspace-columns">
       <aside
@@ -191,20 +185,27 @@ onMounted(async () => {
         :aria-label="recycle ? '回收站操作区' : '短链接操作区'"
       >
         <div class="list-toolbar">
-          <RButton
+          <h2
             v-if="!recycle"
-            kind="text"
-            class="scope-trigger"
-            :title="currentGroup?.name || '选择分组'"
-            @click="groupsOpen = true"
-            ><RIcon name="folder" class="workspace-detail-icon" /><span class="scope-caption"
-              >{{ currentGroup?.name || '选择分组' }} · {{ format(state.list.total) }} 条短链</span
-            ></RButton
+            class="workspace-scope-label"
+            :title="currentGroup?.name || '未选择分组'"
+            :aria-label="`当前分组：${currentGroup?.name || '未选择分组'}`"
+          >
+            <RIcon name="folder" class="workspace-detail-icon" />
+            <span class="scope-caption">{{ currentGroup?.name || '未选择分组' }}</span>
+          </h2
           >
           <h2 v-else>已回收短链 · {{ format(state.list.total) }} 条</h2>
-          <RButton v-if="!recycle" kind="text" :disabled="!state.groupId" @click="stats()"
-            >分组统计</RButton
-          ><RButton kind="text" :loading="state.list.loading" @click="refresh">刷新</RButton>
+          <RButton v-if="!recycle" :disabled="!state.groupId" @click="dialog('create')"
+            >创建短链</RButton
+          ><RButton
+            v-if="!recycle"
+            kind="secondary"
+            :disabled="!state.groupId"
+            @click="dialog('batch')"
+            >批量创建</RButton
+          >
+          <RButton kind="text" :loading="state.list.loading" @click="refresh">刷新</RButton>
           <RButton
             v-if="!recycle"
             kind="text"
@@ -213,14 +214,6 @@ onMounted(async () => {
             :title="`显示与排序：${metricMode === 'today' ? '今日' : '累计'}指标 · ${currentOrderLabel}`"
             @click="settingsOpen = true"
             ><RIcon name="gear" /><span class="workspace-settings-label">显示与排序</span></RButton
-          >
-          <RButton
-            v-if="coverageIncomplete"
-            kind="text"
-            class="stats-disclosure-trigger"
-            aria-label="有数据缺口，查看指标覆盖说明"
-            @click="settingsOpen = true"
-            >有数据缺口</RButton
           >
         </div>
         <div

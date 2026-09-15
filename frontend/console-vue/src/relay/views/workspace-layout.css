@@ -81,19 +81,16 @@
   margin: 0;
   gap: 6px;
 }
-.workspace-page .scope-trigger {
-  flex: 1;
-  min-width: 100px;
-  max-width: none;
-  justify-content: flex-start;
-  font-size: 16px !important;
-}
-.workspace-page .scope-trigger .r-button__label {
+.workspace-page .workspace-scope-label {
   display: flex;
   align-items: center;
+  flex: 1 1 180px;
+  min-width: 100px;
+  max-width: none;
   gap: 8px;
-  min-width: 0;
-  max-width: 100%;
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
 }
 .workspace-page .scope-caption {
   min-width: 0;
@@ -101,12 +98,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.workspace-page .list-toolbar > h2 {
+.workspace-page .list-toolbar > h2:not(.workspace-scope-label) {
   flex: 1;
   min-width: 0;
   font-size: 17px;
 }
-.workspace-page .list-toolbar > .r-button:not(.scope-trigger) {
+.workspace-page .list-toolbar > .r-button {
   flex: none;
   padding-inline: 8px;
   font-size: 12px;
@@ -120,12 +117,6 @@
   width: 18px;
   height: 18px;
 }
-.workspace-page .stats-disclosure-trigger {
-  color: var(--warning);
-  background: #fff5d8;
-  border-color: #eed9a0;
-}
-
 .workspace-page .workspace-results {
   flex: 1;
   min-height: 0;
@@ -477,8 +468,32 @@
 @media (max-width: 1100px) {
   .workspace-page .workspace-columns {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
   .workspace-page .group-rail {
+    display: flex;
+    max-height: none;
+    padding: 10px 12px;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .workspace-page .group-list {
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+  .workspace-page .group-list > .group-item {
+    flex: 0 0 auto;
+    min-width: 144px;
+    max-width: 220px;
+  }
+  .workspace-page .group-footer {
+    justify-content: flex-end;
+    border-top: 0;
+    padding-top: 0;
+  }
+  .workspace-page .group-capacity {
     display: none;
   }
 }
@@ -561,9 +576,13 @@
   .workspace-page .list-toolbar {
     gap: 0 6px;
   }
-  .workspace-page .scope-trigger {
+  .workspace-page .workspace-scope-label {
     flex-basis: 100%;
-    font-size: 15px !important;
+    width: 100%;
+    font-size: 15px;
+  }
+  .workspace-page .group-footer {
+    display: none;
   }
   .workspace-page .workspace-settings-trigger {
     width: 38px;
