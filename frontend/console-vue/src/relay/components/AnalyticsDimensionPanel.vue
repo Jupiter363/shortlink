@@ -1,12 +1,14 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AnalyticsMethodHint from './AnalyticsMethodHint.vue'
+import AnalyticsProvincePanel from './AnalyticsProvincePanel.vue'
 import { dimensionView, formatCount, formatRatio, formatShanghaiDate } from '../domain/analytics.js'
 
 const props = defineProps({
   model: { type: Object, required: true },
   title: { type: String, default: '访问维度' },
-  dimensions: { type: Array, required: true }
+  dimensions: { type: Array, required: true },
+  context: { type: String, default: '' }
 })
 
 const selectedKey = ref(props.dimensions[0]?.key || '')
@@ -173,7 +175,12 @@ onBeforeUnmount(() => chartObserver?.disconnect())
     </div>
 
     <div class="dimension-body" role="region" tabindex="0" :aria-label="`${title}数据，可滚动查看`">
-      <template v-if="current">
+      <AnalyticsProvincePanel
+        v-if="current && selectedKey === 'province'"
+        :dimension="current"
+        :context="context"
+      />
+      <template v-else-if="current">
         <p v-if="selectedKey === 'ip'" class="dimension-topk-note">TopK 近似排行 · 非全部 IP</p>
 
         <template v-if="rows.length && isTime">

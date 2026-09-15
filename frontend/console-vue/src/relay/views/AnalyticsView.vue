@@ -679,6 +679,7 @@ onBeforeUnmount(() => {
             :model="metricsModel"
             :title="group.title"
             :dimensions="group.dimensions"
+            :context="`${appliedContext?.label || '所选范围'} · ${appliedContext?.range.startDate || ''} 至 ${appliedContext?.range.endDate || ''}`"
           />
         </div>
       </template>
