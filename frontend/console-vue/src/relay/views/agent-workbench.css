@@ -1,0 +1,685 @@
+/* Agent-only layout overrides. The existing robots and suggestion cards keep
+   their shared visual treatment; one workspace scroll owns the reading flow. */
+.ar-agent-view.ar-view.operation-page {
+  gap: 12px;
+}
+.ar-agent-view .ar-agent-body.operation-body {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 2px 5px 6px 2px;
+  overflow: auto;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+.ar-agent-view .ar-agent-body.operation-body::-webkit-scrollbar {
+  display: none;
+}
+.ar-agent-view .ar-agent-layout {
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  grid-template-rows: auto;
+  align-items: start;
+  flex: none;
+  gap: 18px;
+  width: 100%;
+  min-height: 0;
+  padding: 1px 3px 4px 0;
+  overflow: visible;
+}
+.ar-agent-view .ar-panel.ar-composer {
+  gap: 8px;
+  min-height: 0;
+  max-height: none;
+  padding: 18px;
+  overflow: visible;
+}
+.ar-agent-view .ar-composer > .r-form-field {
+  gap: 6px;
+}
+.ar-agent-view .ar-composer .r-textarea {
+  min-height: 180px;
+  height: 180px;
+  max-height: none;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  resize: vertical;
+}
+.ar-agent-view .ar-composer .ar-inline-scope .r-input {
+  min-height: 38px;
+  height: 38px;
+  padding-block: 6px;
+}
+.ar-agent-view .ar-submit-row {
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.ar-agent-view .ar-submit-row .r-button {
+  min-height: 42px;
+  padding-block: 8px;
+}
+.ar-agent-view .ar-security-notice {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ar-agent-view .ar-output {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+.ar-agent-view .ar-output > .ar-result-content {
+  flex: none;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+.ar-agent-view .ar-section-switch {
+  flex: none;
+}
+
+.aw-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  flex: none;
+  gap: 8px 18px;
+  width: 100%;
+  max-width: 1440px;
+  min-width: 0;
+  min-height: 38px;
+  margin-inline: auto;
+  padding: 0 4px 0 2px;
+}
+.aw-toolbar-state {
+  display: flex;
+  align-items: center;
+  flex: 1 1 180px;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.aw-toolbar-state > strong {
+  flex: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+}
+.aw-toolbar-state > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aw-state-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7a8da5;
+}
+.aw-state-dot[data-state='RUNNING'] {
+  background: #ab761a;
+}
+.aw-state-dot[data-state='SUCCESS'] {
+  background: var(--success);
+}
+.aw-state-dot[data-state='ERROR'] {
+  background: var(--danger);
+}
+.aw-toolbar-actions,
+.aw-result-actions > div,
+.aw-history-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.aw-toolbar-actions .r-button,
+.aw-result-actions .r-button,
+.aw-history-actions .r-button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: none;
+}
+.aw-toolbar-actions .r-button__label,
+.aw-result-actions .r-button__label,
+.aw-history-actions .r-button__label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  white-space: normal;
+}
+.aw-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: var(--subtle);
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.aw-draft-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  min-width: 0;
+  min-height: 26px;
+  margin-top: -2px;
+}
+.aw-draft-tools > button {
+  min-height: 26px;
+  padding: 3px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.aw-draft-tools > button:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.aw-draft-tools > button:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.55;
+}
+.aw-draft-tools > span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.aw-session-summary {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.aw-session-summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.aw-session-summary strong {
+  flex: none;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+.aw-session-summary small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.ar-agent-view .aw-session-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.aw-data-panel {
+  min-width: 0;
+  padding: 17px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.aw-data-panel > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+.ar-agent-view .aw-data-panel h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.aw-data-panel > header > span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.aw-data-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+.aw-data-links > button {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--blue);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.aw-data-links > button > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.aw-data-links strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.aw-data-links small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.aw-data-links > button:hover:not(:disabled) {
+  border-color: var(--blue);
+  background: var(--subtle);
+}
+.aw-data-links > button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.aw-result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+  padding: 2px 0 3px;
+}
+.aw-result-actions > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* The modal already owns scrolling. Its history columns stay natural height. */
+.aw-history-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  min-width: 0;
+}
+.aw-history-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+.aw-history-list > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+.aw-history-list > button:hover {
+  background: var(--raised);
+  border-color: #aabfe3;
+}
+.aw-history-list > button[aria-pressed='true'] {
+  border-color: var(--blue);
+  background: var(--subtle);
+}
+.aw-history-list > button > span {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 650;
+}
+.aw-history-list strong {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.aw-history-list time {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.aw-history-detail {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.aw-history-detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 18px;
+}
+.aw-history-detail > header > div {
+  min-width: 0;
+}
+.aw-history-detail h3 {
+  margin: 0 0 5px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.aw-history-detail > header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.aw-history-question {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--yellow);
+  border-radius: 0 8px 8px 0;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.aw-history-detail .ar-answer-text {
+  margin: 0;
+  line-height: 1.9;
+}
+.aw-history-detail .ar-json {
+  max-height: none;
+  overflow: visible;
+}
+.aw-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: min(400px, 65dvh);
+  padding: 28px 18px;
+  color: var(--muted);
+  text-align: center;
+}
+.aw-history-empty > .r-icon {
+  color: var(--blue);
+}
+.aw-history-empty h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.5;
+}
+.aw-history-empty p {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.aw-history-empty .r-button {
+  margin-top: 6px;
+}
+.aw-assistance-content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.aw-assistance-content p {
+  margin: 0;
+}
+.aw-assistance-content > .ar-actions {
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raised);
+}
+.aw-assistance-content .ar-actions .r-button {
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 12px;
+  box-shadow: none;
+}
+.aw-assistance-content .ar-presets .r-button {
+  max-width: 100%;
+  white-space: normal;
+}
+.aw-assistance-content > code {
+  display: block;
+  margin-top: -6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--subtle);
+  color: var(--text);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.aw-copy-fallback {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 240px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.75;
+  resize: vertical;
+}
+.aw-draft-tools > button:focus-visible,
+.aw-data-links > button:focus-visible,
+.aw-history-list > button:focus-visible,
+.aw-copy-fallback:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1180px) {
+  .ar-agent-view .ar-agent-layout {
+    grid-template-columns: minmax(280px, 325px) minmax(0, 1fr);
+    gap: 16px;
+  }
+  .aw-data-panel {
+    padding-inline: 16px;
+  }
+  .aw-data-links > button {
+    gap: 7px;
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 900px) {
+  .ar-agent-view .ar-agent-layout {
+    display: block;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+  .ar-agent-view .ar-agent-layout > :is(.ar-composer, .ar-output) {
+    display: none;
+  }
+  .ar-agent-view .ar-agent-layout > .ar-pane-active {
+    display: flex;
+  }
+  .ar-agent-view .ar-pane-switch {
+    min-width: 0;
+  }
+  .ar-agent-view .ar-panel.ar-composer {
+    padding: 18px;
+  }
+  .ar-agent-view .ar-composer .r-textarea {
+    min-height: 180px;
+    height: 180px;
+  }
+  .aw-toolbar-state {
+    flex-basis: 220px;
+  }
+  .aw-draft-tools > span {
+    font-size: 11px;
+  }
+  .aw-history-layout {
+    grid-template-columns: minmax(160px, 210px) minmax(0, 1fr);
+    gap: 18px;
+  }
+  .aw-history-detail {
+    padding-left: 18px;
+  }
+}
+
+@media (max-width: 600px) {
+  .aw-toolbar {
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .aw-toolbar-state {
+    flex-basis: 100%;
+  }
+  .aw-toolbar-actions {
+    gap: 6px;
+  }
+  .aw-toolbar-actions .r-button,
+  .aw-result-actions .r-button,
+  .aw-history-actions .r-button {
+    min-height: 36px;
+    padding-inline: 8px;
+  }
+  .ar-agent-view .ar-panel.ar-composer {
+    padding: 15px;
+  }
+  .ar-agent-view .ar-composer .ar-inline-scope .r-form-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .ar-agent-view .ar-composer .r-textarea {
+    font-size: 16px;
+  }
+  .aw-draft-tools {
+    gap: 4px 10px;
+  }
+  .aw-draft-tools > span {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+  .aw-data-panel {
+    padding: 15px;
+  }
+  .aw-data-links {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .aw-data-links > button {
+    min-height: 66px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .aw-data-links small {
+    font-size: 12px;
+  }
+  .aw-result-actions {
+    align-items: flex-start;
+  }
+  .aw-result-actions > span {
+    flex-basis: 100%;
+  }
+  .aw-history-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .aw-history-detail {
+    padding: 18px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .aw-history-list > button {
+    padding: 11px 12px;
+  }
+  .aw-history-detail > header {
+    gap: 10px;
+  }
+  .aw-history-empty {
+    min-height: 300px;
+    padding: 20px 8px;
+  }
+  .aw-copy-fallback {
+    min-height: 220px;
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aw-toolbar button,
+  .aw-draft-tools button,
+  .aw-data-links button,
+  .aw-result-actions button,
+  .aw-history-layout button,
+  .aw-assistance-content button {
+    transition: none;
+    animation: none;
+  }
+}
