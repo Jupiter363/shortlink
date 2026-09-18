@@ -83,6 +83,14 @@ public class AgentAnalyticsFacade {
             int pageSize,
             String queryKind,
             List<Long> scopedLinkIds) {
+        return query(gid, fullShortUrl, start, end, windows, snapshotId, cursor, pageSize,
+                queryKind, scopedLinkIds, null, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public StatsEnvelope query(String gid, String fullShortUrl, String start, String end,
+            List<String> windows, String snapshotId, String cursor, int pageSize, String queryKind,
+            List<Long> scopedLinkIds, List<String> dimensions, List<Map<String, Object>> filters) {
         requirePrincipal();
         if (pageSize < 1 || pageSize > 500)
             throw new ClientException("Analytics pageSize must be between 1 and 500");
@@ -120,7 +128,7 @@ public class AgentAnalyticsFacade {
                                 snapshotId,
                                 cursor,
                                 pageSize,
-                                queryKind));
+                                queryKind, dimensions, filters));
         if (!"0".equals(response.getString("code"))) {
             String error = "Analytics query unavailable: " + response.getString("code");
             // Only this normalized diagnostic is safe to expose; upstream text may contain SQL.
@@ -142,6 +150,10 @@ public class AgentAnalyticsFacade {
             if (!(value instanceof Map<?, ?> row))
                 throw new RemoteException("Analytics item contract is invalid");
             Map<String, Object> item = new LinkedHashMap<>((Map<String, Object>) row);
+            if ("DIMENSION_BREAKDOWN".equals(queryKind)) {
+                enriched.add(item);
+                continue;
+            }
             Map<String, Object> identity = identities.get(longValue(item.get("linkId")));
             if (identity == null)
                 throw new RemoteException("Analytics returned an unauthorized link");
@@ -160,10 +172,17 @@ public class AgentAnalyticsFacade {
             String start,
             String end,
             String queryKind) {
+        return submitJob(requestId, gid, fullShortUrl, start, end, queryKind, null, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> submitJob(String requestId, String gid, String fullShortUrl,
+            String start, String end, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters) {
         requirePrincipal();
         if (requestId == null
                 || !requestId.matches("[A-Za-z0-9_-]{1,128}")
-                || !Set.of("METRICS", "ACCESS_RECORDS").contains(queryKind))
+                || !Set.of("METRICS", "ACCESS_RECORDS", "LINK_METRICS", "DIMENSION_BREAKDOWN").contains(queryKind))
             throw new ClientException("Invalid statistics job request");
         long startTime = parse(start, false), endTime = parse(end, true);
         if (startTime < 0
@@ -188,7 +207,7 @@ public class AgentAnalyticsFacade {
                         null,
                         null,
                         500,
-                        queryKind);
+                        queryKind, dimensions, filters);
         return jobData(client.createJob(Map.of("requestId", requestId, "query", query)), true);
     }
 
@@ -205,7 +224,44 @@ public class AgentAnalyticsFacade {
         Map<String, Object> result = jobData(client.job(jobId, "page", request), false);
         if (!(result.get("meta") instanceof Map<?, ?>) || !(result.get("items") instanceof List<?>))
             throw new RemoteException("Statistics job result envelope is invalid");
+        enrichJobIdentities(result);
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichJobIdentities(Map<String, Object> result) {
+        Map<String, Object> meta = new LinkedHashMap<>((Map<String, Object>) result.get("meta"));
+        // Older frozen jobs have no scope metadata. Preserve them without inventing an identity.
+        if (!(meta.get("linkIds") instanceof List<?> rawIds) || meta.get("gid") == null) return;
+        List<Long> ids = rawIds.stream().map(AgentAnalyticsFacade::longValue).toList();
+        Map<String, Object> scope = resolve(meta.get("gid").toString(), null, ids);
+        List<Map<String, Object>> links = (List<Map<String, Object>>) scope.get("links");
+        Map<Long, Map<String, Object>> identities = new LinkedHashMap<>();
+        for (Map<String, Object> link : links) identities.put(longValue(link.get("linkId")), link);
+        if (!identities.keySet().containsAll(ids))
+            throw new RemoteException("Statistics job scope is no longer authorized");
+        Map<String, Object> fullGroup = resolve(meta.get("gid").toString(), null, null);
+        var currentIds = new java.util.HashSet<Long>();
+        for (var link : (List<Map<String, Object>>) fullGroup.get("links"))
+            currentIds.add(longValue(link.get("linkId")));
+        meta.put("groupScopeComplete", fullGroup.get("nextCursor") == null
+                && currentIds.equals(new java.util.HashSet<>(ids)));
+        if (ids.size() == 1) meta.put("fullShortUrl", identities.get(ids.get(0)).get("fullShortUrl"));
+        List<Map<String, Object>> enriched = new ArrayList<>();
+        for (Object value : (List<?>) result.get("items")) {
+            if (!(value instanceof Map<?, ?> row))
+                throw new RemoteException("Statistics job item is invalid");
+            Map<String, Object> item = new LinkedHashMap<>((Map<String, Object>) row);
+            if (item.get("linkId") != null) {
+                Map<String, Object> identity = identities.get(longValue(item.get("linkId")));
+                if (identity == null) throw new RemoteException("Statistics job returned an unauthorized link");
+                for (String field : List.of("gid", "domain", "shortUri", "fullShortUrl"))
+                    item.put(field, identity.get(field));
+            }
+            enriched.add(item);
+        }
+        result.put("meta", meta);
+        result.put("items", enriched);
     }
 
     private Map<String, Object> jobIdentity() {

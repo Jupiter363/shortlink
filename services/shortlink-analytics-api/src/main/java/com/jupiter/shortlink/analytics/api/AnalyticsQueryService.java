@@ -52,6 +52,7 @@ public class AnalyticsQueryService {
 
     public Map<String, Object> query(QueryRequest q) {
         q.boundedPageSize();
+        DimensionBreakdown.validateRequest(q);
         var scope = auth.authorize(q);
         String epoch = auth.activeEpoch();
         if (q.snapshotId() != null) return page(q, scope, epoch);
@@ -129,7 +130,7 @@ public class AnalyticsQueryService {
         if (canonical) {
             Set<String> eligible =
                     new LinkedHashSet<>(List.of(settings.clickHouseUrls().split(",")));
-            List<String> clauses = canonicalClauses(manifests);
+            String predicate = canonicalPredicate(manifests);
             Map<String, Object> cuts = new LinkedHashMap<>();
             for (var m : manifests) {
                 long w = number(m.get("window_start"));
@@ -147,34 +148,8 @@ public class AnalyticsQueryService {
                 throw new QueryFailure(
                         "NOT_READY", "No replica qualifies for every selected build");
             replica = eligible.iterator().next();
-            Set<String> verified = new HashSet<>();
-            for (var m : manifests) {
-                String build = m.get("build_id").toString();
-                if (!verified.add(build)) continue;
-                var proof =
-                        ch.query(
-                                replica,
-                                "SELECT count()"
-                                    + " n,toString(groupBitXor(cityHash64(receipt_id,payload_hash,validation_result)))"
-                                    + " digest FROM (SELECT"
-                                    + " receipt_id,payload_hash,validation_result FROM"
-                                    + " rebuild_input WHERE build_id="
-                                        + quote(build)
-                                        + " GROUP BY receipt_id,payload_hash,validation_result)",
-                                1);
-                var expectedProof = readMap(Objects.toString(m.get("coverage_proof"), "{}"));
-                if (proof.size() != 1
-                        || !Objects.toString(expectedProof.get("n")).equals(Objects.toString(proof.get(0).get("n")))
-                        || !Objects.toString(expectedProof.get("digest")).equals(Objects.toString(proof.get(0).get("digest"))))
-                    throw new QueryFailure(
-                            "NOT_READY", "Selected replica no longer covers the immutable build");
-                if (DimensionProof.required(expectedProof)) {
-                    var dimensions = ch.query(replica, DimensionProof.sql(build), 1);
-                    if (dimensions.size() != 1) throw new QueryFailure("NOT_READY", "Missing dimension proof");
-                    DimensionProof.verify(expectedProof, dimensions.get(0));
-                }
-            }
-            facts = facts("rebuild_input", "(" + String.join(" OR ", clauses) + ")", scope);
+            new BuildProofVerifier(ch, json).verify(replica, manifests);
+            facts = facts("rebuild_input", predicate, scope);
             sourceCut = cuts;
         } else {
             if (start < System.currentTimeMillis() - MAX_RANGE
@@ -284,7 +259,22 @@ public class AnalyticsQueryService {
             facts = VisitorHistory.enrich(facts, history, scope.tenantId(), scope.linkIds());
         List<Map<String, Object>> items = new ArrayList<>();
         Map<String, Object> metrics = new LinkedHashMap<>();
-        if ("METRICS".equals(q.kind())) {
+        if (DimensionBreakdown.KIND.equals(q.kind())) {
+            var options = DimensionBreakdown.options(q);
+            var accumulator = new DimensionBreakdown.Accumulator(options, start, effectiveEnd);
+            for (var row : ch.query(replica, DimensionBreakdown.sql(facts, start, effectiveEnd, options),
+                    DimensionBreakdown.MAX_BUCKETS + 1)) accumulator.add(row);
+            var report = accumulator.finish();
+            items.addAll(report.items());
+            metrics.put("requested", report.summary());
+        } else if (LinkMetrics.KIND.equals(q.kind())) {
+            var accumulator = new LinkMetrics.Accumulator(scope.linkIds(), start, effectiveEnd);
+            for (var row : ch.query(replica, LinkMetrics.sql(facts, start, effectiveEnd), 501))
+                accumulator.add(row);
+            var report = accumulator.finish();
+            items.addAll(report.items());
+            metrics.put("requested", report.summary());
+        } else if ("METRICS".equals(q.kind())) {
             String aggregate =
                     "countIf(kind='CLICK') pv,uniqCombined64If(visitor_hash,kind='CLICK' AND"
                         + " visitor_hash!='') uv,uniqCombined64If(ip_hash,kind='CLICK' AND"
@@ -397,6 +387,9 @@ public class AnalyticsQueryService {
                     "QUERY_SCOPE_CHANGED", "Scope or recovery epoch changed while querying");
         String id = UUID.randomUUID().toString();
         Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("queryKind", q.kind());
+        meta.put("gid", q.gid());
+        meta.put("linkIds", scope.linkIds());
         meta.put("requestedStart", q.startInclusive());
         meta.put("requestedEnd", requestedEnd);
         meta.put("effectiveEnd", effectiveEnd);
@@ -414,10 +407,18 @@ public class AnalyticsQueryService {
         meta.put("freshness", finalized || created - effectiveEnd <= 120000 ? "FRESH" : "STALE");
         meta.put("completeness", complete ? "COMPLETE" : "PARTIAL");
         meta.put("provisional", !finalized);
-        meta.put("approximation", MetricDimensions.approximation());
+        meta.put("approximation", DimensionBreakdown.KIND.equals(q.kind()) ? DimensionBreakdown.approximation()
+                : LinkMetrics.KIND.equals(q.kind()) ? LinkMetrics.approximation() : MetricDimensions.approximation());
         meta.put("collectionQuality", quality.read(start, effectiveEnd, created));
         Map<String, Object> dimensions;
-        if (!metrics.isEmpty()) {
+        if (DimensionBreakdown.KIND.equals(q.kind())) {
+            dimensions = (Map<String, Object>) ((Map<?, ?>) metrics.get("requested")).get("dimensionQuality");
+            DimensionBreakdown.metadata(meta, DimensionBreakdown.options(q), items.size());
+        } else if (LinkMetrics.KIND.equals(q.kind())) {
+            dimensions = Map.of();
+            meta.put("totalRows", items.size());
+            meta.put("aggregationLevel", "LINK_WINDOW");
+        } else if (!metrics.isEmpty()) {
             String widest = windows.entrySet().stream().min(Comparator.comparingLong(e -> e.getValue()[0])).orElseThrow().getKey();
             dimensions = (Map<String, Object>) ((Map<?, ?>) metrics.get(widest)).get("dimensionQuality");
             meta.put("dimensionQualityWindow", widest);
@@ -428,7 +429,8 @@ public class AnalyticsQueryService {
             dimensions = (Map<String, Object>) recordDimensions.get("dimensionQuality");
         }
         meta.put("dimensionQuality", dimensions);
-        meta.put("missingMetrics", MetricDimensions.missingMetrics(dimensions));
+        meta.put("missingMetrics", DimensionBreakdown.KIND.equals(q.kind()) ? DimensionBreakdown.missingMetrics(dimensions)
+                : LinkMetrics.KIND.equals(q.kind()) ? List.of() : MetricDimensions.missingMetrics(dimensions));
         meta.put("businessTimezone", "Asia/Shanghai");
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("metrics", metrics);
@@ -449,30 +451,19 @@ public class AnalyticsQueryService {
         return slice(result, 0, q.boundedPageSize());
     }
 
-    /** Preserve every selected revision while coalescing only adjacent windows of the same build. */
-    static List<String> canonicalClauses(List<Map<String, Object>> manifests) {
-        Map<String, SortedSet<Long>> builds = new LinkedHashMap<>();
-        for (var manifest : manifests)
-            builds.computeIfAbsent(manifest.get("build_id").toString(), ignored -> new TreeSet<>())
-                    .add(number(manifest.get("window_start")));
-        List<String> clauses = new ArrayList<>();
-        builds.forEach((build, windows) -> {
-            long first = -1, previous = -1;
-            for (long window : windows) {
-                if (first >= 0 && window != previous + WINDOW) {
-                    clauses.add(buildRange(build, first, previous + WINDOW));
-                    first = window;
-                } else if (first < 0) first = window;
-                previous = window;
-            }
-            if (first >= 0) clauses.add(buildRange(build, first, previous + WINDOW));
-        });
-        return clauses;
+    /** Bound boolean expression depth while keeping each published build tied to its exact window. */
+    static String canonicalPredicate(List<Map<String, Object>> manifests) {
+        return CanonicalBuildPredicate.predicate(canonicalSelections(manifests));
     }
 
-    private static String buildRange(String build, long start, long end) {
-        return "(build_id=" + quote(build) + " AND window_start>=" + start
-                + " AND window_start<" + end + ")";
+    /** Preserve every selected revision while coalescing only adjacent windows of the same build. */
+    static List<String> canonicalClauses(List<Map<String, Object>> manifests) {
+        return CanonicalBuildPredicate.ranges(canonicalSelections(manifests));
+    }
+
+    private static List<CanonicalBuildPredicate.Selection> canonicalSelections(List<Map<String, Object>> manifests) {
+        return manifests.stream().map(manifest -> new CanonicalBuildPredicate.Selection(
+                manifest.get("build_id").toString(), number(manifest.get("window_start")))).toList();
     }
 
     private Map<String, Object> page(
@@ -545,8 +536,11 @@ public class AnalyticsQueryService {
     }
 
     private void validate(QueryRequest q) {
-        if (!Set.of("METRICS", "ACCESS_RECORDS", "ACTIVE_LINKS").contains(q.kind()))
+        if (!Set.of("METRICS", "ACCESS_RECORDS", "ACTIVE_LINKS", LinkMetrics.KIND, DimensionBreakdown.KIND).contains(q.kind()))
             throw new QueryFailure("INVALID_QUERY", "Unknown queryKind");
+        if (LinkMetrics.KIND.equals(q.kind())
+                && (q.windows() != null || q.endPolicy() != null && !"REQUESTED".equals(q.endPolicy())))
+            throw new QueryFailure("INVALID_QUERY", "LINK_METRICS requires one fixed requested interval");
         if (q.startInclusive() == null
                 || q.endExclusive() == null
                 || q.startInclusive() < 0
@@ -578,9 +572,7 @@ public class AnalyticsQueryService {
     }
 
     private String hash(QueryRequest q) {
-        return EventEnricher.sha256(
-                write(
-                        Arrays.asList(
+        var fields = new ArrayList<Object>(Arrays.asList(
                                 q.tenantId(),
                                 q.subjectId(),
                                 q.gid(),
@@ -591,7 +583,13 @@ public class AnalyticsQueryService {
                                 q.endExclusive(),
                                 q.windows(),
                                 q.endPolicy(),
-                                q.kind())));
+                                q.kind()));
+        if (DimensionBreakdown.KIND.equals(q.kind())) {
+            var options = DimensionBreakdown.options(q);
+            fields.add(options.dimensions());
+            fields.add(options.filterMaps());
+        }
+        return EventEnricher.sha256(write(fields));
     }
 
     private String write(Object value) {

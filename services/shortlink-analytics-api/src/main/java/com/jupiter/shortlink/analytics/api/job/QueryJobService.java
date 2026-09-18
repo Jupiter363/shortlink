@@ -211,6 +211,9 @@ public class QueryJobService {
         authorized(id, identity);
         QueryRequest q = read(job.get("request_json").toString(), QueryRequest.class);
         Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("queryKind", q.kind());
+        meta.put("gid", q.gid());
+        meta.put("linkIds", q.linkIds());
         meta.put("snapshotId", id);
         meta.put("recoveryEpoch", job.get("recovery_epoch"));
         meta.put("manifestSelectionHash", job.get("manifest_hash"));
@@ -241,19 +244,26 @@ public class QueryJobService {
         if (summaryRows.size() == 1) {
             var summary = readList(summaryRows.get(0).get("payload_json").toString()).get(0);
             dimensionQuality = (Map<String, Object>) summary.getOrDefault("dimensionQuality", Map.of());
-            if ("METRICS".equals(q.kind())) metrics = Map.of("requested", summary);
+            if (Set.of("METRICS", LinkMetrics.KIND, DimensionBreakdown.KIND).contains(q.kind())) metrics = Map.of("requested", summary);
         } else {
+            if (Set.of(LinkMetrics.KIND, DimensionBreakdown.KIND).contains(q.kind()))
+                throw new QueryFailure("UNAVAILABLE", "Whole-window summary is unavailable");
             dimensionQuality = (Map<String, Object>) MetricDimensions.recordDimensions(items).get("dimensionQuality");
             meta.put("dimensionQualityScope", "RETURNED_PAGE_LEGACY_JOB");
         }
         meta.put("dimensionQuality", dimensionQuality);
-        var missing = new ArrayList<>(MetricDimensions.missingMetrics(dimensionQuality));
+        var missing = new ArrayList<String>(DimensionBreakdown.KIND.equals(q.kind()) ? DimensionBreakdown.missingMetrics(dimensionQuality)
+                : LinkMetrics.KIND.equals(q.kind()) ? List.of() : MetricDimensions.missingMetrics(dimensionQuality));
         missing.add("producerCollectionCompleteness");
         meta.put("missingMetrics", missing);
-        meta.put("approximation", MetricDimensions.approximation());
+        meta.put("approximation", DimensionBreakdown.KIND.equals(q.kind()) ? DimensionBreakdown.approximation()
+                : LinkMetrics.KIND.equals(q.kind()) ? LinkMetrics.approximation() : MetricDimensions.approximation());
+        if (LinkMetrics.KIND.equals(q.kind())) meta.put("aggregationLevel", "LINK_WINDOW");
         meta.put("nextPageIndex", index + 1 < count ? index + 1 : null);
         meta.put("pageIndex", index);
         meta.put("totalRows", number(job.get("row_count")).longValue());
+        if (DimensionBreakdown.KIND.equals(q.kind()))
+            DimensionBreakdown.metadata(meta, DimensionBreakdown.options(q), number(job.get("row_count")).longValue());
         authorized(id, identity);
         return Map.of("items", items, "metrics", metrics, "meta", meta);
     }
@@ -379,7 +389,7 @@ public class QueryJobService {
             long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(5);
             String replica = clickhouse.verify(lease.plan(), deadline);
             var visitorHistory = history(lease);
-            if (visitorHistory.available()) {
+            if (visitorHistory.available() && !Set.of(LinkMetrics.KIND, DimensionBreakdown.KIND).contains(lease.query().kind())) {
                 var candidate = visitorHistory;
                 long proofDeadline = Math.min(deadline, System.nanoTime()
                         + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(VisitorHistory.PROOF_TIMEOUT_MILLIS));
@@ -391,6 +401,7 @@ public class QueryJobService {
             }
             PageBuffer buffer = new PageBuffer(lease, visitorHistory);
             clickhouse.query(replica, sql(lease, visitorHistory), MAX_ROWS, deadline, buffer::add);
+            buffer.finishAggregates();
             buffer.flush();
             buffer.publishSummary();
             checkExecution(lease);
@@ -427,13 +438,29 @@ public class QueryJobService {
         final Map<String, Map<String, Object>> summaryDaily = new TreeMap<>();
         final RecordDimensionSummary recordSummary = new RecordDimensionSummary(MAX_ROWS);
         final VisitorHistory.Plan visitorHistory;
+        final LinkMetrics.Accumulator linkMetrics;
+        final DimensionBreakdown.Accumulator dimensionBreakdown;
 
         PageBuffer(Lease lease, VisitorHistory.Plan visitorHistory) {
             this.lease = lease;
             this.visitorHistory = visitorHistory;
+            this.linkMetrics = LinkMetrics.KIND.equals(lease.query().kind())
+                    ? new LinkMetrics.Accumulator(lease.query().linkIds(),
+                            lease.query().startInclusive(), lease.query().endExclusive()) : null;
+            this.dimensionBreakdown = DimensionBreakdown.KIND.equals(lease.query().kind())
+                    ? new DimensionBreakdown.Accumulator(DimensionBreakdown.options(lease.query()),
+                            lease.query().startInclusive(), lease.query().endExclusive()) : null;
         }
 
         void add(Map<String, Object> row) {
+            if (dimensionBreakdown != null) {
+                dimensionBreakdown.add(row);
+                return;
+            }
+            if (linkMetrics != null) {
+                linkMetrics.add(row);
+                return;
+            }
             Map<String, Object> normalized = new LinkedHashMap<>(row);
             for (String key : List.of("linkId", "occurredAt", "pv", "uv", "uip", "denied"))
                 if (normalized.get(key) != null)
@@ -475,6 +502,22 @@ public class QueryJobService {
                 report.put("linkId", normalized.get("linkId"));
                 normalized = report;
             } else if ("ACCESS_RECORDS".equals(lease.query().kind())) recordSummary.add(normalized);
+            append(normalized);
+        }
+
+        void finishAggregates() {
+            if (linkMetrics != null) {
+                var result = linkMetrics.finish();
+                summary = result.summary();
+                for (var row : result.items()) append(row);
+            } else if (dimensionBreakdown != null) {
+                var result = dimensionBreakdown.finish();
+                summary = result.summary();
+                for (var row : result.items()) append(row);
+            }
+        }
+
+        private void append(Map<String, Object> normalized) {
             int size = write(normalized).getBytes(StandardCharsets.UTF_8).length + 1;
             if (size > 1_048_576 - 2)
                 throw new QueryFailure("TOO_LARGE", "Result page byte budget exceeded");
@@ -488,14 +531,14 @@ public class QueryJobService {
         @SuppressWarnings("unchecked")
         void publishSummary() {
             if ("ACCESS_RECORDS".equals(lease.query().kind())) summary = recordSummary.materialize(visitorHistory);
-            else if (summary != null) {
+            else if (summary != null && linkMetrics == null && dimensionBreakdown == null) {
                 List<Map<String, Object>> days = new ArrayList<>();
                 for (var day : (List<Map<String, Object>>) summary.get("daily"))
                     days.add(summaryDaily.getOrDefault(day.get("date").toString(), day));
                 summary.put("daily", days);
             }
             if (summary == null) return; // Already-published legacy jobs remain readable.
-            VisitorHistory.labelScope(summary, lease.query().linkIds().size());
+            if (linkMetrics == null && dimensionBreakdown == null) VisitorHistory.labelScope(summary, lease.query().linkIds().size());
             String payload = write(List.of(summary));
             int bytes = payload.getBytes(StandardCharsets.UTF_8).length;
             if (bytes > 1_048_576) throw new QueryFailure("TOO_LARGE", "Summary exceeds page byte budget");
@@ -590,6 +633,10 @@ public class QueryJobService {
     static String sql(Lease lease, VisitorHistory.Plan visitorHistory) {
         QueryRequest q = lease.query();
         String facts = AnalyticsFacts.sql("rebuild_input", lease.plan().predicate(), q.tenantId(), q.linkIds());
+        if (DimensionBreakdown.KIND.equals(q.kind()))
+            return DimensionBreakdown.sql(facts, q.startInclusive(), q.endExclusive(), DimensionBreakdown.options(q));
+        if (LinkMetrics.KIND.equals(q.kind()))
+            return LinkMetrics.sql(facts, q.startInclusive(), q.endExclusive());
         facts = VisitorHistory.enrich(facts, visitorHistory, q.tenantId(), q.linkIds());
         String filter =
                 " FROM ("
@@ -718,7 +765,8 @@ public class QueryJobService {
             throw new QueryFailure(
                     "TOO_LARGE",
                     "Historical query interval must be within 180 days and end no later than now");
-        if (!Set.of("METRICS", "ACCESS_RECORDS").contains(q.kind())
+        DimensionBreakdown.validateRequest(q);
+        if (!Set.of("METRICS", "ACCESS_RECORDS", LinkMetrics.KIND, DimensionBreakdown.KIND).contains(q.kind())
                 || q.snapshotId() != null
                 || q.cursor() != null
                 || q.windows() != null
@@ -742,6 +790,11 @@ public class QueryJobService {
     private String digestRequest(QueryRequest q) {
         var node = json.valueToTree(q);
         ((com.fasterxml.jackson.databind.node.ObjectNode) node).remove("authVersion");
+        if (DimensionBreakdown.KIND.equals(q.kind())) {
+            var options = DimensionBreakdown.options(q);
+            ((com.fasterxml.jackson.databind.node.ObjectNode) node).set("dimensions", json.valueToTree(options.dimensions()));
+            ((com.fasterxml.jackson.databind.node.ObjectNode) node).set("filters", json.valueToTree(options.filterMaps()));
+        }
         return hash(write(node));
     }
 

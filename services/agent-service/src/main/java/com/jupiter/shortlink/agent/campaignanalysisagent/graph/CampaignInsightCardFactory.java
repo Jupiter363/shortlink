@@ -360,7 +360,9 @@ class CampaignInsightCardFactory {
 
     private boolean isStatsTool(Map<String, Object> execution) {
         String toolName = textValue(execution.get("name"));
-        return "get_group_stats".equals(toolName) || "get_short_link_stats".equals(toolName);
+        return "get_group_stats".equals(toolName) || "get_short_link_stats".equals(toolName)
+                || ("get_statistics_query_job_page".equals(toolName)
+                        && !mapValue(mapValue(execution.get("data")).get("metrics")).isEmpty());
     }
 
     private Map<String, Object> derivedCard(

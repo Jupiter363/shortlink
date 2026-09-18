@@ -105,4 +105,23 @@ class AgentAnalyticsFailureTest {
     private StatsEnvelope query() {
         return facade.query("g1", null, "2026-09-09", "2026-09-15", null, null, null, 500, "METRICS");
     }
+
+    @Test
+    void dimensionRowsAreNotMistakenForUnauthorizedLinkRows() {
+        var dimensions = List.of("province", "device");
+        List<Map<String, Object>> filters = List.of(Map.of("dimension", "province", "operator", "IN", "values", List.of("浙江")));
+        var bucket = Map.of("dimensions", Map.of("province", Map.of("value", "浙江", "state", "KNOWN")), "pv", 5L, "uv", 2L);
+        when(client.query(any())).thenReturn(new JSONObject(Map.of("code", "0", "data", new JSONObject(Map.of(
+                "items", List.of(bucket), "metrics", Map.of("requested", Map.of("pv", 5L, "uv", 2L)),
+                "meta", Map.of("dimensions", dimensions, "filters", filters, "completeness", "PARTIAL"))))));
+        var response = facade.query("g1", null, "2026-09-01", "2026-09-07", null, null, null, 500,
+                "DIMENSION_BREAKDOWN", null, dimensions, filters);
+        assertThat(response.items()).containsExactly(bucket);
+        assertThat(response.meta()).containsEntry("completeness", "PARTIAL");
+        var request = org.mockito.ArgumentCaptor.forClass(com.jupiter.shortlink.admin.dto.req.analytics.AnalyticsQueryRequest.class);
+        org.mockito.Mockito.verify(client).query(request.capture());
+        assertThat(request.getValue().dimensions()).isEqualTo(dimensions);
+        assertThat(request.getValue().filters()).isEqualTo(filters);
+        assertThat(request.getValue().linkIds()).containsExactly(99L);
+    }
 }

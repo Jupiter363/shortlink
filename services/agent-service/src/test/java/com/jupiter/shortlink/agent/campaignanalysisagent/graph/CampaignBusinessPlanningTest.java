@@ -70,7 +70,7 @@ class CampaignBusinessPlanningTest {
     }
 
     @Test
-    void trafficCompositionPresetFetchesStatsAndBoundedAccessRecordsInSameTurn() {
+    void trafficCompositionUsesAggregatedStatsWithoutFetchingIndividualRecords() {
         CapturingTool stats = tool("get_group_stats", ToolResult.success(Map.of()));
         CapturingTool records =
                 tool("get_group_access_records", ToolResult.success(Map.of("records", List.of())));
@@ -78,9 +78,8 @@ class CampaignBusinessPlanningTest {
                 executor(groups("default"), stats, records)
                         .execute(request("汇总 default 分组最近 7 天的访问设备、地区和浏览器构成", ALICE));
 
-        assertThat(order)
-                .containsExactly("list_groups", "get_group_stats", "get_group_access_records");
-        assertThat(records.context.arguments()).containsEntry("gid", "AliceRealGid");
+        assertThat(order).containsExactly("list_groups", "get_group_stats");
+        assertThat(records.context).isNull();
         assertThat(result.warnings()).isEmpty();
     }
 

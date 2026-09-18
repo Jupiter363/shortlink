@@ -155,6 +155,32 @@ public class AgentToolInternalController {
                         "ACCESS_RECORDS"));
     }
 
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/link-metrics")
+    public Result<StatsEnvelope> linkMetrics(
+            @RequestParam String gid,
+            @RequestParam String startDate,
+            @RequestParam String endDate,
+            @RequestParam(required = false) String snapshotId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "500") int pageSize) {
+        requireOwnedGid(gid);
+        return Results.success(analytics.query(gid, null, startDate, endDate, null,
+                snapshotId, cursor, pageSize, "LINK_METRICS"));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/dimensions")
+    public Result<StatsEnvelope> dimensionBreakdown(@RequestBody DimensionRequest request) {
+        requireOwnedGid(request.gid());
+        return Results.success(analytics.query(request.gid(), request.fullShortUrl(), request.startDate(),
+                request.endDate(), null, request.snapshotId(), request.cursor(),
+                request.pageSize() == null ? 500 : request.pageSize(), "DIMENSION_BREAKDOWN", null,
+                request.dimensions(), request.filters()));
+    }
+
+    public record DimensionRequest(String gid, String fullShortUrl, String startDate, String endDate,
+            List<String> dimensions, List<Map<String, Object>> filters, String snapshotId,
+            String cursor, Integer pageSize) {}
+
     @GetMapping("/internal/short-link-admin/v1/agent-tools/risk/active-short-links")
     public Result<StatsEnvelope> riskActiveShortLinks(
             @RequestParam String since,
@@ -271,7 +297,7 @@ public class AgentToolInternalController {
                         request.fullShortUrl(),
                         request.startDate(),
                         request.endDate(),
-                        request.queryKind()));
+                        request.queryKind(), request.dimensions(), request.filters()));
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}")
@@ -295,7 +321,12 @@ public class AgentToolInternalController {
             String fullShortUrl,
             String startDate,
             String endDate,
-            String queryKind) {}
+            String queryKind, List<String> dimensions, List<Map<String, Object>> filters) {
+        public StatisticsJobRequest(String requestId, String gid, String fullShortUrl,
+                String startDate, String endDate, String queryKind) {
+            this(requestId, gid, fullShortUrl, startDate, endDate, queryKind, null, null);
+        }
+    }
 
     private void requireOwnedGid(String gid) {
         requirePrincipal();
