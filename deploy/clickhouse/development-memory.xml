@@ -1,0 +1,14 @@
+<clickhouse>
+    <!-- Local development: pair with a 4 GiB container and 1 GiB query budget. -->
+    <!-- Leave 1 GiB between the server tracker and the container's OOM boundary. -->
+    <max_server_memory_usage>3221225472</max_server_memory_usage>
+    <max_server_memory_usage_to_ram_ratio>0.9</max_server_memory_usage_to_ram_ratio>
+    <max_thread_pool_size>256</max_thread_pool_size>
+    <background_pool_size>16</background_pool_size>
+    <background_schedule_pool_size>16</background_schedule_pool_size>
+    <background_buffer_flush_schedule_pool_size>4</background_buffer_flush_schedule_pool_size>
+    <background_message_broker_schedule_pool_size>4</background_message_broker_schedule_pool_size>
+    <background_distributed_schedule_pool_size>4</background_distributed_schedule_pool_size>
+    <mark_cache_size>67108864</mark_cache_size>
+    <uncompressed_cache_size>33554432</uncompressed_cache_size>
+</clickhouse>

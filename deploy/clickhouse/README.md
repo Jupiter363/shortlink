@@ -1,5 +1,41 @@
 # Analytics dimensions and upgrade order
 
+## Local query memory budget
+
+`development-memory.xml` is the local development server profile. Mount it under
+`/etc/clickhouse-server/config.d/`, and mount `development-users.xml` under
+`/etc/clickhouse-server/users.d/`. Pair the **3 GiB server limit** with a **4 GiB
+container limit**, leaving space for allocations outside the server tracker.
+Synchronous and asynchronous Analytics API queries use a **1 GiB per-query
+limit**, matching the local user profile. Query threads use ClickHouse's automatic
+selection. Pagination, result size and deadline contracts still apply.
+
+Raise the container budget before loading the server profile, and update local
+Compose files and their generators together. Preserve existing volumes and do
+not rerun initializer services. These are local development budgets based on
+the observed workload; they do not guarantee that every workload fits in memory.
+
+A healthy `SELECT 1` does not prove that the statistics tools can query data.
+The previous 1 GiB server limit was already near resident memory at idle and
+during system-log merges. It killed both receipt-proof and metrics queries with
+ClickHouse error 241 even when those queries used less than 20 MB individually.
+Use `system.query_log` exception codes and `system.asynchronous_metrics`
+`MemoryResident`, alongside `system.metrics` `MemoryTracking`, to distinguish
+server pressure from a query exceeding its own budget. The
+[server memory setting](https://clickhouse.com/docs/reference/settings/server-settings/settings/max-server-memory-usage)
+limits all server work, including background activity.
+
+For an existing instance, preserve the data volume and update the Compose source
+as well as the running configuration. Verify both group statistics and
+access-record queries through the Agent tools, then check for new error 241
+entries. Do not reset data, erase system logs, or treat unknown metrics as zero
+to make a health check pass. Synchronous Agent queries receiving exception
+header 241 surface a fixed memory-capacity message through the existing
+`UNAVAILABLE` contract; raw ClickHouse errors and SQL are never forwarded to the
+Agent. Asynchronous job error codes retain their existing contract.
+
+## Dimension schema
+
 `001-analytics.sql` and `002-connect-landing.sql` initialize a new single-node database.
 `003-replicated.sql.template` initializes the replicated schema after substituting its database and cluster placeholders.
 Existing databases use `004-geo-dimensions.sql`, or the corresponding `.sql.template` for a cluster.

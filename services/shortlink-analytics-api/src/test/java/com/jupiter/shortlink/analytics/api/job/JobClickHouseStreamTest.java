@@ -12,14 +12,17 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 class JobClickHouseStreamTest {
     @Test
     void actualHttpPostStreamsJsonRowsAndKeepsSqlOutOfUrl() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var receivedQuery = new AtomicReference<String>();
         server.createContext(
                 "/",
                 e -> {
+                    receivedQuery.set(e.getRequestURI().getRawQuery());
                     assertThat(e.getRequestMethod()).isEqualTo("POST");
                     assertThat(e.getRequestURI().getRawQuery()).doesNotContain("SELECT");
                     assertThat(
@@ -43,6 +46,51 @@ class JobClickHouseStreamTest {
                     url, "SELECT 1", 2, System.nanoTime() + TimeUnit.SECONDS.toNanos(5), rows::add);
             assertThat(rows).hasSize(2);
             assertThat(((Number) rows.get(1).get("pv")).longValue()).isEqualTo(4294967296L);
+            assertThat(receivedQuery.get())
+                    .contains("&max_memory_usage=1073741824&")
+                    .contains("&max_result_rows=3&")
+                    .contains("&max_result_bytes=67108864&result_overflow_mode=throw")
+                    .contains("&max_bytes_to_read=1073741824&read_overflow_mode=throw&");
+            long executionSeconds = Arrays.stream(receivedQuery.get().split("&"))
+                    .filter(value -> value.startsWith("max_execution_time="))
+                    .mapToLong(value -> Long.parseLong(value.substring("max_execution_time=".length())))
+                    .findFirst().orElseThrow();
+            assertThat(executionSeconds).isBetween(1L, 5L);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void raisedQueryMemoryBudgetStillRejectsRowsBeyondTheRequestedLimit() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var receivedQuery = new AtomicReference<String>();
+        server.createContext("/", exchange -> {
+            try {
+                receivedQuery.set(exchange.getRequestURI().getRawQuery());
+                exchange.getRequestBody().readAllBytes();
+                byte[] body = "{\"n\":1}\n{\"n\":2}\n".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, body.length);
+                exchange.getResponseBody().write(body);
+            } finally {
+                exchange.close();
+            }
+        });
+        server.start();
+        String url = "http://127.0.0.1:" + server.getAddress().getPort();
+        try (var stream = new JobClickHouseStream(settings(url), new ObjectMapper())) {
+            List<Map<String, Object>> rows = new ArrayList<>();
+            QueryFailure failure = org.junit.jupiter.api.Assertions.assertThrows(
+                    QueryFailure.class,
+                    () -> stream.query(url, "SELECT 1", 1,
+                            System.nanoTime() + TimeUnit.SECONDS.toNanos(5), rows::add));
+
+            assertThat(failure.code).isEqualTo("TOO_LARGE");
+            assertThat(failure).hasMessage("Job result row budget exceeded");
+            assertThat(rows).containsExactly(Map.of("n", 1));
+            assertThat(receivedQuery.get())
+                    .contains("&max_memory_usage=1073741824&")
+                    .contains("&max_result_rows=2&");
         } finally {
             server.stop(0);
         }

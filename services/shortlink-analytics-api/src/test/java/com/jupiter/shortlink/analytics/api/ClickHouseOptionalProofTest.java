@@ -39,6 +39,7 @@ class ClickHouseOptionalProofTest {
                     () -> assertThrows(QueryFailure.class, () -> reader.queryOptionalProof(url, "SELECT 1", 1)));
             assertEquals("TOO_LARGE", failure.code);
             assertTrue(receivedQuery.get().contains("max_execution_time=1&"));
+            assertTrue(receivedQuery.get().contains("&max_memory_usage=1073741824&max_result_rows=2&"));
         } finally {
             release.countDown(); server.stop(0); executor.shutdownNow();
         }

@@ -15,6 +15,7 @@ import java.util.*;
 
 @Service
 public class AgentAnalyticsFacade {
+    private static final String MEMORY_CAPACITY_MESSAGE = "ClickHouse memory capacity exceeded";
     private final AnalyticsJsonClient client;
 
     public AgentAnalyticsFacade(AnalyticsJsonClient client) {
@@ -120,8 +121,15 @@ public class AgentAnalyticsFacade {
                                 cursor,
                                 pageSize,
                                 queryKind));
-        if (!"0".equals(response.getString("code")))
-            throw new RemoteException("Analytics query unavailable: " + response.getString("code"));
+        if (!"0".equals(response.getString("code"))) {
+            String error = "Analytics query unavailable: " + response.getString("code");
+            // Only this normalized diagnostic is safe to expose; upstream text may contain SQL.
+            if ("UNAVAILABLE".equals(response.getString("code"))
+                    && MEMORY_CAPACITY_MESSAGE.equals(response.getString("message"))) {
+                error += " (" + MEMORY_CAPACITY_MESSAGE + ")";
+            }
+            throw new RemoteException(error);
+        }
         JSONObject envelope = response.getJSONObject("data");
         if (envelope == null
                 || !(envelope.get("meta") instanceof Map<?, ?> metadata)

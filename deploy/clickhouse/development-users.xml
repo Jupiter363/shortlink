@@ -1,0 +1,9 @@
+<clickhouse>
+    <profiles>
+        <default>
+            <max_memory_usage>1073741824</max_memory_usage>
+            <max_memory_usage_for_user>0</max_memory_usage_for_user>
+            <max_threads>0</max_threads>
+        </default>
+    </profiles>
+</clickhouse>
