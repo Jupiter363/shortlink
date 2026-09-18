@@ -44,7 +44,7 @@ public class ClickHouseReader {
                                     + "/?database="
                                     + settings.clickHouseDatabase()
                                     + "&max_execution_time=" + (proofDeadline == 0 ? 15 : 1)
-                                    + "&max_memory_usage=268435456&max_result_rows="
+                                    + "&max_memory_usage=1073741824&max_result_rows="
                                     + (limit + 1)
                                     + "&result_overflow_mode=throw");
             var req =
@@ -64,8 +64,14 @@ public class ClickHouseReader {
                     throw new QueryFailure("FORBIDDEN", "History proof access denied");
                 if (proofDeadline != 0 && resp.statusCode() == 429)
                     throw new QueryFailure("TOO_LARGE", "History proof capacity exceeded");
-                if (resp.statusCode() != 200)
-                    throw new QueryFailure("UNAVAILABLE", "ClickHouse query failed");
+                String exceptionCode =
+                        resp.headers().firstValue("X-ClickHouse-Exception-Code").orElse("0");
+                if (resp.statusCode() != 200 || !"0".equals(exceptionCode))
+                    throw new QueryFailure(
+                            "UNAVAILABLE",
+                            "241".equals(exceptionCode)
+                                    ? "ClickHouse memory capacity exceeded"
+                                    : "ClickHouse query failed");
                 long chars = 0;
                 for (String line; (line = BoundedLines.read(r, 1048576)) != null; ) {
                     if (proofDeadline != 0) remainingMillis(proofDeadline);

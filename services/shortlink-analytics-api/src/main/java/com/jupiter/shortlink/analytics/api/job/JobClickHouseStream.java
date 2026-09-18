@@ -58,7 +58,7 @@ public class JobClickHouseStream implements AutoCloseable {
                                     + settings.clickHouseDatabase()
                                     + "&max_execution_time="
                                     + Math.max(1, millis / 1000)
-                                    + "&max_memory_usage=268435456&max_bytes_to_read=1073741824&read_overflow_mode=throw&max_result_rows="
+                                    + "&max_memory_usage=1073741824&max_bytes_to_read=1073741824&read_overflow_mode=throw&max_result_rows="
                                     + (maxRows + 1)
                                     + "&max_result_bytes=67108864&result_overflow_mode=throw");
             var request =
