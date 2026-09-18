@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { pretty } from '../domain/agentModel.js'
+import AnalyticEvidenceTable from './AnalyticEvidenceTable.vue'
 
 defineProps({
   result: { type: Object, required: true },
@@ -63,6 +64,10 @@ const debugOpen = ref(false)
             </tbody>
           </table>
         </div>
+        <AnalyticEvidenceTable
+          v-else-if="['comparison', 'ranking', 'dimension_breakdown'].includes(card.type)"
+          :card="card"
+        />
         <template v-else>
           <details class="ar-details">
             <summary>指标与证据数据</summary>
@@ -100,7 +105,7 @@ const debugOpen = ref(false)
             not_fully_applied: '未完全执行'
           }[action.status] || '结果未知'
         }}</RBadge>
-        <details v-if="card.metrics || card.evidence || card.reasonCodes" class="ar-details">
+        <details v-if="action.metrics || action.evidence || action.reasonCodes" class="ar-details">
           <summary>动作详情</summary>
           <pre class="ar-json">{{ pretty(action) }}</pre>
         </details>

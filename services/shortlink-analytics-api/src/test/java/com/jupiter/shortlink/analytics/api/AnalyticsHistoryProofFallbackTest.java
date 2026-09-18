@@ -42,7 +42,7 @@ class AnalyticsHistoryProofFallbackTest {
                 .thenReturn(List.of(manifest));
         when(ch.query(anyString(), anyString(), anyInt())).thenAnswer(invocation -> {
             String sql = invocation.getArgument(1);
-            if (sql.contains("groupBitXor")) return List.of(Map.of("n", 3, "digest", "7"));
+            if (sql.contains("groupBitXor")) return List.of(Map.of("build_id", "build", "n", 3, "digest", "7"));
             if (factsFailure != null) throw factsFailure;
             assertTrue(sql.contains("toUInt8(0) scope_history_known"));
             assertFalse(sql.contains("retained_history"));

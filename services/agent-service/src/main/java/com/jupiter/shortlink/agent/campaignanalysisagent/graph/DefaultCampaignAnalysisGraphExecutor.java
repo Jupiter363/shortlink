@@ -44,14 +44,13 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
+import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class DefaultCampaignAnalysisGraphExecutor implements CampaignAnalysisGraphExecutor {
@@ -100,6 +99,12 @@ Business metric semantics are fixed, regardless of field names that sound simila
   their times in the answer. Summarize only the observed page size, data quality and pagination:
   use a supplied hasMore flag or nonempty meta.nextCursor for more pages, never imply a page is
   the complete access history or invent a total when no total is supplied.
+- comparison/ranking/dimension_breakdown cards contain program-computed evidence. Use their
+  supplied rows, deltas, rates, ranks and warnings; never sum UV/UIP across objects, periods or
+  dimension buckets. A null rate is unavailable, not zero or infinity. Observed differences
+  are not proof of campaign causality, conversion, revenue or ROI.
+- A PENDING/INCOMPLETE analysis is not a completed ranking or comparison. Report what is pending.
+  resultComplete describes whether all result rows were read; it never overrides data completeness.
 Respect the exact resolved group, date range, timezone and quality metadata supplied in context.
 Do not present calendar-day statistics as an exact rolling-hour window.
 If scope is ambiguous, ask only for the missing group or date; do not guess a gid or tenant.
@@ -129,10 +134,6 @@ Insight explanation contract:
     private static final String CHECKPOINT_SAVE_FAILED_WARNING = "Graph checkpoint save failed";
     private static final String GRAPH_EXECUTION_FAILED_WARNING = "Graph execution failed";
     private static final String GRAPH_NODE_EXECUTION_FAILED_WARNING = "Graph node execution failed";
-    private static final Pattern KEY_VALUE_PATTERN =
-            Pattern.compile(
-                    "(gid|fullShortUrl|startDate|endDate|current|size|orderTag|snapshotId|cursor)\\s*[:=\\uFF1A]\\s*([^\\s,;\\uFF0C\\uFF1B]+)");
-    private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final CampaignInsightCardFactory INSIGHT_CARD_FACTORY =
@@ -153,7 +154,7 @@ Insight explanation contract:
 
     private final CompiledGraph graph;
 
-    private final CampaignQueryScopeResolver scopeResolver;
+    private final CampaignAnalysisPlanner planner;
 
     private final ConcurrentMap<String, List<Object>> inFlightTraceEvents =
             new ConcurrentHashMap<>();
@@ -212,7 +213,7 @@ Insight explanation contract:
         this.agentProperties = agentProperties;
         this.toolRegistry = toolRegistry;
         this.checkpointSaver = checkpointSaver;
-        this.scopeResolver = new CampaignQueryScopeResolver(clock);
+        this.planner = new CampaignAnalysisPlanner(clock);
         this.graph = compileGraph(agentProperties.getGraph().getName());
     }
 
@@ -307,6 +308,12 @@ Insight explanation contract:
         input.put("toolExecutions", List.of());
         input.put("derivedInsightCards", List.of());
         input.put("traceEvents", List.of());
+        // Native checkpoints merge this input into the previous state. Only the
+        // compact conversationContext should carry evidence references between turns.
+        for (String key : List.of("cards", "pendingActions", "toolCalls", "dataSources",
+                "visitedNodes", "warnings", "toolWarnings")) input.put(key, List.of());
+        input.put("answer", "");
+        input.put("llmDataSource", Map.of());
 
         String traceKey = traceKey(scopedSession(request), request.traceId());
         input.put("executionTraceKey", traceKey);
@@ -501,85 +508,58 @@ Insight explanation contract:
         String sessionId = state.value("sessionId", "");
         AgentPrincipal principal = AgentPrincipal.fromState(state.value("principal").orElse(null));
         String username = principal == null ? "" : principal.username();
-        List<Map<String, Object>> toolExecutions = new ArrayList<>();
+        Map<String, Object> previous = principal == null ? Map.of()
+                : mapValue(state.value("conversationContext", Map.of()));
+        var continuation = CampaignConversation.continuation(message, previous);
+        CampaignAnalysisPlanner.Plan plan = continuation.orElseGet(() -> planner.plan(message, previous, null));
+        List<Map<String, Object>> executions = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
-        List<ToolInvocation> invocations = new ArrayList<>(planToolInvocations(message, warnings));
-        if (!invocations.isEmpty() && principal == null) {
+        if (principal == null && (plan.needsGroups() || !plan.invocations().isEmpty())) {
             warnings.add("缺少可信用户身份，未执行业务工具。");
-            invocations.clear();
-        }
-        for (ToolInvocation invocation : invocations) {
-            Optional<AgentTool> toolOptional = toolRegistry.findByName(invocation.name());
-            if (toolOptional.isEmpty()) {
-                warnings.add("Agent tool not registered: " + invocation.name());
-                continue;
+        } else {
+            if (plan.needsGroups()) {
+                Optional<AgentTool> groups = toolRegistry.findByName("list_groups");
+                if (groups.isPresent()) {
+                    var execution = executeTool(groups.get(), new ToolInvocation("list_groups", Map.of()),
+                            sessionId, username, principal);
+                    executions.add(execution);
+                    if (toolSucceeded(execution)) plan = planner.plan(message, previous, rowsFrom(execution.get("data")));
+                    else warnings.add("当前用户分组列表不可用，未猜测目标 gid 或执行依赖的统计查询。");
+                } else warnings.add("Agent tool not registered: list_groups");
             }
-            toolExecutions.add(
-                    executeTool(toolOptional.get(), invocation, sessionId, username, principal));
-        }
-        // Group lookup and statistics are dependent operations within the same bounded graph turn.
-        // Resolve names only from this turn's authenticated list_groups result, never checkpoints.
-        Map<String, Object> arguments = extractArguments(message, new ArrayList<>());
-        String normalized = message == null ? "" : message.toLowerCase(Locale.ROOT);
-        boolean needsGroupData =
-                wantsStats(normalized)
-                        || wantsAccessRecords(normalized)
-                        || wantsShortLinkPage(normalized);
-        if (principal != null
-                && !arguments.containsKey("gid")
-                && needsGroupData
-                && com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner
-                        .continuation(message)
-                        .isEmpty()) {
-            Optional<Map<String, Object>> groups =
-                    toolExecutions.stream()
-                            .filter(
-                                    each ->
-                                            "list_groups".equals(each.get("name"))
-                                                    && toolSucceeded(each))
-                            .findFirst();
-            if (groups.isPresent()) {
-                scopeResolver
-                        .resolveGid(message, rowsFrom(groups.get().get("data")), warnings)
-                        .ifPresent(
-                                gid -> {
-                                    arguments.put("gid", gid);
-                                    boolean dateRange =
-                                            !(wantsStats(normalized)
-                                                            || wantsAccessRecords(normalized))
-                                                    || scopeResolver.validDates(
-                                                            arguments, warnings);
-                                    for (ToolInvocation dependent :
-                                            planComposableToolInvocations(
-                                                    normalized,
-                                                    arguments,
-                                                    true,
-                                                    arguments.containsKey("fullShortUrl"),
-                                                    dateRange)) {
-                                        if ("list_groups".equals(dependent.name())) continue;
-                                        Optional<AgentTool> tool =
-                                                toolRegistry.findByName(dependent.name());
-                                        if (tool.isPresent()) {
-                                            toolExecutions.add(
-                                                    executeTool(
-                                                            tool.get(),
-                                                            dependent,
-                                                            sessionId,
-                                                            username,
-                                                            principal));
-                                        } else
-                                            warnings.add(
-                                                    "Agent tool not registered: "
-                                                            + dependent.name());
-                                    }
-                                });
-            } else {
-                warnings.add("当前用户分组列表不可用，未猜测目标 gid 或执行依赖的统计查询。");
+            warnings.addAll(plan.warnings());
+            if (!plan.needsGroups()) for (var invocation : plan.invocations()) {
+                if ("list_groups".equals(invocation.name()) && !executions.isEmpty()) continue;
+                Optional<AgentTool> tool = toolRegistry.findByName(invocation.name());
+                if (tool.isEmpty()) { warnings.add("Agent tool not registered: " + invocation.name()); continue; }
+                var toolArguments = new LinkedHashMap<>(invocation.arguments());
+                // A new analysis needs a fresh snapshot; follow-ups use the server-issued jobId.
+                if ("submit_statistics_query_job".equals(invocation.name()))
+                    toolArguments.put("requestId", java.util.UUID.randomUUID().toString());
+                var execution = executeTool(tool.get(), new ToolInvocation(invocation.name(), toolArguments),
+                        sessionId, username, principal);
+                executions.add(execution);
+                // One status check and one ready page are allowed; never poll in a loop.
+                Map<String, Object> data = mapValue(execution.get("data"));
+                if ("get_statistics_query_job".equals(invocation.name()) && toolSucceeded(execution)
+                        && "SUCCEEDED".equals(data.get("state"))) {
+                    var pageTool = toolRegistry.findByName("get_statistics_query_job_page");
+                    if (pageTool.isPresent()) executions.add(executeTool(pageTool.get(),
+                            new ToolInvocation("get_statistics_query_job_page", Map.of(
+                                    "jobId", invocation.arguments().get("jobId"), "pageIndex", 0, "size", 500)),
+                            sessionId, username, principal));
+                }
             }
         }
-        return Map.of(
-                "toolExecutions", toolExecutions,
-                "toolWarnings", warnings,
+        boolean explicitJob = executions.stream().anyMatch(e -> Objects.toString(e.get("name"), "").startsWith("get_statistics_query_job"));
+        Map<String, Object> context = principal == null ? Map.of()
+                : CampaignConversation.updated(plan.context(), continuation.isPresent() ? plan.context() : previous, executions,
+                        continuation.isPresent() || explicitJob
+                                || (executions.isEmpty() && plan.warnings().isEmpty()
+                                        && Objects.equals(plan.context().get("scopes"), previous.get("scopes"))
+                                        && Objects.equals(plan.context().get("periods"), previous.get("periods"))));
+        return Map.of("toolExecutions", executions, "toolWarnings", warnings,
+                "conversationContext", context,
                 "visitedNodes", List.of(INTAKE_NODE, TOOL_CALL_NODE));
     }
 
@@ -606,7 +586,9 @@ Insight explanation contract:
                                     sessionId, username, invocation.arguments(), principal));
             execution.put("success", result.success());
             if (result.success()) {
-                execution.put("data", result.data());
+                // Tools have already validated full snapshot metadata and pagination.
+                // Compact only internal provenance before any native graph checkpoint.
+                execution.put("data", CampaignEvidenceContext.compact(result.data()));
             } else {
                 execution.put("message", result.message());
             }
@@ -617,212 +599,28 @@ Insight explanation contract:
         return execution;
     }
 
-    private List<ToolInvocation> planToolInvocations(String message, List<String> warnings) {
-        var job =
-                com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.continuation(
-                        message);
-        if (job.isPresent())
-            return List.of(new ToolInvocation(job.get().toolName(), job.get().arguments()));
-        Map<String, Object> arguments = extractArguments(message, warnings);
-        String normalized = message == null ? "" : message.toLowerCase(Locale.ROOT);
-        boolean hasGid = arguments.containsKey("gid");
-        boolean hasFullShortUrl = arguments.containsKey("fullShortUrl");
-        boolean hasDateRange =
-                arguments.containsKey("startDate") && arguments.containsKey("endDate");
-        if (hasGid && (wantsStats(normalized) || wantsAccessRecords(normalized))) {
-            hasDateRange = scopeResolver.validDates(arguments, warnings);
-        }
-        List<ToolInvocation> composableInvocations =
-                planComposableToolInvocations(
-                        normalized, arguments, hasGid, hasFullShortUrl, hasDateRange);
-        if (!composableInvocations.isEmpty()) {
-            return composableInvocations;
-        }
-        return List.of();
-    }
-
-    private List<ToolInvocation> planComposableToolInvocations(
-            String normalized,
-            Map<String, Object> arguments,
-            boolean hasGid,
-            boolean hasFullShortUrl,
-            boolean hasDateRange) {
-        List<ToolInvocation> invocations = new ArrayList<>();
-        if (wantsListGroups(normalized, hasGid)
-                || (!hasGid
-                        && (wantsStats(normalized)
-                                || wantsAccessRecords(normalized)
-                                || wantsShortLinkPage(normalized)))) {
-            invocations.add(new ToolInvocation("list_groups", Map.of()));
-        }
-        if (hasGid && wantsShortLinkPage(normalized)) {
-            invocations.add(new ToolInvocation("page_short_links", arguments));
-        }
-        if (hasGid && hasDateRange && wantsStats(normalized)) {
-            String toolName = hasFullShortUrl ? "get_short_link_stats" : "get_group_stats";
-            var job =
-                    com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.longRange(
-                            arguments, "METRICS");
-            invocations.add(
-                    job.map(plan -> new ToolInvocation(plan.toolName(), plan.arguments()))
-                            .orElseGet(() -> new ToolInvocation(toolName, arguments)));
-        }
-        if (hasGid && hasDateRange && wantsAccessRecords(normalized)) {
-            var job =
-                    com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.longRange(
-                            arguments, "ACCESS_RECORDS");
-            invocations.add(
-                    job.map(plan -> new ToolInvocation(plan.toolName(), plan.arguments()))
-                            .orElseGet(
-                                    () ->
-                                            new ToolInvocation(
-                                                    "get_group_access_records", arguments)));
-        }
-        return invocations;
-    }
-
-    private boolean wantsListGroups(String normalized, boolean hasGid) {
-        boolean explicitListGroups =
-                containsAny(
-                        normalized,
-                        "list groups",
-                        "show groups",
-                        "group list",
-                        "all groups",
-                        "groups and",
-                        "groups,",
-                        "\u5217\u51fa\u5206\u7ec4",
-                        "\u67e5\u770b\u5206\u7ec4",
-                        "\u67e5\u8be2\u5206\u7ec4",
-                        "\u5206\u7ec4\u5217\u8868",
-                        "\u6211\u7684\u5206\u7ec4");
-        return explicitListGroups
-                || (!hasGid
-                        && containsAny(
-                                normalized,
-                                "group",
-                                "groups",
-                                "gid",
-                                "\u5206\u7ec4",
-                                "\u6709\u54ea\u4e9b"));
-    }
-
-    private boolean wantsShortLinkPage(String normalized) {
-        return containsAny(
-                normalized,
-                "link list",
-                "links list",
-                "list link",
-                "list links",
-                "short link list",
-                "short links list",
-                "link page",
-                "links page",
-                "page links",
-                "page short links",
-                "short link page",
-                "short links page",
-                "link paging",
-                "links paging",
-                "show links",
-                "all links",
-                "\u77ed\u94fe\u5217\u8868",
-                "\u77ed\u94fe\u63a5\u5217\u8868",
-                "\u77ed\u94fe\u5206\u9875",
-                "\u77ed\u94fe\u63a5\u5206\u9875",
-                "\u5206\u9875\u67e5\u770b\u77ed\u94fe",
-                "\u5206\u9875\u67e5\u770b\u77ed\u94fe\u63a5",
-                "\u67e5\u770b\u77ed\u94fe",
-                "\u67e5\u770b\u77ed\u94fe\u63a5",
-                "\u67e5\u8be2\u77ed\u94fe",
-                "\u67e5\u8be2\u77ed\u94fe\u63a5");
-    }
-
-    private boolean wantsStats(String normalized) {
-        return containsAny(
-                normalized,
-                "stats",
-                "statistics",
-                "analysis",
-                "analyze",
-                "performance",
-                "traffic",
-                "诊断",
-                "汇总",
-                "流量",
-                "构成",
-                "\u7edf\u8ba1",
-                "\u5206\u6790",
-                "\u8868\u73b0",
-                "\u6570\u636e");
-    }
-
-    private boolean wantsAccessRecords(String normalized) {
-        return containsAny(
-                normalized, "access", "record", "\u8bbf\u95ee", "\u8bb0\u5f55", "\u660e\u7ec6");
-    }
-
-    private Map<String, Object> extractArguments(String message, List<String> warnings) {
-        Map<String, Object> arguments = new LinkedHashMap<>();
-        if (message == null || message.isBlank()) {
-            return arguments;
-        }
-        Matcher keyValueMatcher = KEY_VALUE_PATTERN.matcher(message);
-        while (keyValueMatcher.find()) {
-            putArgument(arguments, keyValueMatcher.group(1), keyValueMatcher.group(2));
-        }
-        if (!arguments.containsKey("startDate") || !arguments.containsKey("endDate")) {
-            Matcher dateMatcher = DATE_PATTERN.matcher(message);
-            List<String> dates = new ArrayList<>();
-            while (dateMatcher.find()) {
-                dates.add(dateMatcher.group());
-            }
-            if (dates.size() >= 2) {
-                arguments.putIfAbsent("startDate", dates.get(0));
-                arguments.putIfAbsent("endDate", dates.get(1));
-            }
-        }
-        scopeResolver.completeDates(message, arguments, warnings);
-        return arguments;
-    }
-
-    private void putArgument(Map<String, Object> arguments, String name, String value) {
-        String sanitizedValue = sanitizeArgumentValue(value);
-        if ("current".equals(name) || "size".equals(name)) {
-            try {
-                arguments.put(name, Long.parseLong(sanitizedValue));
-            } catch (NumberFormatException ex) {
-                arguments.put(name, sanitizedValue);
-            }
-            return;
-        }
-        arguments.put(name, sanitizedValue);
-    }
-
-    private String sanitizeArgumentValue(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.trim().replaceAll("[.。；;]+$", "");
-    }
-
-    private boolean containsAny(String text, String... fragments) {
-        for (String fragment : fragments) {
-            if (text.contains(fragment)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private Map<String, Object> analyzeWithLlm(OverAllState state) {
         List<String> warnings = new ArrayList<>(state.value("toolWarnings", List.of()));
         warnings.addAll(failedToolWarnings(state.value("toolExecutions", List.of())));
+        List<Map<String, Object>> executions = state.value("toolExecutions", List.of());
+        for (var execution : executions) {
+            var data = mapValue(execution.get("data"));
+            if (data.get("warnings") instanceof List<?> qualityWarnings)
+                qualityWarnings.forEach(warning -> warnings.add(String.valueOf(warning)));
+        }
         Map<String, Object> llmDataSource = Map.of();
+        var analyses = executions.stream().filter(e -> Set.of("compare_statistics", "rank_short_links",
+                "get_dimension_breakdown").contains(textValue(e.get("name")))).toList();
+        if (!analyses.isEmpty() && analyses.stream().allMatch(e -> toolSucceeded(e)
+                && "PENDING".equals(mapValue(e.get("data")).get("status"))))
+            return Map.of("answer", "统计任务正在处理中，当前尚无完整分析结果。输入“查看分析结果”可继续读取本次任务。",
+                    "llmDataSource", llmDataSource, "warnings", warnings,
+                    "visitedNodes", List.of(INTAKE_NODE, TOOL_CALL_NODE, INSIGHT_COMPUTE_NODE, LLM_ANALYSIS_NODE));
         var jobAnswer =
                 com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobPlanner.statusAnswer(
                         state.value("toolExecutions", List.of()));
-        if (jobAnswer.isPresent())
+        if (jobAnswer.isPresent() && state.<List<Map<String, Object>>>value("toolExecutions", List.of()).stream()
+                .noneMatch(e -> "get_statistics_query_job_page".equals(e.get("name")) && toolSucceeded(e)))
             return Map.of(
                     "answer",
                     jobAnswer.get(),
@@ -932,7 +730,11 @@ Insight explanation contract:
         StringBuilder prompt =
                 new StringBuilder(message)
                         .append("\n\nTool execution context:\n")
-                        .append(toJson(INSIGHT_CARD_FACTORY.sanitizeForPrompt(toolExecutions)));
+                        .append(toJson(INSIGHT_CARD_FACTORY.sanitizeForPrompt(promptExecutions(toolExecutions))));
+        Map<String, Object> selection = mapValue(state.value("conversationContext", Map.of()));
+        Map<String, Object> visibleSelection = new LinkedHashMap<>();
+        for (String key : List.of("scopes", "periods", "intent")) putIfPresent(visibleSelection, selection, key);
+        prompt.append("\n\nResolved analysis selection:\n").append(toJson(visibleSelection));
         prompt.append("\n\nExecution is complete. No further tools will run in this turn.")
                 .append(
                         "\n"
@@ -956,6 +758,25 @@ Insight explanation contract:
         } catch (JsonProcessingException ex) {
             return String.valueOf(value);
         }
+    }
+
+    private List<Map<String, Object>> promptExecutions(List<Map<String, Object>> executions) {
+        return executions.stream().map(execution -> {
+            Map<String, Object> result = new LinkedHashMap<>(execution);
+            Map<String, Object> data = new LinkedHashMap<>(mapValue(execution.get("data")));
+            if ("dimension_breakdown".equals(data.get("type")) && data.get("rows") instanceof List<?> rows) {
+                if (rows.size() > 50) {
+                    data.put("rows", rows.subList(0, 50));
+                    data.put("rowPresentation", Map.of("totalRows", rows.size(), "shownRows", 50,
+                            "scope", "HEAD_SAMPLE_ONLY", "note", "完整联合维度表已交付界面；解释仅看到排序后的前50桶，不得将这些行当作全部分布或累加UV。"));
+                }
+            }
+            if (!data.isEmpty()) {
+                data.remove("continuation");
+                result.put("data", data);
+            }
+            return result;
+        }).toList();
     }
 
     private Map<String, Object> composeResponse(OverAllState state) {
@@ -994,12 +815,28 @@ Insight explanation contract:
             return toolWarningCard(execution);
         }
         return switch (toolName) {
+            case "compare_statistics", "rank_short_links", "get_dimension_breakdown" -> analyticalCard(execution);
             case "list_groups" -> groupSummaryCard(execution);
             case "page_short_links" -> shortLinkPageCard(execution);
             case "get_short_link_stats", "get_group_stats" -> statsSummaryCard(execution);
             case "get_group_access_records" -> accessRecordsCard(execution);
+            case "get_statistics_query_job_page" -> mapValue(mapValue(execution.get("data")).get("metrics")).isEmpty()
+                    ? accessRecordsCard(execution) : statsSummaryCard(execution);
             default -> genericToolResultCard(execution);
         };
+    }
+
+    private Map<String, Object> analyticalCard(Map<String, Object> execution) {
+        var data = mapValue(execution.get("data"));
+        String type = textValue(data.get("type"));
+        String title = switch (type) {
+            case "comparison" -> "对象与期间对比";
+            case "ranking" -> "短链访问排名";
+            default -> "多维下钻";
+        };
+        var card = baseCard(type, title, execution);
+        data.forEach((key, value) -> { if (!"continuation".equals(key)) card.put(key, value); });
+        return card;
     }
 
     private Map<String, Object> groupSummaryCard(Map<String, Object> execution) {
@@ -1194,9 +1031,65 @@ Insight explanation contract:
         }
         List<Map<String, Object>> toolExecutions = state.value("toolExecutions", List.of());
         if (!toolExecutions.isEmpty()) {
-            dataSources.add(Map.of("type", "tool", "executions", toolExecutions));
+            List<Map<String, Object>> references = new ArrayList<>();
+            for (int index = 0; index < toolExecutions.size(); index++) {
+                references.add(toolSourceReference(toolExecutions.get(index), index));
+            }
+            dataSources.add(Map.of("type", "tool", "executions", references));
         }
         return dataSources;
+    }
+
+    private Map<String, Object> toolSourceReference(Map<String, Object> execution, int index) {
+        var reference = new LinkedHashMap<String, Object>();
+        reference.put("name", execution.get("name"));
+        reference.put("success", execution.get("success"));
+        reference.put("detailsReference", "toolCalls[" + index + "]");
+        var arguments = mapValue(execution.get("arguments"));
+        var scope = sourceIdentity(arguments);
+        for (String key : List.of("scopes", "periods")) {
+            if (arguments.get(key) instanceof List<?> selections)
+                scope.put(key, selections.stream().map(item -> sourceIdentity(mapValue(item))).toList());
+        }
+        if (!scope.isEmpty()) reference.put("scope", scope);
+        var data = mapValue(execution.get("data"));
+        for (String key : List.of("type", "status", "state", "jobId")) putIfPresent(reference, data, key);
+        List<Map<String, Object>> snapshots = new ArrayList<>();
+        addSourceSnapshot(snapshots, mapValue(data.get("meta")), data);
+        if (("comparison".equals(data.get("type")) || "ranking".equals(data.get("type")))
+                && data.get("rows") instanceof List<?> rows) {
+            for (Object row : rows) {
+                var fields = mapValue(row);
+                addSourceSnapshot(snapshots, mapValue(fields.get("quality")), fields);
+            }
+        }
+        if (!snapshots.isEmpty()) reference.put("snapshots", snapshots);
+        return reference;
+    }
+
+    private Map<String, Object> sourceIdentity(Map<String, Object> source) {
+        var result = new LinkedHashMap<String, Object>();
+        for (String key : List.of("gid", "fullShortUrl", "label", "startDate", "endDate", "jobId",
+                "snapshotId", "queryKind", "metric", "limit", "pageIndex", "current", "size")) {
+            Object value = source.get(key);
+            if (value instanceof String || value instanceof Number || value instanceof Boolean)
+                result.put(key, value);
+        }
+        return result;
+    }
+
+    private void addSourceSnapshot(List<Map<String, Object>> snapshots, Map<String, Object> meta,
+            Map<String, Object> row) {
+        if (meta.isEmpty()) return;
+        var reference = sourceIdentity(row);
+        reference.putAll(sourceIdentity(meta));
+        for (String key : List.of("recoveryEpoch", "requestedStart", "requestedEnd", "effectiveEnd",
+                "availability", "completeness", "freshness")) {
+            Object value = meta.get(key);
+            if (value instanceof String || value instanceof Number || value instanceof Boolean)
+                reference.put(key, value);
+        }
+        if (!reference.isEmpty() && !snapshots.contains(reference)) snapshots.add(reference);
     }
 
     private AgentRunResult toRunResult(CampaignAnalysisGraphRequest request, OverAllState state) {

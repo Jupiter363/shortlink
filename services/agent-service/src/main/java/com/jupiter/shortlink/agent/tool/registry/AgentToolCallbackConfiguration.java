@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Exposes the five read-only short-link tools through Spring AI's method tool callback
+ * Exposes authorized read-only analysis tools through Spring AI's method tool callback
  * infrastructure. Keeping the provider as a concrete bean lets graph nodes inject either {@link
  * MethodToolCallbackProvider} or obtain the generated callbacks through {@code getToolCallbacks()}
  * without maintaining a second hand-written tool registry.
@@ -30,24 +30,22 @@ public class AgentToolCallbackConfiguration {
             GetGroupAccessRecordsTool getGroupAccessRecordsTool,
             org.springframework.beans.factory.ObjectProvider<
                             com.jupiter.shortlink.agent.tool.shortlink.StatisticsQueryJobTools>
-                    queryJobs) {
+                    queryJobs,
+            org.springframework.beans.factory.ObjectProvider<
+                            com.jupiter.shortlink.agent.tool.shortlink.CampaignStatisticsTools>
+                    campaignStatistics,
+            org.springframework.beans.factory.ObjectProvider<
+                            com.jupiter.shortlink.agent.tool.shortlink.DimensionBreakdownTool>
+                    dimensionBreakdowns) {
         var jobTools = queryJobs.getIfAvailable();
-        if (jobTools != null)
-            return MethodToolCallbackProvider.builder()
-                    .toolObjects(
-                            listGroupsTool,
-                            pageShortLinksTool,
-                            getShortLinkStatsTool,
-                            getGroupStatsTool,
-                            getGroupAccessRecordsTool,
-                            jobTools)
-                    .build();
-        return agentToolCallbackProvider(
-                listGroupsTool,
-                pageShortLinksTool,
-                getShortLinkStatsTool,
-                getGroupStatsTool,
-                getGroupAccessRecordsTool);
+        var objects = new java.util.ArrayList<Object>(java.util.List.of(listGroupsTool,
+                pageShortLinksTool, getShortLinkStatsTool, getGroupStatsTool, getGroupAccessRecordsTool));
+        if (jobTools != null) objects.add(jobTools);
+        var statistics = campaignStatistics.getIfAvailable();
+        if (statistics != null) objects.add(statistics);
+        var dimensions = dimensionBreakdowns.getIfAvailable();
+        if (dimensions != null) objects.add(dimensions);
+        return MethodToolCallbackProvider.builder().toolObjects(objects.toArray()).build();
     }
 
     public MethodToolCallbackProvider agentToolCallbackProvider(

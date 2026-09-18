@@ -95,6 +95,36 @@ class AgentToolInternalControllerTest {
     }
 
     @Test
+    void linkMetricsForwardsFrozenPaginationOnlyForAnOwnedGroup() {
+        when(analytics.query("g1", null, "2026-09-01", "2026-09-07", null,
+                "frozen", "next", 50, "LINK_METRICS")).thenReturn(envelope());
+        assertThat(controller.linkMetrics("g1", "2026-09-01", "2026-09-07",
+                "frozen", "next", 50).getData()).isEqualTo(envelope());
+        verify(analytics).query("g1", null, "2026-09-01", "2026-09-07", null,
+                "frozen", "next", 50, "LINK_METRICS");
+        clearInvocations(analytics);
+        when(groups.count(any(Wrapper.class))).thenReturn(0L);
+        assertThatThrownBy(() -> controller.linkMetrics("other", "2026-09-01", "2026-09-07",
+                null, null, 500)).hasMessageContaining("owned");
+        verifyNoInteractions(analytics);
+    }
+
+    @Test
+    void dimensionBreakdownForwardsAuthorizedScopeAndExactFilters() {
+        List<String> dimensions = List.of("province", "device");
+        List<Map<String, Object>> filters = List.of(Map.of("dimension", "province", "operator", "IN", "values", List.of("浙江")));
+        var request = new AgentToolInternalController.DimensionRequest("g1", null,
+                "2026-09-01", "2026-09-07", dimensions, filters, "snapshot", "cursor", 50);
+        controller.dimensionBreakdown(request);
+        verify(analytics).query("g1", null, "2026-09-01", "2026-09-07", null,
+                "snapshot", "cursor", 50, "DIMENSION_BREAKDOWN", null, dimensions, filters);
+        clearInvocations(analytics);
+        when(groups.count(any(Wrapper.class))).thenReturn(0L);
+        assertThatThrownBy(() -> controller.dimensionBreakdown(request)).hasMessageContaining("owned");
+        verifyNoInteractions(analytics);
+    }
+
+    @Test
     void everyEntryRejectsMissingCurrentPrincipalBeforeDelegation() {
         UserContext.removeUser();
         assertThatThrownBy(controller::listGroups)

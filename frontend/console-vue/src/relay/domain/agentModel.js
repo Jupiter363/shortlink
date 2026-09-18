@@ -60,6 +60,136 @@ export function sanitize(value, depth = 0, seen = new WeakSet()) {
 
 export const pretty = (value) => JSON.stringify(sanitize(value), null, 2)
 
+const analyticTypes = new Set(['comparison', 'ranking', 'dimension_breakdown'])
+const dimensionLabels = {
+  day: '日期',
+  hour: '小时',
+  weekday: '星期',
+  country: '国家 / 地区',
+  province: '省份',
+  device: '设备',
+  os: '操作系统',
+  browser: '浏览器',
+  isp: '运营商',
+  refererDomain: '来源域名'
+}
+const finiteMetric = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null)
+const metricFormatter = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 })
+const rateFormatter = new Intl.NumberFormat('zh-CN', {
+  style: 'percent',
+  maximumFractionDigits: 2
+})
+
+export function analyticNumber(value, signed = false) {
+  const number = finiteMetric(value)
+  if (number == null) return '—'
+  return `${signed && number > 0 ? '+' : ''}${metricFormatter.format(number)}`
+}
+
+export function analyticRate(value, signed = false) {
+  const number = finiteMetric(value)
+  if (number == null) return '—'
+  return `${signed && number > 0 ? '+' : ''}${rateFormatter.format(number)}`
+}
+
+export function analyticDimensionLabel(dimension) {
+  return dimensionLabels[dimension] || safeText(dimension)
+}
+
+export function analyticDimensionValue(cell, dimension) {
+  if (cell?.state === 'NOT_APPLICABLE') return '不适用'
+  if (cell?.state === 'UNKNOWN') return '未知'
+  if (cell?.state !== 'KNOWN' || cell.value == null || cell.value === '') return '未提供'
+  if (dimension === 'hour' && /^\d{1,2}$/.test(String(cell.value))) {
+    const hour = Number(cell.value)
+    if (hour >= 0 && hour < 24) return `${String(hour).padStart(2, '0')}:00`
+  }
+  if (dimension === 'weekday') {
+    const weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+    if (/^[1-7]$/.test(String(cell.value))) return weekdays[Number(cell.value) - 1]
+  }
+  return safeText(cell.value)
+}
+
+// This only paginates already returned evidence; it never changes server query scope or cursors.
+export function analyticPage(value, requestedPage = 1, requestedSize = 25) {
+  const rows = array(value)
+  const pageSize = requestedSize === 50 ? 50 : 25
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
+  const page = Number.isFinite(requestedPage)
+    ? Math.min(pageCount, Math.max(1, Math.floor(requestedPage)))
+    : 1
+  const start = (page - 1) * pageSize
+  return {
+    rows: rows.slice(start, start + pageSize),
+    total: rows.length,
+    page,
+    pageSize,
+    pageCount,
+    from: rows.length ? start + 1 : 0,
+    to: Math.min(start + pageSize, rows.length)
+  }
+}
+
+export function analyticQuality(value) {
+  const meta = object(value)
+  if (meta.availability === 'UNAVAILABLE') return { label: '数据不可用', tone: 'danger' }
+  const complete = meta.completeness === 'COMPLETE'
+  const partial = meta.completeness === 'PARTIAL'
+  const labels = [complete ? '完整' : partial ? '部分数据' : '完整性未知']
+  if (meta.freshness === 'STALE') labels.push('已陈旧')
+  else if (meta.freshness !== 'FRESH') labels.push('时效未知')
+  if (meta.provisional === true) labels.push('临时快照')
+  if (meta.availability !== 'AVAILABLE') labels.push('可用性待核实')
+  return {
+    label: labels.join(' · '),
+    tone:
+      partial || meta.freshness === 'STALE' || meta.provisional === true
+        ? 'warning'
+        : complete && meta.availability === 'AVAILABLE' && meta.freshness === 'FRESH'
+          ? 'success'
+          : 'unknown'
+  }
+}
+
+function analyticCard(value) {
+  const card = { ...object(value) }
+  // Server continuation references are used by the conversation, not by the evidence UI.
+  delete card.continuation
+  card.rows = array(card.rows)
+    .filter((row) => row && typeof row === 'object' && !Array.isArray(row))
+    .map((row) => ({
+      ...row,
+      pv: finiteMetric(row.pv),
+      uv: finiteMetric(row.uv),
+      uip: finiteMetric(row.uip),
+      pvShare: finiteMetric(row.pvShare),
+      ...(card.type === 'dimension_breakdown'
+        ? { dimensions: object(row.dimensions), pvRatio: finiteMetric(row.pvRatio) }
+        : {}),
+      quality: object(row.quality)
+    }))
+  card.comparisons = array(card.comparisons)
+    .filter((comparison) => ['pv', 'uv', 'uip'].includes(comparison?.metric))
+    .map((comparison) => ({
+      ...comparison,
+      delta: finiteMetric(comparison.delta),
+      rate: finiteMetric(comparison.rate),
+      comparable: comparison.comparable === true,
+      warnings: array(comparison.warnings).filter((warning) => typeof warning === 'string')
+    }))
+  card.warnings = array(card.warnings).filter((warning) => typeof warning === 'string')
+  if (card.type === 'dimension_breakdown') {
+    card.dimensions = [
+      ...new Set(array(card.dimensions).filter((value) => typeof value === 'string'))
+    ]
+    card.filters = array(card.filters)
+      .filter((filter) => filter && typeof filter === 'object' && !Array.isArray(filter))
+      .map((filter) => ({ ...filter, values: array(filter.values) }))
+  }
+  return card
+}
+
 export function buildChatBody(input) {
   if (!AGENT_TYPES.includes(input.agentType)) throw new Error('请选择有效的 Agent。')
   const sessionId = String(input.sessionId || '').trim()
@@ -98,11 +228,17 @@ export function normalizeAgentResult(raw) {
   const result = sanitize(raw)
   result.cards = array(raw.cards).map((card, index) => {
     const clean = sanitize(card)
+    const normalized = analyticTypes.has(card?.type) ? analyticCard(clean) : object(clean)
     return {
-      ...object(clean),
+      ...normalized,
       key: `card-${index}`,
       title: safeText(card?.title || card?.type || '分析证据'),
-      rows: card?.type === 'access_records' ? array(card.rows).map(toAccessRecordRow) : []
+      rows:
+        card?.type === 'access_records'
+          ? array(card.rows).map(toAccessRecordRow)
+          : analyticTypes.has(card?.type)
+            ? normalized.rows
+            : []
     }
   })
   result.toolCalls = array(result.toolCalls).map((tool, index) => {

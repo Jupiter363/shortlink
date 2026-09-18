@@ -207,6 +207,48 @@ class AnalyticsDimensionsClickHouseIntegrationTest {
     }
 
     @Test
+    void linkMetricsDeduplicateAcrossDaysAndLinksInReceiptAndFrozenJobFacts() throws Exception {
+        long firstDay = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).minusDays(10)
+                .atStartOfDay(java.time.ZoneId.of("Asia/Shanghai")).toInstant().toEpochMilli();
+        long lastDay = firstDay + 8 * 86_400_000L, requestedEnd = lastDay + 86_400_000L;
+        var first = receipt(0, 303, firstDay + 1000, "shared-visitor");
+        var repeated = receipt(1, 303, lastDay + 1000, "shared-visitor");
+        var anotherLink = receipt(2, 404, lastDay + 2000, "shared-visitor");
+        var denied = receipt(3, 303, lastDay + 3000, "shared-visitor");
+        denied.put("kind", "REQUEST"); denied.put("status", 429);
+        var foreignLink = receipt(4, 505, lastDay + 4000, "other-visitor");
+        var receipts = List.of(first, first, repeated, anotherLink, denied, foreignLink);
+        insert("event_receipts", receipts);
+        var buildRows = new ArrayList<Map<String, Object>>();
+        for (var source : receipts) {
+            var row = new LinkedHashMap<>(source);
+            for (String key : List.of("cluster_id", "topic_id", "source_topic", "source_partition", "source_offset", "timestamp_type")) row.remove(key);
+            row.put("build_id", tenant); row.put("window_start", firstDay); buildRows.add(row);
+        }
+        insert("rebuild_input", buildRows);
+        var links = List.of(303L, 404L, 606L);
+        var q = new QueryRequest(tenant, "alice", 1, "owned", links, firstDay, requestedEnd,
+                null, "REQUESTED", null, null, 500, LinkMetrics.KIND);
+        var plan = new ManifestPlan(tenant, List.of(new ManifestPlan.Window(firstDay, tenant, 1, "{}",
+                requestedEnd, "click-v1", "detail-geo-v1", "{}")), List.of(settings.clickHouseUrls()));
+        var lease = new QueryJobService.Lease(tenant, "worker", 1, q, tenant, "v1", plan);
+        String receiptFacts = AnalyticsFacts.sql("event_receipts", "1", tenant, links);
+        for (String sql : List.of(LinkMetrics.sql(receiptFacts, firstDay, requestedEnd), QueryJobService.sql(lease))) {
+            var accumulator = new LinkMetrics.Accumulator(links, firstDay, requestedEnd);
+            for (var row : reader().query(settings.clickHouseUrls(), sql, 501)) accumulator.add(row);
+            var report = accumulator.finish();
+            assertEquals(3L, report.summary().get("pv"));
+            assertEquals(1L, report.summary().get("uv"));
+            assertEquals(1L, report.summary().get("uip"));
+            assertEquals(1L, report.summary().get("denied"));
+            assertEquals(2L, report.items().get(0).get("pv"));
+            assertEquals(1L, report.items().get(0).get("uv"));
+            assertEquals(1L, report.items().get(1).get("uv"));
+            assertEquals(0L, report.items().get(2).get("pv"));
+        }
+    }
+
+    @Test
     void missingClickPartitionStillProducesUnknownEvenWhenRequestsAreIrrelevant() throws Exception {
         insert("event_receipts", List.of(receipt(0, 303, start + 1000, "visible-visitor")));
         var cut = new SourceCut(List.of(new SourceCut.Range(tenant, "topic-id", Topics.CLICK_RAW, 0, 0, 1),
@@ -224,6 +266,64 @@ class AnalyticsDimensionsClickHouseIntegrationTest {
         assertEquals(List.of(), report.get("uvTypeStats"));
         var quality = map(map(report.get("dimensionQuality")).get("uvTypeStats"));
         assertEquals("UNKNOWN", quality.get("status")); assertEquals(1L, quality.get("unknownUv"));
+    }
+
+    @Test
+    void dimensionBreakdownFiltersJointFactsAndKeepsUnknownSeparateFromForeignProvince() throws Exception {
+        var first = receipt(0, 101, start + 1000, "visitor-a");
+        first.put("province", "浙江"); first.put("device", "Mobile"); first.put("referer_domain", "news.example");
+        var sameBucket = receipt(1, 202, start + 2000, "visitor-a");
+        sameBucket.put("province", "浙江"); sameBucket.put("device", "Mobile"); sameBucket.put("referer_domain", "news.example");
+        var desktop = receipt(2, 101, start + 3000, "visitor-b"); desktop.put("referer_domain", "search.example");
+        var unknown = receipt(3, 101, start + 4000, "visitor-a");
+        unknown.put("country", "UNKNOWN"); unknown.put("province", "UNKNOWN");
+        unknown.put("device", "Mobile"); unknown.put("referer_domain", "");
+        var foreign = receipt(4, 101, start + 5000, "visitor-c");
+        foreign.put("country", "US"); foreign.put("province", "California");
+        foreign.put("device", "Mobile"); foreign.put("referer_domain", "news.example");
+        var denied = receipt(5, 101, start + 6000, "visitor-a");
+        denied.put("kind", "REQUEST"); denied.put("status", 429);
+        var outsideScope = receipt(6, 999, start + 7000, "visitor-outside");
+        var receipts = List.of(first, first, sameBucket, desktop, unknown, foreign, denied, outsideScope);
+        insert("event_receipts", receipts);
+        var builds = new ArrayList<Map<String, Object>>();
+        for (var source : receipts) {
+            var row = new LinkedHashMap<>(source);
+            for (String key : List.of("cluster_id", "topic_id", "source_topic", "source_partition", "source_offset", "timestamp_type")) row.remove(key);
+            row.put("build_id", tenant); row.put("window_start", start); builds.add(row);
+        }
+        insert("rebuild_input", builds);
+        var dimensions = List.of("province", "device", "refererDomain");
+        var links = List.of(101L, 202L);
+        var filters = List.of(List.<DimensionFilter>of(),
+                List.of(new DimensionFilter("device", "IN", List.of("Mobile")),
+                        new DimensionFilter("refererDomain", "IN", List.of("news.example"))),
+                List.of(new DimensionFilter("province", "IS_UNKNOWN", null)));
+        for (int i = 0; i < filters.size(); i++) {
+            var q = new QueryRequest(tenant, "alice", 1, "owned", links, start, end,
+                    null, "REQUESTED", null, null, 500, DimensionBreakdown.KIND, dimensions, filters.get(i));
+            var options = DimensionBreakdown.options(q);
+            var plan = new ManifestPlan(tenant, List.of(new ManifestPlan.Window(start, tenant, 1, "{}",
+                    end, "click-v1", "detail-geo-v1", "{}")), List.of(settings.clickHouseUrls()));
+            var lease = new QueryJobService.Lease(tenant, "worker", 1, q, tenant, "v1", plan);
+            String facts = AnalyticsFacts.sql("event_receipts", "1", tenant, links);
+            for (String sql : List.of(DimensionBreakdown.sql(facts, start, end, options), QueryJobService.sql(lease))) {
+                var acc = new DimensionBreakdown.Accumulator(options, start, end);
+                for (var row : reader().query(settings.clickHouseUrls(), sql, 5001)) acc.add(row);
+                var report = acc.finish();
+                assertEquals(new long[] {5, 3, 1}[i], report.summary().get("pv"));
+                assertEquals(new long[] {3, 2, 1}[i], report.summary().get("uv"));
+                var quality = map(map(report.summary().get("dimensionQuality")).get("province"));
+                assertEquals(new long[] {1, 1, 0}[i], quality.get("notApplicableCount"));
+                assertEquals(new long[] {1, 0, 1}[i], quality.get("unknownCount"));
+                if (i == 1) {
+                    assertEquals(2, report.items().size());
+                    assertEquals(2.0 / 3, report.items().get(0).get("pvRatio"));
+                    assertEquals("浙江", map(map(report.items().get(0).get("dimensions")).get("province")).get("value"));
+                }
+                if (i == 2) assertEquals("UNKNOWN", map(map(report.items().get(0).get("dimensions")).get("province")).get("state"));
+            }
+        }
     }
     private Map<String, Object> receipt(int offset, long link, long time, String visitor) {
         var row = new LinkedHashMap<String, Object>();

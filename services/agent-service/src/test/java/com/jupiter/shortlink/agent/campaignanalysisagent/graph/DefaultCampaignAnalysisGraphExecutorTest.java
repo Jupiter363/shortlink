@@ -856,7 +856,8 @@ class DefaultCampaignAnalysisGraphExecutorTest {
                 .doesNotContain("127.0.0.1")
                 .doesNotContain("visitor-001");
         assertThat(result.dataSources().toString())
-                .contains("127.0.*.*")
+                .contains("get_group_access_records", "toolCalls[0]")
+                .doesNotContain("127.0.*.*")
                 .doesNotContain("127.0.0.1")
                 .doesNotContain("visitor-001");
         assertThat(result.toString()).doesNotContain("127.0.0.1").doesNotContain("visitor-001");

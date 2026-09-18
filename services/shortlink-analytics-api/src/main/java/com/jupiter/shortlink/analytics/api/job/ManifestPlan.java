@@ -1,7 +1,5 @@
 package com.jupiter.shortlink.analytics.api.job;
 
-import static com.jupiter.shortlink.analytics.api.ClickHouseReader.quote;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.analytics.api.*;
@@ -85,28 +83,8 @@ public record ManifestPlan(String epoch, List<Window> windows, List<String> repl
     }
 
     String predicate() {
-        List<String> clauses = new ArrayList<>();
-        for (int i = 0; i < windows.size(); ) {
-            Window first = windows.get(i);
-            long end = first.start + WINDOW;
-            int j = i + 1;
-            while (j < windows.size()
-                    && windows.get(j).build.equals(first.build)
-                    && windows.get(j).start == end) {
-                end += WINDOW;
-                j++;
-            }
-            clauses.add(
-                    "(build_id="
-                            + quote(first.build)
-                            + " AND window_start>="
-                            + first.start
-                            + " AND window_start<"
-                            + end
-                            + ")");
-            i = j;
-        }
-        String predicate = "(" + String.join(" OR ", clauses) + ")";
+        String predicate = CanonicalBuildPredicate.predicate(windows.stream()
+                .map(window -> new CanonicalBuildPredicate.Selection(window.build(), window.start())).toList());
         if (predicate.length() > 4 * 1024 * 1024)
             throw new QueryFailure("TOO_LARGE", "Frozen build selection exceeds the query budget");
         return predicate;

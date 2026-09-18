@@ -118,6 +118,156 @@ class QueryJobServiceTest {
         return new QueryJobService.Identity("1", "alice", 8, page, 500);
     }
 
+    QueryRequest linkRequest() {
+        return new QueryRequest("1", "alice", 7, "g1", null, start, end,
+                null, "REQUESTED", null, null, 500, LinkMetrics.KIND);
+    }
+
+    QueryRequest dimensionRequest(List<DimensionFilter> filters) {
+        return new QueryRequest("1", "alice", 7, "g1", null, start, end,
+                null, "REQUESTED", null, null, 500, DimensionBreakdown.KIND, List.of("refererDomain"), filters);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void dimensionPagesKeepWholeWindowSummaryAndFrozenCanonicalFilters() {
+        doAnswer(invocation -> {
+            Consumer<Map<String, Object>> output = invocation.getArgument(4);
+            output.accept(Map.of("group_row", 1, "pv", 501, "uv", 1, "uip", 1, "geo_conflicts", 0, "country_unknown", 0));
+            for (int i = 500; i >= 0; i--) output.accept(Map.of("group_row", 0,
+                    "bucket_key", List.of("KNOWN", String.format(Locale.ROOT, "%04d.example", i)), "pv", 1, "uv", 1, "uip", 1));
+            return null;
+        }).when(ch).query(anyString(), anyString(), anyInt(), anyLong(), any());
+        var original = dimensionRequest(List.of(new DimensionFilter("browser", "IN", List.of("Firefox", "Chrome", "Chrome"))));
+        var job = service.submit(new QueryJobService.Submit("dimension-pages", original));
+        var equivalent = dimensionRequest(List.of(new DimensionFilter("browser", "IN", List.of("Chrome", "Firefox"))));
+        assertThat(service.submit(new QueryJobService.Submit("dimension-pages", equivalent)).jobId()).isEqualTo(job.jobId());
+        service.execute(service.claim("worker"));
+        assertThat(service.status(job.jobId(), identity(0)).state()).isEqualTo("SUCCEEDED");
+        var first = service.page(job.jobId(), identity(0));
+        var second = service.page(job.jobId(), identity(1));
+        assertThat((List<?>) first.get("items")).hasSize(500); assertThat((List<?>) second.get("items")).hasSize(1);
+        var summary = (Map<?, ?>) ((Map<?, ?>) second.get("metrics")).get("requested");
+        assertThat(summary.get("pv").toString()).isEqualTo("501"); assertThat(summary.get("uv").toString()).isEqualTo("1");
+        var meta = (Map<String, Object>) second.get("meta");
+        assertThat(meta.get("dimensions")).isEqualTo(List.of("refererDomain"));
+        assertThat(meta.get("filters")).isEqualTo(List.of(Map.of("dimension", "browser", "operator", "IN", "values", List.of("Chrome", "Firefox"))));
+        assertThat(meta.get("totalRows").toString()).isEqualTo("501");
+        assertThat(meta.get("resultComplete")).isEqualTo(true); assertThat(meta.get("nextPageIndex")).isNull();
+        assertThat(meta.get("dimensionQualityScope")).isEqualTo("FILTERED_FULL_WINDOW");
+        var known = (Map<?, ?>) ((Map<?, ?>) meta.get("dimensionQuality")).get("refererDomain");
+        assertThat(known.get("knownCount").toString()).isEqualTo("501");
+        var changed = dimensionRequest(List.of(new DimensionFilter("browser", "IN", List.of("Chrome"))));
+        assertThatThrownBy(() -> service.submit(new QueryJobService.Submit("dimension-pages", changed))).hasMessageContaining("another query");
+        ownership.set("v2");
+        assertThatThrownBy(() -> service.page(job.jobId(), identity(1))).hasMessageContaining("scope changed");
+    }
+
+    @Test
+    void dimensionOverflowFailsWithoutPublishingPartialPages() {
+        doAnswer(invocation -> {
+            Consumer<Map<String, Object>> output = invocation.getArgument(4);
+            output.accept(Map.of("group_row", 1, "pv", 5001, "uv", 1, "uip", 1, "geo_conflicts", 0, "country_unknown", 0));
+            for (int i = 0; i < 5001; i++) output.accept(Map.of("group_row", 0,
+                    "bucket_key", List.of("KNOWN", i + ".example"), "pv", 1, "uv", 1, "uip", 1));
+            return null;
+        }).when(ch).query(anyString(), anyString(), anyInt(), anyLong(), any());
+        var job = service.submit(new QueryJobService.Submit("dimension-overflow", dimensionRequest(null)));
+        assertThat(service.submit(new QueryJobService.Submit("dimension-overflow", dimensionRequest(List.of()))).jobId()).isEqualTo(job.jobId());
+        service.execute(service.claim("worker"));
+        var status = service.status(job.jobId(), identity(0));
+        assertThat(status.state()).isEqualTo("FAILED"); assertThat(status.errorCode()).isEqualTo("TOO_LARGE");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM analytics_query_page WHERE job_id=?", Integer.class, job.jobId())).isZero();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void linkMetricsPublishWholeWindowRowsAndIndependentGroupSummary() {
+        doReturn(new AuthorizationClient.Scope("1", List.of(4000000001L, 4000000002L, 4000000003L), "v1"))
+                .when(auth).authorize(any());
+        doAnswer(invocation -> {
+            String sql = invocation.getArgument(1);
+            assertThat(sql).contains("GROUP BY GROUPING SETS ((link_id),())")
+                    .contains("uniqCombined64If(visitor_hash")
+                    .doesNotContain("GROUP BY GROUPING SETS ((day", "retained_history");
+            Consumer<Map<String, Object>> output = invocation.getArgument(4);
+            output.accept(Map.of("group_row", 1, "pv", 4, "uv", 1, "uip", 1, "denied", 1));
+            output.accept(Map.of("group_row", 0, "linkId", 4000000002L, "pv", 2, "uv", 1, "uip", 1, "denied", 0));
+            output.accept(Map.of("group_row", 0, "linkId", 4000000001L, "pv", 2, "uv", 1, "uip", 1, "denied", 1));
+            return null;
+        }).when(ch).query(anyString(), anyString(), anyInt(), anyLong(), any());
+        var job = service.submit(new QueryJobService.Submit("link-window", linkRequest()));
+        service.execute(service.claim("worker"));
+        var status = service.status(job.jobId(), identity(0));
+        assertThat(status.state()).isEqualTo("SUCCEEDED");
+        assertThat(status.rowCount()).isEqualTo(3); assertThat(status.pageCount()).isEqualTo(1);
+        var result = service.page(job.jobId(), identity(0));
+        var summary = (Map<?, ?>) ((Map<?, ?>) result.get("metrics")).get("requested");
+        assertThat(summary.get("uv").toString()).isEqualTo("1");
+        assertThat(summary.containsKey("daily")).isFalse();
+        var rows = (List<Map<String, Object>>) result.get("items");
+        assertThat(rows.stream().map(row -> row.get("linkId")).toList())
+                .containsExactly(4000000001L, 4000000002L, 4000000003L);
+        assertThat(rows.get(2).get("pv").toString()).isEqualTo("0");
+        var meta = (Map<?, ?>) result.get("meta");
+        assertThat(meta.get("queryKind")).isEqualTo(LinkMetrics.KIND);
+        assertThat(meta.get("gid")).isEqualTo("g1");
+        assertThat(meta.get("linkIds")).isEqualTo(List.of(4000000001L, 4000000002L, 4000000003L));
+        assertThat(meta.get("nextPageIndex")).isNull();
+        assertThat(((Map<?, ?>) meta.get("collectionQuality")).get("status")).isEqualTo("UNKNOWN");
+        assertThat((Map<?, ?>) meta.get("dimensionQuality")).isEmpty();
+    }
+
+    @Test
+    void linkMetricsFullAuthorizedScopeFitsOnePageAndMissingSummaryIsNotPublished() {
+        var links = java.util.stream.LongStream.rangeClosed(1, 500).boxed().toList();
+        doReturn(new AuthorizationClient.Scope("1", links, "v1")).when(auth).authorize(any());
+        doAnswer(invocation -> {
+            Consumer<Map<String, Object>> output = invocation.getArgument(4);
+            output.accept(Map.of("group_row", 1, "pv", 0, "uv", 0, "uip", 0, "denied", 0));
+            return null;
+        }).when(ch).query(anyString(), anyString(), anyInt(), anyLong(), any());
+        var job = service.submit(new QueryJobService.Submit("500-links", linkRequest()));
+        service.execute(service.claim("worker"));
+        assertThat(service.status(job.jobId(), identity(0)).rowCount()).isEqualTo(500);
+        assertThat((List<?>) service.page(job.jobId(), identity(0)).get("items")).hasSize(500);
+        assertThatThrownBy(() -> service.page(job.jobId(), identity(1))).isInstanceOf(QueryFailure.class);
+        doAnswer(invocation -> null).when(ch).query(anyString(), anyString(), anyInt(), anyLong(), any());
+        var missing = service.submit(new QueryJobService.Submit("missing-summary", linkRequest()));
+        service.execute(service.claim("worker"));
+        assertThat(service.status(missing.jobId(), identity(0)).state()).isNotEqualTo("SUCCEEDED");
+        assertThatThrownBy(() -> service.page(missing.jobId(), identity(0))).isInstanceOf(QueryFailure.class);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM analytics_query_page WHERE job_id=?", Integer.class, missing.jobId())).isZero();
+    }
+
+    @Test
+    void linkMetricsCannotPublishAfterAuthorizationChangesDuringExecution() {
+        doAnswer(invocation -> {
+            Consumer<Map<String, Object>> output = invocation.getArgument(4);
+            output.accept(Map.of("group_row", 1, "pv", 0, "uv", 0, "uip", 0, "denied", 0));
+            ownership.set("v2");
+            return null;
+        }).when(ch).query(anyString(), anyString(), anyInt(), anyLong(), any());
+        var job = service.submit(new QueryJobService.Submit("changed-link-scope", linkRequest()));
+        service.execute(service.claim("worker"));
+        assertThat(db.queryForObject("SELECT state FROM analytics_query_job WHERE job_id=?", String.class, job.jobId())).isEqualTo("FAILED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM analytics_query_page WHERE job_id=?", Integer.class, job.jobId())).isZero();
+    }
+
+    @Test
+    void legacyMetricsDigestAndKindBindingAreUnchanged() throws Exception {
+        var job = submit("legacy-digest");
+        String legacy = "{\"tenantId\":\"1\",\"subjectId\":\"alice\",\"gid\":\"g1\",\"linkIds\":[4000000001],"
+                + "\"startInclusive\":300000,\"endExclusive\":600000,\"windows\":null,\"endPolicy\":\"REQUESTED\","
+                + "\"snapshotId\":null,\"cursor\":null,\"pageSize\":500,\"queryKind\":\"METRICS\"}";
+        String expected = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(legacy.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        assertThat(db.queryForObject("SELECT request_hash FROM analytics_query_job WHERE job_id=?", String.class, job.jobId())).isEqualTo(expected);
+        assertThat(submit("legacy-digest").jobId()).isEqualTo(job.jobId());
+        assertThatThrownBy(() -> service.submit(new QueryJobService.Submit("legacy-digest", linkRequest())))
+                .isInstanceOf(QueryFailure.class).hasMessageContaining("another query");
+    }
+
     @Test
     @SuppressWarnings("unchecked")
     void trueGroupSummaryIsFrozenOutsidePublishedPagesAndNeverAddedToDetailRowCounts() {
