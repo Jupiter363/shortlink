@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.graph.agent.tool.ToolCancelledException;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.state.ReplaceAllWith;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
 import com.jupiter.shortlink.agent.infrastructure.persistence.AgentStateSerializerFactory;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -66,7 +67,8 @@ import org.springframework.ai.tool.metadata.ToolMetadata;
 /**
  * Opt-in native ReactAgent adapter. Deliberately has no Spring annotation or production entry point.
  * It owns admission/projection boundaries; all model/tool looping remains in ReactAgent 1.1.2.3.
- * The optional model boundary persists one server-bound turn; it does not make the P0 action ledger durable.
+ * A durable session supplies canonical business history and CALL permits; the original P0 ledger
+ * and the optional single-turn model boundary remain supported without implying durable history.
  */
 public final class NativeExplorationAdapter {
     public static final String DISPATCH_SCOPE = NativeExplorationAdapter.class.getName() + ".dispatch";
@@ -153,6 +155,15 @@ public final class NativeExplorationAdapter {
             // A network operation already admitted here may finish after cancellation.
             return operation.call();
         }
+
+        /** Use this exact parent on each RunStore child dispatch; P0 has no durable CALL authority. */
+        public CallPermit callPermit() {
+            if (!(ledger instanceof DurableExplorationSession session))
+                throw new IllegalStateException("DURABLE_CALL_PERMIT_REQUIRED");
+            if (cancellation.isCancelled() || !ledger.mayDispatch(attempt))
+                throw new IllegalStateException("EXPLORATION_DISPATCH_REVOKED");
+            return Objects.requireNonNull(session.callPermit(attempt), "DURABLE_CALL_PERMIT_REQUIRED");
+        }
     }
 
     private final ExecutionKey identity;
@@ -160,8 +171,10 @@ public final class NativeExplorationAdapter {
     private final Limits limits;
     private final ReactAgent agent;
     private final ModelCallBoundary modelCallBoundary;
+    private final DurableExplorationSession durableSession;
     private final List<ToolCallback> registeredCallbacks;
     private final AtomicBoolean modelBoundaryFailed = new AtomicBoolean();
+    private final AtomicReference<String> durableBoundaryFailure = new AtomicReference<>();
     private final ThreadLocal<String> acceptedToolCall = new ThreadLocal<>();
     private final Set<String> registeredNames;
     private final AtomicReference<CanonicalExplorationResume.Prepared> resumed = new AtomicReference<>();
@@ -177,7 +190,10 @@ public final class NativeExplorationAdapter {
         this.identity = Objects.requireNonNull(identity);
         this.ledger = Objects.requireNonNull(ledger);
         this.limits = Objects.requireNonNull(limits);
-        this.modelCallBoundary = modelCallBoundary;
+        this.durableSession = ledger instanceof DurableExplorationSession session ? session : null;
+        if (durableSession != null && modelCallBoundary != null && modelCallBoundary != durableSession)
+            throw new IllegalArgumentException("DURABLE_SESSION_MODEL_BOUNDARY_MISMATCH");
+        this.modelCallBoundary = durableSession != null ? durableSession : modelCallBoundary;
         if (!identity.equals(ledger.identity())) throw new IllegalArgumentException("Ledger identity mismatch");
         var names = new HashSet<String>();
         List<ToolCallback> guarded = new ArrayList<>();
@@ -200,6 +216,10 @@ public final class NativeExplorationAdapter {
         if (prompt == null || prompt.length() > limits.inputCharacters())
             throw new IllegalArgumentException("Exploration input exceeds its explicit bound");
         if (!identity.equals(ledger.identity())) throw new IllegalStateException("Ledger identity changed");
+        if (durableSession != null) {
+            ledger.freezeInput(prompt);
+            return invokeDurable();
+        }
         // A waiting/terminal step must not append another user message or START checkpoint.
         // The before-model hook repeats this check for revocation racing with native invocation.
         if (ledger.readyToResume().isPresent()) return resume();
@@ -212,6 +232,7 @@ public final class NativeExplorationAdapter {
 
     /** Rebuild from backend facts; caller supplies no messages, tool parameters, or completion IDs. */
     public synchronized Map<String, Object> resume() throws Exception {
+        if (durableSession != null) return invokeDurable();
         var facts = ledger.readyToResume();
         if (facts.isEmpty()) return projection();
         CanonicalExplorationResume.Prepared prepared;
@@ -236,11 +257,61 @@ public final class NativeExplorationAdapter {
         }
     }
 
+    private Map<String, Object> invokeDurable() throws Exception {
+        // START carries no user/model history from the caller or saver. The native before-model
+        // hook replaces messages from durable facts, including when the saver has no checkpoint.
+        if (!modelBoundaryFailed.get() && ledger.mayCallModel()) {
+            agent.invoke(Map.of(), RunnableConfig.builder().threadId(identity.threadId()).build());
+            if (!modelBoundaryFailed.get()) durableSession.acknowledgeCanonical();
+        }
+        return projection();
+    }
+
+    private List<Message> canonicalNativeMessages(List<ModelInvocationRegistry.Message> canonical) {
+        List<ModelInvocationRegistry.ToolDefinition> tools = new ArrayList<>();
+        for (ToolCallback callback : registeredCallbacks) {
+            var definition = callback.getToolDefinition();
+            try {
+                tools.add(new ModelInvocationRegistry.ToolDefinition(definition.name(), definition.description(),
+                        PUBLIC_JSON.readTree(definition.inputSchema())));
+            } catch (IOException invalid) {
+                throw new IllegalArgumentException("MODEL_TOOL_SCHEMA_INVALID");
+            }
+        }
+        // Recheck exact role/ID pairing and the registered tool-name closure before checkpointing.
+        // The session owns full history/configuration checks; projectRequest rechecks the native
+        // request after native has applied its options, so no provider options are introduced here.
+        var request = new ModelInvocationRegistry.Request(ModelInvocationRegistry.REQUEST_SCHEMA, canonical, tools);
+        List<Message> messages = new ArrayList<>();
+        for (var message : request.messages()) {
+            switch (message.role()) {
+                case "system" -> messages.add(new SystemMessage(message.text()));
+                case "user" -> messages.add(new UserMessage(message.text()));
+                case "assistant" -> messages.add(AssistantMessage.builder().content(message.text())
+                        .toolCalls(message.toolCalls().stream().map(call -> new AssistantMessage.ToolCall(
+                                call.id(), "function", call.name(), call.arguments())).toList()).build());
+                case "tool" -> messages.add(ToolResponseMessage.builder().responses(List.of(
+                        new ToolResponseMessage.ToolResponse(message.toolCallId(), message.toolName(), message.text()))).build());
+                default -> throw new IllegalArgumentException("MODEL_MESSAGE_TYPE_UNSUPPORTED");
+            }
+        }
+        return List.copyOf(messages);
+    }
+
+    private void failDurableBoundary(String reason) {
+        // A storage/authorization boundary failure is not evidence of terminal protocol failure.
+        // Fence this adapter invocation; a reconstructed session decides from committed MODEL,
+        // CALL and receipt facts whether replay is legal or the result remains unknown.
+        modelBoundaryFailed.set(true);
+        durableBoundaryFailure.compareAndSet(null, reason);
+    }
+
     private Map<String, Object> projection() {
         var state = ledger.view();
         var result = new LinkedHashMap<String, Object>();
-        result.put("status", state.status().name());
-        result.put("reason", state.reason());
+        String durableFailure = durableBoundaryFailure.get();
+        result.put("status", durableFailure == null ? state.status().name() : ExplorationLedger.Status.BLOCKED.name());
+        result.put("reason", durableFailure == null ? state.reason() : durableFailure);
         result.put("artifactIds", state.artifactIds());
         if (state.jobId() != null) result.put("jobId", state.jobId());
         return Map.copyOf(result);
@@ -270,7 +341,18 @@ public final class NativeExplorationAdapter {
             // AgentCommand(null, ...) does not clear jump_to in native 1.1.2.3. Consume the
             // previous repair jump explicitly before the admission hook's conditional edge.
             var updates = new LinkedHashMap<String, Object>();
-            boolean allowed = !modelBoundaryFailed.get() && ledger.mayCallModel();
+            boolean allowed;
+            try {
+                allowed = !modelBoundaryFailed.get() && ledger.mayCallModel();
+                if (allowed && durableSession != null) {
+                    updates.put("messages", ReplaceAllWith.of(canonicalNativeMessages(durableSession.canonicalMessages())));
+                    updates.put(READY_OBSERVATION_KEY, OverAllState.MARK_FOR_REMOVAL);
+                }
+            } catch (RuntimeException invalid) {
+                if (durableSession == null) throw invalid;
+                failDurableBoundary("DURABLE_CONTEXT_REJECTED");
+                allowed = false;
+            }
             var ready = resumed.get();
             if (allowed && ready != null) {
                 boolean applied = ready.observationId().equals(state.data().get(READY_OBSERVATION_KEY));
@@ -295,6 +377,16 @@ public final class NativeExplorationAdapter {
 
         @Override
         public AgentCommand afterModel(List<Message> messages, RunnableConfig config) {
+            if (durableSession == null) return processModel(messages);
+            try {
+                return processModel(messages);
+            } catch (RuntimeException invalid) {
+                failDurableBoundary("DURABLE_PROTOCOL_REJECTED");
+                return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
+            }
+        }
+
+        private AgentCommand processModel(List<Message> messages) {
             if (modelBoundaryFailed.get())
                 return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
             Message last = messages.isEmpty() ? null : messages.get(messages.size() - 1);
@@ -339,8 +431,14 @@ public final class NativeExplorationAdapter {
 
         @Override
         public ToolCallResponse interceptToolCall(ToolCallRequest request, ToolCallHandler handler) {
-            if (modelBoundaryFailed.get() || !ledger.mayCallModel())
-                return ToolCallResponse.error(request.getToolCallId(), request.getToolName(), "DISPATCH_REVOKED");
+            try {
+                if (modelBoundaryFailed.get() || !ledger.mayCallModel())
+                    return ToolCallResponse.error(request.getToolCallId(), request.getToolName(), "DISPATCH_REVOKED");
+            } catch (RuntimeException invalid) {
+                if (durableSession == null) throw invalid;
+                failDurableBoundary("DURABLE_DISPATCH_REJECTED");
+                return ToolCallResponse.error(request.getToolCallId(), request.getToolName(), "DURABLE_DISPATCH_REJECTED");
+            }
             acceptedToolCall.set(request.getToolCallId());
             try {
                 return handler.call(request);
@@ -357,8 +455,13 @@ public final class NativeExplorationAdapter {
 
         @Override
         public ModelResponse interceptModel(ModelRequest request, ModelCallHandler handler) {
-            if (modelBoundaryFailed.get() || !ledger.mayCallModel()) {
-                return ModelResponse.of(new AssistantMessage("EXPLORATION_NOT_ACTIVE"));
+            try {
+                if (modelBoundaryFailed.get() || !ledger.mayCallModel())
+                    return ModelResponse.of(new AssistantMessage("EXPLORATION_NOT_ACTIVE"));
+            } catch (RuntimeException invalid) {
+                if (durableSession == null) throw invalid;
+                failDurableBoundary("DURABLE_CONTEXT_REJECTED");
+                return ModelResponse.of(new AssistantMessage("DURABLE_CONTEXT_REJECTED"));
             }
             if (modelCallBoundary != null) return persistentModel(request, handler);
             ModelResponse response = handler.call(request);
@@ -421,6 +524,10 @@ public final class NativeExplorationAdapter {
                 json.writeValue(new BoundedWriter(limits.modelResponseCharacters()), Map.of("message", message));
                 return ModelResponse.of(message);
             } catch (Exception rejected) {
+                if (durableSession != null) {
+                    failDurableBoundary("MODEL_BOUNDARY_REJECTED");
+                    return ModelResponse.of(new AssistantMessage("MODEL_BOUNDARY_REJECTED"));
+                }
                 modelBoundaryFailed.set(true);
                 try { ledger.fail("MODEL_BOUNDARY_REJECTED"); }
                 catch (RuntimeException ledgerFailure) { throw new IllegalStateException("MODEL_BOUNDARY_REJECTED"); }
@@ -583,8 +690,15 @@ public final class NativeExplorationAdapter {
 
         @Override
         public CompletableFuture<String> callAsync(String input, ToolContext context, CancellationToken cancellation) {
-            long attempt = ledger.beginCallback(Objects.requireNonNull(acceptedToolCall.get(),
-                    "Native tool admission must precede callback execution"), getToolDefinition().name());
+            final long attempt;
+            try {
+                attempt = ledger.beginCallback(Objects.requireNonNull(acceptedToolCall.get(),
+                        "Native tool admission must precede callback execution"), getToolDefinition().name());
+            } catch (RuntimeException invalid) {
+                if (durableSession == null) throw invalid;
+                failDurableBoundary("DURABLE_CALLBACK_REJECTED");
+                return CompletableFuture.failedFuture(new IllegalStateException("DURABLE_CALLBACK_REJECTED"));
+            }
             cancellation.onCancel(() -> ledger.unresolved(attempt));
             var data = new LinkedHashMap<>(context.getContext());
             data.put(DISPATCH_SCOPE, new DispatchScope(ledger, attempt, cancellation));
