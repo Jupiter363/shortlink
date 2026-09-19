@@ -23,7 +23,7 @@ import java.util.concurrent.Flow;
 
 @Component
 public class AnalyticsJsonClient {
-    private enum ResponseContract { DEFAULT, RECOVERY, JOB_READ, JOB_SCOPE_READ, FROZEN_JOB, SELECTED_SCOPE, JOB_RELEASE }
+    private enum ResponseContract { DEFAULT, RECOVERY, JOB_READ, JOB_SCOPE_READ, FROZEN_JOB, SELECTED_SCOPE, JOB_RELEASE, AUTHORITY_PAGE }
 
     private final HttpClient client =
             HttpClient.newBuilder()
@@ -46,6 +46,11 @@ public class AnalyticsJsonClient {
 
     public JSONObject resolve(Object request) {
         return post(commandUrl + "/internal/command/authorization/resolve", request);
+    }
+
+    /** Group-only authority pagination; old response shapes never fall back to ordinary resolve. */
+    public JSONObject groupMembersPage(Object request) {
+        return post(commandUrl + "/internal/command/authorization/resolve", request, ResponseContract.AUTHORITY_PAGE);
     }
 
     /** Reauthorize a job read with typed failures; ordinary resource resolution is unchanged. */
@@ -106,6 +111,7 @@ public class AnalyticsJsonClient {
 
     private JSONObject post(String url, Object payload, ResponseContract contract) {
         boolean recovery = contract == ResponseContract.RECOVERY;
+        boolean authorityPage = contract == ResponseContract.AUTHORITY_PAGE;
         boolean release = contract == ResponseContract.JOB_RELEASE;
         boolean frozen = contract == ResponseContract.FROZEN_JOB || contract == ResponseContract.SELECTED_SCOPE;
         boolean jobRead = contract == ResponseContract.JOB_READ
@@ -115,6 +121,7 @@ public class AnalyticsJsonClient {
                 || UserContext.getUserId() == null
                 || UserContext.getUsername() == null
                 || UserContext.getAuthVersion() == null) {
+            if (authorityPage) throw authorityPageFailure("FORBIDDEN");
             if (release) throw releaseFailure("FORBIDDEN");
             if (frozen) throw frozenFailure("FORBIDDEN");
             if (jobRead) throw readFailure("FORBIDDEN");
@@ -133,6 +140,7 @@ public class AnalyticsJsonClient {
                         .POST(HttpRequest.BodyPublishers.ofString(JSON.toJSONString(payload)))
                         .build();
         if (!permits.tryAcquire()) {
+            if (authorityPage) throw authorityPageFailure("REMOTE_UNAVAILABLE");
             if (release) throw releaseFailure("REMOTE_UNAVAILABLE");
             if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
@@ -141,6 +149,7 @@ public class AnalyticsJsonClient {
         try {
             HttpResponse<byte[]> response =
                     client.send(request, ignored -> new LimitedBody(2 * 1024 * 1024));
+            if (authorityPage) return authorityPageResponse(response);
             if (release) return releaseResponse(response);
             if (frozen) return frozenResponse(response, contract == ResponseContract.SELECTED_SCOPE);
             if (jobRead) return readResponse(response, contract == ResponseContract.JOB_SCOPE_READ);
@@ -159,12 +168,14 @@ public class AnalyticsJsonClient {
             return result;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            if (authorityPage) throw authorityPageFailure("REMOTE_UNAVAILABLE");
             if (release) throw releaseFailure("REMOTE_UNAVAILABLE");
             if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             if (recovery) throw recoveryFailure("UNAVAILABLE");
             throw new RemoteException("Analytics request interrupted");
         } catch (java.io.IOException | IllegalArgumentException unavailable) {
+            if (authorityPage) throw authorityPageFailure("REMOTE_UNAVAILABLE");
             if (release) throw releaseFailure("REMOTE_UNAVAILABLE");
             if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
@@ -173,6 +184,27 @@ public class AnalyticsJsonClient {
         } finally {
             permits.release();
         }
+    }
+
+    private static JSONObject authorityPageResponse(HttpResponse<byte[]> response) {
+        int status = response.statusCode();
+        if (status == 401 || status == 403) throw authorityPageFailure("FORBIDDEN");
+        if (status == 409) throw authorityPageFailure("QUERY_SCOPE_CHANGED");
+        if (status == 404 || status == 405 || status == 501)
+            throw authorityPageFailure("AUTHORITY_PAGE_PROTOCOL_UNAVAILABLE");
+        if (status != 200) throw authorityPageFailure("REMOTE_UNAVAILABLE");
+        JSONObject result;
+        try { result = JSON.parseObject(new String(response.body(), java.nio.charset.StandardCharsets.UTF_8)); }
+        catch (RuntimeException invalid) { throw authorityPageFailure("AUTHORITY_PAGE_PROTOCOL_UNAVAILABLE"); }
+        if (result == null || !java.util.Set.of("tenantId", "ownershipVersion", "links", "nextCursor").equals(result.keySet()))
+            throw authorityPageFailure("AUTHORITY_PAGE_PROTOCOL_UNAVAILABLE");
+        return result;
+    }
+
+    public static RemoteException authorityPageFailure(String reason) {
+        String code = reason != null && List.of("FORBIDDEN", "QUERY_SCOPE_CHANGED", "INVALID_QUERY", "REMOTE_UNAVAILABLE")
+                .contains(reason) ? reason : "AUTHORITY_PAGE_PROTOCOL_UNAVAILABLE";
+        return new RemoteException("Group member authority unavailable", errorCode(code, "Group member authority unavailable"));
     }
 
     private static JSONObject frozenResponse(HttpResponse<byte[]> response, boolean selectedScope) {

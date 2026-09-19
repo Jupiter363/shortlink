@@ -19,6 +19,7 @@ import com.jupiter.shortlink.admin.service.GroupService;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.jupiter.shortlink.contract.FrozenQueryScope;
+import com.jupiter.shortlink.contract.GroupMembersPage;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -251,6 +252,13 @@ public class AgentToolInternalController {
                         request.linkIds(),
                         request.afterLinkId(),
                         request.ownershipVersion()));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/authorization/group-members-page")
+    public Result<GroupMembersPage> groupMembersPage(@RequestBody GroupMembersPage.Request request) {
+        try { requireOwnedGid(request.gid()); }
+        catch (ClientException denied) { throw AnalyticsJsonClient.authorityPageFailure("FORBIDDEN"); }
+        return Results.success(analytics.groupMembersPage(request));
     }
 
     @PostMapping("/internal/short-link-admin/v1/agent-tools/risk/active-link-query")

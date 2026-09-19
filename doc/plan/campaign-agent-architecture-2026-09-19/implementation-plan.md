@@ -2,7 +2,9 @@
 
 状态：**P0 组件验证完成，P1 实施中，P2 范围合同已开始，P3–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行检查与边界见 [首批 P0 验证](../../integration/campaign-plan-p0-2026-09-19.md)及[补充验收](../../integration/campaign-plan-p0-recovery-2026-09-19.md)。后续阶段清单不等于已实现；新入口仍关闭。
 
-P2 前置进度：[冻结成员与范围证明](../../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员当前授权、501 成员确定性分片、跨服务专用查询／恢复及 Artifact proof；耐久枚举收集、父集合对账、配额释放和业务组合仍待完成。全部完成条件见[逐项完成矩阵](../../development/campaign-agent-completion-2026-09-20.md)。
+P2 前置进度：[冻结成员与范围证明](../../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员当前授权、501 成员确定性分片、跨服务专用查询／恢复及 Artifact proof；耐久枚举收集、父集合对账、业务组合和生产装配仍待完成。全部完成条件见[逐项完成矩阵](../../development/campaign-agent-completion-2026-09-20.md)。
+
+[权威成员分页合同](../../integration/campaign-plan-p2-authority-pages-2026-09-20.md)已复用现Command查询并补齐严格页合同与跨层scope变化错误；耐久分页收集、完整ScopeArtifact及父集合对账仍待完成。
 
 [远端结果释放与配额分账](../../integration/campaign-plan-p2-result-release-2026-09-20.md)已实现服务端释放、原身份保留、容量未受理回执及客户端合同；[本地结果证明与释放恢复](../../integration/campaign-plan-p2-release-coordination-2026-09-20.md)及[可信退避与九任务续接](../../integration/campaign-plan-p2-capacity-continuation-2026-09-20.md)已接可选单producer固定查询链。P4多消费者采用和生产联合验收仍待完成，R18保持部分已验。
 
