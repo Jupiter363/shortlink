@@ -40,6 +40,34 @@ class StatisticsJobFixedExecutorTest {
     private static final String SCHEMA = CampaignStatisticsResultStore.SCHEMA_VERSION;
 
     @Test
+    void onlyClosedBooleanUnadmittedCapacityReceiptAllowsSubmissionRetry() throws Exception {
+        var malformed = List.of(
+                Map.<String, Object>of("code", "QUERY_CAPACITY_EXHAUSTED", "capacityKind", "RESULT_STORAGE"),
+                Map.<String, Object>of("code", "QUERY_CAPACITY_EXHAUSTED", "admitted", "false", "capacityKind", "RESULT_STORAGE"),
+                Map.<String, Object>of("code", "QUERY_CAPACITY_EXHAUSTED", "admitted", true, "capacityKind", "RESULT_STORAGE"),
+                Map.<String, Object>of("code", "QUERY_CAPACITY_EXHAUSTED", "admitted", false, "capacityKind", "UNKNOWN"),
+                Map.<String, Object>of("code", "REMOTE_UNAVAILABLE", "admitted", false, "capacityKind", "RESULT_STORAGE"),
+                Map.<String, Object>of("code", "QUERY_CAPACITY_EXHAUSTED", "admitted", false, "capacityKind", "RESULT_STORAGE", "jobId", "job-original"));
+        for (Map<String, Object> response : malformed) {
+            Fixture f = new Fixture(0, true);
+            f.gateway.failureResponse = new ToolResult(false, response, "unavailable");
+            f.gateway.recoveryMissing = true;
+            f.runtime(f.token).graph().advance();
+            var original = f.runs.children(f.token).get(0);
+            assertEquals(ChildState.UNRESOLVED, original.state(), response.toString());
+            assertEquals(UnresolvedReason.SUBMISSION_UNRESOLVED, original.reason());
+            assertTrue(f.runs.submissionDeferral(f.token, original.spec().childId()).isEmpty());
+            var resumed = f.coordinator().resume(f.token, PRINCIPAL);
+            assertEquals(1, f.gateway.submits);
+            assertEquals(1, f.gateway.recoveries);
+            assertEquals("REPLAY_UNAVAILABLE", resumed.reconciliations().get(0).code());
+            assertEquals(ChildState.UNRESOLVED, f.runs.children(resumed.token()).get(0).state());
+            assertEquals(original.spec(), f.runs.children(resumed.token()).get(0).spec());
+            f.assertExited();
+        }
+    }
+
+    @Test
     void coordinatorReleasesPublishedFrozenResultThenContinuesUsingLocalEvidence() throws Exception {
         Fixture f = new Fixture(1, true, true);
         f.runtime(f.token).graph().advance();
@@ -263,6 +291,7 @@ class StatisticsJobFixedExecutorTest {
         boolean released;
         final List<Integer> pages = new ArrayList<>();
         Map<String, Object> accepted;
+        ToolResult failureResponse;
         boolean loseAck, recoveryMissing, revokeDuringPage, cancelDuringSubmit;
         Gateway(Fixture f) { this.f = f; }
         int calls() { return submits + recoveries + statuses + releases + pages.size(); }
@@ -287,6 +316,7 @@ class StatisticsJobFixedExecutorTest {
             accepted = Map.copyOf(request);
             if (cancelDuringSubmit) f.runs.cancel(f.token);
             if (loseAck) throw new IllegalStateException("Remote accepted but response was lost");
+            if (failureResponse != null) return failureResponse;
             return ToolResult.success(Map.of("jobId", "job-original", "state", "SUCCEEDED"));
         }
         public ToolResult recoverExistingStatisticsJob(ToolContext context, Map<String, Object> request) {

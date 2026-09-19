@@ -14,13 +14,17 @@ import java.util.function.BooleanSupplier;
 public final class CampaignStepExecution implements AutoCloseable {
     @FunctionalInterface public interface ChildCall { ChildResult call(IoBoundary boundary) throws Exception; }
 
-    public record ChildResult(String jobId, ArtifactDraft artifact) {
+    public record ChildResult(String jobId, ArtifactDraft artifact, CapacityKind capacityKind) {
+        public ChildResult(String jobId, ArtifactDraft artifact) { this(jobId, artifact, null); }
         public ChildResult {
-            if ((jobId == null) == (artifact == null) || (jobId != null && jobId.isBlank()))
-                throw new IllegalArgumentException("A child receipt requires exactly one job or artifact");
+            if ((jobId == null ? 0 : 1) + (artifact == null ? 0 : 1) + (capacityKind == null ? 0 : 1) != 1
+                    || (jobId != null && jobId.isBlank()))
+                throw new IllegalArgumentException("A child receipt requires exactly one job, artifact or unadmitted proof");
         }
         public static ChildResult waiting(String jobId) { return new ChildResult(jobId, null); }
         public static ChildResult ready(ArtifactDraft artifact) { return new ChildResult(null, artifact); }
+        /** Only a trusted adapter's validated remote admitted=false receipt may use this branch. */
+        public static ChildResult notAdmitted(CapacityKind kind) { return new ChildResult(null, null, Objects.requireNonNull(kind)); }
     }
 
     /** Adapters must call beforeIo immediately before EACH real wire operation, including paging. */
@@ -77,6 +81,7 @@ public final class CampaignStepExecution implements AutoCloseable {
                 executor.name(), executor.version(), FrozenCampaignRun.encode(step)));
         ChildRecord existing = runs.prepareChild(permit.runToken(), spec);
         if (existing.state() != ChildState.PREPARED) return existing;
+        if (!runs.submissionDue(permit.runToken(), spec.childId())) return existing;
         requireCurrent();
         DispatchPermit dispatch = runs.beginDispatch(permit.runToken(), spec.childId());
         boolean receiptSaved = false;
@@ -91,7 +96,8 @@ public final class CampaignStepExecution implements AutoCloseable {
                 throw new SecurityException("STEP_EXECUTION_FENCED");
             }
             boundary.beforeIo(); // Same fence applies to local publication after the remote call.
-            if (result.jobId() != null) runs.recordWaiting(dispatch, result.jobId());
+            if (result.capacityKind() != null) runs.deferUnadmitted(dispatch, result.capacityKind());
+            else if (result.jobId() != null) runs.recordWaiting(dispatch, result.jobId());
             else runs.publishReady(dispatch, result.artifact());
             receiptSaved = true;
         } finally {

@@ -66,4 +66,10 @@ public interface CampaignStepStore {
      * Other blocked causes need an explicit caller decision; this method never polls or submits.
      */
     StepRecord refreshWaiting(RunToken token, String stepId);
+
+    /**
+     * Re-arm only a due, durable capacity rejection once other registered children are READY or
+     * PREPARED and all callbacks have exited. Never converts an unknown submission into a retry.
+     */
+    StepRecord refreshCapacityDeferred(RunToken token, String stepId);
 }
