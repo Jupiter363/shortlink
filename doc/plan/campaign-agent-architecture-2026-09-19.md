@@ -2,7 +2,7 @@
 
 状态：**P0 组件验证完成，P1 实施中，P2–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`（PR #61 后）。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，实际完成范围见 [首批 P0 验证](../integration/campaign-plan-p0-2026-09-19.md)与[续接补充验收](../integration/campaign-plan-p0-recovery-2026-09-19.md)；下文是目标架构，不代表全部能力已上线。
 
-P1 分批进度：[独立恢复协议](../integration/campaign-plan-p1-recovery-2026-09-19.md)、[耐久账本与原生计划扫描](../integration/campaign-plan-p1-ledger-2026-09-19.md)、[步骤输出与持久化 Graph 驱动](../integration/campaign-plan-p1-steps-2026-09-19.md)已合并；[授权进度与可用结果视图](../integration/campaign-plan-p1-progress-2026-09-19.md)区分执行进度与交付结论；[进程死亡确认与恢复协调](../integration/campaign-plan-p1-process-recovery-2026-09-19.md)提供精确回调接管与原生 Graph 续接。整体 P1 与生产运行入口尚未完成。
+P1 分批进度：[独立恢复协议](../integration/campaign-plan-p1-recovery-2026-09-19.md)、[耐久账本与原生计划扫描](../integration/campaign-plan-p1-ledger-2026-09-19.md)、[步骤输出与持久化 Graph 驱动](../integration/campaign-plan-p1-steps-2026-09-19.md)已合并；[授权进度与可用结果视图](../integration/campaign-plan-p1-progress-2026-09-19.md)区分执行进度与交付结论；[进程死亡确认与恢复协调](../integration/campaign-plan-p1-process-recovery-2026-09-19.md)提供精确回调接管与原生 Graph 续接；[统计任务读取合同](../integration/campaign-plan-p1-job-read-2026-09-20.md)补齐结果接收前置的跨服务机器错误码。整体 P1 与生产运行入口尚未完成。
 
 已确认的架构方向：**外层 Plan 管目标和依赖，局部按需探索。** 具体实施顺序见[实施计划](campaign-agent-architecture-2026-09-19/implementation-plan.md)，图运行与恢复边界见[Graph 适配方案](campaign-agent-architecture-2026-09-19/graph-adaptation.md)，两种执行策略的组合见[混合计划示例](campaign-agent-architecture-2026-09-19/example-hybrid-plan.json)。
 

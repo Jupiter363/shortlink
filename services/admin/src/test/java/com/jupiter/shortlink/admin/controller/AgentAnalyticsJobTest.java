@@ -130,7 +130,8 @@ class AgentAnalyticsJobTest {
         when(client.job(eq("job-1"), eq("status"), any()))
                 .thenReturn(new JSONObject(Map.of("code", "FORBIDDEN")));
         UserContext.setUser(new UserInfoDTO("1002", "bob", null, 9L));
-        assertThatThrownBy(() -> facade.jobStatus("job-1")).hasMessageContaining("FORBIDDEN");
+        assertThatThrownBy(() -> facade.jobStatus("job-1"))
+                .hasMessage("Statistics job read unavailable").extracting("errorCode").isEqualTo("FORBIDDEN");
         var capture = ArgumentCaptor.forClass(Map.class);
         verify(client).job(eq("job-1"), eq("status"), capture.capture());
         assertThat(capture.getValue())
@@ -143,7 +144,8 @@ class AgentAnalyticsJobTest {
     void incompleteResultIsNeverConvertedToEmptyStatistics() {
         when(client.job(eq("job-1"), eq("page"), any()))
                 .thenReturn(new JSONObject(Map.of("code", "NOT_READY")));
-        assertThatThrownBy(() -> facade.jobPage("job-1", 0, 500)).hasMessageContaining("NOT_READY");
+        assertThatThrownBy(() -> facade.jobPage("job-1", 0, 500))
+                .hasMessage("Statistics job read unavailable").extracting("errorCode").isEqualTo("NOT_READY");
     }
 
     @Test
@@ -160,6 +162,8 @@ class AgentAnalyticsJobTest {
                                         Map.of(
                                                 "snapshotId",
                                                 "job-1",
+                                                "pageIndex",
+                                                0,
                                                 "collectionQuality",
                                                 Map.of("status", "UNKNOWN"),
                                                 "missingMetrics",
@@ -181,12 +185,13 @@ class AgentAnalyticsJobTest {
                 "dimensionQuality", dimensions);
         when(client.job(eq("job-1"), eq("page"), any())).thenReturn(result(Map.of(
                 "metrics", Map.of("requested", statistics), "items", List.of(),
-                "meta", Map.of("snapshotId", "job-1", "dimensionQuality", dimensions,
+                "meta", Map.of("snapshotId", "job-1", "pageIndex", 0, "dimensionQuality", dimensions,
                         "missingMetrics", List.of("networkStats", "uvTypeStats")))));
         var page = facade.jobPage("job-1", 0, 500);
         assertThat(((Map<?, ?>) page.get("meta")).get("dimensionQuality")).isEqualTo(dimensions);
         assertThat(((Map<?, ?>) page.get("metrics")).get("requested")).isEqualTo(statistics);
         verify(client, never()).resolve(any());
+        verify(client, never()).resolveForJobRead(any());
     }
 
     @Test
@@ -206,7 +211,8 @@ class AgentAnalyticsJobTest {
                                         "METRICS"))
                 .hasMessageContaining("TOO_LARGE");
         UserContext.removeUser();
-        assertThatThrownBy(() -> facade.jobStatus("job-1")).hasMessageContaining("authenticated");
+        assertThatThrownBy(() -> facade.jobStatus("job-1"))
+                .hasMessage("Statistics job read unavailable").extracting("errorCode").isEqualTo("FORBIDDEN");
         verify(client, never()).createJob(any());
         verify(client, never()).job(anyString(), anyString(), any());
     }
@@ -217,6 +223,8 @@ class AgentAnalyticsJobTest {
                 "shortUri", "one", "fullShortUrl", "example.test/one");
         when(client.resolve(any())).thenReturn(new JSONObject(Map.of("tenantId", "1001",
                 "links", List.of(identity))));
+        when(client.resolveForJobRead(any())).thenReturn(new JSONObject(Map.of("tenantId", "1001",
+                "links", List.of(identity))));
         when(client.createJob(any())).thenReturn(result(Map.of("jobId", "job-1", "state", "QUEUED")));
         facade.submitJob("request-rank", "g1", null, "2026-07-01", "2026-08-01", "LINK_METRICS");
         ArgumentCaptor<Map<String, Object>> request = ArgumentCaptor.forClass(Map.class);
@@ -225,14 +233,16 @@ class AgentAnalyticsJobTest {
         when(client.job(eq("job-1"), eq("page"), any())).thenReturn(result(Map.of(
                 "items", List.of(Map.of("linkId", 123L, "pv", 9L)),
                 "metrics", Map.of("requested", Map.of("pv", 9L, "uv", 4L)),
-                "meta", Map.of("gid", "g1", "linkIds", List.of(123L), "queryKind", "LINK_METRICS",
+                "meta", Map.of("snapshotId", "job-1", "pageIndex", 0,
+                        "gid", "g1", "linkIds", List.of(123L), "queryKind", "LINK_METRICS",
                         "completeness", "PARTIAL"))));
         var page = facade.jobPage("job-1", 0, 500);
         assertThat((Map<String, Object>) page.get("meta")).containsEntry("fullShortUrl", "example.test/one")
                 .containsEntry("completeness", "PARTIAL");
         assertThat((Map<String, Object>) ((List<?>) page.get("items")).get(0))
                 .containsEntry("fullShortUrl", "example.test/one");
-        when(client.resolve(any())).thenReturn(new JSONObject(Map.of("tenantId", "1001", "links", List.of())));
-        assertThatThrownBy(() -> facade.jobPage("job-1", 0, 500)).hasMessageContaining("no longer authorized");
+        when(client.resolveForJobRead(any())).thenReturn(new JSONObject(Map.of("tenantId", "1001", "links", List.of())));
+        assertThatThrownBy(() -> facade.jobPage("job-1", 0, 500))
+                .hasMessage("Statistics job read unavailable").extracting("errorCode").isEqualTo("FORBIDDEN");
     }
 }

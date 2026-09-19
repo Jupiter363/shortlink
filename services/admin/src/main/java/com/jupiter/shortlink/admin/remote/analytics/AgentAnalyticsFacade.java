@@ -239,20 +239,68 @@ public class AgentAnalyticsFacade {
     }
 
     public Map<String, Object> jobStatus(String jobId) {
-        return jobData(client.job(jobId, "status", jobIdentity()), true);
+        Map<String, Object> result = readJobData(client.job(jobId, "status", jobIdentity()));
+        if (!jobId.equals(result.get("jobId"))
+                || !(result.get("state") instanceof String state)
+                || !Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state))
+            throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        result.put("status", Set.of("QUEUED", "RUNNING").contains(state) ? "PENDING" : state);
+        result.put("resultReady", "SUCCEEDED".equals(state));
+        return result;
     }
 
     public Map<String, Object> jobPage(String jobId, int pageIndex, int size) {
-        if (pageIndex < 0 || size < 1 || size > 500)
-            throw new ClientException("Invalid statistics job result page");
+        if (pageIndex < 0 || size != 500)
+            throw AnalyticsJsonClient.readFailure("INVALID_QUERY");
         Map<String, Object> request = jobIdentity();
         request.put("pageIndex", pageIndex);
         request.put("size", size);
-        Map<String, Object> result = jobData(client.job(jobId, "page", request), false);
-        if (!(result.get("meta") instanceof Map<?, ?>) || !(result.get("items") instanceof List<?>))
-            throw new RemoteException("Statistics job result envelope is invalid");
+        Map<String, Object> result = readJobData(client.job(jobId, "page", request));
+        if (!(result.get("meta") instanceof Map<?, ?> meta)
+                || !(result.get("items") instanceof List<?> items)
+                || !jobId.equals(meta.get("snapshotId"))
+                || !matchesPageIndex(meta.get("pageIndex"), pageIndex)
+                || items.stream().anyMatch(item -> !(item instanceof Map<?, ?>)))
+            throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
         enrichJobIdentities(result);
         return result;
+    }
+
+    private static boolean matchesPageIndex(Object value, int expected) {
+        return (value instanceof Integer || value instanceof Long)
+                && ((Number) value).longValue() == expected;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> readJobData(JSONObject response) {
+        if (response == null || !(response.get("code") instanceof String code))
+            throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        if (!"0".equals(code)) throw AnalyticsJsonClient.readFailure(code);
+        if (!(response.get("data") instanceof Map<?, ?> data))
+            throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        return new LinkedHashMap<>((Map<String, Object>) data);
+    }
+
+    private Map<String, Object> resolveForJobRead(String gid, List<Long> linkIds) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("gid", gid);
+        if (linkIds != null) request.put("linkIds", linkIds);
+        JSONObject scope = client.resolveForJobRead(request);
+        if (scope == null || !(scope.get("tenantId") instanceof String)
+                || !(scope.get("links") instanceof List<?> links)
+                || links.stream().anyMatch(link -> !(link instanceof Map<?, ?>)))
+            throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        if (!UserContext.getUserId().equals(scope.get("tenantId")))
+            throw AnalyticsJsonClient.readFailure("FORBIDDEN");
+        return scope;
+    }
+
+    private static long readLinkId(Object value) {
+        try {
+            return longValue(value);
+        } catch (RemoteException invalid) {
+            throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -260,28 +308,28 @@ public class AgentAnalyticsFacade {
         Map<String, Object> meta = new LinkedHashMap<>((Map<String, Object>) result.get("meta"));
         // Older frozen jobs have no scope metadata. Preserve them without inventing an identity.
         if (!(meta.get("linkIds") instanceof List<?> rawIds) || meta.get("gid") == null) return;
-        List<Long> ids = rawIds.stream().map(AgentAnalyticsFacade::longValue).toList();
-        Map<String, Object> scope = resolve(meta.get("gid").toString(), null, ids);
+        List<Long> ids = rawIds.stream().map(AgentAnalyticsFacade::readLinkId).toList();
+        Map<String, Object> scope = resolveForJobRead(meta.get("gid").toString(), ids);
         List<Map<String, Object>> links = (List<Map<String, Object>>) scope.get("links");
         Map<Long, Map<String, Object>> identities = new LinkedHashMap<>();
-        for (Map<String, Object> link : links) identities.put(longValue(link.get("linkId")), link);
+        for (Map<String, Object> link : links) identities.put(readLinkId(link.get("linkId")), link);
         if (!identities.keySet().containsAll(ids))
-            throw new RemoteException("Statistics job scope is no longer authorized");
-        Map<String, Object> fullGroup = resolve(meta.get("gid").toString(), null, null);
+            throw AnalyticsJsonClient.readFailure("FORBIDDEN");
+        Map<String, Object> fullGroup = resolveForJobRead(meta.get("gid").toString(), null);
         var currentIds = new java.util.HashSet<Long>();
         for (var link : (List<Map<String, Object>>) fullGroup.get("links"))
-            currentIds.add(longValue(link.get("linkId")));
+            currentIds.add(readLinkId(link.get("linkId")));
         meta.put("groupScopeComplete", fullGroup.get("nextCursor") == null
                 && currentIds.equals(new java.util.HashSet<>(ids)));
         if (ids.size() == 1) meta.put("fullShortUrl", identities.get(ids.get(0)).get("fullShortUrl"));
         List<Map<String, Object>> enriched = new ArrayList<>();
         for (Object value : (List<?>) result.get("items")) {
             if (!(value instanceof Map<?, ?> row))
-                throw new RemoteException("Statistics job item is invalid");
+                throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
             Map<String, Object> item = new LinkedHashMap<>((Map<String, Object>) row);
             if (item.get("linkId") != null) {
-                Map<String, Object> identity = identities.get(longValue(item.get("linkId")));
-                if (identity == null) throw new RemoteException("Statistics job returned an unauthorized link");
+                Map<String, Object> identity = identities.get(readLinkId(item.get("linkId")));
+                if (identity == null) throw AnalyticsJsonClient.readFailure("FORBIDDEN");
                 for (String field : List.of("gid", "domain", "shortUri", "fullShortUrl"))
                     item.put(field, identity.get(field));
             }
@@ -292,7 +340,9 @@ public class AgentAnalyticsFacade {
     }
 
     private Map<String, Object> jobIdentity() {
-        requirePrincipal();
+        if (UserContext.getUserId() == null || UserContext.getUsername() == null
+                || UserContext.getAuthVersion() == null)
+            throw AnalyticsJsonClient.readFailure("FORBIDDEN");
         Map<String, Object> identity = new LinkedHashMap<>();
         identity.put("tenantId", UserContext.getUserId());
         identity.put("subjectId", UserContext.getUsername());

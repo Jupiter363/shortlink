@@ -23,6 +23,8 @@ import java.util.concurrent.Flow;
 
 @Component
 public class AnalyticsJsonClient {
+    private enum ResponseContract { DEFAULT, RECOVERY, JOB_READ, JOB_SCOPE_READ }
+
     private final HttpClient client =
             HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(1))
@@ -46,6 +48,12 @@ public class AnalyticsJsonClient {
         return post(commandUrl + "/internal/command/authorization/resolve", request);
     }
 
+    /** Reauthorize a job read with typed failures; ordinary resource resolution is unchanged. */
+    public JSONObject resolveForJobRead(Object request) {
+        return post(commandUrl + "/internal/command/authorization/resolve", request,
+                ResponseContract.JOB_SCOPE_READ);
+    }
+
     public JSONObject query(Object request) {
         return post(analyticsUrl + "/internal/analytics/v1/query", request);
     }
@@ -56,28 +64,34 @@ public class AnalyticsJsonClient {
 
     /** Dedicated route: no retry or fallback to createJob, including unsupported old services. */
     public JSONObject recoverExistingJob(Object request) {
-        return post(analyticsUrl + "/internal/analytics/v1/jobs/recover-existing", request, true);
+        return post(analyticsUrl + "/internal/analytics/v1/jobs/recover-existing", request,
+                ResponseContract.RECOVERY);
     }
 
     public JSONObject job(String jobId, String operation, Object request) {
         if (jobId == null
                 || !jobId.matches("[A-Za-z0-9_-]{1,128}")
                 || !List.of("status", "page").contains(operation))
-            throw new IllegalArgumentException("Invalid statistics job reference");
+            throw readFailure("INVALID_QUERY");
         return post(
-                analyticsUrl + "/internal/analytics/v1/jobs/" + jobId + "/" + operation, request);
+                analyticsUrl + "/internal/analytics/v1/jobs/" + jobId + "/" + operation, request,
+                ResponseContract.JOB_READ);
     }
 
     private JSONObject post(String url, Object payload) {
-        return post(url, payload, false);
+        return post(url, payload, ResponseContract.DEFAULT);
     }
 
-    private JSONObject post(String url, Object payload, boolean recovery) {
+    private JSONObject post(String url, Object payload, ResponseContract contract) {
+        boolean recovery = contract == ResponseContract.RECOVERY;
+        boolean jobRead = contract == ResponseContract.JOB_READ
+                || contract == ResponseContract.JOB_SCOPE_READ;
         if (internalToken == null
                 || internalToken.length() < 24
                 || UserContext.getUserId() == null
                 || UserContext.getUsername() == null
                 || UserContext.getAuthVersion() == null) {
+            if (jobRead) throw readFailure("FORBIDDEN");
             throw new RemoteException("Trusted analytics service identity is unavailable");
         }
         HttpRequest request =
@@ -92,11 +106,14 @@ public class AnalyticsJsonClient {
                                 Long.toString(UserContext.getAuthVersion()))
                         .POST(HttpRequest.BodyPublishers.ofString(JSON.toJSONString(payload)))
                         .build();
-        if (!permits.tryAcquire())
+        if (!permits.tryAcquire()) {
+            if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             throw new RemoteException("Analytics request concurrency budget is exhausted");
+        }
         try {
             HttpResponse<byte[]> response =
                     client.send(request, ignored -> new LimitedBody(2 * 1024 * 1024));
+            if (jobRead) return readResponse(response, contract == ResponseContract.JOB_SCOPE_READ);
             if (recovery && List.of(404, 405, 501).contains(response.statusCode())) {
                 throw recoveryFailure("RECOVERY_PROTOCOL_UNAVAILABLE");
             }
@@ -112,14 +129,48 @@ public class AnalyticsJsonClient {
             return result;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             if (recovery) throw recoveryFailure("UNAVAILABLE");
             throw new RemoteException("Analytics request interrupted");
         } catch (java.io.IOException | IllegalArgumentException unavailable) {
+            if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             if (recovery) throw recoveryFailure("UNAVAILABLE");
             throw new RemoteException("Analytics authority is unavailable");
         } finally {
             permits.release();
         }
+    }
+
+    private static JSONObject readResponse(HttpResponse<byte[]> response, boolean scopeResponse) {
+        int status = response.statusCode();
+        if (status == 401 || status == 403) throw readFailure("FORBIDDEN");
+        if (status == 404 || status == 405 || status == 501)
+            throw readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        if (status != 200) throw readFailure("REMOTE_UNAVAILABLE");
+        JSONObject result;
+        try {
+            result = JSON.parseObject(new String(response.body(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (RuntimeException invalid) {
+            throw readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        }
+        if (result == null) throw readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        // Command authorization returns an unwrapped scope, whereas Analytics returns code/data.
+        if (scopeResponse && status == 200 && !result.containsKey("code")) return result;
+        if (!(result.get("code") instanceof String code))
+            throw readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        if (!"0".equals(code)) throw readFailure(code);
+        if (status != 200 || scopeResponse)
+            throw readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
+        return result;
+    }
+
+    static RemoteException readFailure(String upstreamCode) {
+        String code = upstreamCode != null && upstreamCode.matches("[A-Z][A-Z0-9_]{0,63}")
+                ? upstreamCode : "STATISTICS_READ_PROTOCOL_UNAVAILABLE";
+        return new RemoteException("Statistics job read unavailable", new IErrorCode() {
+            @Override public String code() { return code; }
+            @Override public String message() { return "Statistics job read unavailable"; }
+        });
     }
 
     private static JSONObject recoveryResponse(HttpResponse<byte[]> response) {
