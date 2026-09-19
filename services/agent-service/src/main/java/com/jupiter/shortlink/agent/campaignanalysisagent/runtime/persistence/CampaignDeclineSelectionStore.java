@@ -14,10 +14,10 @@ public interface CampaignDeclineSelectionStore {
     record PageResult(List<Result> rows, String nextCursor) {
         public PageResult { rows = List.copyOf(rows); }
     }
-    /** Actual paired publications and their source periods, not dates inferred from an opaque reference. */
+    /** Actual paired publications, producer step and source periods, verified from the durable collection. */
     record SelectionPair(ArtifactMetadata selectedEntities, ArtifactMetadata selectionEvidence,
                          Definition definition, ArtifactMetadata scopeArtifact, List<Period> periods,
-                         boolean selectionComplete, String emptyReason, long selectedCount) {
+                         boolean selectionComplete, String emptyReason, long selectedCount, String producerStepId) {
         public SelectionPair { periods = List.copyOf(periods); }
     }
 
