@@ -1,7 +1,10 @@
 package com.jupiter.shortlink.agent.infrastructure.config;
 
 import com.jupiter.shortlink.agent.infrastructure.llm.BoundedToolCallAdvisor;
+import com.jupiter.shortlink.agent.infrastructure.llm.BoundedModelResponseInterceptor;
 import com.jupiter.shortlink.agent.infrastructure.llm.DeepSeekSpringAiChatModel;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -12,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 
 import java.time.Duration;
 
@@ -29,7 +33,20 @@ public class SpringAiChatConfig {
     public RestTemplate deepSeekRestTemplate(
             RestTemplateBuilder builder, DeepSeekProperties properties) {
         Duration timeout = Duration.ofMillis(Math.max(1, properties.getTimeoutMs()));
-        return builder.setConnectTimeout(timeout).setReadTimeout(timeout).build();
+        RestTemplate transport = builder.setConnectTimeout(timeout).setReadTimeout(timeout)
+                .additionalInterceptors(new BoundedModelResponseInterceptor(properties.getMaxResponseBytes()))
+                .build();
+        for (var converter : transport.getMessageConverters()) {
+            if (converter instanceof MappingJackson2HttpMessageConverter jackson) {
+                var mapper = jackson.getObjectMapper().copy();
+                mapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+                mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+                        .maxNestingDepth(properties.getMaxResponseNestingDepth())
+                        .maxStringLength(properties.getMaxResponseBytes()).build());
+                jackson.setObjectMapper(mapper);
+            }
+        }
+        return transport;
     }
 
     @Bean(name = {"agentChatModel", "chatModel"})
