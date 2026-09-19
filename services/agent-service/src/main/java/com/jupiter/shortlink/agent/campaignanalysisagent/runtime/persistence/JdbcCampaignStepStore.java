@@ -47,6 +47,7 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
     private final Clock clock;
     private final CampaignRunStore.Limits limits;
     private final JdbcCampaignRunStore runs;
+    private final JdbcExplorationCallbackGate calls;
 
     public JdbcCampaignStepStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock) {
         this(jdbc, transactions, clock, CampaignRunStore.Limits.defaults());
@@ -64,6 +65,7 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
                 || transactions.isReadOnly())
             throw new IllegalArgumentException("Step and run ledgers require one writable REQUIRED DataSource transaction");
         this.runs = new JdbcCampaignRunStore(jdbc, transactions, clock, limits);
+        this.calls = new JdbcExplorationCallbackGate(jdbc);
     }
 
     @Override
@@ -445,7 +447,7 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
                 Integer.class, runId);
         Integer children = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger WHERE run_id=? AND callback_active=TRUE",
                 Integer.class, runId);
-        return (steps != null && steps > 0) || (children != null && children > 0);
+        return (steps != null && steps > 0) || (children != null && children > 0) || calls.hasActive(runId);
     }
 
     private void requireNoCallbacks(String runId) { if (hasCallbacks(runId)) fail("CALLBACK_STILL_ACTIVE"); }

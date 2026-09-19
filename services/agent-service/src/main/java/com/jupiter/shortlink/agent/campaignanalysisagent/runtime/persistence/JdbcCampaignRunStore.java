@@ -11,6 +11,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalc
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry.ModelActionSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry.Response;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.contract.GroupMembersPage;
@@ -49,6 +50,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     private final Clock clock;
     private final Limits limits;
     private final SubmissionBackoff submissionBackoff;
+    private final JdbcExplorationCallbackGate calls;
 
     public JdbcCampaignRunStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock) {
         this(jdbc, transactions, clock, Limits.defaults());
@@ -65,6 +67,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         this.clock = Objects.requireNonNull(clock);
         this.limits = Objects.requireNonNull(limits);
         this.submissionBackoff = Objects.requireNonNull(submissionBackoff);
+        this.calls = new JdbcExplorationCallbackGate(jdbc);
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
                 || manager.getDataSource() != jdbc.getDataSource()
                 || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
@@ -234,6 +237,10 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return begin(token, childId, DispatchPurpose.FRESH);
     }
 
+    @Override public DispatchPermit beginDispatch(RunToken token, String childId, CallPermit parentCall) {
+        return begin(token, childId, DispatchPurpose.FRESH, false, Objects.requireNonNull(parentCall));
+    }
+
     @Override
     public void deferUnadmitted(DispatchPermit permit, CapacityKind kind) {
         Objects.requireNonNull(permit, "Dispatch permit is required");
@@ -243,6 +250,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             RunToken token = permit.token();
             lockRun(token, true);
             ChildRecord child = requireAttempt(permit);
+            requireDispatchAuthority(permit, child);
             if (child.spec().mode() != ChildMode.ASYNC || child.jobId() != null || child.artifactId() != null)
                 conflict("DEFERRAL_REQUIRES_FRESH_ASYNC_ATTEMPT");
             if (isDeferred(child)) {
@@ -299,20 +307,37 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return begin(token, childId, DispatchPurpose.RECONCILE);
     }
 
+    @Override public DispatchPermit beginReconciliation(RunToken token, String childId, CallPermit parentCall) {
+        return begin(token, childId, DispatchPurpose.RECONCILE, false, Objects.requireNonNull(parentCall));
+    }
+
     @Override public DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId) {
         return begin(token, childId, DispatchPurpose.AUTHORITY_PAGE_READ);
+    }
+
+    @Override public DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId, CallPermit parentCall) {
+        return begin(token, childId, DispatchPurpose.AUTHORITY_PAGE_READ, false, Objects.requireNonNull(parentCall));
     }
 
     @Override public DispatchPermit beginRelease(RunToken token, String childId) {
         return begin(token, childId, DispatchPurpose.RELEASE);
     }
 
+    @Override public DispatchPermit beginRelease(RunToken token, String childId, CallPermit parentCall) {
+        return begin(token, childId, DispatchPurpose.RELEASE, false, Objects.requireNonNull(parentCall));
+    }
+
     @Override public DispatchPermit beginLocalReplay(RunToken token, String childId, Approval approval,
                                                      ArtifactAuthorizer authorizer) {
+        return beginLocalReplay(token, childId, approval, authorizer, null);
+    }
+
+    @Override public DispatchPermit beginLocalReplay(RunToken token, String childId, Approval approval,
+                                                     ArtifactAuthorizer authorizer, CallPermit parentCall) {
         id(childId, "childId", 96);
         return transaction(() -> {
             lockRun(token, true);
-            requireNoCallbacks(token.definition().runId());
+            requireNoChildCallbacks(token.definition().runId());
             ChildRecord child = findChild(token.definition(), childId, true)
                     .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
             requireLocalApproval(child.spec(), approval);
@@ -320,12 +345,12 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                     || child.jobId() != null || child.artifactId() != null || !localBindings(token, childId).isEmpty())
                 conflict("LOCAL_REPLAY_REQUIRES_UNRESOLVED_RESULT");
             verifyLocalInputs(token.definition().caller(), child.spec().localInvocation(), authorizer);
-            return begin(token, childId, DispatchPurpose.LOCAL_REPLAY);
+            return begin(token, childId, DispatchPurpose.LOCAL_REPLAY, false, parentCall);
         });
     }
 
     private DispatchPermit begin(RunToken token, String childId, DispatchPurpose purpose) {
-        return begin(token, childId, purpose, false);
+        return begin(token, childId, purpose, false, null);
     }
 
     @Override
@@ -340,6 +365,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             RunToken token = step.runToken();
             lockRun(token, true);
             lockModelStep(step);
+            calls.requireNoActive(token.definition().runId());
             validateModelBinding(token, step.stepId(), modelAction, spec);
             verifyModelInputs(token.definition().caller(), spec.modelInvocation(), authorizer);
             var existingAction = modelAction(token, modelAction.actionId());
@@ -386,7 +412,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             validateModelBinding(token, step.stepId(), action, child.spec());
             verifyModelInputs(token.definition().caller(), child.spec().modelInvocation(), authorizer);
             if (modelResponse(token, childId).isPresent()) conflict("MODEL_RESPONSE_STATE_MISMATCH");
-            return begin(token, childId, DispatchPurpose.FRESH, true);
+            return begin(token, childId, DispatchPurpose.FRESH, true, null);
         });
     }
 
@@ -402,6 +428,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             lockRun(permit.token(), true);
             lockModelStep(step);
             ChildRecord child = requireAttempt(permit);
+            requireDispatchAuthority(permit, child);
             requireModelApproval(child.spec(), approval);
             if (permit.purpose() != DispatchPurpose.FRESH || !child.callbackActive()
                     || child.jobId() != null || child.artifactId() != null)
@@ -450,13 +477,15 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         });
     }
 
-    private DispatchPermit begin(RunToken token, String childId, DispatchPurpose purpose, boolean approvedModel) {
+    private DispatchPermit begin(RunToken token, String childId, DispatchPurpose purpose, boolean approvedModel,
+                                 CallPermit parentCall) {
         id(childId, "childId", 96);
         return transaction(() -> {
             lockRun(token, true);
-            requireNoCallbacks(token.definition().runId());
+            requireNoChildCallbacks(token.definition().runId());
             ChildRecord child = findChild(token.definition(), childId, true)
                     .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            requireDispatchAuthority(token, child, purpose, parentCall);
             if ((child.spec().mode() == ChildMode.MODEL) != approvedModel) conflict("MODEL_DISPATCH_REQUIRES_APPROVAL");
             if (approvedModel && (purpose != DispatchPurpose.FRESH || child.state() != ChildState.PREPARED))
                 conflict("MODEL_DISPATCH_REQUIRES_PREPARED");
@@ -481,7 +510,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             if (purpose == DispatchPurpose.LOCAL_REPLAY && (child.spec().mode() != ChildMode.LOCAL
                     || child.state() != ChildState.UNRESOLVED || child.reason() != UnresolvedReason.LOCAL_RESULT_UNKNOWN))
                 conflict("LOCAL_REPLAY_REQUIRES_UNRESOLVED_RESULT");
-            var permit = new DispatchPermit(token, childId, freshId(), Math.addExact(child.attemptVersion(), 1), purpose);
+            var permit = new DispatchPermit(token, childId, freshId(), Math.addExact(child.attemptVersion(), 1), purpose, parentCall);
             String resultTransition = purpose == DispatchPurpose.RELEASE ? ""
                     : "child_state='DISPATCHING',unresolved_reason=NULL,";
             jdbc.update("UPDATE campaign_child_ledger SET " + resultTransition + "attempt_id=?,attempt_version=?,"
@@ -489,6 +518,14 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                             + "updated_at=? WHERE run_id=? AND revision=? AND child_id=?",
                     permit.attemptId(), permit.attemptVersion(), purpose.name(), token.version(), token.advanceToken(),
                     now(), token.definition().runId(), token.definition().revision(), childId);
+            // Legacy fixed-only schemas do not have these columns. Any other schema failure is fatal.
+            if (calls.schemaAvailable()) {
+                jdbc.update("UPDATE campaign_child_ledger SET parent_call_id=?,parent_call_attempt_id=?,"
+                                + "parent_call_attempt_version=? WHERE run_id=? AND revision=? AND child_id=?",
+                        parentCall == null ? null : parentCall.callId(), parentCall == null ? null : parentCall.attemptId(),
+                        parentCall == null ? null : parentCall.attemptVersion(), token.definition().runId(),
+                        token.definition().revision(), childId);
+            }
             return permit;
         });
     }
@@ -499,6 +536,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             try {
                 lockRun(permit.token(), true);
                 ChildRecord child = requireAttempt(permit);
+                requireDispatchAuthority(permit, child);
                 ChildState expected = permit.purpose() == DispatchPurpose.RELEASE ? ChildState.READY : ChildState.DISPATCHING;
                 if (child.state() != expected || !child.callbackActive()) return false;
                 if (child.spec().mode() == ChildMode.MODEL) {
@@ -525,6 +563,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         transaction(() -> {
             lockRun(permit.token(), true);
             ChildRecord child = requireAttempt(permit);
+            requireDispatchAuthority(permit, child);
             if (child.spec().mode() != ChildMode.ASYNC) conflict("SYNC_CHILD_CANNOT_WAIT_ON_JOB");
             requireMatchingJob(child, jobId);
             if (child.state() == ChildState.WAITING) return null;
@@ -565,6 +604,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return transaction(() -> {
             lockRun(permit.token(), true);
             ChildRecord child = requireAttempt(permit);
+            requireDispatchAuthority(permit, child);
             if (child.spec().mode() == ChildMode.LOCAL) conflict("LOCAL_RESULT_REQUIRES_MULTI_OUTPUT_PUBLICATION");
             if (child.spec().mode() == ChildMode.MODEL) conflict("MODEL_RESULT_REQUIRES_RESPONSE_PUBLICATION");
             ActionSpec action = action(permit.token(), child.spec().actionId()).orElseThrow();
@@ -608,6 +648,9 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             lockRun(permit.token(), true);
             lockLocalStep(step);
             ChildRecord child = requireAttempt(permit);
+            requireDispatchAuthority(permit, child);
+            if (permit.parentCall() != null && !step.equals(permit.parentCall().step()))
+                conflict("LOCAL_PARENT_STEP_MISMATCH");
             requireLocalApproval(child.spec(), approval);
             if (permit.purpose() != DispatchPurpose.FRESH && permit.purpose() != DispatchPurpose.LOCAL_REPLAY)
                 conflict("LOCAL_ATTEMPT_PURPOSE_INVALID");
@@ -966,7 +1009,47 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                 permit.token().definition().runId(), permit.token().definition().revision(), permit.childId(),
                 permit.token().version(), permit.token().advanceToken());
         if (matching == null || matching != 1) conflict("ATTEMPT_RUN_TOKEN_MISMATCH");
+        CallPermit parent = permit.parentCall();
+        if (parent != null && (!permit.token().equals(parent.step().runToken())
+                || !child.spec().actionId().equals(parent.actionId()))) conflict("ATTEMPT_PARENT_MISMATCH");
+        if (calls.schemaAvailable()) {
+            // Compare only durable identity here. Cleanup remains legal after the CALL is revoked,
+            // after its callback exits, or after this run writer has been fenced.
+            boolean bound = jdbc.queryForObject("SELECT parent_call_id,parent_call_attempt_id,parent_call_attempt_version "
+                            + "FROM campaign_child_ledger WHERE run_id=? AND revision=? AND child_id=?",
+                    (rs, row) -> parent == null
+                            ? rs.getString("parent_call_id") == null && rs.getString("parent_call_attempt_id") == null
+                                && rs.getObject("parent_call_attempt_version") == null
+                            : parent.callId().equals(rs.getString("parent_call_id"))
+                                && parent.attemptId().equals(rs.getString("parent_call_attempt_id"))
+                                && parent.attemptVersion() == rs.getLong("parent_call_attempt_version"),
+                    permit.token().definition().runId(), permit.token().definition().revision(), permit.childId());
+            if (!bound) conflict("ATTEMPT_PARENT_MISMATCH");
+        } else if (parent != null) {
+            conflict("CALLBACK_SCHEMA_UNAVAILABLE");
+        }
         return child;
+    }
+
+    private void requireDispatchAuthority(DispatchPermit permit, ChildRecord child) {
+        requireDispatchAuthority(permit.token(), child, permit.purpose(), permit.parentCall());
+    }
+
+    private void requireDispatchAuthority(RunToken token, ChildRecord child, DispatchPurpose purpose,
+                                          CallPermit parent) {
+        if (parent != null) {
+            if (!token.equals(parent.step().runToken()) || child.spec().mode() == ChildMode.MODEL)
+                conflict("DISPATCH_PARENT_MISMATCH");
+            calls.requireParent(parent, child.spec().actionId());
+            return;
+        }
+        calls.requireNoActive(token.definition().runId());
+        // Only existing narrow result/authority reconciliation protocols may outlive their CALL.
+        // In particular an unpinned authority first page still fails requirePinnedAuthorityPage.
+        if (purpose != DispatchPurpose.RECONCILE && purpose != DispatchPurpose.RELEASE
+                && purpose != DispatchPurpose.AUTHORITY_PAGE_READ
+                && calls.isCallAction(token, child.spec().actionId()))
+            conflict("CALL_PARENT_PERMIT_REQUIRED");
     }
 
     private static void requirePinnedAuthorityPage(WireRequest wire) {
@@ -1027,6 +1110,11 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     }
 
     private void requireNoCallbacks(String runId) {
+        requireNoChildCallbacks(runId);
+        calls.requireNoActive(runId);
+    }
+
+    private void requireNoChildCallbacks(String runId) {
         Integer active = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger WHERE run_id=? AND callback_active=TRUE",
                 Integer.class, runId);
         if (active != null && active > 0) conflict("CALLBACK_STILL_ACTIVE");
