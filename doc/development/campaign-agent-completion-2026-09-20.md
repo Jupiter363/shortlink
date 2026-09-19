@@ -60,6 +60,7 @@
 | [E29：耐久多轮探索][E29] | 两项native+H2用例首次通过；三轮依赖在MODEL提交后checkpoint故障可重建，原模型/工具不重复；异步原job配新Step和空saver续接，当前ACL生效。 | JDBC轮次与规范历史组件已验；预算/规模、精确投影确认、typed能力接线和Driver仍待完成。 |
 | [E30：探索预算与上下文加载][E30] | 三项后端用例首次通过；模型预算跨重开/升级/新revision保留，UTF8完整请求超限零模型/工具/checkpoint；三轮恢复完整配对不重做。 | 模型预算/历史引用加载组件已验；修复耗尽、无进展、精确投影确认、typed能力和生产组合仍待完成。 |
 | [E31：协议事务故障与修复额度][E31] | 三项后端用例首次通过；真实接纳tx失败不重调模型，PENDING tx回滚后原job唯一READY配对，违规批次修复耗尽后重开不重置。 | 相应故障窗口已验；无进展、精确投影确认、typed Tool/Skill及生产组合仍待完成。 |
+| [E32：真实统计探索工具][E32] | 四项后端方法首次通过；原生typed CALL提交一次、500＋1全页接收、新writer/空saver恢复；五类非法binding/权限/可见性网关零调用，受影响固定统计两路径兼容。 | 新原生主例为CURRENT_GROUP，FROZEN_SET只回归旧固定路径；模型仍读引用，统计事实投影、非探索Skill及Driver仍待接线。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -132,7 +133,7 @@
 | --- | --- | --- | --- | --- |
 | P3-01：REACT 是一个外层 Step 的原生 ReactAgent 薄适配，共用 Driver／Artifact／Child，不自写循环；首期一个未完成 CALL。 | C §3.1；G §4 | E00/E01 原生适配；E04 Driver 仍固定执行器。 | 部分已验 | 将真实 NativeExplorationAdapter 接耐久 Step，明确产物验收与 WAITING/停止映射；不添加每 action 外层 Node。 |
 | P3-02：冻结注册 policy/version、allowlist、scope/period、completion、termination；只允许 Tool 与非探索 Skill，校验递归闭包。 | C §3.1；I §4.2 | E00 静态合同；E01 Skill 包固定。 | 部分已验 | 实际执行器／方法包加载与策略校验；禁止直接／间接嵌套、SQL/URL/范围藏参数。 |
-| P3-03：局部冻结 InputSet 仅 INPUT/已授权 READY ARTIFACT；无 ACTION_OUTPUT／局部 STEP_OUTPUT；动作 CALL/COMPLETE/NEEDS_INPUT/REQUEST_REPLAN/NO_PROGRESS。 | C §3.2；I §4.2 | P0 接纳机制；无完整耐久局部绑定。 | 待实现／验收 | 具名输入／参数／输出校验，决策只短 summary/证据；每 action 保存固定版本、范围、幂等及累计预算后派发。 |
+| P3-03：局部冻结 InputSet 仅 INPUT/已授权 READY ARTIFACT；无 ACTION_OUTPUT／局部 STEP_OUTPUT；动作 CALL/COMPLETE/NEEDS_INPUT/REQUEST_REPLAN/NO_PROGRESS。 | C §3.2；I §4.2 | E32真实统计Tool局部INPUT子集/源MODEL可见Artifact/闭参数已验；E29–31耐久CALL及预算。 | 部分已验 | Skill、完整局部输出验收与其他决策语义仍待接线；不能把CANDIDATE当步骤成功。 |
 | P3-04：持久化 invocation/assistant/toolCall→action/request/hash；规范 PENDING＋READY 新观察，投影版本／序列／ack 与失败重试防丢防重。 | R §1.3；G §4.2 | E26–E28 MODEL/CALL；E29 JDBC轮次与三轮依赖恢复，真实异步PENDING＋唯一READY观察、当前ACL。 | 耐久组件部分已验 | E30预算/历史引用，E31接纳事务故障及未记录PENDING的唯一READY窗口已验；精确投影ack和生产组合仍待完成。 |
 | P3-05：每次模型／handler／内部 HTTP 读当前 Run/step/attempt/child；timeout 清 native state 后仍阻模型，未决旧 callback 不因新 writer 恢复派发。 | R §1.2、§1.5；V31 | E00 原生反例；E04/E06 fixed；E28原生超时CALL、子请求父许可、跨revision阻断及死亡证明恢复。 | 回调基础已验 | 完整探索接线仍待完成；不能承诺网络原子撤销。 |
 | P3-06：有限协议修复、无进展、停止／重试／预算按 Run 累计，继续／重启／新 revision 不重置；耗尽保留证据与明确 stopReason。 | R §1.1；C §3.3、§9.5 | E00修复机制；E30模型/CALL/repair逻辑槽和Run累计，模型预算跨重开/升级/版本及上下文字节边界已验。 | 部分已验 | E31修复耗尽及重开已验；无进展、token费用和显式预算调整协议待验，COMPLETE候选不能绕后端验收。 |
@@ -336,6 +337,7 @@
 [E29]: ../integration/campaign-plan-p3-durable-turns-2026-09-20.md
 [E30]: ../integration/campaign-plan-p3-exploration-budget-2026-09-20.md
 [E31]: ../integration/campaign-plan-p3-protocol-recovery-2026-09-20.md
+[E32]: ../integration/campaign-plan-p3-statistics-tool-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
