@@ -37,6 +37,7 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
     private final ProcessLiveness liveness;
     private final JdbcCampaignRunStore runs;
     private final JdbcCampaignStepStore steps;
+    private final JdbcExplorationCallbackGate explorationCallbacks;
     private volatile String childHashProjection;
 
     public JdbcCampaignRecoveryStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
@@ -61,6 +62,7 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
             throw new IllegalArgumentException("Recovery requires one writable REQUIRED DataSource transaction");
         this.runs = new JdbcCampaignRunStore(jdbc, transactions, clock, limits);
         this.steps = new JdbcCampaignStepStore(jdbc, transactions, clock, limits);
+        this.explorationCallbacks = new JdbcExplorationCallbackGate(jdbc);
     }
 
     @Override
@@ -127,6 +129,16 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
                         + "AND o.run_version=c.dispatch_run_version AND o.advance_token=c.dispatch_run_token "
                         + "WHERE c.run_id=? AND c.callback_active=TRUE",
                 (rs, row) -> callback(rs, "CHILD"), expected.definition().runId()));
+        if (explorationCallbacks.schemaAvailable()) {
+            callbacks.addAll(jdbc.query("SELECT c.revision,c.call_id AS callback_id,c.attempt_id,c.attempt_version,"
+                            + "c.dispatch_run_version,c.dispatch_run_token,c.call_state AS callback_state,c.reason AS callback_reason,"
+                            + "c.definition_hash,c.response_hash,c.step_id,c.action_id,c.step_attempt_id,c.step_attempt_version,"
+                            + "c.revoked,c.row_version,o.instance_id,o.process_domain,o.pid,o.started_at_millis "
+                            + "FROM campaign_exploration_call c LEFT JOIN campaign_run_owner o ON o.run_id=c.run_id "
+                            + "AND o.revision=c.revision AND o.run_version=c.dispatch_run_version AND o.advance_token=c.dispatch_run_token "
+                            + "WHERE c.run_id=? AND c.callback_active=TRUE",
+                    (rs, row) -> callback(rs, "CALL"), expected.definition().runId()));
+        }
         callbacks.addAll(jdbc.query("SELECT s.revision,s.step_id AS callback_id,s.attempt_id,s.attempt_version,"
                         + "s.dispatch_run_version,s.dispatch_run_token,s.step_status AS callback_state,s.reason AS callback_reason,"
                         + "s.row_version,o.instance_id,o.process_domain,o.pid,o.started_at_millis "
@@ -150,12 +162,17 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
             }
         }
         boolean child = kind.equals("CHILD");
+        boolean call = kind.equals("CALL");
+        CallBinding callBinding = call ? new CallBinding(rs.getString("step_id"), rs.getString("action_id"),
+                rs.getString("step_attempt_id"), rs.getLong("step_attempt_version"),
+                rs.getString("response_hash"), rs.getBoolean("revoked")) : null;
         return new Callback(kind, rs.getInt("revision"), rs.getString("callback_id"), rs.getString("attempt_id"),
                 rs.getLong("attempt_version"), rs.getLong("dispatch_run_version"), rs.getString("dispatch_run_token"),
                 rs.getString("callback_state"), rs.getString("callback_reason"),
                 child ? rs.getString("child_mode") : null, child ? rs.getString("job_id") : null,
-                child ? rs.getString("artifact_id") : null, child ? requestHash(rs) : null,
-                child ? 0 : rs.getLong("row_version"), owner);
+                child ? rs.getString("artifact_id") : null,
+                child ? requestHash(rs) : call ? rs.getString("definition_hash") : null,
+                child ? 0 : rs.getLong("row_version"), owner, callBinding);
     }
 
     private void clearCallback(String runId, Callback callback) {
@@ -178,6 +195,19 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
                             + "AND dispatch_run_version=? AND dispatch_run_token=? AND callback_active=TRUE",
                     state, reason, clock.millis(), runId, callback.revision(), callback.id(), callback.attemptId(),
                     callback.attemptVersion(), callback.writerVersion(), callback.writerToken());
+        } else if (callback.kind().equals("CALL")) {
+            boolean revoked = callback.callBinding().revoked();
+            if (state.equals("RUNNING")) {
+                state = "UNRESOLVED";
+                reason = "CALL_RESULT_UNKNOWN";
+                revoked = true;
+            }
+            changed = jdbc.update("UPDATE campaign_exploration_call SET callback_active=FALSE,call_state=?,reason=?,"
+                            + "revoked=?,row_version=row_version+1,updated_at=? WHERE run_id=? AND revision=? AND call_id=? "
+                            + "AND attempt_id=? AND attempt_version=? AND dispatch_run_version=? AND dispatch_run_token=? "
+                            + "AND row_version=? AND callback_active=TRUE",
+                    state, reason, revoked, clock.millis(), runId, callback.revision(), callback.id(), callback.attemptId(),
+                    callback.attemptVersion(), callback.writerVersion(), callback.writerToken(), callback.stepVersion());
         } else {
             if (state.equals("RUNNING")) {
                 state = "BLOCKED";
@@ -245,7 +275,10 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
     private record LockedRevision(int revision, String status, long version, String advanceToken) {}
     private record Callback(String kind, int revision, String id, String attemptId, long attemptVersion,
                             long writerVersion, String writerToken, String state, String reason, String mode,
-                            String jobId, String artifactId, String requestHash, long stepVersion, ProcessIdentity owner) {}
+                            String jobId, String artifactId, String requestHash, long stepVersion, ProcessIdentity owner,
+                            CallBinding callBinding) {}
+    private record CallBinding(String stepId, String actionId, String stepAttemptId, long stepAttemptVersion,
+                               String responseHash, boolean revoked) {}
     private static final class RecoveryConflict extends RuntimeException {
         private RecoveryConflict(String reason) { super(reason); }
     }

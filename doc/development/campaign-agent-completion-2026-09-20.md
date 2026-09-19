@@ -56,6 +56,7 @@
 | [E25：同Plan动态范围Skill][E25] | 三项定向测试首次通过；真实枚举→筛选v2→维度v2，初始零Artifact，501成员两权威页+八统计任务，身份/TTL/版本保持，错期间/缺输出/撤权拒绝，v1双Skill主链兼容。 | 三步后端组件链已验；生产装配、目标终评、报告/客户端及真实环境仍未由此交付。 |
 | [E26：模型调用账本][E26] | 四项定向后端用例通过；MODEL稳定身份、闭合请求/公开响应、原子READY、当前输入权限和取消阻断、死亡证明恢复与旧账本兼容。 | 模型事实持久化基础已验；尚未接原生拦截器、多轮消息/预算和Driver REACT。 |
 | [E27：原生模型调用边界][E27] | 两项native+H2脚本模型用例通过；响应提交后checkpoint失败可复用且model仅一次，取消晚到零发布/工具，异常不伪成功，未提交事务零派发。 | 固定轮次原生边界已验；耐久工具动作、多轮消息/预算、完整Run恢复及Driver REACT仍待实现。 |
+| [E28：外层工具回调存续][E28] | 三项后端用例通过；真实超时回调保持占用，精确父CALL许可约束子请求，实际退出／死亡证明后才释放；保留已有结果和job。 | 回调身份与生命周期已验；JDBC探索状态、多轮消息/预算和Driver REACT仍待实现。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -129,8 +130,8 @@
 | P3-01：REACT 是一个外层 Step 的原生 ReactAgent 薄适配，共用 Driver／Artifact／Child，不自写循环；首期一个未完成 CALL。 | C §3.1；G §4 | E00/E01 原生适配；E04 Driver 仍固定执行器。 | 部分已验 | 将真实 NativeExplorationAdapter 接耐久 Step，明确产物验收与 WAITING/停止映射；不添加每 action 外层 Node。 |
 | P3-02：冻结注册 policy/version、allowlist、scope/period、completion、termination；只允许 Tool 与非探索 Skill，校验递归闭包。 | C §3.1；I §4.2 | E00 静态合同；E01 Skill 包固定。 | 部分已验 | 实际执行器／方法包加载与策略校验；禁止直接／间接嵌套、SQL/URL/范围藏参数。 |
 | P3-03：局部冻结 InputSet 仅 INPUT/已授权 READY ARTIFACT；无 ACTION_OUTPUT／局部 STEP_OUTPUT；动作 CALL/COMPLETE/NEEDS_INPUT/REQUEST_REPLAN/NO_PROGRESS。 | C §3.2；I §4.2 | P0 接纳机制；无完整耐久局部绑定。 | 待实现／验收 | 具名输入／参数／输出校验，决策只短 summary/证据；每 action 保存固定版本、范围、幂等及累计预算后派发。 |
-| P3-04：持久化 invocation/assistant/toolCall→action/request/hash；规范 PENDING＋READY 新观察，投影版本／序列／ack 与失败重试防丢防重。 | R §1.3；G §4.2 | E01实际native内存恢复；E26 MODEL稳定身份/原子响应；E27原生checkpoint失败后同轮次回放零新model。 | 部分已验 | JDBC ExplorationLedger及耐久动作/投影/ack、多轮分配；覆盖工具提交与消息接纳断点及未曾发布PENDING的唯一READY响应路径。 |
-| P3-05：每次模型／handler／内部 HTTP 读当前 Run/step/attempt/child；timeout 清 native state 后仍阻模型，未决旧 callback 不因新 writer 恢复派发。 | R §1.2、§1.5；V31 | E00 原生反例；E04/E06 fixed 资格／死亡对账。 | 部分已验 | 两者集成故障用例；已在途仅记原事实，不能自动发布取消／旧版成功，不能承诺网络原子撤销。 |
+| P3-04：持久化 invocation/assistant/toolCall→action/request/hash；规范 PENDING＋READY 新观察，投影版本／序列／ack 与失败重试防丢防重。 | R §1.3；G §4.2 | E01实际native内存恢复；E26/E27 MODEL耐久回放；E28真实响应绑定CALL和独立回调身份。 | 部分已验 | JDBC ExplorationLedger及耐久动作/投影/ack、多轮分配；覆盖工具提交与消息接纳断点及未曾发布PENDING的唯一READY响应路径。 |
+| P3-05：每次模型／handler／内部 HTTP 读当前 Run/step/attempt/child；timeout 清 native state 后仍阻模型，未决旧 callback 不因新 writer 恢复派发。 | R §1.2、§1.5；V31 | E00 原生反例；E04/E06 fixed；E28原生超时CALL、子请求父许可、跨revision阻断及死亡证明恢复。 | 回调基础已验 | 完整探索接线仍待完成；不能承诺网络原子撤销。 |
 | P3-06：有限协议修复、无进展、停止／重试／预算按 Run 累计，继续／重启／新 revision 不重置；耗尽保留证据与明确 stopReason。 | R §1.1；C §3.3、§9.5 | E00 内存 ledger 跨 invoke 修复额度。 | 部分已验 | 耐久 repair/budget/no-progress 合同及可配置高额度，补充授权和恢复窗口；COMPLETE 候选不能绕后端验收。 |
 | P3-07：同 action 新 attempt 重试，WAITING 原 action/job/revision，容量阻断未受理；重放同义完成请求先复用事实，新鲜数据显式新分析。 | R §1.3、§2；I §4.3 | E01 同义调用阻断；E03/E10 fixed 请求身份。 | 部分已验 | 真实 Tool／Skill 适配与恢复顺序：READY→未决对账→已知 job→未提交；父级不丢局部失败／等待。 |
 | P3-08：模型／活跃推进／大结果许可在加载前获得，固定短获取顺序，队列轻量且公平；拒绝不绕许可，真实退出才释放。 | R §1.6；G §8 | E00 容量类单独验收。 | 部分已验 | 同统一运行器接模型／解析／序列化路径，测多 Run 组合峰值／共享风险 Agent，配置有实测依据。 |
@@ -328,6 +329,7 @@
 [E25]: ../integration/campaign-plan-p2-dynamic-scope-skills-2026-09-20.md
 [E26]: ../integration/campaign-plan-p3-model-ledger-2026-09-20.md
 [E27]: ../integration/campaign-plan-p3-native-model-boundary-2026-09-20.md
+[E28]: ../integration/campaign-plan-p3-callback-ownership-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

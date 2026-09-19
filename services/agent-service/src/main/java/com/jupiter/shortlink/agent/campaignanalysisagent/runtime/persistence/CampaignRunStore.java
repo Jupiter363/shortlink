@@ -93,7 +93,12 @@ public interface CampaignRunStore {
                        boolean callbackActive, UnresolvedReason reason) {}
 
     record DispatchPermit(RunToken token, String childId, String attemptId, long attemptVersion,
-                          DispatchPurpose purpose) {}
+                          DispatchPurpose purpose, CampaignExplorationCallStore.CallPermit parentCall) {
+        public DispatchPermit(RunToken token, String childId, String attemptId, long attemptVersion,
+                              DispatchPurpose purpose) {
+            this(token, childId, attemptId, attemptVersion, purpose, null);
+        }
+    }
 
     record ArtifactDraft(String artifactId, String type, String schemaVersion, String scopeRef,
                          String periodsRef, String qualityJson, String provenanceJson,
@@ -156,6 +161,9 @@ public interface CampaignRunStore {
 
     DispatchPermit beginDispatch(RunToken token, String childId);
 
+    /** A CALL-owned child needs its exact live outer callback permit, not only the run writer. */
+    DispatchPermit beginDispatch(RunToken token, String childId, CampaignExplorationCallStore.CallPermit parentCall);
+
     /**
      * Trusted protocol adapter only: persist an explicit admitted=false capacity receipt for the
      * exact fresh ASYNC attempt. A timeout, missing receipt or failed recovery is never this proof.
@@ -172,6 +180,8 @@ public interface CampaignRunStore {
     /** ASYNC only; permits recovery/status/page reads, never a fresh submission. */
     DispatchPermit beginReconciliation(RunToken token, String childId);
 
+    DispatchPermit beginReconciliation(RunToken token, String childId, CampaignExplorationCallStore.CallPermit parentCall);
+
     /**
      * Re-read only an unresolved SYNC authority page whose original POST body pins a positive
      * cursor and ownership version. The first unpinned page and arbitrary SYNC reads cannot use
@@ -179,9 +189,15 @@ public interface CampaignRunStore {
      */
     DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId);
 
+    DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId,
+                                                    CampaignExplorationCallStore.CallPermit parentCall);
+
     /** Replays only an unresolved approved calculation while all frozen inputs remain authorized. */
     DispatchPermit beginLocalReplay(RunToken token, String childId, LocalCalculationRegistry.Approval approval,
                                     ArtifactAuthorizer authorizer);
+
+    DispatchPermit beginLocalReplay(RunToken token, String childId, LocalCalculationRegistry.Approval approval,
+                                    ArtifactAuthorizer authorizer, CampaignExplorationCallStore.CallPermit parentCall);
 
     /**
      * Acquire a separate callback attempt for an ASYNC READY result without changing its output.
@@ -190,6 +206,8 @@ public interface CampaignRunStore {
      * alone is not authorization to release remote pages or proof that all consumers can read them.
      */
     DispatchPermit beginRelease(RunToken token, String childId);
+
+    DispatchPermit beginRelease(RunToken token, String childId, CampaignExplorationCallStore.CallPermit parentCall);
 
     /** Recheck immediately before each actual I/O; cannot revoke a request already on the wire. */
     boolean mayDispatch(DispatchPermit permit);
