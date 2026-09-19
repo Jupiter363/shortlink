@@ -8,6 +8,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.Approval;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.InvocationSpec;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry.ModelActionSpec;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry.Response;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
+import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.contract.GroupMembersPage;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -164,6 +169,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     public ChildRecord prepareChild(RunToken token, ChildSpec spec) {
         validateChild(spec);
         if (spec.mode() == ChildMode.LOCAL) conflict("LOCAL_CHILD_REQUIRES_APPROVAL");
+        if (spec.mode() == ChildMode.MODEL) conflict("MODEL_CHILD_REQUIRES_APPROVAL");
         return transaction(() -> {
             lockRun(token, true);
             if (action(token, spec.actionId()).isEmpty()) conflict("ACTION_NOT_FOUND");
@@ -319,12 +325,141 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     }
 
     private DispatchPermit begin(RunToken token, String childId, DispatchPurpose purpose) {
+        return begin(token, childId, purpose, false);
+    }
+
+    @Override
+    public ChildRecord prepareModelChild(CampaignStepStore.StepPermit step, ModelActionSpec modelAction,
+                                         ChildSpec spec, ModelInvocationRegistry.Approval approval,
+                                         ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(step); Objects.requireNonNull(modelAction);
+        validateChild(spec); requireModelApproval(spec, approval);
+        String actionBody = ModelInvocationRegistry.encodeAction(modelAction);
+        json(actionBody, limits.definitionBytes(), true);
+        return transaction(() -> {
+            RunToken token = step.runToken();
+            lockRun(token, true);
+            lockModelStep(step);
+            validateModelBinding(token, step.stepId(), modelAction, spec);
+            verifyModelInputs(token.definition().caller(), spec.modelInvocation(), authorizer);
+            var existingAction = modelAction(token, modelAction.actionId());
+            if (existingAction.isPresent()) {
+                if (!existingAction.get().equals(modelAction)) conflict("MODEL_ACTION_CHANGED");
+            } else {
+                jdbc.update("INSERT INTO campaign_action_ledger (run_id,revision,action_id,step_id,action_kind,"
+                                + "executor_kind,executor_name,executor_version,definition_hash,definition_json,created_at) "
+                                + "VALUES (?,?,?,?,'MODEL',NULL,NULL,NULL,?,?,?)",
+                        token.definition().runId(), token.definition().revision(), modelAction.actionId(), modelAction.stepId(),
+                        modelAction.hash(), actionBody, now());
+            }
+            var existing = findChild(token.definition(), spec.childId(), true);
+            if (existing.isPresent()) {
+                if (!existing.get().spec().equals(spec)) conflict("CHILD_REQUEST_CHANGED");
+                return existing.get();
+            }
+            String invocation = ModelInvocationRegistry.encode(spec.modelInvocation());
+            jdbc.update("INSERT INTO campaign_child_ledger (run_id,revision,child_id,action_id,tenant_id,child_mode,request_id,"
+                            + "model_invocation_json,model_invocation_hash,child_state,attempt_version,callback_active,created_at,updated_at) "
+                            + "VALUES (?,?,?,?,?,'MODEL',?,?,?,'PREPARED',0,FALSE,?,?)",
+                    token.definition().runId(), token.definition().revision(), spec.childId(), spec.actionId(),
+                    token.definition().caller().tenantId(), spec.requestId(), invocation, spec.modelInvocation().hash(), now(), now());
+            return findChild(token.definition(), spec.childId(), false).orElseThrow();
+        });
+    }
+
+    @Override
+    public DispatchPermit beginModelDispatch(CampaignStepStore.StepPermit step, String childId,
+                                            ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(step); id(childId, "childId", 96);
+        return transaction(() -> {
+            RunToken token = step.runToken();
+            lockRun(token, true);
+            lockModelStep(step);
+            requireNoCallbacks(token.definition().runId());
+            ChildRecord child = findChild(token.definition(), childId, true)
+                    .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            requireModelApproval(child.spec(), approval);
+            if (child.state() != ChildState.PREPARED || child.jobId() != null || child.artifactId() != null)
+                conflict("MODEL_DISPATCH_REQUIRES_PREPARED");
+            ModelActionSpec action = modelAction(token, child.spec().actionId())
+                    .orElseThrow(() -> new IllegalStateException("MODEL_ACTION_NOT_FOUND"));
+            validateModelBinding(token, step.stepId(), action, child.spec());
+            verifyModelInputs(token.definition().caller(), child.spec().modelInvocation(), authorizer);
+            if (modelResponse(token, childId).isPresent()) conflict("MODEL_RESPONSE_STATE_MISMATCH");
+            return begin(token, childId, DispatchPurpose.FRESH, true);
+        });
+    }
+
+    @Override
+    public void publishModelResponse(CampaignStepStore.StepPermit step, DispatchPermit permit,
+                                     ModelInvocationRegistry.Approval approval, Response response,
+                                     ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(step); Objects.requireNonNull(permit); Objects.requireNonNull(response);
+        if (!step.runToken().equals(permit.token())) conflict("MODEL_STEP_RUN_MISMATCH");
+        String encoded = ModelInvocationRegistry.encodeResponse(response);
+        json(encoded, limits.artifactBytes(), true);
+        transaction(() -> {
+            lockRun(permit.token(), true);
+            lockModelStep(step);
+            ChildRecord child = requireAttempt(permit);
+            requireModelApproval(child.spec(), approval);
+            if (permit.purpose() != DispatchPurpose.FRESH || !child.callbackActive()
+                    || child.jobId() != null || child.artifactId() != null)
+                conflict("MODEL_ATTEMPT_INVALID");
+            ModelActionSpec action = modelAction(permit.token(), child.spec().actionId())
+                    .orElseThrow(() -> new IllegalStateException("MODEL_ACTION_NOT_FOUND"));
+            validateModelBinding(permit.token(), step.stepId(), action, child.spec());
+            verifyModelInputs(permit.token().definition().caller(), child.spec().modelInvocation(), authorizer);
+            approval.validateResponse(response);
+            var existing = modelResponse(permit.token(), permit.childId());
+            if (child.state() == ChildState.READY) {
+                if (existing.isEmpty() || !existing.get().equals(response)) conflict("MODEL_RESPONSE_IMMUTABLE");
+                return null;
+            }
+            if (child.state() != ChildState.DISPATCHING) conflict("ATTEMPT_NOT_DISPATCHING");
+            if (existing.isPresent()) conflict("MODEL_RESPONSE_STATE_MISMATCH");
+            jdbc.update("INSERT INTO campaign_model_response (run_id,revision,child_id,response_json,response_hash,created_at) "
+                            + "VALUES (?,?,?,?,?,?)", permit.token().definition().runId(), permit.token().definition().revision(),
+                    permit.childId(), encoded, CampaignRunStore.sha256(encoded), now());
+            requireChanged(jdbc.update("UPDATE campaign_child_ledger SET child_state='READY',unresolved_reason=NULL,updated_at=? "
+                            + "WHERE run_id=? AND revision=? AND child_id=?",
+                    now(), permit.token().definition().runId(), permit.token().definition().revision(), permit.childId()));
+            return null;
+        });
+    }
+
+    @Override
+    public Response readModelResponse(RunToken token, String childId, ModelInvocationRegistry.Approval approval,
+                                      ArtifactAuthorizer authorizer) {
+        id(childId, "childId", 96);
+        return transaction(() -> {
+            lockRun(token, false);
+            ChildRecord child = findChild(token.definition(), childId, true)
+                    .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            requireModelApproval(child.spec(), approval);
+            if (child.state() != ChildState.READY || child.jobId() != null || child.artifactId() != null)
+                conflict("MODEL_RESPONSE_REQUIRES_READY");
+            ModelActionSpec action = modelAction(token, child.spec().actionId())
+                    .orElseThrow(() -> new IllegalStateException("MODEL_ACTION_NOT_FOUND"));
+            validateModelBinding(token, action.stepId(), action, child.spec());
+            verifyModelInputs(token.definition().caller(), child.spec().modelInvocation(), authorizer);
+            Response response = modelResponse(token, childId)
+                    .orElseThrow(() -> new IllegalStateException("MODEL_RESPONSE_MISSING"));
+            approval.validateResponse(response);
+            return response;
+        });
+    }
+
+    private DispatchPermit begin(RunToken token, String childId, DispatchPurpose purpose, boolean approvedModel) {
         id(childId, "childId", 96);
         return transaction(() -> {
             lockRun(token, true);
             requireNoCallbacks(token.definition().runId());
             ChildRecord child = findChild(token.definition(), childId, true)
                     .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            if ((child.spec().mode() == ChildMode.MODEL) != approvedModel) conflict("MODEL_DISPATCH_REQUIRES_APPROVAL");
+            if (approvedModel && (purpose != DispatchPurpose.FRESH || child.state() != ChildState.PREPARED))
+                conflict("MODEL_DISPATCH_REQUIRES_PREPARED");
             if (purpose == DispatchPurpose.FRESH && child.state() != ChildState.PREPARED)
                 conflict("FRESH_DISPATCH_REQUIRES_PREPARED");
             if (purpose == DispatchPurpose.FRESH && isDeferred(child)
@@ -365,7 +500,18 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                 lockRun(permit.token(), true);
                 ChildRecord child = requireAttempt(permit);
                 ChildState expected = permit.purpose() == DispatchPurpose.RELEASE ? ChildState.READY : ChildState.DISPATCHING;
-                return child.state() == expected && child.callbackActive();
+                if (child.state() != expected || !child.callbackActive()) return false;
+                if (child.spec().mode() == ChildMode.MODEL) {
+                    ModelActionSpec action = modelAction(permit.token(), child.spec().actionId()).orElseThrow();
+                    Integer live = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_step_ledger WHERE run_id=? AND revision=? "
+                                    + "AND step_id=? AND step_status='RUNNING' AND callback_active=TRUE "
+                                    + "AND dispatch_run_version=? AND dispatch_run_token=?", Integer.class,
+                            permit.token().definition().runId(), permit.token().definition().revision(), action.stepId(),
+                            permit.token().version(), permit.token().advanceToken());
+                    // A new step attempt cannot start until this exact child callback has actually exited.
+                    if (live == null || live != 1) return false;
+                }
+                return true;
             } catch (IllegalStateException | SecurityException denied) {
                 return false;
             }
@@ -420,6 +566,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             lockRun(permit.token(), true);
             ChildRecord child = requireAttempt(permit);
             if (child.spec().mode() == ChildMode.LOCAL) conflict("LOCAL_RESULT_REQUIRES_MULTI_OUTPUT_PUBLICATION");
+            if (child.spec().mode() == ChildMode.MODEL) conflict("MODEL_RESULT_REQUIRES_RESPONSE_PUBLICATION");
             ActionSpec action = action(permit.token(), child.spec().actionId()).orElseThrow();
             ArtifactMetadata expected = metadata(permit, child, action, draft);
             var existing = findArtifact(draft.artifactId());
@@ -600,8 +747,115 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     private static void requireLocalApproval(ChildSpec child, Approval approval) {
         if (child == null || child.mode() != ChildMode.LOCAL || child.wire() != null || child.localInvocation() == null
+                || child.modelInvocation() != null
                 || approval == null || !child.localInvocation().equals(approval.invocation()))
             throw new IllegalArgumentException("LOCAL_INVOCATION_NOT_APPROVED");
+    }
+
+    private static void requireModelApproval(ChildSpec child, ModelInvocationRegistry.Approval approval) {
+        if (child == null || child.mode() != ChildMode.MODEL || child.wire() != null || child.localInvocation() != null
+                || child.modelInvocation() == null || approval == null || !child.modelInvocation().equals(approval.invocation()))
+            throw new IllegalArgumentException("MODEL_INVOCATION_NOT_APPROVED");
+    }
+
+    private void verifyModelInputs(Caller caller, ModelInvocationRegistry.InvocationSpec invocation,
+                                   ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(authorizer, "Current authorization callback is required");
+        if (!clock.instant().isBefore(invocation.expiresAt())) throw new SecurityException("MODEL_INVOCATION_EXPIRED");
+        for (ArtifactMetadata expected : invocation.inputs().values()) {
+            Artifact actual = readArtifact(caller, expected.ref().artifactId(), authorizer);
+            if (!actual.metadata().equals(expected)) throw new SecurityException("MODEL_INPUT_BINDING_CHANGED");
+            if (invocation.expiresAt().isAfter(actual.metadata().ref().expiresAt()))
+                throw new IllegalArgumentException("MODEL_INVOCATION_OUTLIVES_INPUT");
+        }
+    }
+
+    private void validateModelBinding(RunToken token, String stepId, ModelActionSpec action, ChildSpec child) {
+        id(action.actionId(), "actionId", 96); id(stepId, "stepId", 96);
+        var invocation = child.modelInvocation();
+        var identity = ModelInvocationRegistry.identity(token.definition(), stepId, invocation.turnIndex());
+        if (!identity.invocationId().equals(invocation.invocationId()) || !identity.actionId().equals(action.actionId())
+                || !identity.childId().equals(child.childId()) || !identity.requestId().equals(child.requestId()))
+            conflict("MODEL_SLOT_IDENTITY_MISMATCH");
+        if (!stepId.equals(action.stepId()) || !child.actionId().equals(action.actionId())
+                || !action.invocationId().equals(invocation.invocationId())
+                || !action.modelRef().equals(invocation.modelRef()) || !action.modelVersion().equals(invocation.modelVersion())
+                || !action.policyRef().equals(invocation.policyRef()) || !action.policyVersion().equals(invocation.policyVersion()))
+            conflict("MODEL_ACTION_INVOCATION_MISMATCH");
+        FrozenCampaignRun frozen = FrozenCampaignRun.read(token.definition());
+        if (!token.definition().runId().equals(frozen.inputs().runId())
+                || !frozen.plan().inputSetRef().equals(frozen.inputs().inputSetRef())
+                || !invocation.inputSetRef().equals(frozen.inputs().inputSetRef())) conflict("MODEL_INPUT_SET_MISMATCH");
+        List<PlanSpec.Step> matches = frozen.plan().steps().stream().filter(step -> stepId.equals(step.stepId())).toList();
+        if (matches.size() != 1) conflict("MODEL_REQUIRES_REACT_STEP");
+        PlanSpec.Step planned = matches.get(0);
+        if (planned.executionMode() != PlanSpec.ExecutionMode.REACT || planned.executor() != null || planned.explorationPolicy() == null
+                || !action.policyRef().equals(planned.explorationPolicy().policyRef())
+                || !action.policyVersion().equals(planned.explorationPolicy().policyVersion())) conflict("MODEL_REQUIRES_REACT_STEP");
+        // StepStore owns the full specification_hash contract, including dependencies and output ports.
+        JdbcCampaignStepStore stepStore = new JdbcCampaignStepStore(jdbc, transactions, clock, limits);
+        RunRecord current = lockRun(token, false);
+        Optional<CampaignStepStore.StepRecord> storedStep = current.status() == RunStatus.ACTIVE
+                ? stepStore.step(token, stepId)
+                : stepStore.snapshot(token.definition().caller(), token.definition().runId()).steps().stream()
+                        .filter(step -> stepId.equals(step.spec().stepId())).findFirst();
+        CampaignStepStore.StepSpec specification = storedStep
+                .orElseThrow(() -> new IllegalStateException("MODEL_STEP_NOT_FOUND")).spec();
+        try {
+            var actualStep = AUTHORITY_JSON.readTree(specification.definitionJson());
+            if (!actualStep.equals(AUTHORITY_JSON.valueToTree(planned))
+                    || !actualStep.equals(AUTHORITY_JSON.readTree(action.stepDefinitionJson())))
+                conflict("MODEL_STEP_DEFINITION_CHANGED");
+        } catch (java.io.IOException invalid) { throw new IllegalArgumentException("MODEL_STEP_DEFINITION_INVALID"); }
+    }
+
+    private void lockModelStep(CampaignStepStore.StepPermit permit) {
+        var token = permit.runToken();
+        List<Boolean> matches = jdbc.query("SELECT step_status,callback_active,attempt_id,attempt_version,"
+                        + "dispatch_run_version,dispatch_run_token FROM campaign_step_ledger "
+                        + "WHERE run_id=? AND revision=? AND step_id=? FOR UPDATE", (rs, row) ->
+                        "RUNNING".equals(rs.getString("step_status")) && rs.getBoolean("callback_active")
+                                && Objects.equals(permit.attemptId(), rs.getString("attempt_id"))
+                                && permit.attemptVersion() == rs.getLong("attempt_version")
+                                && token.version() == rs.getLong("dispatch_run_version")
+                                && token.advanceToken().equals(rs.getString("dispatch_run_token")),
+                token.definition().runId(), token.definition().revision(), permit.stepId());
+        if (matches.size() != 1 || !matches.get(0)) conflict("MODEL_STEP_ATTEMPT_FENCED");
+    }
+
+    private Optional<ModelActionSpec> modelAction(RunToken token, String actionId) {
+        return jdbc.query("SELECT action_id,step_id,action_kind,executor_kind,executor_name,executor_version,"
+                        + "definition_json,definition_hash FROM campaign_action_ledger WHERE run_id=? AND revision=? AND action_id=?",
+                (rs, row) -> {
+                    if (!"MODEL".equals(rs.getString("action_kind")) || rs.getString("executor_kind") != null
+                            || rs.getString("executor_name") != null || rs.getString("executor_version") != null)
+                        conflict("MODEL_ACTION_KIND_MISMATCH");
+                    String body = rs.getString("definition_json");
+                    json(body, limits.definitionBytes(), true);
+                    if (!CampaignRunStore.sha256(body).equals(rs.getString("definition_hash"))) conflict("MODEL_ACTION_CORRUPTED");
+                    ModelActionSpec action = ModelInvocationRegistry.decodeAction(body, modelLimits());
+                    if (!action.hash().equals(rs.getString("definition_hash")) || !action.actionId().equals(rs.getString("action_id"))
+                            || !action.stepId().equals(rs.getString("step_id"))) conflict("MODEL_ACTION_CORRUPTED");
+                    return action;
+                }, token.definition().runId(), token.definition().revision(), actionId).stream().findFirst();
+    }
+
+    private Optional<Response> modelResponse(RunToken token, String childId) {
+        return jdbc.query("SELECT response_json,response_hash FROM campaign_model_response WHERE run_id=? AND revision=? AND child_id=?",
+                (rs, row) -> {
+                    String body = rs.getString("response_json");
+                    json(body, limits.artifactBytes(), true);
+                    if (!CampaignRunStore.sha256(body).equals(rs.getString("response_hash"))) conflict("MODEL_RESPONSE_CORRUPTED");
+                    Response response = ModelInvocationRegistry.decodeResponse(body, modelLimits());
+                    if (!CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(response)).equals(rs.getString("response_hash")))
+                        conflict("MODEL_RESPONSE_CORRUPTED");
+                    return response;
+                }, token.definition().runId(), token.definition().revision(), childId).stream().findFirst();
+    }
+
+    /** Structural decoding uses store byte limits; the actual opaque approval additionally enforces its response limits. */
+    private ModelInvocationRegistry.Limits modelLimits() {
+        return new ModelInvocationRegistry.Limits(limits.requestBytes(), limits.definitionBytes(), limits.artifactBytes(), Integer.MAX_VALUE);
     }
 
     private void verifyLocalInputs(Caller caller, InvocationSpec invocation, ArtifactAuthorizer authorizer) {
@@ -678,6 +932,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     private void unresolved(RunDefinition definition, ChildRecord child) {
         UnresolvedReason reason = child.spec().mode() == ChildMode.LOCAL ? UnresolvedReason.LOCAL_RESULT_UNKNOWN
+                : child.spec().mode() == ChildMode.MODEL ? UnresolvedReason.MODEL_RESULT_UNKNOWN
                 : child.spec().mode() == ChildMode.SYNC ? UnresolvedReason.READ_RESULT_UNKNOWN
                 : child.jobId() == null ? UnresolvedReason.SUBMISSION_UNRESOLVED : UnresolvedReason.JOB_RESULT_UNKNOWN;
         jdbc.update("UPDATE campaign_child_ledger SET child_state='UNRESOLVED',unresolved_reason=?,updated_at=? "
@@ -810,6 +1065,11 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     private Optional<ActionSpec> action(RunToken token, String actionId) {
         return jdbc.query("SELECT * FROM campaign_action_ledger WHERE run_id=? AND revision=? AND action_id=?", (rs, row) -> {
+            // Old CAPABILITY schemas have no action_kind; only MODEL-specific entrypoints require the new migration.
+            for (int column = 1; column <= rs.getMetaData().getColumnCount(); column++)
+                if ("action_kind".equalsIgnoreCase(rs.getMetaData().getColumnLabel(column))
+                        && !"CAPABILITY".equals(rs.getString(column))) conflict("MODEL_ACTION_NOT_CAPABILITY");
+            if (rs.getString("executor_kind") == null) conflict("MODEL_ACTION_NOT_CAPABILITY");
             String definition = rs.getString("definition_json");
             json(definition, limits.definitionBytes(), true);
             if (!CampaignRunStore.sha256(definition).equals(rs.getString("definition_hash"))) conflict("ACTION_DEFINITION_CORRUPTED");
@@ -848,7 +1108,19 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         ChildMode mode = ChildMode.valueOf(rs.getString("child_mode"));
         WireRequest wire = null;
         InvocationSpec invocation = null;
-        if (mode == ChildMode.LOCAL) {
+        ModelInvocationRegistry.InvocationSpec modelInvocation = null;
+        if (mode == ChildMode.MODEL) {
+            if (rs.getString("wire_method") != null || rs.getString("wire_path") != null
+                    || rs.getString("wire_body") != null || rs.getString("wire_hash") != null
+                    || rs.getString("local_invocation_json") != null || rs.getString("local_invocation_hash") != null
+                    || rs.getString("job_id") != null || rs.getString("artifact_id") != null)
+                conflict("MODEL_INVOCATION_CORRUPTED");
+            String body = rs.getString("model_invocation_json");
+            json(body, limits.definitionBytes(), true);
+            if (!CampaignRunStore.sha256(body).equals(rs.getString("model_invocation_hash"))) conflict("MODEL_INVOCATION_CORRUPTED");
+            modelInvocation = ModelInvocationRegistry.decode(body, modelLimits());
+            if (!modelInvocation.hash().equals(rs.getString("model_invocation_hash"))) conflict("MODEL_INVOCATION_CORRUPTED");
+        } else if (mode == ChildMode.LOCAL) {
             if (rs.getString("wire_method") != null || rs.getString("wire_path") != null
                     || rs.getString("wire_body") != null || rs.getString("wire_hash") != null)
                 conflict("LOCAL_INVOCATION_CORRUPTED");
@@ -864,7 +1136,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             if (!wire.hash().equals(rs.getString("wire_hash"))) conflict("CHILD_REQUEST_CORRUPTED");
         }
         var spec = new ChildSpec(rs.getString("child_id"), rs.getString("action_id"), mode,
-                rs.getString("request_id"), wire, invocation);
+                rs.getString("request_id"), wire, invocation, modelInvocation);
         String purpose = rs.getString("attempt_purpose");
         String reason = rs.getString("unresolved_reason");
         return new ChildRecord(spec, ChildState.valueOf(rs.getString("child_state")), rs.getString("job_id"), rs.getString("artifact_id"),
@@ -902,6 +1174,14 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         id(child.childId(), "childId", 96); id(child.actionId(), "actionId", 96);
         if (child.requestId() == null || !child.requestId().matches("[A-Za-z0-9_-]{1,96}"))
             throw new IllegalArgumentException("Invalid requestId");
+        if (child.mode() == ChildMode.MODEL) {
+            if (child.wire() != null || child.localInvocation() != null || child.modelInvocation() == null)
+                throw new IllegalArgumentException("Invalid model invocation");
+            json(ModelInvocationRegistry.encode(child.modelInvocation()), limits.definitionBytes(), true);
+            json(child.modelInvocation().requestJson(), limits.requestBytes(), true);
+            return;
+        }
+        if (child.modelInvocation() != null) throw new IllegalArgumentException("Unexpected model invocation");
         if (child.mode() == ChildMode.LOCAL) {
             if (child.wire() != null || child.localInvocation() == null) throw new IllegalArgumentException("Invalid local invocation");
             json(LocalCalculationRegistry.encode(child.localInvocation()), limits.definitionBytes(), true);

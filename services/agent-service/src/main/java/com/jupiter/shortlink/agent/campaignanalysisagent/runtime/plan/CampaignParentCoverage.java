@@ -153,7 +153,8 @@ public final class CampaignParentCoverage {
         if (!current.equals(slot.runToken().definition().caller())) throw new SecurityException("LEDGER_SUBJECT_MISMATCH");
         ChildRecord child = runs.child(slot.runToken(), slot.childId()).orElseThrow(() -> invalid("COVERAGE_CHILD_MISSING"));
         require(child.state() == ChildState.READY && slot.artifactId().equals(child.artifactId()), "COVERAGE_CHILD_NOT_READY");
-        require(StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH.equals(child.spec().wire().path()), "COVERAGE_REQUEST_MISMATCH");
+        require(child.spec().mode() == ChildMode.ASYNC && child.spec().wire() != null
+                && StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH.equals(child.spec().wire().path()), "COVERAGE_REQUEST_MISMATCH");
         StatisticsJobResultProtocol protocol;
         try { protocol = new StatisticsJobResultProtocol(child); }
         catch (IllegalStateException | IllegalArgumentException failure) { throw invalid("COVERAGE_REQUEST_MISMATCH"); }

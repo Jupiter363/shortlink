@@ -37,6 +37,7 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
     private final ProcessLiveness liveness;
     private final JdbcCampaignRunStore runs;
     private final JdbcCampaignStepStore steps;
+    private volatile String childHashProjection;
 
     public JdbcCampaignRecoveryStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
                                     ProcessIdentity localOwner, ProcessLiveness liveness) {
@@ -118,8 +119,9 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
                 || !current.status().name().equals(latest.status())) throw new RecoveryConflict("RUN_CHANGED");
         List<Callback> callbacks = new ArrayList<>();
         callbacks.addAll(jdbc.query("SELECT c.revision,c.child_id AS callback_id,c.attempt_id,c.attempt_version,"
-                        + "c.dispatch_run_version,c.dispatch_run_token,c.child_state AS callback_state,c.child_mode,"
-                        + "c.job_id,c.artifact_id,c.unresolved_reason AS callback_reason,c.wire_hash,"
+                        + "c.dispatch_run_version,c.dispatch_run_token,c.child_state AS callback_state,"
+                        + "c.unresolved_reason AS callback_reason,c.child_mode,c.job_id,c.artifact_id,"
+                        + childHashProjection()
                         + "o.instance_id,o.process_domain,o.pid,o.started_at_millis "
                         + "FROM campaign_child_ledger c LEFT JOIN campaign_run_owner o ON o.run_id=c.run_id AND o.revision=c.revision "
                         + "AND o.run_version=c.dispatch_run_version AND o.advance_token=c.dispatch_run_token "
@@ -152,7 +154,7 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
                 rs.getLong("attempt_version"), rs.getLong("dispatch_run_version"), rs.getString("dispatch_run_token"),
                 rs.getString("callback_state"), rs.getString("callback_reason"),
                 child ? rs.getString("child_mode") : null, child ? rs.getString("job_id") : null,
-                child ? rs.getString("artifact_id") : null, child ? rs.getString("wire_hash") : null,
+                child ? rs.getString("artifact_id") : null, child ? requestHash(rs) : null,
                 child ? 0 : rs.getLong("row_version"), owner);
     }
 
@@ -163,9 +165,13 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
         if (callback.kind().equals("CHILD")) {
             if (state.equals("DISPATCHING")) {
                 state = "UNRESOLVED";
-                reason = callback.mode().equals("LOCAL") ? "LOCAL_RESULT_UNKNOWN"
-                        : callback.mode().equals("SYNC") ? "READ_RESULT_UNKNOWN"
-                        : callback.jobId() == null ? "SUBMISSION_UNRESOLVED" : "JOB_RESULT_UNKNOWN";
+                reason = switch (callback.mode()) {
+                    case "MODEL" -> "MODEL_RESULT_UNKNOWN";
+                    case "LOCAL" -> "LOCAL_RESULT_UNKNOWN";
+                    case "SYNC" -> "READ_RESULT_UNKNOWN";
+                    case "ASYNC" -> callback.jobId() == null ? "SUBMISSION_UNRESOLVED" : "JOB_RESULT_UNKNOWN";
+                    default -> throw new RecoveryConflict("CALLBACK_MODE_UNSUPPORTED");
+                };
             }
             changed = jdbc.update("UPDATE campaign_child_ledger SET callback_active=FALSE,child_state=?,unresolved_reason=?,updated_at=? "
                             + "WHERE run_id=? AND revision=? AND child_id=? AND attempt_id=? AND attempt_version=? "
@@ -205,13 +211,41 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
         }
     }
 
+    /** Model/local calls have no wire. Their frozen envelope must participate in takeover CAS. */
+    private String childHashProjection() {
+        String projection = childHashProjection;
+        if (projection != null) return projection;
+        // Read only column metadata, never frozen request bodies, including on pre-MODEL schemas.
+        projection = jdbc.query("SELECT * FROM campaign_child_ledger WHERE 1=0", rs -> {
+            boolean local = false, model = false;
+            for (int column = 1; column <= rs.getMetaData().getColumnCount(); column++) {
+                String name = rs.getMetaData().getColumnLabel(column);
+                local |= "local_invocation_hash".equalsIgnoreCase(name);
+                model |= "model_invocation_hash".equalsIgnoreCase(name);
+            }
+            return "c.wire_hash," + (local ? "c.local_invocation_hash," : "NULL AS local_invocation_hash,")
+                    + (model ? "c.model_invocation_hash," : "NULL AS model_invocation_hash,");
+        });
+        childHashProjection = projection;
+        return projection;
+    }
+
+    private static String requestHash(ResultSet rs) throws SQLException {
+        return switch (rs.getString("child_mode")) {
+            case "MODEL" -> rs.getString("model_invocation_hash");
+            case "LOCAL" -> rs.getString("local_invocation_hash");
+            case "SYNC", "ASYNC" -> rs.getString("wire_hash");
+            default -> throw new RecoveryConflict("CALLBACK_MODE_UNSUPPORTED");
+        };
+    }
+
     private <T> T transaction(Supplier<T> work) { return transactions.execute(status -> work.get()); }
     private static TakeoverResult blocked(String reason) { return new TakeoverResult(Outcome.BLOCKED, null, reason, 0); }
     private record Snapshot(RunRecord run, List<Callback> callbacks) {}
     private record LockedRevision(int revision, String status, long version, String advanceToken) {}
     private record Callback(String kind, int revision, String id, String attemptId, long attemptVersion,
                             long writerVersion, String writerToken, String state, String reason, String mode,
-                            String jobId, String artifactId, String wireHash, long stepVersion, ProcessIdentity owner) {}
+                            String jobId, String artifactId, String requestHash, long stepVersion, ProcessIdentity owner) {}
     private static final class RecoveryConflict extends RuntimeException {
         private RecoveryConflict(String reason) { super(reason); }
     }
