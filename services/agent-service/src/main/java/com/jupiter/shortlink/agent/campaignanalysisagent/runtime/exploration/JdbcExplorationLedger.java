@@ -16,6 +16,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepPermit;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcExplorationCallbackGate;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -45,6 +47,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build();
     private static final ModelInvocationRegistry.Limits DECODE_LIMITS =
             new ModelInvocationRegistry.Limits(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    private static final String TURN_COLUMNS = "turn_index,model_child_id,invocation_hash,decision,response_hash,call_id,"
+            + "receipt_child_id,artifact_id,job_id,observation_id,pending_projected,consumed,repair_counted";
 
     /** Trusted server profile. The registry predicate still approves each exact evolving request. */
     public record ModelConfiguration(String modelRef, String modelVersion, String configurationHash,
@@ -59,7 +63,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
 
     private record Header(Status status, String reason, String input, long turn) {}
-    private record Turn(long index, String modelChildId, InvocationSpec invocation, String decision,
+    private record Turn(long index, String modelChildId, String invocationHash, String decision,
                         String responseHash, String callId, String receiptChild, String artifactId,
                         String jobId, String observationId, boolean pendingProjected, boolean consumed, boolean repairCounted) {}
     private record Binding(Turn turn, ModelActionSpec action, ChildSpec child, Approval approval) {}
@@ -82,17 +86,30 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private final FrozenCampaignRun frozen;
     private final String configurationHash;
     private final NativeExplorationAdapter.ExecutionKey identity;
+    private final ExplorationBudgetPolicy budgetPolicy;
+    private final JdbcExplorationBudgetStore budgets;
 
     public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
             StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
             Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer) {
+        this(jdbc, transactions, clock, runs, steps, calls, step, registry, configuration, executors, authorizer,
+                ExplorationBudgetPolicy.defaults());
+    }
+
+    public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
+            StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
+            Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
+            ExplorationBudgetPolicy budgetPolicy) {
         this.jdbc = Objects.requireNonNull(jdbc); this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock); this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps); this.calls = Objects.requireNonNull(calls);
         this.step = Objects.requireNonNull(step); this.token = step.runToken();
         this.registry = Objects.requireNonNull(registry); this.configuration = Objects.requireNonNull(configuration);
         this.executors = Map.copyOf(executors); this.authorizer = Objects.requireNonNull(authorizer);
+        this.budgetPolicy = Objects.requireNonNull(budgetPolicy);
+        this.budgets = new JdbcExplorationBudgetStore(jdbc, transactions, clock, budgetPolicy);
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
                 || manager.getDataSource() != jdbc.getDataSource()
                 || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED || transactions.isReadOnly())
@@ -110,13 +127,14 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             if (!name.equals(executor.name()) || !planned.explorationPolicy().allowedExecutors().contains(executor))
                 throw failure("EXPLORATION_EXECUTOR_NOT_ALLOWED");
         });
-        this.configurationHash = CampaignRunStore.sha256(write(List.of(configuration, new TreeMap<>(executors), stepJson)));
+        this.configurationHash = hash(List.of(configuration, new TreeMap<>(executors), stepJson));
         var definition = token.definition(); var owner = definition.caller();
         this.identity = new NativeExplorationAdapter.ExecutionKey(owner.tenantId(), owner.subject(), owner.authVersion(),
                 definition.sessionId(), definition.runId(), definition.planId(), definition.revision(), step.stepId(),
                 planned.explorationPolicy().policyVersion(), frozen.runnerVersion(), frozen.topologyVersion());
         tx(() -> {
             requireCurrent();
+            budgets.initialize(step);
             var existing = headers();
             if (existing.isEmpty()) jdbc.update("INSERT INTO campaign_exploration_session (run_id,revision,step_id,configuration_hash,"
                             + "session_status,reason,current_turn,row_version,created_at,updated_at) VALUES (?,?,?,?,'ACTIVE','',1,0,?,?)",
@@ -133,9 +151,11 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         tx(() -> {
             requireCurrent(); Header header = header();
             if (header.input() != null && !header.input().equals(input)) throw failure("EXPLORATION_INPUT_CHANGED");
+            if (budgetBlocked(header)) return null;
             if (header.input() == null) {
                 // The same registered request bound applies before storing any original prompt.
-                approve(1, request(initialMessages(input)), currentInputs(List.of()));
+                try { approve(1, request(initialMessages(input)), currentInputs(List.of())); }
+                catch (ContextBudgetExceeded exhausted) { blockContext(); return null; }
                 jdbc.update("UPDATE campaign_exploration_session SET original_input=?,input_hash=?,row_version=row_version+1,updated_at=? "
                                 + "WHERE run_id=? AND revision=? AND step_id=?", input, CampaignRunStore.sha256(input), clock.millis(),
                         runId(), revision(), step.stepId());
@@ -168,25 +188,34 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
 
     @Override public List<Message> canonicalMessages() {
-        return tx(() -> {
+        List<Message> result = tx(() -> {
             requireCurrent(); refresh(); Header header = header();
+            if (budgetBlocked(header)) return null;
             if (header.input() == null) throw failure("EXPLORATION_INPUT_REQUIRED");
-            List<Turn> rows = turns();
-            currentInputs(rows);
-            Turn current = turn(header.turn()).orElse(null);
-            if (current != null && ("MODEL".equals(current.decision()) || "TOOL".equals(current.decision()))) {
-                validateInvocation(current);
-                return ModelInvocationRegistry.decodeRequest(current.invocation().requestJson(), DECODE_LIMITS).messages();
+            try {
+                List<Turn> rows = turns();
+                currentInputs(rows);
+                Turn current = turn(header.turn()).orElse(null);
+                if (current != null && ("MODEL".equals(current.decision()) || "TOOL".equals(current.decision()))) {
+                    InvocationSpec invocation = validateInvocation(current).invocation();
+                    return ModelInvocationRegistry.decodeRequest(invocation.requestJson(), DECODE_LIMITS).messages();
+                }
+                return history(header, rows);
+            } catch (ContextBudgetExceeded exhausted) {
+                blockContext(); return null;
             }
-            return history(header, rows);
         });
+        if (result == null) throw failure("EXPLORATION_CONTEXT_BUDGET_EXHAUSTED");
+        return result;
     }
 
     @Override public Response call(Request actualRequest, Supplier<Response> liveCall) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw failure("MODEL_CALL_REQUIRES_COMMITTED_PREPARATION");
         Objects.requireNonNull(liveCall);
         Binding binding = tx(() -> {
+            try {
             requireCurrent(); refresh(); Header header = header();
+            if (budgetBlocked(header)) return null;
             if (header.status() != Status.ACTIVE || gate.hasActive(runId())) throw failure("EXPLORATION_NOT_ACTIVE");
             List<Turn> rows = turns();
             Turn current = turn(header.turn()).orElse(null);
@@ -197,6 +226,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                 sameRequest(expected, actualRequest);
                 Approval approval = approve(next, expected, currentInputs(rows));
                 Binding nextBinding = prepareTurn(next, approval);
+                if (nextBinding == null) return null;
                 updateTurn(current.index(), "consumed=TRUE", new Object[0]);
                 jdbc.update("UPDATE campaign_exploration_session SET current_turn=?,row_version=row_version+1,updated_at=? "
                                 + "WHERE run_id=? AND revision=? AND step_id=?", next, clock.millis(), runId(), revision(), step.stepId());
@@ -207,9 +237,18 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                 return prepareTurn(header.turn(), approve(header.turn(), expected, currentInputs(rows)));
             }
             if (!"MODEL".equals(current.decision()) && !"TOOL".equals(current.decision())) throw failure("EXPLORATION_TURN_CLOSED");
-            sameRequest(ModelInvocationRegistry.decodeRequest(current.invocation().requestJson(), DECODE_LIMITS), actualRequest);
-            return binding(current);
+            Binding currentBinding = binding(current);
+            sameRequest(ModelInvocationRegistry.decodeRequest(currentBinding.approval().invocation().requestJson(), DECODE_LIMITS), actualRequest);
+            // Existing slots are free to replay, including legacy slots whose request trace is
+            // filled on first reuse. The store rejects a changed body without charging again.
+            var replay = budgets.reserveModel(step, current.index(), currentBinding.approval().invocation().requestJson());
+            if (!replay.allowed()) { setStatus(Status.BLOCKED, replay.reason()); return null; }
+            return currentBinding;
+            } catch (ContextBudgetExceeded exhausted) {
+                blockContext(); return null;
+            }
         });
+        if (binding == null) throw failure("EXPLORATION_BUDGET_EXHAUSTED");
         Response response = new DurableModelCallBoundary(runs, step, binding.action(), binding.child(), binding.approval(), authorizer)
                 .call(actualRequest, liveCall);
         tx(() -> {
@@ -225,6 +264,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     @Override public void registerCall(CallInput input) {
         tx(() -> {
             requireCurrent(); Header header = header(); Turn turn = turn(header.turn()).orElseThrow();
+            if (budgetBlocked(header)) return null;
             Response response = response(turn);
             if (response.toolCalls().size() != 1) throw failure("EXPLORATION_TOOL_BATCH_INVALID");
             ToolCall returned = response.toolCalls().get(0);
@@ -235,6 +275,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             var identity = CampaignExplorationCallStore.identity(token.definition(), step.stepId(), turn.modelChildId(), returned.id());
             var spec = new CallSpec(identity.callId(), identity.actionId(), step.stepId(), turn.modelChildId(),
                     CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(response)), returned.id(), executor, returned.arguments());
+            var admission = budgets.reserveCall(step, turn.index());
+            if (!admission.allowed()) { setStatus(Status.BLOCKED, admission.reason()); return null; }
             CallRecord prepared = calls.prepare(step, spec, binding(turn).approval(), authorizer);
             if (prepared.state() != CallState.PREPARED || prepared.revoked() || prepared.callbackActive())
                 throw failure("EXPLORATION_CALL_NOT_REPLAYABLE");
@@ -297,13 +339,14 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     @Override public boolean rejectBatch(int maximumRepairs) {
         if (maximumRepairs < 0) throw failure("EXPLORATION_REPAIR_ALLOWANCE_INVALID");
         return tx(() -> {
-            requireCurrent(); Turn turn = turn(header().turn()).orElseThrow();
+            requireCurrent(); Header header = header();
+            if (budgetBlocked(header)) return false;
+            Turn turn = turn(header.turn()).orElseThrow();
             if (response(turn).toolCalls().size() <= 1) throw failure("EXPLORATION_REPAIR_NOT_REQUIRED");
+            var admission = budgets.reserveRepair(step, turn.index());
+            if (!admission.allowed()) { setStatus(Status.BLOCKED, admission.reason()); return false; }
             if (!turn.repairCounted()) updateTurn(turn.index(), "decision='REPAIR',repair_counted=TRUE", new Object[0]);
-            // Across all steps and revisions of this run; reopening a session cannot reset repairs.
-            int used = jdbc.query("SELECT turn_index FROM campaign_exploration_turn WHERE run_id=? AND repair_counted=TRUE FOR UPDATE",
-                    (rs, row) -> rs.getLong(1), runId()).size();
-            if (used > maximumRepairs) { setStatus(Status.FAILED, "REPAIR_ALLOWANCE_EXHAUSTED"); return false; }
+            // The durable server profile owns this allowance, not a reconstructed adapter's P0 limit.
             return true;
         });
     }
@@ -335,11 +378,12 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         var identity = ModelInvocationRegistry.identity(token.definition(), step.stepId(), index);
         var action = action(index);
         var child = new ChildSpec(identity.childId(), identity.actionId(), ChildMode.MODEL, identity.requestId(), null, null, approval.invocation());
+        var admission = budgets.reserveModel(step, index, approval.invocation().requestJson());
+        if (!admission.allowed()) { setStatus(Status.BLOCKED, admission.reason()); return null; }
         runs.prepareModelChild(step, action, child, approval, authorizer);
-        String encoded = ModelInvocationRegistry.encode(approval.invocation());
-        jdbc.update("INSERT INTO campaign_exploration_turn (run_id,revision,step_id,turn_index,model_child_id,invocation_json,invocation_hash,"
-                        + "decision,pending_projected,consumed,native_acknowledged,repair_counted,row_version,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'MODEL',FALSE,FALSE,FALSE,FALSE,0,?,?)",
-                runId(), revision(), step.stepId(), index, child.childId(), encoded, approval.invocation().hash(), clock.millis(), clock.millis());
+        jdbc.update("INSERT INTO campaign_exploration_turn (run_id,revision,step_id,turn_index,model_child_id,invocation_hash,"
+                        + "decision,pending_projected,consumed,native_acknowledged,repair_counted,row_version,created_at,updated_at) VALUES (?,?,?,?,?,?,'MODEL',FALSE,FALSE,FALSE,FALSE,0,?,?)",
+                runId(), revision(), step.stepId(), index, child.childId(), approval.invocation().hash(), clock.millis(), clock.millis());
         return new Binding(turn(index).orElseThrow(), action, child, approval);
     }
 
@@ -358,21 +402,33 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
 
     private Approval approve(long index, Request request, Map<String, ArtifactMetadata> inputs) {
+        requireContext(request);
         var identity = ModelInvocationRegistry.identity(token.definition(), step.stepId(), index);
         Instant expiry = configuration.expiresAt();
         for (ArtifactMetadata input : inputs.values()) if (input.ref().expiresAt().isBefore(expiry)) expiry = input.ref().expiresAt();
         if (!clock.instant().isBefore(expiry)) throw new SecurityException("MODEL_INVOCATION_EXPIRED");
         var policy = planned.explorationPolicy();
+        String encodedRequest = ModelInvocationRegistry.encodeRequest(request);
+        if (!budgets.checkContext(step, encodedRequest).allowed()) throw new ContextBudgetExceeded();
         return registry.approve(new InvocationSpec(identity.invocationId(), index, configuration.modelRef(), configuration.modelVersion(),
                 configuration.configurationHash(), policy.policyRef(), policy.policyVersion(), frozen.inputs().inputSetRef(),
-                ModelInvocationRegistry.encodeRequest(request), inputs, expiry));
+                encodedRequest, inputs, expiry));
     }
 
     private Approval validateInvocation(Turn turn) {
-        Approval approval = registry.approve(turn.invocation());
-        if (!clock.instant().isBefore(turn.invocation().expiresAt())) throw new SecurityException("MODEL_INVOCATION_EXPIRED");
-        for (ArtifactMetadata expected : turn.invocation().inputs().values()) requireArtifact(expected);
-        var request = ModelInvocationRegistry.decodeRequest(turn.invocation().requestJson(), DECODE_LIMITS);
+        ChildRecord child = runs.child(token, turn.modelChildId()).orElseThrow();
+        var identity = ModelInvocationRegistry.identity(token.definition(), step.stepId(), turn.index());
+        InvocationSpec invocation = child.spec().modelInvocation();
+        if (child.spec().mode() != ChildMode.MODEL || invocation == null
+                || !identity.childId().equals(child.spec().childId()) || !identity.actionId().equals(child.spec().actionId())
+                || !identity.requestId().equals(child.spec().requestId()) || turn.index() != invocation.turnIndex()
+                || !identity.invocationId().equals(invocation.invocationId()) || !turn.invocationHash().equals(invocation.hash()))
+            throw failure("EXPLORATION_INVOCATION_CORRUPTED");
+        requireEncodedContext(invocation.requestJson());
+        Approval approval = registry.approve(invocation);
+        if (!clock.instant().isBefore(invocation.expiresAt())) throw new SecurityException("MODEL_INVOCATION_EXPIRED");
+        for (ArtifactMetadata expected : invocation.inputs().values()) requireArtifact(expected);
+        var request = ModelInvocationRegistry.decodeRequest(invocation.requestJson(), DECODE_LIMITS);
         if (!request.tools().equals(configuration.tools())) throw failure("EXPLORATION_TOOL_CONFIGURATION_CHANGED");
         return approval;
     }
@@ -387,7 +443,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
 
     private List<Message> history(Header header, List<Turn> rows) {
         if (header.input() == null) throw failure("EXPLORATION_INPUT_REQUIRED");
-        List<Message> messages = new ArrayList<>(initialMessages(header.input()));
+        ContextMessages messages = new ContextMessages();
+        initialMessages(header.input()).forEach(messages::add);
         for (Turn turn : rows) {
             if (!"OBSERVED".equals(turn.decision()) && !"REPAIR".equals(turn.decision())) break;
             Response response = response(turn);
@@ -408,7 +465,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                 } else messages.add(new Message("tool", NativeExplorationAdapter.Observation.ready(turn.artifactId()).json(), null, call.id(), call.name()));
             }
         }
-        return List.copyOf(messages);
+        return messages.values();
     }
 
     private List<Message> initialMessages(String input) {
@@ -419,9 +476,72 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
 
     private Request request(List<Message> messages) { return new Request(ModelInvocationRegistry.REQUEST_SCHEMA, messages, configuration.tools()); }
-    private static void sameRequest(Request expected, Request actual) {
-        if (actual == null || !ModelInvocationRegistry.encodeRequest(expected).equals(ModelInvocationRegistry.encodeRequest(actual)))
+    private void sameRequest(Request expected, Request actual) {
+        requireContext(expected);
+        if (actual == null || !expected.equals(actual))
             throw failure("MODEL_REQUEST_MISMATCH");
+    }
+
+    private static boolean budgetBlocked(Header header) {
+        return header.status() == Status.BLOCKED && header.reason() != null
+                && header.reason().startsWith("EXPLORATION_") && header.reason().endsWith("_BUDGET_EXHAUSTED");
+    }
+
+    private void blockContext() { setStatus(Status.BLOCKED, "EXPLORATION_CONTEXT_BUDGET_EXHAUSTED"); }
+
+    private void requireContext(Request request) { encodedSize(request, budgetPolicy.maxContextBytes()); }
+
+    private void requireEncodedContext(String request) {
+        var counter = new ContextCounter(budgetPolicy.maxContextBytes());
+        try (var writer = new java.io.OutputStreamWriter(counter, java.nio.charset.StandardCharsets.UTF_8)) {
+            writer.write(request);
+        } catch (IOException invalid) {
+            if (counter.exceeded) throw new ContextBudgetExceeded();
+            throw failure("EXPLORATION_JSON_INVALID");
+        }
+    }
+
+    /** Count actual escaped UTF-8 bytes without allocating an encoded request to find its size. */
+    private static long encodedSize(Object value, long limit) {
+        var counter = new ContextCounter(limit);
+        try { JSON.writeValue(counter, value); }
+        catch (IOException invalid) {
+            if (counter.exceeded) throw new ContextBudgetExceeded();
+            throw failure("EXPLORATION_JSON_INVALID");
+        }
+        return counter.bytes;
+    }
+
+    private final class ContextMessages {
+        private final List<Message> messages = new ArrayList<>();
+        private long bytes = encodedSize(Map.of("schemaVersion", ModelInvocationRegistry.REQUEST_SCHEMA,
+                "messages", List.of(), "tools", configuration.tools()), budgetPolicy.maxContextBytes());
+
+        private void add(Message message) {
+            long comma = messages.isEmpty() ? 0 : 1;
+            long remaining = budgetPolicy.maxContextBytes() - bytes;
+            if (remaining < comma) throw new ContextBudgetExceeded();
+            long size = encodedSize(message, remaining - comma);
+            bytes += comma + size;
+            messages.add(message);
+        }
+
+        private List<Message> values() { return List.copyOf(messages); }
+    }
+
+    private static final class ContextBudgetExceeded extends RuntimeException { }
+
+    private static final class ContextCounter extends OutputStream {
+        private final long limit;
+        private long bytes;
+        private boolean exceeded;
+        private ContextCounter(long limit) { this.limit = limit; }
+        @Override public void write(int value) throws IOException { count(1); }
+        @Override public void write(byte[] values, int offset, int length) throws IOException { count(length); }
+        private void count(int length) throws IOException {
+            if (length > limit - bytes) { exceeded = true; throw new IOException("EXPLORATION_CONTEXT_BUDGET_EXHAUSTED"); }
+            bytes += length;
+        }
     }
 
     private Map<String, ArtifactMetadata> currentInputs(List<Turn> rows) {
@@ -455,7 +575,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
 
     private void refresh() {
         Header header = header();
-        if (header.status() == Status.FAILED || header.status() == Status.CANDIDATE) return;
+        if (header.status() == Status.FAILED || header.status() == Status.CANDIDATE || budgetBlocked(header)) return;
         Turn turn = turn(header.turn()).orElse(null);
         if (turn == null || turn.callId() == null) return;
         CallRecord call = calls.call(token, turn.callId()).orElseThrow();
@@ -487,7 +607,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         if (child.state() == ChildState.READY) {
             if (turn.artifactId() != null && !turn.artifactId().equals(child.artifactId())) throw failure("EXPLORATION_RECEIPT_CHANGED");
             String observationId = "observation-" + CampaignRunStore.sha256(write(List.of(runId(), revision(), step.stepId(), turn.index(), child.spec().childId(), child.artifactId())));
-            Turn checked = new Turn(turn.index(), turn.modelChildId(), turn.invocation(), "OBSERVED", turn.responseHash(), turn.callId(),
+            Turn checked = new Turn(turn.index(), turn.modelChildId(), turn.invocationHash(), "OBSERVED", turn.responseHash(), turn.callId(),
                     child.spec().childId(), child.artifactId(), child.jobId(), observationId, turn.pendingProjected(), turn.consumed(), turn.repairCounted());
             requireReceipt(checked);
             updateTurn(turn.index(), "decision='OBSERVED',receipt_child_id=?,artifact_id=?,job_id=?,observation_id=?",
@@ -499,7 +619,10 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
 
     private List<ChildRecord> capabilityChildren(String actionId) {
-        return runs.children(token).stream().filter(child -> child.spec().actionId().equals(actionId) && child.spec().mode() != ChildMode.MODEL).toList();
+        // Do not decode every prior MODEL request just to locate this callback's business receipt.
+        return jdbc.query("SELECT child_id FROM campaign_child_ledger WHERE run_id=? AND revision=? AND action_id=? "
+                        + "AND child_mode<>'MODEL' ORDER BY child_id FOR UPDATE", (rs, row) -> rs.getString(1),
+                runId(), revision(), actionId).stream().map(id -> runs.child(token, id).orElseThrow()).toList();
     }
 
     private CallPermit permit(long index) {
@@ -536,23 +659,20 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
     private Header header() { var rows = headers(); if (rows.size() != 1) throw failure("EXPLORATION_SESSION_NOT_FOUND"); return rows.get(0); }
     private List<Turn> turns() {
-        return jdbc.query("SELECT * FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? ORDER BY turn_index FOR UPDATE",
+        return jdbc.query("SELECT " + TURN_COLUMNS + " FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? ORDER BY turn_index FOR UPDATE",
                 (rs, row) -> readTurn(rs), runId(), revision(), step.stepId());
     }
     private Optional<Turn> turn(long index) {
-        return jdbc.query("SELECT * FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? AND turn_index=? FOR UPDATE",
+        return jdbc.query("SELECT " + TURN_COLUMNS + " FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? AND turn_index=? FOR UPDATE",
                 (rs, row) -> readTurn(rs), runId(), revision(), step.stepId(), index).stream().findFirst();
     }
     private Turn readTurn(ResultSet rs) throws SQLException {
-        String encoded = rs.getString("invocation_json");
-        if (!CampaignRunStore.sha256(encoded).equals(rs.getString("invocation_hash"))) throw failure("EXPLORATION_INVOCATION_CORRUPTED");
-        InvocationSpec invocation = ModelInvocationRegistry.decode(encoded, DECODE_LIMITS);
         long index = rs.getLong("turn_index");
         var expected = ModelInvocationRegistry.identity(token.definition(), step.stepId(), index);
-        if (index != invocation.turnIndex() || !expected.childId().equals(rs.getString("model_child_id"))
-                || !expected.invocationId().equals(invocation.invocationId()) || !invocation.hash().equals(rs.getString("invocation_hash")))
+        String hash = rs.getString("invocation_hash");
+        if (!expected.childId().equals(rs.getString("model_child_id")) || hash == null || !hash.matches("[a-f0-9]{64}"))
             throw failure("EXPLORATION_INVOCATION_CORRUPTED");
-        return new Turn(index, rs.getString("model_child_id"), invocation, rs.getString("decision"), rs.getString("response_hash"),
+        return new Turn(index, rs.getString("model_child_id"), hash, rs.getString("decision"), rs.getString("response_hash"),
                 rs.getString("call_id"), rs.getString("receipt_child_id"), rs.getString("artifact_id"), rs.getString("job_id"),
                 rs.getString("observation_id"), rs.getBoolean("pending_projected"), rs.getBoolean("consumed"), rs.getBoolean("repair_counted"));
     }
@@ -573,6 +693,17 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private static String write(Object value) {
         try { return JSON.writeValueAsString(value); }
         catch (JsonProcessingException invalid) { throw failure("EXPLORATION_JSON_INVALID"); }
+    }
+    private static String hash(Object value) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            try (var output = new java.security.DigestOutputStream(OutputStream.nullOutputStream(), digest)) {
+                JSON.writeValue(output, value);
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest());
+        } catch (IOException | java.security.NoSuchAlgorithmException invalid) {
+            throw failure("EXPLORATION_JSON_INVALID");
+        }
     }
     private static IllegalStateException failure(String code) { return new IllegalStateException(code); }
 }

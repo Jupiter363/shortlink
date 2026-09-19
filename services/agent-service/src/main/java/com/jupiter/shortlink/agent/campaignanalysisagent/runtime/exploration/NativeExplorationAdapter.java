@@ -310,6 +310,9 @@ public final class NativeExplorationAdapter {
         var state = ledger.view();
         var result = new LinkedHashMap<String, Object>();
         String durableFailure = durableBoundaryFailure.get();
+        if (durableSession != null && (state.status() == ExplorationLedger.Status.BLOCKED
+                || state.status() == ExplorationLedger.Status.FAILED) && state.reason() != null && !state.reason().isBlank())
+            durableFailure = null;
         result.put("status", durableFailure == null ? state.status().name() : ExplorationLedger.Status.BLOCKED.name());
         result.put("reason", durableFailure == null ? state.reason() : durableFailure);
         result.put("artifactIds", state.artifactIds());

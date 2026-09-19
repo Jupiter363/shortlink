@@ -194,7 +194,7 @@ class NativeDurableExplorationLedgerTest {
         }
     }
 
-    private static final class Fixture {
+    static final class Fixture {
         final JdbcTemplate jdbc;
         final TransactionTemplate transactions;
         final CampaignRunStore runs;
@@ -221,7 +221,8 @@ class NativeDurableExplorationLedgerTest {
                     new ClassPathResource("sql/migration/V20260920_6__campaign_local_calculation.sql"),
                     new ClassPathResource("sql/migration/V20260920_8__campaign_model_invocation.sql"),
                     new ClassPathResource("sql/migration/V20260920_9__campaign_exploration_call.sql"),
-                    new ClassPathResource("sql/migration/V20260920_10__campaign_exploration_ledger.sql")).execute(source);
+                    new ClassPathResource("sql/migration/V20260920_10__campaign_exploration_ledger.sql"),
+                    new ClassPathResource("sql/migration/V20260920_11__campaign_exploration_budget.sql")).execute(source);
             jdbc = new JdbcTemplate(source); transactions = new TransactionTemplate(new DataSourceTransactionManager(source));
             runs = new JdbcCampaignRunStore(jdbc, transactions, CLOCK); steps = new JdbcCampaignStepStore(jdbc, transactions, CLOCK);
             calls = new JdbcCampaignExplorationCallStore(jdbc, transactions, CLOCK);
@@ -298,7 +299,7 @@ class NativeDurableExplorationLedgerTest {
             assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM campaign_step_ledger WHERE callback_active=TRUE", Integer.class));
         }
     }
-    private static final class InspectingSaver extends MemorySaver {
+    static final class InspectingSaver extends MemorySaver {
         final Fixture fixture; final boolean failAfterSecondModel; final AtomicBoolean failed = new AtomicBoolean();
         final List<String> writes = new CopyOnWriteArrayList<>();
         InspectingSaver(Fixture fixture, boolean failAfterSecondModel) { this.fixture = fixture; this.failAfterSecondModel = failAfterSecondModel; }
