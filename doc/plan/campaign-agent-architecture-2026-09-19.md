@@ -2,6 +2,8 @@
 
 状态：**P0 组件验证完成，P1 实施中，P2–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`（PR #61 后）。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，实际完成范围见 [首批 P0 验证](../integration/campaign-plan-p0-2026-09-19.md)与[续接补充验收](../integration/campaign-plan-p0-recovery-2026-09-19.md)；下文是目标架构，不代表全部能力已上线。
 
+P1 分批进度：[独立恢复协议](../integration/campaign-plan-p1-recovery-2026-09-19.md)已合并；[耐久账本与原生计划扫描](../integration/campaign-plan-p1-ledger-2026-09-19.md)继续推进。整体 P1 与生产运行入口尚未完成。
+
 已确认的架构方向：**外层 Plan 管目标和依赖，局部按需探索。** 具体实施顺序见[实施计划](campaign-agent-architecture-2026-09-19/implementation-plan.md)，图运行与恢复边界见[Graph 适配方案](campaign-agent-architecture-2026-09-19/graph-adaptation.md)，两种执行策略的组合见[混合计划示例](campaign-agent-architecture-2026-09-19/example-hybrid-plan.json)。
 
 补充决策：**优先复用 Spring AI Alibaba 1.1.2.3 已封装能力。** 原生能力与项目适配的边界见[框架复用清单](campaign-agent-architecture-2026-09-19/framework-reuse.md)；实施前需关闭的风险见[风险审查](campaign-agent-architecture-2026-09-19/risk-review.md)。LocalExplorer 是薄适配器，不另建 ReAct 引擎；Skill 加载沿用原生 Registry／Hook，不建设自定义工作流语言。
