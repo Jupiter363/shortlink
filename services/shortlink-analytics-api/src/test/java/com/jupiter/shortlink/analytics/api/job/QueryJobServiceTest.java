@@ -7,18 +7,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.analytics.api.*;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.h2.api.Trigger;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.*;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-class QueryJobServiceTest {
+public class QueryJobServiceTest {
     JdbcTemplate db;
     QueryJobService service;
     AuthorizationClient auth;
     JobClickHouseStream ch;
+    ApiSettings settings;
+    boolean recoveryInsertGuard;
     AtomicReference<String> ownership = new AtomicReference<>("v1"),
             epoch = new AtomicReference<>("epoch1");
     final ObjectMapper json = new ObjectMapper();
@@ -76,19 +89,15 @@ class QueryJobServiceTest {
                         });
         when(auth.activeEpoch()).thenAnswer(i -> epoch.get());
         when(ch.verify(any(), anyLong())).thenReturn("http://localhost:8123");
+        settings = new ApiSettings(
+                "test-token-long-enough-for-analytics", "http://localhost:1", "http://localhost:2",
+                "http://localhost:8123", "default", "", "test");
         service =
                 new QueryJobService(
                         db,
                         json,
                         auth,
-                        new ApiSettings(
-                                "test-token-long-enough-for-analytics",
-                                "http://localhost:1",
-                                "http://localhost:2",
-                                "http://localhost:8123",
-                                "default",
-                                "",
-                                "test"),
+                        settings,
                         ch,
                         new DataSourceTransactionManager(source));
     }
@@ -499,5 +508,215 @@ class QueryJobServiceTest {
         assertThat(submit("r3").state()).isEqualTo("QUEUED");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM analytics_query_job", Integer.class))
                 .isEqualTo(3);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"})
+    void recoveryReturnsTheExistingIdentityWithoutAdmissionOrManifestRecapture(String state) {
+        var original = new QueryJobService.Submit("r-existing", linkRequest());
+        var job = service.submit(original);
+        submit("another-active-job");
+        db.update("UPDATE analytics_query_job SET state=? WHERE job_id=?", state, job.jobId());
+        db.execute("DROP TABLE analytics_manifest"); // Recovery cannot select a new manifest.
+        forbidRecoveryInserts();
+        clearInvocations(auth);
+
+        QueryRequest currentIdentity = changed(linkRequest(), "authVersion", 8);
+        var recovered = service.recoverExisting(new QueryJobService.Submit(original.requestId(), currentIdentity));
+
+        assertThat(recovered.jobId()).isEqualTo(job.jobId());
+        assertThat(recovered.state()).isEqualTo(state);
+        assertThat(recovered.expiresAt()).isEqualTo(job.expiresAt());
+        assertThat(jobCount()).isEqualTo(2);
+        verify(auth).authorize(argThat(q -> q.authVersion() == 8
+                && q.linkIds().equals(List.of(4000000001L))));
+        verifyNoInteractions(ch);
+    }
+
+    @Test
+    void recoveryOfMissingIdentityNeverCreatesAJobEvenWhenCapacityAndManifestAreAvailable() {
+        forbidRecoveryInserts();
+        assertRecoveryFailure(new QueryJobService.Submit("not-submitted", request("1")), "REPLAY_UNAVAILABLE");
+        assertThat(jobCount()).isZero();
+        verifyNoInteractions(ch);
+    }
+
+    @Test
+    void recoveryOfExpiredAndThenCleanedIdentityNeverRecreatesIt() {
+        var job = submit("expired-recovery");
+        forbidRecoveryInserts();
+        db.update("UPDATE analytics_query_job SET expires_at=0 WHERE job_id=?", job.jobId());
+        var request = new QueryJobService.Submit("expired-recovery", request("1"));
+        assertRecoveryFailure(request, "REPLAY_UNAVAILABLE");
+        assertThat(jobCount()).isEqualTo(1);
+        service.cleanup();
+        assertRecoveryFailure(request, "REPLAY_UNAVAILABLE");
+        assertThat(jobCount()).isZero();
+        verifyNoInteractions(ch);
+    }
+
+    @Test
+    void recoveryRejectsChangedBodyWithoutAlteringTheOriginalJob() {
+        var job = submit("bound-query");
+        var before = db.queryForMap("SELECT * FROM analytics_query_job WHERE job_id=?", job.jobId());
+        forbidRecoveryInserts();
+        assertRecoveryFailure(new QueryJobService.Submit("bound-query", changed(request("1"), "endExclusive", end - 1)),
+                "CONFLICT");
+        assertThat(db.queryForMap("SELECT * FROM analytics_query_job WHERE job_id=?", job.jobId())).isEqualTo(before);
+        assertThat(jobCount()).isEqualTo(1);
+        verifyNoInteractions(ch);
+    }
+
+    @Test
+    void recoveryRetainsCanonicalDimensionDigestAndRejectsDifferentFilters() {
+        var query = dimensionRequest(List.of(new DimensionFilter("browser", "IN", List.of("Firefox", "Chrome", "Chrome"))));
+        var job = service.submit(new QueryJobService.Submit("dimension-recovery", query));
+        forbidRecoveryInserts();
+        var equivalent = dimensionRequest(List.of(new DimensionFilter("browser", "IN", List.of("Chrome", "Firefox"))));
+        assertThat(service.recoverExisting(new QueryJobService.Submit("dimension-recovery", equivalent)).jobId())
+                .isEqualTo(job.jobId());
+        var different = dimensionRequest(List.of(new DimensionFilter("browser", "IN", List.of("Chrome"))));
+        assertRecoveryFailure(new QueryJobService.Submit("dimension-recovery", different), "CONFLICT");
+        assertThat(jobCount()).isEqualTo(1);
+    }
+
+    @Test
+    void recoveryIdentityIsIsolatedByBothTenantAndSubject() {
+        submit("private-request");
+        forbidRecoveryInserts();
+        assertRecoveryFailure(new QueryJobService.Submit("private-request", request("2")), "REPLAY_UNAVAILABLE");
+        assertRecoveryFailure(new QueryJobService.Submit("private-request", changed(request("1"), "subjectId", "bob")),
+                "REPLAY_UNAVAILABLE");
+        assertThat(jobCount()).isEqualTo(1);
+        verifyNoInteractions(ch);
+    }
+
+    @Test
+    void recoveryRechecksCurrentAuthorizationAndExactFrozenMembers() {
+        submit("authorized-recovery");
+        forbidRecoveryInserts();
+        var request = new QueryJobService.Submit("authorized-recovery", request("1"));
+        ownership.set("v2");
+        assertRecoveryFailure(request, "QUERY_SCOPE_CHANGED");
+        doReturn(new AuthorizationClient.Scope("1", List.of(4000000002L), "v1")).when(auth).authorize(any());
+        assertRecoveryFailure(request, "QUERY_SCOPE_CHANGED");
+        doThrow(new QueryFailure("FORBIDDEN", "Current authorization revoked")).when(auth).authorize(any());
+        assertRecoveryFailure(request, "FORBIDDEN");
+        assertThat(jobCount()).isEqualTo(1);
+        verifyNoInteractions(ch);
+    }
+
+    @Test
+    void recoveryRechecksActiveEpochAndTheDatabaseRecoveryGate() {
+        submit("epoch-recovery");
+        forbidRecoveryInserts();
+        var request = new QueryJobService.Submit("epoch-recovery", request("1"));
+        epoch.set("epoch2");
+        assertRecoveryFailure(request, "SNAPSHOT_EXPIRED");
+        epoch.set("epoch1");
+        db.update("UPDATE analytics_epoch SET mode='RECOVERING'");
+        assertRecoveryFailure(request, "SNAPSHOT_EXPIRED");
+        assertThat(jobCount()).isEqualTo(1);
+        verifyNoInteractions(ch);
+    }
+
+    @Test
+    void recoveryRejectsUnsupportedShapesAndInvalidRequestIdentityBeforeAnyCreation() {
+        forbidRecoveryInserts();
+        assertRecoveryFailure(null, "INVALID_QUERY");
+        for (String id : List.of("", " ", "x".repeat(97)))
+            assertRecoveryFailure(new QueryJobService.Submit(id, request("1")), "INVALID_QUERY");
+        assertRecoveryFailure(new QueryJobService.Submit("x".repeat(96), request("1")), "REPLAY_UNAVAILABLE");
+        assertRecoveryFailure(new QueryJobService.Submit("unknown-kind", changed(request("1"), "queryKind", "UNKNOWN")),
+                "INVALID_QUERY");
+        assertRecoveryFailure(new QueryJobService.Submit("old-cursor", changed(request("1"), "cursor", "previous")),
+                "INVALID_QUERY");
+        assertRecoveryFailure(new QueryJobService.Submit("no-principal", changed(request("1"), "subjectId", null)),
+                "FORBIDDEN");
+        assertThat(jobCount()).isZero();
+        verifyNoInteractions(ch);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void recoveryWaitingForGateSeesExpirationOrCleanupAndNeverInserts(boolean cleanup) throws Exception {
+        var job = submit("gate-race");
+        forbidRecoveryInserts();
+        CountDownLatch recoveryAtGate = new CountDownLatch(1);
+        JdbcTemplate observed = new JdbcTemplate(db.getDataSource()) {
+            @Override
+            public List<Map<String, Object>> queryForList(String sql) {
+                if (sql.equals("SELECT singleton FROM analytics_query_gate WHERE singleton=1 FOR UPDATE"))
+                    recoveryAtGate.countDown();
+                return super.queryForList(sql);
+            }
+        };
+        var recoveryService = new QueryJobService(observed, json, auth, settings, ch,
+                new DataSourceTransactionManager(db.getDataSource()));
+        var holder = new TransactionTemplate(new DataSourceTransactionManager(db.getDataSource()));
+        var worker = Executors.newSingleThreadExecutor();
+        var result = new AtomicReference<Future<QueryJobService.Status>>();
+        try {
+            holder.executeWithoutResult(transaction -> {
+                db.queryForList("SELECT singleton FROM analytics_query_gate WHERE singleton=1 FOR UPDATE");
+                result.set(worker.submit(() -> recoveryService.recoverExisting(
+                        new QueryJobService.Submit("gate-race", request("1")))));
+                try {
+                    assertThat(recoveryAtGate.await(3, TimeUnit.SECONDS)).isTrue();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(interrupted);
+                }
+                assertThat(result.get().isDone()).isFalse();
+                // Expire after recovery started, while it cannot yet inspect the identity.
+                db.update("UPDATE analytics_query_job SET expires_at=0 WHERE job_id=?", job.jobId());
+                if (cleanup) service.cleanup(); // Joins the holding transaction and the same gate.
+            });
+            assertThatThrownBy(() -> result.get().get(5, TimeUnit.SECONDS))
+                    .hasCauseInstanceOf(QueryFailure.class)
+                    .satisfies(failure -> assertThat(((QueryFailure) failure.getCause()).code).isEqualTo("REPLAY_UNAVAILABLE"));
+            assertThat(jobCount()).isEqualTo(cleanup ? 0 : 1);
+            verifyNoInteractions(ch);
+        } finally {
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(3, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private QueryRequest changed(QueryRequest query, String field, Object value) {
+        var node = (com.fasterxml.jackson.databind.node.ObjectNode) json.valueToTree(query);
+        node.set(field, json.valueToTree(value));
+        return json.convertValue(node, QueryRequest.class);
+    }
+
+    private void assertRecoveryFailure(QueryJobService.Submit request, String code) {
+        assertThatThrownBy(() -> service.recoverExisting(request)).isInstanceOfSatisfying(QueryFailure.class,
+                failure -> assertThat(failure.code).isEqualTo(code));
+    }
+
+    private int jobCount() {
+        return db.queryForObject("SELECT COUNT(*) FROM analytics_query_job", Integer.class);
+    }
+
+    private void forbidRecoveryInserts() {
+        RecoveryInsertGuard.attempts.set(0);
+        db.execute("CREATE TRIGGER recovery_insert_guard BEFORE INSERT ON analytics_query_job FOR EACH ROW CALL '"
+                + RecoveryInsertGuard.class.getName() + "'");
+        recoveryInsertGuard = true;
+    }
+
+    @AfterEach
+    void recoveryNeverAttemptsInsertEvenIfItsTransactionWouldRollBack() {
+        if (recoveryInsertGuard) assertThat(RecoveryInsertGuard.attempts).hasValue(0);
+    }
+
+    /** Nontransactional counter makes attempted-and-rolled-back INSERTs visible to the test. */
+    public static final class RecoveryInsertGuard implements Trigger {
+        static final AtomicInteger attempts = new AtomicInteger();
+        @Override
+        public void fire(Connection connection, Object[] oldRow, Object[] newRow) throws SQLException {
+            attempts.incrementAndGet();
+            throw new SQLException("Recovery must never INSERT a query job");
+        }
     }
 }

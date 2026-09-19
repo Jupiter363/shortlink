@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
@@ -117,6 +118,20 @@ class AgentToolInternalMvcTest {
                 .andExpect(jsonPath("$.message").value("Delegated account session has expired"));
         verifyNoInteractions(groups, links, analytics);
         assertThat(UserContext.getUsername()).isNull();
+    }
+
+    @Test
+    void recoveryRouteCannotBypassCurrentAccountDelegationChecks() throws Exception {
+        account.setAuthVersion(8L);
+        mvc.perform(post("/internal/short-link-admin/v1/agent-tools/statistics/jobs/recover-existing")
+                        .header("X-Agent-Internal-Token", TOKEN).header("X-Agent-Username", "zhangsan")
+                        .header("X-Agent-UserId", "1001").header("X-Agent-Auth-Version", "7")
+                        .contentType("application/json").content("{\"requestId\":\"frozen-request\",\"gid\":\"g1\","
+                                + "\"startDate\":\"2026-07-01\",\"endDate\":\"2026-08-01\",\"queryKind\":\"METRICS\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Delegated account session has expired"));
+        verifyNoInteractions(groups, links, analytics);
+        assertThat(UserContext.getUserId()).isNull();
     }
 
     @Test

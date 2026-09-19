@@ -300,6 +300,16 @@ public class AgentToolInternalController {
                         request.queryKind(), request.dimensions(), request.filters()));
     }
 
+    /** Backend recovery only: an unknown submission must never become a fresh job here. */
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/recover-existing")
+    public Result<Map<String, Object>> recoverStatisticsJob(
+            @RequestBody StatisticsJobRequest request) {
+        requireOwnedGid(request.gid());
+        return Results.success(analytics.recoverExistingJob(request.requestId(), request.gid(),
+                request.fullShortUrl(), request.startDate(), request.endDate(), request.queryKind(),
+                request.dimensions(), request.filters()));
+    }
+
     @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}")
     public Result<Map<String, Object>> statisticsJobStatus(@PathVariable String jobId) {
         requirePrincipal();

@@ -179,9 +179,36 @@ public class AgentAnalyticsFacade {
     public Map<String, Object> submitJob(String requestId, String gid, String fullShortUrl,
             String start, String end, String queryKind, List<String> dimensions,
             List<Map<String, Object>> filters) {
+        return jobData(client.createJob(jobRequest(requestId, gid, fullShortUrl, start, end,
+                queryKind, dimensions, filters)), true);
+    }
+
+    public Map<String, Object> recoverExistingJob(String requestId, String gid, String fullShortUrl,
+            String start, String end, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters) {
+        JSONObject response = client.recoverExistingJob(jobRequest(requestId, gid, fullShortUrl,
+                start, end, queryKind, dimensions, filters));
+        if (response == null || !"0".equals(response.getString("code"))) {
+            throw AnalyticsJsonClient.recoveryFailure(response == null ? null : response.getString("code"));
+        }
+        if (!(response.get("data") instanceof Map<?, ?> data)
+                || !(data.get("jobId") instanceof String jobId)
+                || !jobId.matches("[A-Za-z0-9_-]{1,128}")
+                || !(data.get("state") instanceof String state)
+                || !Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED")
+                        .contains(state)) {
+            throw AnalyticsJsonClient.recoveryFailure("RECOVERY_PROTOCOL_UNAVAILABLE");
+        }
+        return jobData(response, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> jobRequest(String requestId, String gid, String fullShortUrl,
+            String start, String end, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters) {
         requirePrincipal();
         if (requestId == null
-                || !requestId.matches("[A-Za-z0-9_-]{1,128}")
+                || !requestId.matches("[A-Za-z0-9_-]{1,96}") || queryKind == null
                 || !Set.of("METRICS", "ACCESS_RECORDS", "LINK_METRICS", "DIMENSION_BREAKDOWN").contains(queryKind))
             throw new ClientException("Invalid statistics job request");
         long startTime = parse(start, false), endTime = parse(end, true);
@@ -208,7 +235,7 @@ public class AgentAnalyticsFacade {
                         null,
                         500,
                         queryKind, dimensions, filters);
-        return jobData(client.createJob(Map.of("requestId", requestId, "query", query)), true);
+        return Map.of("requestId", requestId, "query", query);
     }
 
     public Map<String, Object> jobStatus(String jobId) {

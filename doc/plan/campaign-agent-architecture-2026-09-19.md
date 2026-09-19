@@ -1,6 +1,6 @@
 # 投放分析 Agent：场景、Plan、Skill、Tool 与 Graph 架构方案
 
-状态：**P0 组件验证完成，P1–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`（PR #61 后）。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，实际完成范围见 [首批 P0 验证](../integration/campaign-plan-p0-2026-09-19.md)与[续接补充验收](../integration/campaign-plan-p0-recovery-2026-09-19.md)；下文是目标架构，不代表全部能力已上线。
+状态：**P0 组件验证完成，P1 实施中，P2–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`（PR #61 后）。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，实际完成范围见 [首批 P0 验证](../integration/campaign-plan-p0-2026-09-19.md)与[续接补充验收](../integration/campaign-plan-p0-recovery-2026-09-19.md)；下文是目标架构，不代表全部能力已上线。
 
 已确认的架构方向：**外层 Plan 管目标和依赖，局部按需探索。** 具体实施顺序见[实施计划](campaign-agent-architecture-2026-09-19/implementation-plan.md)，图运行与恢复边界见[Graph 适配方案](campaign-agent-architecture-2026-09-19/graph-adaptation.md)，两种执行策略的组合见[混合计划示例](campaign-agent-architecture-2026-09-19/example-hybrid-plan.json)。
 

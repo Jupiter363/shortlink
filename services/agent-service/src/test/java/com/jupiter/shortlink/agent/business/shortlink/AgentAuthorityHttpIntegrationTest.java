@@ -122,8 +122,19 @@ class AgentAuthorityHttpIntegrationTest {
 
     @Test
     void scheduledDiscoveryPagesOwnershipScopesAndKeepsUnknownCountsMissing() {
+        AtomicInteger discoveryPages = new AtomicInteger();
+        List<String> paths = new ArrayList<>();
         responder =
                 (path, q) -> {
+                    paths.add(path);
+                    if (path.endsWith("/risk/scheduled-scopes")) {
+                        if (discoveryPages.incrementAndGet() > 1)
+                            return success(Map.of("items", List.of()));
+                        return success(Map.of(
+                                "items", List.of(Map.of("tenantId", "1001", "username", "zhangsan",
+                                        "authVersion", 7, "gids", List.of("g1"))),
+                                "nextCursor", "1001:0:0"));
+                    }
                     if (path.endsWith("authorization/resolve")) {
                         boolean next = q.containsKey("afterLinkId");
                         Map<String, Object> scope =
@@ -158,18 +169,42 @@ class AgentAuthorityHttpIntegrationTest {
         assertThat(candidates).extracting(c -> c.linkId()).containsExactly(99L, 100L);
         assertThat(candidates.get(0).pv()).isEqualTo(3_000_000_000L);
         assertThat(candidates.get(0).uv()).isNull();
-        assertThat(requests.get(2))
+        assertThat(requests.get(3))
+                .containsEntry("gid", "g1")
                 .containsEntry("afterLinkId", 99)
                 .containsEntry("ownershipVersion", "v1");
-        assertThat(headers)
-                .allSatisfy(h -> assertThat(h).containsEntry("X-Agent-Principal-Mode", "SYSTEM"));
+        assertThat(requests.get(2)).containsEntry("linkIds", List.of(99));
+        assertThat(requests.get(4)).containsEntry("linkIds", List.of(100));
+        assertThat(discoveryPages).hasValue(2);
+        assertThat(paths).containsExactly(
+                "/internal/short-link-admin/v1/agent-tools/risk/scheduled-scopes",
+                "/internal/short-link-admin/v1/agent-tools/authorization/resolve",
+                "/internal/short-link-admin/v1/agent-tools/risk/active-link-query",
+                "/internal/short-link-admin/v1/agent-tools/authorization/resolve",
+                "/internal/short-link-admin/v1/agent-tools/risk/active-link-query",
+                "/internal/short-link-admin/v1/agent-tools/risk/scheduled-scopes");
+        for (int index : List.of(0, 5))
+            assertThat(headers.get(index)).containsEntry("X-Agent-Principal-Mode", "SYSTEM")
+                    .containsEntry("X-Agent-UserId", null).containsEntry("X-Agent-Auth-Version", null);
+        assertThat(headers.subList(1, 5)).allSatisfy(h -> assertThat(h)
+                .containsEntry("X-Agent-Principal-Mode", null)
+                .containsEntry("X-Agent-Username", "zhangsan")
+                .containsEntry("X-Agent-UserId", "1001")
+                .containsEntry("X-Agent-Auth-Version", "7"));
     }
 
     @Test
     void changedOwnershipCannotReturnPartialCandidateSuccess() {
         AtomicInteger pages = new AtomicInteger();
+        List<String> paths = new ArrayList<>();
         responder =
                 (path, q) -> {
+                    paths.add(path);
+                    if (path.endsWith("/risk/scheduled-scopes"))
+                        return success(Map.of(
+                                "items", List.of(Map.of("tenantId", "1001", "username", "zhangsan",
+                                        "authVersion", 7, "gids", List.of("g1"))),
+                                "nextCursor", "1001:0:0"));
                     if (path.endsWith("authorization/resolve"))
                         return success(
                                 Map.of(
@@ -181,10 +216,12 @@ class AgentAuthorityHttpIntegrationTest {
                                         List.of(link(99)),
                                         "nextCursor",
                                         99));
+                    var row = new LinkedHashMap<>(link(99));
+                    row.put("pv", 3_000_000_000L);
                     return success(
                             Map.of(
                                     "items",
-                                    List.of(),
+                                    List.of(row),
                                     "metrics",
                                     Map.of(),
                                     "meta",
@@ -199,6 +236,18 @@ class AgentAuthorityHttpIntegrationTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("ownership changed");
         assertThat(pages).hasValue(2);
+        assertThat(requests.get(3)).containsEntry("afterLinkId", 99)
+                .containsEntry("ownershipVersion", "v1");
+        assertThat(paths).containsExactly(
+                "/internal/short-link-admin/v1/agent-tools/risk/scheduled-scopes",
+                "/internal/short-link-admin/v1/agent-tools/authorization/resolve",
+                "/internal/short-link-admin/v1/agent-tools/risk/active-link-query",
+                "/internal/short-link-admin/v1/agent-tools/authorization/resolve");
+        assertThat(headers.get(0)).containsEntry("X-Agent-Principal-Mode", "SYSTEM");
+        assertThat(headers.subList(1, 4)).allSatisfy(h -> assertThat(h)
+                .containsEntry("X-Agent-Principal-Mode", null)
+                .containsEntry("X-Agent-UserId", "1001")
+                .containsEntry("X-Agent-Auth-Version", "7"));
     }
 
     @Test

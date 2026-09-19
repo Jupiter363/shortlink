@@ -66,6 +66,66 @@ class AgentAnalyticsJobTest {
     }
 
     @Test
+    void submitAndRecoveryBuildTheSameAuthorizedQueryAndPreserveDimensions() {
+        when(client.resolve(any())).thenReturn(new JSONObject(Map.of("tenantId", "1001",
+                "links", List.of(Map.of("linkId", 99L)))));
+        when(client.createJob(any())).thenReturn(result(Map.of("jobId", "job-1", "state", "QUEUED")));
+        when(client.recoverExistingJob(any())).thenReturn(result(Map.of("jobId", "job-1", "state", "RUNNING")));
+        List<String> dimensions = List.of("province", "device");
+        List<Map<String, Object>> filters = List.of(Map.of("dimension", "province", "operator", "IN", "values", List.of("浙江")));
+        facade.submitJob("frozen-request", "g1", "example.test/a", "2026-07-01", "2026-08-01",
+                "DIMENSION_BREAKDOWN", dimensions, filters);
+        assertThat(facade.recoverExistingJob("frozen-request", "g1", "example.test/a", "2026-07-01", "2026-08-01",
+                "DIMENSION_BREAKDOWN", dimensions, filters)).containsEntry("jobId", "job-1").containsEntry("status", "PENDING");
+        var submitted = ArgumentCaptor.forClass(Map.class);
+        var recovered = ArgumentCaptor.forClass(Map.class);
+        verify(client).createJob(submitted.capture());
+        verify(client).recoverExistingJob(recovered.capture());
+        assertThat(recovered.getValue()).isEqualTo(submitted.getValue());
+        AnalyticsQueryRequest query = (AnalyticsQueryRequest) recovered.getValue().get("query");
+        assertThat(query.dimensions()).isEqualTo(dimensions);
+        assertThat(query.filters()).isEqualTo(filters);
+        verify(client, times(2)).resolve(any());
+        verify(client, never()).job(anyString(), anyString(), any());
+    }
+
+    @Test
+    void submitAndRecoveryShareTheNinetySixCharacterIdentityBoundary() {
+        when(client.resolve(any())).thenReturn(new JSONObject(Map.of("tenantId", "1001", "links", List.of())));
+        when(client.createJob(any())).thenReturn(result(Map.of("jobId", "job-1", "state", "QUEUED")));
+        when(client.recoverExistingJob(any())).thenReturn(result(Map.of("jobId", "job-1", "state", "QUEUED")));
+        facade.submitJob("r".repeat(96), "g1", null, "2026-07-01", "2026-08-01", "METRICS");
+        facade.recoverExistingJob("r".repeat(96), "g1", null, "2026-07-01", "2026-08-01", "METRICS", null, null);
+        clearInvocations(client);
+
+        assertThatThrownBy(() -> facade.submitJob("r".repeat(97), "g1", null,
+                "2026-07-01", "2026-08-01", "METRICS")).hasMessage("Invalid statistics job request");
+        assertThatThrownBy(() -> facade.recoverExistingJob("r".repeat(97), "g1", null,
+                "2026-07-01", "2026-08-01", "METRICS", null, null)).hasMessage("Invalid statistics job request");
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void recoveryReauthorizesWithTheCurrentPrincipalAndStopsIfResourceAuthorityRejects() {
+        UserContext.setUser(new UserInfoDTO("1002", "bob", null, 9L));
+        when(client.resolve(any())).thenReturn(new JSONObject(Map.of("tenantId", "1002", "links", List.of(Map.of("linkId", 99L)))));
+        when(client.recoverExistingJob(any())).thenReturn(result(Map.of("jobId", "job-bob", "state", "RUNNING")));
+        facade.recoverExistingJob("frozen-request", "g1", null, "2026-07-01", "2026-08-01", "METRICS", null, null);
+        var recovered = ArgumentCaptor.forClass(Map.class);
+        verify(client).recoverExistingJob(recovered.capture());
+        AnalyticsQueryRequest query = (AnalyticsQueryRequest) recovered.getValue().get("query");
+        assertThat(query.tenantId()).isEqualTo("1002");
+        assertThat(query.subjectId()).isEqualTo("bob");
+        assertThat(query.authVersion()).isEqualTo(9L);
+        clearInvocations(client);
+        when(client.resolve(any())).thenThrow(new com.jupiter.shortlink.admin.common.convention.exception.RemoteException("Scope revoked"));
+        assertThatThrownBy(() -> facade.recoverExistingJob("frozen-request", "g1", null,
+                "2026-07-01", "2026-08-01", "METRICS", null, null)).hasMessage("Scope revoked");
+        verify(client, never()).recoverExistingJob(any());
+        verify(client, never()).createJob(any());
+    }
+
+    @Test
     void eachStatusUsesCurrentIdentityAndRevokedOwnershipFailsClosed() {
         when(client.job(eq("job-1"), eq("status"), any()))
                 .thenReturn(new JSONObject(Map.of("code", "FORBIDDEN")));

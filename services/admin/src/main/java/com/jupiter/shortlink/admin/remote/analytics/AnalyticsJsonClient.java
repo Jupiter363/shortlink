@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.jupiter.shortlink.admin.common.biz.user.UserContext;
 import com.jupiter.shortlink.admin.common.convention.exception.RemoteException;
+import com.jupiter.shortlink.admin.common.convention.errorcode.IErrorCode;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -53,6 +54,11 @@ public class AnalyticsJsonClient {
         return post(analyticsUrl + "/internal/analytics/v1/jobs", request);
     }
 
+    /** Dedicated route: no retry or fallback to createJob, including unsupported old services. */
+    public JSONObject recoverExistingJob(Object request) {
+        return post(analyticsUrl + "/internal/analytics/v1/jobs/recover-existing", request, true);
+    }
+
     public JSONObject job(String jobId, String operation, Object request) {
         if (jobId == null
                 || !jobId.matches("[A-Za-z0-9_-]{1,128}")
@@ -63,6 +69,10 @@ public class AnalyticsJsonClient {
     }
 
     private JSONObject post(String url, Object payload) {
+        return post(url, payload, false);
+    }
+
+    private JSONObject post(String url, Object payload, boolean recovery) {
         if (internalToken == null
                 || internalToken.length() < 24
                 || UserContext.getUserId() == null
@@ -87,6 +97,10 @@ public class AnalyticsJsonClient {
         try {
             HttpResponse<byte[]> response =
                     client.send(request, ignored -> new LimitedBody(2 * 1024 * 1024));
+            if (recovery && List.of(404, 405, 501).contains(response.statusCode())) {
+                throw recoveryFailure("RECOVERY_PROTOCOL_UNAVAILABLE");
+            }
+            if (recovery) return recoveryResponse(response);
             if (response.statusCode() != 200)
                 throw new RemoteException(
                         "Analytics authority returned HTTP " + response.statusCode());
@@ -98,12 +112,41 @@ public class AnalyticsJsonClient {
             return result;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            if (recovery) throw recoveryFailure("UNAVAILABLE");
             throw new RemoteException("Analytics request interrupted");
         } catch (java.io.IOException | IllegalArgumentException unavailable) {
+            if (recovery) throw recoveryFailure("UNAVAILABLE");
             throw new RemoteException("Analytics authority is unavailable");
         } finally {
             permits.release();
         }
+    }
+
+    private static JSONObject recoveryResponse(HttpResponse<byte[]> response) {
+        JSONObject result;
+        try {
+            result = JSON.parseObject(new String(response.body(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (RuntimeException invalid) {
+            throw recoveryFailure("RECOVERY_PROTOCOL_UNAVAILABLE");
+        }
+        if (result == null || result.getString("code") == null) {
+            throw recoveryFailure("RECOVERY_PROTOCOL_UNAVAILABLE");
+        }
+        String code = result.getString("code");
+        if (!"0".equals(code)) throw recoveryFailure(code);
+        if (response.statusCode() != 200) throw recoveryFailure("RECOVERY_PROTOCOL_UNAVAILABLE");
+        return result;
+    }
+
+    static RemoteException recoveryFailure(String upstreamCode) {
+        // Preserve only a bounded machine identifier. SQL, response bodies and upstream messages
+        // never enter the user-visible error message; the existing exception handler keeps code.
+        String code = upstreamCode != null && upstreamCode.matches("[A-Z][A-Z0-9_]{0,63}")
+                ? upstreamCode : "RECOVERY_PROTOCOL_UNAVAILABLE";
+        return new RemoteException("Statistics job recovery unavailable", new IErrorCode() {
+            @Override public String code() { return code; }
+            @Override public String message() { return "Statistics job recovery unavailable"; }
+        });
     }
 
     private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {

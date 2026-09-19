@@ -16,6 +16,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
@@ -76,8 +77,25 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public ToolResult post(String path, ToolContext context, Map<String, Object> payload) {
+        return post(path, context, payload, false);
+    }
+
+    @Override
+    public ToolResult recoverExistingStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
+        // This method accepts a ledger-owned request, not model arguments or a replacement plan.
+        if (frozenRequest == null
+                || !(frozenRequest.get("requestId") instanceof String id)
+                || !id.matches("[A-Za-z0-9_-]{1,96}")
+                || !Set.of("requestId", "gid", "fullShortUrl", "startDate", "endDate",
+                        "queryKind", "dimensions", "filters").containsAll(frozenRequest.keySet()))
+            return failure("INVALID_QUERY", "Invalid frozen statistics job request");
+        return post("/internal/short-link-admin/v1/agent-tools/statistics/jobs/recover-existing",
+                context, frozenRequest, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ToolResult post(String path, ToolContext context, Map<String, Object> payload, boolean recovery) {
         try {
             Map<String, Object> body =
                     transport != null
@@ -94,13 +112,42 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
                                             Map.class)
                                     .getBody();
             if (body == null)
-                return ToolResult.failure("Statistics job API returned an empty response");
-            return isSuccess(body)
-                    ? ToolResult.success(body.get("data"))
-                    : ToolResult.failure(message(body));
+                return failure(recovery ? "RECOVERY_PROTOCOL_UNAVAILABLE" : "REMOTE_FAILURE",
+                        "Statistics job API returned an empty response");
+            if (recovery ? !"0".equals(String.valueOf(body.get("code"))) : !isSuccess(body)) {
+                String code = body.get("code") instanceof String value
+                        && value.matches("[A-Z][A-Z0-9_]{0,63}") ? value
+                        : recovery ? "RECOVERY_PROTOCOL_UNAVAILABLE" : "REMOTE_FAILURE";
+                return failure(code, recovery ? "Statistics job recovery failed: " + code : message(body));
+            }
+            if (recovery && !validRecoveredJob(body.get("data")))
+                return failure("RECOVERY_PROTOCOL_UNAVAILABLE", "Statistics job recovery receipt is invalid");
+            return ToolResult.success(body.get("data"));
+        } catch (com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport.HttpStatusFailure failure) {
+            return httpFailure(failure.statusCode(), recovery);
+        } catch (org.springframework.web.client.HttpStatusCodeException failure) {
+            return httpFailure(failure.getStatusCode().value(), recovery);
         } catch (RuntimeException failure) {
-            return ToolResult.failure("Statistics job API is unavailable or unauthorized");
+            return failure("REMOTE_UNAVAILABLE", "Statistics job API is unavailable or unauthorized");
         }
+    }
+
+    private static boolean validRecoveredJob(Object data) {
+        return data instanceof Map<?, ?> job
+                && job.get("jobId") instanceof String id && id.matches("[A-Za-z0-9_-]{1,128}")
+                && job.get("state") instanceof String state
+                && Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state);
+    }
+
+    private static ToolResult httpFailure(int status, boolean recovery) {
+        String code = recovery && Set.of(404, 405, 501).contains(status)
+                ? "RECOVERY_PROTOCOL_UNAVAILABLE"
+                : status == 401 || status == 403 ? "FORBIDDEN" : "REMOTE_UNAVAILABLE";
+        return failure(code, "Statistics job API failed: " + code);
+    }
+
+    private static ToolResult failure(String code, String message) {
+        return new ToolResult(false, Map.of("code", code), message);
     }
 
     private URI uri(String path, Map<String, Object> queryParams) {
