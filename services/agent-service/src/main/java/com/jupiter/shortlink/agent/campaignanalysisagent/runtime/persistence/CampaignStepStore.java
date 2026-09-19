@@ -77,4 +77,8 @@ public interface CampaignStepStore {
     /** Re-arm only unknown deterministic LOCAL work with fresh server registry approvals and readable frozen inputs. */
     StepRecord refreshLocalReplay(RunToken token, String stepId, Map<String, Approval> approvals,
                                   ArtifactAuthorizer authorizer);
+
+    /** Resume a completed authority-page quantum after verifying its real prefix, never an unknown read. */
+    StepRecord refreshScopeCollection(RunToken token, String stepId, CampaignScopeStore.Definition expected,
+                                      ArtifactAuthorizer authorizer);
 }
