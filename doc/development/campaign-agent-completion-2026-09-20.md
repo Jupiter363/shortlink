@@ -51,6 +51,7 @@
 | [E20：真实下降 Skill 原生链路][E20] | 3项定向测试首次通过；Scope501前提下，真实单Skill NativeGraph、四任务提交/接收/释放各一次、完整产物与LOCAL故障同child恢复。 | 固定Skill已注册并后端验收；范围枚举仍是前提，生产装配/维度变化/客户端另验。 |
 | [E21：动态入选集合的派生范围][E21] | 2项定向测试首次通过；502候选中501入选，稳定ID500+1分片、来源pair/原日期、独立scopeRef、原TTL及LOCAL复用，三种分页游标六向互拒。 | 派生范围组件已验；真实多维Skill、cohort比较与原生动态绑定继续实现。 |
 | [E22：联合维度证据与分页比较][E22] | 4项相关测试最终通过；两期各501桶→502桶完整并集，真实LOCAL四页及小manifest，独立UV、零行page0、口径不一致及无效证据拒绝。 | 真实证据和比较组件；Skill动态提交/绑定/恢复仍待接，非真实部署或性能验收。 |
+| [E23：筛选后联合维度 Skill][E23] | 两项定向测试通过；真实STEP_OUTPUT绑定、501入选对象两步NativeGraph、八次恢复完成八任务，提交/接收/释放无重复；空集跳过维度查询，撤权拒绝发布。 | 固定Skill组件已验；范围枚举仍为前提，生产入口/Goal终评/报告/客户端及真实环境另验。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -113,9 +114,9 @@
 | P2-06：release-result 只新协议终态同主体 job；先耐久 READY／所有 consumer 可读，再同 binding CAS releaseIntent；网络事务外，重复／丢 ACK 对账。 | R §4.4；C §5 | E08耐久接收、E12远端协议、E13全页证明与单producer协调。 | 部分已验 | 生产当前 grant 装配、多消费者 adopt 与 GC 须锁同 binding；单producer组件不替代P4消费竞争。 |
 | P2-07：第九个异步查询可在结果释放后推进，只做剩余 child；旧协议 TTL 不变；身份容量仍有高配置与清理，未知释放时间不编造 ETA。 | R §4.4；V33 | E12服务端第9任务、E13本地证明与释放、E14真实Agent执行链第9项续接，原TTL不变。 | 部分已验 | 生产/真实MySQL接线及P4多消费者竞争；不把可重试时间当容量恢复ETA。 |
 | P2-08：`decline_selection` 真实执行两期全量对齐，delta<0 保留全部且按口径排序；baseline=0 rate=null，缺失／未创建／无遥测不当零。 | C §6、§9.3 | E17–E19计算/分页，E20注册SKILL/decline_selection/1并通过真实NativeGraph动态两期分片、WAITING/恢复/释放/双输出链。 | 固定Skill已实现；后端组件已验 | 生产请求装配、范围枚举纳入Plan与环境验收仍需完成；不以Step成功代替Goal终评。 |
-| P2-09：`dimension_change` 继承确切动态入选集合，两期间真实联合维度；UNKNOWN/NOT_APPLICABLE 分开，PV 全窗分母，UV/UIP 独立去重。 | C §6；R §4.2 | E21真实pair/源期间与501派生范围；E22两期501联合桶验证/完整并集/独立summary及口径比较。 | 派生集合与维度证据组件已验；Skill待接 | STEP_OUTPUT动态绑定、Skill真实联合查询/恢复及空集合同接线；当前固定province/device，其他组合与生产/性能另验。 |
-| P2-10：四种上游结果：真 NO_DECLINES、部分有选中、证据不足空集、无有效 Artifact 的 WAITING/NEEDS_INPUT/FAILED，各自传播。 | C §6“上游部分结果与空集合” | E04 只有一般依赖／schema 规则。 | 待实现／验收 | 真空集下钻零请求＋可追溯 NOT_APPLICABLE；不足空集不得称无下降；可用子集按策略 PARTIAL；缺必需输出阻断。SKIPPED 需可选端口及传播合同。 |
-| P2-11：Skill 方法包用原生注册／Hook，确定性业务用普通代码或原生 StateGraph；固定内容版本、传递能力闭包，每内部调用恢复／授权同入口。 | C §6、§9.4；R12 | E01 RunPinnedSkills 只证明方法包机制。 | 部分已验 | 注册上述成熟组合及 evidence_synthesis 合同；没有匹配 Skill 仍允许合法 Tool 计划，不建新 loader/Runner/workflow DSL。 |
+| P2-09：`dimension_change` 继承确切动态入选集合，两期间真实联合维度；UNKNOWN/NOT_APPLICABLE 分开，PV 全窗分母，UV/UIP 独立去重。 | C §6；R §4.2 | E21派生范围，E22完整桶证据，E23真实STEP_OUTPUT绑定、动态两期查询及恢复/释放链。 | 固定Skill已实现；后端组件已验 | 当前固定province/device；其他组合、生产授权装配、真实环境及性能另验，UV/UIP不跨cohort求和。 |
+| P2-10：四种上游结果：真 NO_DECLINES、部分有选中、证据不足空集、无有效 Artifact 的 WAITING/NEEDS_INPUT/FAILED，各自传播。 | C §6“上游部分结果与空集合” | E04依赖规则；E23真实空集零维度请求、NOT_APPLICABLE/INSUFFICIENT_EVIDENCE区分、上游未完成不伪造Artifact。 | 部分已验 | 部分可用子集的PARTIAL终评、NEEDS_INPUT/FAILED交付及SKIPPED可选端口传播仍需P4/P5接线；Step成功不等于Goal已回答。 |
+| P2-11：Skill 方法包用原生注册／Hook，确定性业务用普通代码或原生 StateGraph；固定内容版本、传递能力闭包，每内部调用恢复／授权同入口。 | C §6、§9.4；R12 | E01方法包机制，E20/E23真实decline_selection和dimension_change固定pin/能力闭包/NativeGraph执行。 | 部分已验 | evidence_synthesis合同及生产挂载待完成；没有匹配Skill仍允许合法Tool计划，不建新loader/Runner/workflow DSL。 |
 
 ### 2.4 P3：耐久局部 ReAct 集成
 
@@ -318,6 +319,7 @@
 [E20]: ../integration/campaign-plan-p2-decline-skill-2026-09-20.md
 [E21]: ../integration/campaign-plan-p2-selected-scope-2026-09-20.md
 [E22]: ../integration/campaign-plan-p2-dimension-evidence-2026-09-20.md
+[E23]: ../integration/campaign-plan-p2-dimension-skill-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

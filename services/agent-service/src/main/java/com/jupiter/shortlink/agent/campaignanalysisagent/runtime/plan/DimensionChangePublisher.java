@@ -52,11 +52,78 @@ public final class DimensionChangePublisher {
         }
     }
     public record Prepared(ChildSpec child, Approval approval, CampaignStepExecution.LocalCall calculation) {}
+    public record Position(int shardIndex, int side, int pageIndex, String previousArtifactId, boolean complete) {}
 
     public DimensionChangePublisher(CampaignRunStore runs, CampaignSelectedScope scopes,
                                     CampaignDimensionEvidence evidence, ArtifactAuthorizer authorizer) {
         this.runs = Objects.requireNonNull(runs); this.scopes = Objects.requireNonNull(scopes);
         this.evidence = Objects.requireNonNull(evidence); this.authorizer = Objects.requireNonNull(authorizer);
+    }
+
+    /** Rebuilds the first unfinished position from authorized, durable LOCAL outputs without recalculation. */
+    public Position progress(RunToken token, String stepId, Definition definition) {
+        Artifact scope = scopes.inspect(token.definition().caller(), definition.selectedScopeArtifactId());
+        require(definition.periodsRef().equals(scope.metadata().ref().periodsRef()), "DIMENSION_PERIODS_MISMATCH");
+        JsonNode scopeBody = tree(scope.payloadJson());
+        int shards = positionInteger(scopeBody, "shardCount");
+        require(shards >= 0, "DIMENSION_PAGE_CHAIN_INVALID");
+        int shard = 0, side = 0, pageIndex = 0, ordinal = 0;
+        Artifact previous = null;
+        JsonNode previousBody = null;
+        while (shard < shards) {
+            String identity = identity(token, stepId, definition.collectionId(), shard + ":" + side + ":" + pageIndex);
+            String childId = "dimension-child-" + identity;
+            var child = runs.child(token, childId);
+            if (child.isEmpty() || child.get().state() != ChildState.READY)
+                return new Position(shard, side, pageIndex,
+                        previous == null ? null : previous.metadata().ref().artifactId(), false);
+            Artifact current = readPage(token, stepId, "dimension-" + identity, definition);
+            require(childId.equals(current.metadata().childId()), "DIMENSION_PAGE_PRODUCER_INVALID");
+            require(scope.metadata().ref().scopeRef().equals(current.metadata().ref().scopeRef())
+                    && definition.periodsRef().equals(current.metadata().ref().periodsRef()), "DIMENSION_SOURCE_CHANGED");
+            JsonNode body = tree(current.payloadJson());
+            require(positionInteger(body, "shardIndex") == shard && positionInteger(body, "side") == side
+                    && positionInteger(body, "pageIndex") == pageIndex && positionInteger(body, "ordinal") == ordinal
+                    && body.path("rows").isArray() && body.path("rows").size() <= 500, "DIMENSION_PAGE_CHAIN_INVALID");
+            int baselinePages = positionInteger(body, "baselinePageCount");
+            int targetPages = positionInteger(body, "targetPageCount");
+            require(baselinePages > 0 && baselinePages <= 10 && targetPages > 0 && targetPages <= 10,
+                    "DIMENSION_PAGE_CHAIN_INVALID");
+            for (String source : List.of("baseline", "target")) {
+                require(body.path(source + "ArtifactId").isTextual() && !body.path(source + "ArtifactId").asText().isBlank()
+                        && body.path(source + "PayloadHash").isTextual()
+                        && body.path(source + "PayloadHash").asText().matches("[0-9a-f]{64}"), "DIMENSION_SOURCE_CHANGED");
+            }
+            require(previous == null
+                    ? body.path("previousArtifactId").isNull() && body.path("previousPayloadHash").isNull()
+                    : previous.metadata().ref().artifactId().equals(body.path("previousArtifactId").textValue())
+                        && previous.metadata().ref().payloadHash().equals(body.path("previousPayloadHash").textValue())
+                        && !current.metadata().ref().expiresAt().isAfter(previous.metadata().ref().expiresAt()),
+                    "DIMENSION_PAGE_CHAIN_INVALID");
+            if (previousBody != null && previousBody.path("shardIndex").intValue() == shard) {
+                for (String field : List.of("baselineArtifactId", "baselinePayloadHash", "targetArtifactId", "targetPayloadHash",
+                        "baselinePageCount", "targetPageCount"))
+                    require(body.path(field).equals(previousBody.path(field)), "DIMENSION_SOURCE_CHANGED");
+            }
+            previous = current; previousBody = body; ordinal = Math.addExact(ordinal, 1);
+            pageIndex++;
+            if (pageIndex == (side == 0 ? baselinePages : targetPages)) {
+                pageIndex = 0;
+                if (side == 0) side = 1;
+                else { side = 0; shard++; }
+            }
+        }
+        return new Position(shards, 0, 0, previous == null ? null : previous.metadata().ref().artifactId(), true);
+    }
+
+    public String finalArtifactId(RunToken token, String stepId, Definition definition) {
+        return "dimension-" + identity(token, stepId, definition.collectionId(), "final");
+    }
+
+    private static int positionInteger(JsonNode body, String field) {
+        JsonNode value = body.path(field);
+        require(value.isIntegralNumber() && value.canConvertToInt(), "DIMENSION_PAGE_CHAIN_INVALID");
+        return value.intValue();
     }
 
     public ArtifactRef publishPage(CampaignStepExecution context, RunToken token, Definition definition,
