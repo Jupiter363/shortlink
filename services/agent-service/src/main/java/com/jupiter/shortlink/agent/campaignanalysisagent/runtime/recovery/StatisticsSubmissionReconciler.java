@@ -13,6 +13,7 @@ import com.jupiter.shortlink.agent.harness.tool.ToolResult;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /** One backend reconciliation of an uncertain POST. No model tool, retry loop or fresh submission. */
 public final class StatisticsSubmissionReconciler {
@@ -31,7 +32,14 @@ public final class StatisticsSubmissionReconciler {
     }
 
     public Result recover(RunToken token, String childId, AgentPrincipal current) {
+        return recover(token, childId, current, () -> true);
+    }
+
+    /** The coordinator supplies a live scope/authorization gate, checked at the real I/O boundary. */
+    public Result recover(RunToken token, String childId, AgentPrincipal current, BooleanSupplier authorized) {
         requireCurrentPrincipal(token, current);
+        Objects.requireNonNull(authorized);
+        if (!authorized.getAsBoolean()) return result(childId, Outcome.STOPPED, null, "RUN_ACCESS_DENIED");
         ChildRecord child = store.child(token, childId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown campaign child reference"));
         if (child.state() == ChildState.READY) return result(childId, Outcome.ALREADY_READY, child.jobId(), null);
@@ -47,6 +55,7 @@ public final class StatisticsSubmissionReconciler {
         DispatchPermit permit = store.beginReconciliation(token, childId);
         try {
             if (!store.mayDispatch(permit)) return result(childId, Outcome.STOPPED, null, "RUN_FENCED");
+            if (!authorized.getAsBoolean()) return result(childId, Outcome.STOPPED, null, "RUN_ACCESS_DENIED");
             var context = new ToolContext(token.definition().sessionId(), current.username(), request, current);
             ToolResult response;
             try {
@@ -67,9 +76,9 @@ public final class StatisticsSubmissionReconciler {
                 return result(childId, Outcome.UNRESOLVED, null, "RECOVERY_PROTOCOL_UNAVAILABLE");
             }
             // Even remote SUCCEEDED needs separate result ingestion; WAITING is a known identity.
-            if (!store.mayDispatch(permit)) {
+            if (!store.mayDispatch(permit) || !authorized.getAsBoolean()) {
                 store.recordLateJob(permit, jobId);
-                return result(childId, Outcome.STOPPED, jobId, "RUN_FENCED");
+                return result(childId, Outcome.STOPPED, jobId, "RECOVERY_AUTHORITY_REVOKED");
             }
             try {
                 store.recordWaiting(permit, jobId);
@@ -81,7 +90,11 @@ public final class StatisticsSubmissionReconciler {
             return result(childId, Outcome.RECOVERED, jobId, null);
         } finally {
             // A completed/failed HTTP callback has really exited here; native Future timing is irrelevant.
-            store.callbackExited(permit);
+            try {
+                if (store.mayDispatch(permit)) store.markUnresolved(permit);
+            } finally {
+                store.callbackExited(permit);
+            }
         }
     }
 
