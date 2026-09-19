@@ -1,6 +1,6 @@
 # 投放分析 Agent：外层 Plan 与局部 ReAct 实施计划
 
-状态：**P0 实施中，P1–P5 待开始**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行的检查与边界见 [P0 后端验证](../../integration/campaign-plan-p0-2026-09-19.md)。本文件的阶段验收清单不等于测试已经全部通过。
+状态：**P0 组件验证完成，P1–P5 待开始**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行检查与边界见 [首批 P0 验证](../../integration/campaign-plan-p0-2026-09-19.md)及[补充验收](../../integration/campaign-plan-p0-recovery-2026-09-19.md)。后续阶段清单不等于已实现；新入口仍关闭。
 
 关联：[架构方案](../campaign-agent-architecture-2026-09-19.md)、[Graph 适配](graph-adaptation.md)、[合同附件](contracts.md)、[固定计划示例](example-plan.json)、[混合计划示例](example-hybrid-plan.json)、[框架复用清单](framework-reuse.md)、[风险审查](risk-review.md)。
 

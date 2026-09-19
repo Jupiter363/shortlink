@@ -23,6 +23,7 @@ import com.alibaba.cloud.ai.graph.agent.tool.CancellableAsyncToolCallback;
 import com.alibaba.cloud.ai.graph.agent.tool.CancellationToken;
 import com.alibaba.cloud.ai.graph.agent.tool.ToolCancelledException;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
+import com.alibaba.cloud.ai.graph.state.ReplaceAllWith;
 import com.jupiter.shortlink.agent.infrastructure.persistence.AgentStateSerializerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -36,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +62,7 @@ public final class NativeExplorationAdapter {
     public static final String DISPATCH_SCOPE = NativeExplorationAdapter.class.getName() + ".dispatch";
     public static final String INPUT_KEY = "explorationInput";
     public static final String OUTPUT_KEY = "explorationResult";
+    static final String READY_OBSERVATION_KEY = "explorationReadyObservationId";
 
     public record ExecutionKey(String tenantId, String subject, long authVersion, String sessionId, String runId,
                                String planId, int revision, String stepId, String policyVersion,
@@ -143,6 +147,8 @@ public final class NativeExplorationAdapter {
     private final Limits limits;
     private final ReactAgent agent;
     private final ThreadLocal<String> acceptedToolCall = new ThreadLocal<>();
+    private final Set<String> registeredNames;
+    private final AtomicReference<CanonicalExplorationResume.Prepared> resumed = new AtomicReference<>();
 
     public NativeExplorationAdapter(ExecutionKey identity, ExplorationLedger ledger, ChatModel model,
             List<RegisteredTool> tools, BaseCheckpointSaver saver, Executor executor, Limits limits) {
@@ -157,6 +163,7 @@ public final class NativeExplorationAdapter {
                 throw new IllegalArgumentException("Duplicate registered tool");
             guarded.add(new GuardedCallback(tool, executor));
         }
+        registeredNames = Set.copyOf(names);
         agent = ReactAgent.builder().name("campaign_exploration_p0").model(Objects.requireNonNull(model))
                 .tools(guarded).parallelToolExecution(false).wrapSyncToolsAsAsync(false)
                 .hooks(new AdmissionHook(), new ProtocolHook()).interceptors(new ResponseBoundary(), new DispatchInterceptor())
@@ -171,8 +178,41 @@ public final class NativeExplorationAdapter {
         if (!identity.equals(ledger.identity())) throw new IllegalStateException("Ledger identity changed");
         // A waiting/terminal step must not append another user message or START checkpoint.
         // The before-model hook repeats this check for revocation racing with native invocation.
-        if (ledger.mayCallModel())
+        if (ledger.readyToResume().isPresent()) return resume();
+        if (ledger.mayCallModel()) {
+            ledger.freezeInput(prompt);
             agent.invoke(prompt, RunnableConfig.builder().threadId(identity.threadId()).build());
+        }
+        return projection();
+    }
+
+    /** Rebuild from backend facts; caller supplies no messages, tool parameters, or completion IDs. */
+    public synchronized Map<String, Object> resume() throws Exception {
+        var facts = ledger.readyToResume();
+        if (facts.isEmpty()) return projection();
+        CanonicalExplorationResume.Prepared prepared;
+        try {
+            prepared = CanonicalExplorationResume.prepare(identity, facts.get(), registeredNames, limits);
+        } catch (IllegalArgumentException invalid) {
+            ledger.fail("RESUME_CONTEXT_INVALID");
+            return projection();
+        }
+        if (!ledger.approveResume(prepared.observationId())) return projection();
+        resumed.set(prepared);
+        try {
+            var result = agent.invoke(Map.of(), RunnableConfig.builder().threadId(identity.threadId()).build());
+            if (result.isPresent() && prepared.observationId().equals(
+                    result.get().data().get(READY_OBSERVATION_KEY))
+                    && ledger.view().status() != ExplorationLedger.Status.FAILED)
+                ledger.acknowledgeResume(prepared.observationId());
+            return projection();
+        } finally {
+            resumed.set(null);
+            ledger.releaseResume(prepared.observationId());
+        }
+    }
+
+    private Map<String, Object> projection() {
         var state = ledger.view();
         var result = new LinkedHashMap<String, Object>();
         result.put("status", state.status().name());
@@ -205,8 +245,22 @@ public final class NativeExplorationAdapter {
         public CompletableFuture<Map<String, Object>> beforeModel(OverAllState state, RunnableConfig config) {
             // AgentCommand(null, ...) does not clear jump_to in native 1.1.2.3. Consume the
             // previous repair jump explicitly before the admission hook's conditional edge.
-            return CompletableFuture.completedFuture(Map.of("jump_to",
-                    ledger.mayCallModel() ? OverAllState.MARK_FOR_REMOVAL : JumpTo.end));
+            var updates = new LinkedHashMap<String, Object>();
+            boolean allowed = ledger.mayCallModel();
+            var ready = resumed.get();
+            if (allowed && ready != null) {
+                boolean applied = ready.observationId().equals(state.data().get(READY_OBSERVATION_KEY));
+                if (!ready.matchesPendingPair(state.data().get("messages"))
+                        || (applied && !ready.matchesAppliedObservation(state.data().get("messages")))) {
+                    ledger.fail("RESUME_CONTEXT_INVALID");
+                    allowed = false;
+                } else if (!applied) {
+                    updates.put("messages", ReplaceAllWith.of(ready.messages()));
+                    updates.put(READY_OBSERVATION_KEY, ready.observationId());
+                }
+            }
+            updates.put("jump_to", allowed ? OverAllState.MARK_FOR_REMOVAL : JumpTo.end);
+            return CompletableFuture.completedFuture(updates);
         }
     }
 
@@ -243,6 +297,13 @@ public final class NativeExplorationAdapter {
                 boolean retry = ledger.rejectBatch(limits.repairAttempts());
                 return new AgentCommand(retry ? JumpTo.model : JumpTo.end, repaired, UpdatePolicy.REPLACE);
             }
+            var call = calls.get(0);
+            var ready = resumed.get();
+            if (ready != null && ready.repeatsOriginalCall(call)) {
+                ledger.fail("RESUME_TOOL_RESUBMISSION_REJECTED");
+                return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
+            }
+            ledger.registerCall(new ExplorationLedger.CallInput(call.id(), call.name(), call.arguments(), assistant.getText()));
             return new AgentCommand(messages, UpdatePolicy.REPLACE);
         }
     }

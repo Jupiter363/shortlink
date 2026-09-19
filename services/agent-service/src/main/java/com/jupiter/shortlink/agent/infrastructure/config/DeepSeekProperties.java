@@ -15,6 +15,11 @@ public class DeepSeekProperties {
 
     private int maxOutputTokens = 2000;
 
+    /** Generous transport ceiling, independent of the analysis or answer token budget. */
+    private int maxResponseBytes = 16 * 1024 * 1024;
+
+    private int maxResponseNestingDepth = 128;
+
     /**
      * Graph nodes already compute the evidence before asking for an explanation.
      * Keep the bounded output budget available for the answer instead of relying
@@ -60,6 +65,24 @@ public class DeepSeekProperties {
 
     public void setMaxOutputTokens(int maxOutputTokens) {
         this.maxOutputTokens = maxOutputTokens;
+    }
+
+    public int getMaxResponseBytes() {
+        return maxResponseBytes;
+    }
+
+    public void setMaxResponseBytes(int maxResponseBytes) {
+        if (maxResponseBytes < 1) throw new IllegalArgumentException("Model response byte limit must be positive");
+        this.maxResponseBytes = maxResponseBytes;
+    }
+
+    public int getMaxResponseNestingDepth() {
+        return maxResponseNestingDepth;
+    }
+
+    public void setMaxResponseNestingDepth(int maxResponseNestingDepth) {
+        if (maxResponseNestingDepth < 1) throw new IllegalArgumentException("Model JSON nesting limit must be positive");
+        this.maxResponseNestingDepth = maxResponseNestingDepth;
     }
 
     public boolean isThinkingEnabled() {
