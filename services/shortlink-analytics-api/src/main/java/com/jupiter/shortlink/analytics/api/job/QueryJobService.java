@@ -77,13 +77,7 @@ public class QueryJobService {
     }
 
     public Status submit(Submit submit) {
-        if (submit == null
-                || submit.requestId() == null
-                || submit.requestId().isBlank()
-                || submit.requestId().length() > 96)
-            throw new QueryFailure("INVALID_QUERY", "requestId must be 1..96 characters");
-        QueryRequest q = submit.query();
-        validate(q);
+        QueryRequest q = validatedSubmission(submit);
         var scope = auth.authorize(q);
         String epoch = auth.activeEpoch();
         String digest = digestRequest(q);
@@ -175,6 +169,61 @@ public class QueryJobService {
                             now + RETENTION);
                     return new Status(id, "QUEUED", 0, 0, 0, null, now + RETENTION);
                 });
+    }
+
+    /**
+     * Reconcile an uncertain submission without ever admitting another job. The gate is shared
+     * with submit/cleanup, and the current locking read happens after acquiring it. In particular,
+     * a mapping removed while this request waits for the gate cannot fall through to creation.
+     */
+    public Status recoverExisting(Submit submit) {
+        QueryRequest q = validatedSubmission(submit);
+        if (q.tenantId() == null || q.subjectId() == null || q.authVersion() < 0)
+            throw new QueryFailure("FORBIDDEN", "Current identity required");
+        String digest = digestRequest(q);
+        return tx.execute(
+                s -> {
+                    gate();
+                    var rows = db.queryForList(
+                            "SELECT " + STATE_COLUMNS + " FROM analytics_query_job"
+                                    + " WHERE tenant_id=? AND subject_id=? AND request_id=? FOR UPDATE",
+                            q.tenantId(), q.subjectId(), submit.requestId());
+                    if (rows.size() != 1)
+                        throw new QueryFailure("REPLAY_UNAVAILABLE", "Original query identity is unavailable");
+                    var row = rows.get(0);
+                    assertRecoveryRetention(row, now());
+                    if (!digest.equals(row.get("request_hash")))
+                        throw new QueryFailure("CONFLICT", "requestId is bound to another query");
+
+                    // The submitted hash keeps its original semantics (including an originally
+                    // omitted linkIds field); current authorization uses the stored frozen members.
+                    QueryRequest frozen = with(read(row.get("request_json").toString(), QueryRequest.class),
+                            q.authVersion(), null);
+                    var scope = auth.authorize(frozen);
+                    String epoch = auth.activeEpoch();
+                    long checkedAt = now();
+                    assertRecoveryRetention(row, checkedAt);
+                    assertScope(row, scope, epoch, checkedAt);
+                    if (!Objects.equals(frozen.linkIds(), scope.linkIds()))
+                        throw new QueryFailure("QUERY_SCOPE_CHANGED", "Authorized resource scope changed");
+                    assertEpoch(epoch);
+                    assertRecoveryRetention(row, now());
+                    // Status only: no retained-quota admission, manifest capture, lease or INSERT.
+                    return status(row);
+                });
+    }
+
+    private QueryRequest validatedSubmission(Submit submit) {
+        if (submit == null || submit.requestId() == null || submit.requestId().isBlank()
+                || submit.requestId().length() > 96)
+            throw new QueryFailure("INVALID_QUERY", "requestId must be 1..96 characters");
+        validate(submit.query());
+        return submit.query();
+    }
+
+    private void assertRecoveryRetention(Map<String, Object> row, long now) {
+        if (number(row.get("expires_at")).longValue() <= now)
+            throw new QueryFailure("REPLAY_UNAVAILABLE", "Original query identity is unavailable");
     }
 
     public Status status(String id, Identity identity) {

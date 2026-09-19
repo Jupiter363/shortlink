@@ -51,8 +51,7 @@ public final class BoundedHttpTransport {
             HttpResponse<byte[]> response =
                     client.send(request.build(), ignored -> new LimitedBody(2 * 1024 * 1024));
             if (response.statusCode() != 200)
-                throw new IllegalStateException(
-                        "Business authority rejected request with HTTP " + response.statusCode());
+                throw new HttpStatusFailure(response.statusCode());
             Map<String, Object> decoded = JSON.readValue(response.body(), new TypeReference<>() {});
             if (decoded == null)
                 throw new IllegalStateException("Business authority returned an empty response");
@@ -65,6 +64,18 @@ public final class BoundedHttpTransport {
         } finally {
             calls.release();
         }
+    }
+
+    /** Status remains machine readable without retaining an untrusted remote error body. */
+    public static final class HttpStatusFailure extends IllegalStateException {
+        private final int statusCode;
+
+        public HttpStatusFailure(int statusCode) {
+            super("Business authority rejected request with HTTP " + statusCode);
+            this.statusCode = statusCode;
+        }
+
+        public int statusCode() { return statusCode; }
     }
 
     private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {

@@ -44,7 +44,7 @@ public class StatisticsQueryJobTools {
                     String fullShortUrl,
             org.springframework.ai.chat.model.ToolContext trusted) {
         if (requestId == null
-                || !requestId.matches("[A-Za-z0-9_-]{1,128}")
+                || !requestId.matches("[A-Za-z0-9_-]{1,96}")
                 || gid == null
                 || gid.isBlank()
                 || startDate == null

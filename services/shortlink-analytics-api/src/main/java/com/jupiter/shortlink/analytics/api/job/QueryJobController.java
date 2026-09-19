@@ -33,6 +33,14 @@ public class QueryJobController {
         return ok(jobs.submit(request));
     }
 
+    @PostMapping("/recover-existing")
+    public Map<String, Object> recoverExisting(
+            @RequestHeader(value = "X-Internal-Token", required = false) String token,
+            @RequestBody QueryJobService.Submit request) {
+        token(token);
+        return ok(jobs.recoverExisting(request));
+    }
+
     @PostMapping("/{id}/status")
     public Map<String, Object> status(
             @RequestHeader(value = "X-Internal-Token", required = false) String token,
