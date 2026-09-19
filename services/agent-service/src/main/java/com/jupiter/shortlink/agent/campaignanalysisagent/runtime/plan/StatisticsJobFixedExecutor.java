@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /** Opt-in fixed adapter. Submission records a job identity; only durable reception supplies pages. */
 public final class StatisticsJobFixedExecutor {
@@ -107,28 +108,8 @@ public final class StatisticsJobFixedExecutor {
         validateBoundInputs(bound, context.inputs());
         ChildRecord child;
         try {
-            child = context.child(bound.child(), boundary -> {
-                requireAuthorized(bound);
-                boundary.beforeIo();
-                ToolResult response;
-                try {
-                    ToolContext call = new ToolContext(definition.sessionId(), current.username(), bound.request(), current);
-                    response = bound.request().containsKey("scope")
-                            ? gateway.submitFrozenStatisticsJob(call, bound.request())
-                            : gateway.submitStatisticsJob(call, bound.request());
-                } catch (RuntimeException uncertain) {
-                    throw new SubmissionUnresolved();
-                }
-                CapacityKind notAdmitted = capacityRejection(response);
-                if (notAdmitted != null) return CampaignStepExecution.ChildResult.notAdmitted(notAdmitted);
-                if (response == null || !response.success() || !(response.data() instanceof Map<?, ?> data)
-                        || !(data.get("jobId") instanceof String jobId) || !jobReference(jobId)
-                        || !(data.get("state") instanceof String state) || !JOB_STATES.contains(state))
-                    throw new SubmissionUnresolved();
-                // Even a SUCCEEDED acknowledgement is only a job identity, never local evidence.
-                // The child boundary preserves this identity if authority was revoked during I/O.
-                return CampaignStepExecution.ChildResult.waiting(jobId);
-            });
+            child = context.child(bound.child(), boundary -> submit(boundary, definition, current, gateway,
+                    bound.request(), () -> authorized(bound)));
         } catch (SubmissionUnresolved unknown) {
             return PersistentPlanDriver.Result.blocked("STEP_RESULT_UNKNOWN");
         } catch (SecurityException denied) {
@@ -150,6 +131,43 @@ public final class StatisticsJobFixedExecutor {
                     ? "REMOTE_CAPACITY" : "STEP_RESULT_UNKNOWN");
             case DISPATCHING, UNRESOLVED -> PersistentPlanDriver.Result.blocked("STEP_RESULT_UNKNOWN");
         };
+    }
+
+    /** Shared real submission receipt boundary; durable publication and late ACK handling remain in child(). */
+    public static CampaignStepExecution.ChildResult submit(CampaignStepExecution.IoBoundary boundary,
+            RunDefinition definition, AgentPrincipal current, ShortLinkBusinessGateway gateway,
+            Map<String, Object> request, BooleanSupplier authorized) {
+        Objects.requireNonNull(boundary); Objects.requireNonNull(definition); Objects.requireNonNull(gateway);
+        Objects.requireNonNull(request); Objects.requireNonNull(authorized);
+        var owner = definition.caller();
+        if (current == null || current.system() || owner == null
+                || !Objects.equals(owner.tenantId(), current.tenantId())
+                || !Objects.equals(owner.subject(), current.username()) || owner.authVersion() != current.authVersion())
+            throw new SecurityException("STATISTICS_PRINCIPAL_MISMATCH");
+        if (!authorized.getAsBoolean()) throw new SecurityException("STATISTICS_QUERY_ACCESS_DENIED");
+        WireRequest frozen = boundary.request();
+        String expectedPath = request.containsKey("scope") ? FrozenStatisticsJobQuery.FROZEN_SUBMIT_PATH
+                : FrozenStatisticsJobQuery.SUBMIT_PATH;
+        if (!"POST".equals(frozen.method()) || !expectedPath.equals(frozen.path())
+                || !FrozenCampaignRun.encode(request).equals(frozen.bodyJson()))
+            throw new IllegalArgumentException("STATISTICS_WIRE_BINDING_MISMATCH");
+        boundary.beforeIo();
+        ToolResult response;
+        try {
+            ToolContext call = new ToolContext(definition.sessionId(), current.username(), request, current);
+            response = request.containsKey("scope")
+                    ? gateway.submitFrozenStatisticsJob(call, request) : gateway.submitStatisticsJob(call, request);
+        } catch (RuntimeException uncertain) {
+            throw new SubmissionUnresolved();
+        }
+        CapacityKind notAdmitted = capacityRejection(response);
+        if (notAdmitted != null) return CampaignStepExecution.ChildResult.notAdmitted(notAdmitted);
+        if (response == null || !response.success() || !(response.data() instanceof Map<?, ?> data)
+                || !(data.get("jobId") instanceof String jobId) || !jobReference(jobId)
+                || !(data.get("state") instanceof String state) || !JOB_STATES.contains(state))
+            throw new SubmissionUnresolved();
+        // A SUCCEEDED acknowledgement is still only an identity, not locally collected evidence.
+        return CampaignStepExecution.ChildResult.waiting(jobId);
     }
 
     private static CapacityKind capacityRejection(ToolResult response) {
@@ -284,7 +302,7 @@ public final class StatisticsJobFixedExecutor {
     private static boolean jobReference(String value) { return value != null && value.matches("[A-Za-z0-9_-]{1,128}"); }
     private static void outputMismatch() { throw new BindingException(BindingException.Code.OUTPUT_CONTRACT_MISMATCH); }
 
-    private static final class SubmissionUnresolved extends IllegalStateException {
-        SubmissionUnresolved() { super("SUBMISSION_UNRESOLVED"); }
+    public static final class SubmissionUnresolved extends IllegalStateException {
+        public SubmissionUnresolved() { super("SUBMISSION_UNRESOLVED"); }
     }
 }

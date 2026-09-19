@@ -100,6 +100,7 @@ public final class RunPinnedSkills extends AgentHook {
 
     public String runId() { return runId; }
     public List<SkillPin> pins() { return pins; }
+    public void verifyPins() { registry.verifyPins(); }
 
     /**
      * Digest of the exact native-parsed method name, description and body exposed to the model.
