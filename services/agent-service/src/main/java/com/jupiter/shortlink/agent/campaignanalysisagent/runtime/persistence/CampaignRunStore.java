@@ -16,7 +16,7 @@ public interface CampaignRunStore {
     enum RunStatus { ACTIVE, CANCELLED, SUPERSEDED }
     enum ChildMode { SYNC, ASYNC }
     enum ChildState { PREPARED, DISPATCHING, WAITING, READY, UNRESOLVED }
-    enum DispatchPurpose { FRESH, RECONCILE, RELEASE }
+    enum DispatchPurpose { FRESH, RECONCILE, RELEASE, AUTHORITY_PAGE_READ }
     /** QUERY_CAPACITY_EXHAUSTED is a proven non-admission marker, not an unknown submission. */
     enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN, QUERY_CAPACITY_EXHAUSTED }
     enum CapacityKind { ACTIVE_EXECUTION, RESULT_STORAGE, RECOVERY_IDENTITY }
@@ -138,6 +138,13 @@ public interface CampaignRunStore {
 
     /** ASYNC only; permits recovery/status/page reads, never a fresh submission. */
     DispatchPermit beginReconciliation(RunToken token, String childId);
+
+    /**
+     * Re-read only an unresolved SYNC authority page whose original POST body pins a positive
+     * cursor and ownership version. The first unpinned page and arbitrary SYNC reads cannot use
+     * this entrypoint. Callers must still authorize each real I/O and verify the returned version.
+     */
+    DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId);
 
     /**
      * Acquire a separate callback attempt for an ASYNC READY result without changing its output.

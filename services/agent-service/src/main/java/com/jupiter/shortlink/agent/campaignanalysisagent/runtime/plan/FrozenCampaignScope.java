@@ -102,6 +102,51 @@ public final class FrozenCampaignScope {
     public List<FrozenQueryScope> shards() { return shards; }
     public boolean empty() { return linkIds.isEmpty(); }
 
+    /** Small complete-membership proof. Reading its referenced member pages still requires current authority. */
+    public record Summary(AgentPrincipal owner, String gid, String scopeRef, String memberHash,
+                          String enumerationVersion, long memberCount, int pageCount, int shardCount) {}
+
+    /**
+     * Reduce trusted durable pages one at a time, without retaining the complete member set or shard list.
+     * A terminal page is mandatory; a stored prefix, changed version or foreign page cannot become ALL.
+     */
+    public static Summary summarize(AgentPrincipal owner, String gid, Iterable<AuthorityPage> pages) {
+        require(owner != null && !owner.system());
+        require(gid != null && gid.matches("[A-Za-z0-9_-]{1,64}"));
+        require(pages != null);
+        MessageDigest digest;
+        try { digest = MessageDigest.getInstance("SHA-256"); }
+        catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+        digest.update("analytics-members/v1\n".getBytes(StandardCharsets.UTF_8));
+        String version = null;
+        Long expectedAfter = null;
+        long previous = 0, members = 0;
+        int count = 0;
+        boolean terminal = false;
+        for (AuthorityPage page : pages) {
+            require(!terminal && page != null && owner.equals(page.owner()) && gid.equals(page.gid()));
+            require(page.ownershipVersion() != null && page.ownershipVersion().matches("[a-f0-9]{64}"));
+            if (version == null) version = page.ownershipVersion();
+            require(version.equals(page.ownershipVersion()) && Objects.equals(expectedAfter, page.afterLinkId()));
+            require(page.linkIds().size() <= FrozenQueryScope.SHARD_SIZE);
+            require(!page.linkIds().isEmpty() || (count == 0 && page.nextCursor() == null));
+            for (Long member : page.linkIds()) {
+                require(member != null && member > previous);
+                digest.update((member + "\n").getBytes(StandardCharsets.UTF_8));
+                previous = member;
+                members = Math.addExact(members, 1);
+            }
+            terminal = page.nextCursor() == null;
+            if (!terminal) require(page.linkIds().size() == FrozenQueryScope.SHARD_SIZE && page.nextCursor() == previous);
+            expectedAfter = page.nextCursor();
+            count = Math.addExact(count, 1);
+        }
+        require(count > 0 && terminal);
+        String memberHash = HexFormat.of().formatHex(digest.digest());
+        int shards = Math.toIntExact(members / FrozenQueryScope.SHARD_SIZE + (members % FrozenQueryScope.SHARD_SIZE == 0 ? 0 : 1));
+        return new Summary(owner, gid, scopeReference(owner, gid, version, memberHash), memberHash, version, members, count, shards);
+    }
+
     private static String scopeReference(AgentPrincipal owner, String gid, String version, String members) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
