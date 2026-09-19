@@ -51,6 +51,8 @@ public class AnalyticsQueryService {
     }
 
     public Map<String, Object> query(QueryRequest q) {
+        if (q.scope() != null)
+            throw new QueryFailure("INVALID_QUERY", "Frozen scope requires the dedicated query job protocol");
         q.boundedPageSize();
         DimensionBreakdown.validateRequest(q);
         var scope = auth.authorize(q);

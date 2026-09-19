@@ -4,6 +4,7 @@ import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
 import com.jupiter.shortlink.agent.tool.shortlink.DimensionQuery;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -36,6 +37,12 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     private static final String STATISTICS_READ_PROTOCOL_UNAVAILABLE = "STATISTICS_READ_PROTOCOL_UNAVAILABLE";
 
     private static final String STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE = "STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE";
+
+    private static final String FROZEN_SCOPE_PROTOCOL_UNAVAILABLE = "FROZEN_SCOPE_PROTOCOL_UNAVAILABLE";
+
+    private static final String FROZEN_JOBS_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs";
+
+    private static final String AUTHORIZE_STATISTICS_SCOPE_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/authorize-scope";
 
     private final AgentProperties agentProperties;
 
@@ -195,6 +202,139 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
 
     private static ToolResult statisticsSubmitFailure(String code) {
         return failure(code, "Statistics job submission failed: " + code);
+    }
+
+    @Override
+    public ToolResult submitFrozenStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
+        return frozenStatisticsJob(context, frozenRequest, false);
+    }
+
+    @Override
+    public ToolResult recoverExistingFrozenStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
+        return frozenStatisticsJob(context, frozenRequest, true);
+    }
+
+    private ToolResult frozenStatisticsJob(ToolContext context, Map<String, Object> source, boolean recovery) {
+        if (!statisticsReadPrincipal(context)) return frozenStatisticsFailure("FORBIDDEN");
+        final Map<String, Object> request;
+        try {
+            if (source == null || source.containsKey("fullShortUrl")
+                    || !(source.get("scope") instanceof Map<?, ?> scope)) throw new IllegalArgumentException();
+            FrozenQueryScope selected = FrozenQueryScope.fromMap(scope);
+            Map<String, Object> query = new LinkedHashMap<>(source);
+            query.remove("scope");
+            Map<String, Object> copy = new LinkedHashMap<>(frozenStatisticsSubmission(query));
+            copy.put("scope", selected.asMap());
+            request = Collections.unmodifiableMap(copy);
+        } catch (RuntimeException invalid) {
+            return frozenStatisticsFailure("INVALID_QUERY");
+        }
+        return frozenStatisticsPost(FROZEN_JOBS_PATH + (recovery ? "/recover-existing" : ""), context, request, false);
+    }
+
+    @Override
+    public ToolResult authorizeStatisticsScope(ToolContext context, Map<String, Object> source) {
+        if (!statisticsReadPrincipal(context)) return frozenStatisticsFailure("FORBIDDEN");
+        final Map<String, Object> request;
+        try {
+            if (source == null || !Set.of("gid", "linkIds", "ownershipVersion").containsAll(source.keySet())
+                    || !(source.get("gid") instanceof String gid) || gid.isBlank() || gid.length() > 64
+                    || gid.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
+            Map<String, Object> copy = new LinkedHashMap<>();
+            copy.put("gid", gid);
+            copy.put("linkIds", selectedMemberIds(source.get("linkIds")));
+            if (source.containsKey("ownershipVersion")) {
+                if (!selectedHash(source.get("ownershipVersion"))) throw new IllegalArgumentException();
+                copy.put("ownershipVersion", source.get("ownershipVersion"));
+            }
+            request = Collections.unmodifiableMap(copy);
+        } catch (RuntimeException invalid) {
+            return frozenStatisticsFailure("INVALID_QUERY");
+        }
+        return frozenStatisticsPost(AUTHORIZE_STATISTICS_SCOPE_PATH, context, request, true);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ToolResult frozenStatisticsPost(String path, ToolContext context, Map<String, Object> request, boolean authorization) {
+        try {
+            Map<String, Object> body;
+            if (transport != null) {
+                body = transport.exchange("POST", uri(path, Map.of()), headers(context).toSingleValueMap(), request);
+            } else {
+                ResponseEntity<Map> response = restTemplate.exchange(uri(path, Map.of()), HttpMethod.POST,
+                        new HttpEntity<>(request, headers(context)), Map.class);
+                if (response.getStatusCode().value() != 200) return frozenStatisticsHttpFailure(response.getStatusCode().value());
+                body = response.getBody();
+            }
+            if (body == null) return frozenStatisticsFailure(FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
+            Object code = body.get("code");
+            if (!("0".equals(code) || code instanceof Number number && "0".equals(number.toString()))) {
+                return frozenStatisticsFailure(code instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}")
+                        ? value : FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
+            }
+            if (body.containsKey("success") && !Boolean.TRUE.equals(body.get("success"))
+                    || !(body.get("data") instanceof Map<?, ?> data))
+                return frozenStatisticsFailure(FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
+            if (authorization) return selectedStatisticsScope(context, request, data);
+            if (!validRecoveredJob(data)) return frozenStatisticsFailure(FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
+            return ToolResult.success(data);
+        } catch (com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport.HttpStatusFailure failure) {
+            return frozenStatisticsHttpFailure(failure.statusCode());
+        } catch (org.springframework.web.client.HttpStatusCodeException failure) {
+            return frozenStatisticsHttpFailure(failure.getStatusCode().value());
+        } catch (SecurityException denied) {
+            return frozenStatisticsFailure("FORBIDDEN");
+        } catch (RuntimeException failure) {
+            return frozenStatisticsFailure(statisticsReadDecodeFailure(failure)
+                    ? FROZEN_SCOPE_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
+        }
+    }
+
+    private static ToolResult selectedStatisticsScope(ToolContext context, Map<String, Object> request, Map<?, ?> data) {
+        if (!"selected-scope/v1".equals(data.get("schemaVersion")) || !(data.get("allowed") instanceof Boolean)
+                || !(data.get("tenantId") instanceof String) || !(data.get("subjectId") instanceof String)
+                || !(data.get("gid") instanceof String) || !selectedHash(data.get("memberHash"))
+                || !selectedHash(data.get("ownershipVersion"))) return frozenStatisticsFailure(FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
+        final List<Long> members;
+        final long version;
+        try { members = selectedMemberIds(data.get("linkIds")); version = selectedInteger(data.get("authVersion")); }
+        catch (RuntimeException invalid) { return frozenStatisticsFailure(FROZEN_SCOPE_PROTOCOL_UNAVAILABLE); }
+        if (!Boolean.TRUE.equals(data.get("allowed")) || !context.principal().tenantId().equals(data.get("tenantId"))
+                || !context.principal().username().equals(data.get("subjectId")) || context.principal().authVersion() != version
+                || !request.get("gid").equals(data.get("gid")) || !request.get("linkIds").equals(members)
+                || !FrozenQueryScope.memberHash(members).equals(data.get("memberHash")))
+            return frozenStatisticsFailure("FORBIDDEN");
+        if (request.containsKey("ownershipVersion") && !request.get("ownershipVersion").equals(data.get("ownershipVersion")))
+            return frozenStatisticsFailure("QUERY_SCOPE_CHANGED");
+        // Return only the verified authorization facts; display identities are not needed by this backend gate.
+        return ToolResult.success(Map.of("schemaVersion", "selected-scope/v1", "allowed", true,
+                "tenantId", context.principal().tenantId(), "subjectId", context.principal().username(),
+                "authVersion", version, "gid", request.get("gid"), "linkIds", members,
+                "memberHash", data.get("memberHash"), "ownershipVersion", data.get("ownershipVersion")));
+    }
+
+    private static List<Long> selectedMemberIds(Object source) {
+        if (!(source instanceof List<?> values) || values.size() > FrozenQueryScope.SHARD_SIZE) throw new IllegalArgumentException();
+        return FrozenQueryScope.validatedMembers(values.stream().map(ShortLinkBusinessHttpGateway::selectedInteger).toList());
+    }
+
+    private static long selectedInteger(Object value) {
+        if (!(value instanceof Byte || value instanceof Short || value instanceof Integer
+                || value instanceof Long || value instanceof java.math.BigInteger)) throw new IllegalArgumentException();
+        return new java.math.BigInteger(value.toString()).longValueExact();
+    }
+
+    private static boolean selectedHash(Object value) {
+        return value instanceof String text && text.matches("[a-f0-9]{64}");
+    }
+
+    private static ToolResult frozenStatisticsHttpFailure(int status) {
+        return frozenStatisticsFailure(status == 401 || status == 403 ? "FORBIDDEN"
+                : Set.of(404, 405, 501).contains(status) ? FROZEN_SCOPE_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
+    }
+
+    private static ToolResult frozenStatisticsFailure(String code) {
+        return failure(code, "Frozen statistics request failed: " + code);
     }
 
     @Override

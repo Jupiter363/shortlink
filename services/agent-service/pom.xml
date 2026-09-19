@@ -32,6 +32,7 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency><groupId>com.jupiter.shortlink</groupId><artifactId>event-contract</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
     <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
         <dependency>

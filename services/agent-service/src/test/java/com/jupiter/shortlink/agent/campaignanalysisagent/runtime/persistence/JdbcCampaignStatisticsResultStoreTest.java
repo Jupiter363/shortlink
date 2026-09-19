@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsJobResultProtocol;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
@@ -308,12 +310,72 @@ class JdbcCampaignStatisticsResultStoreTest {
         }
     }
 
+    @Test
+    void frozenProvenanceRequiresTheOriginalWireAndMatchingParentProofWhilePreservingPartialQuality() throws Exception {
+        List<Long> members = List.of(1L, 2L);
+        String hash = FrozenQueryScope.memberHash(members);
+        FrozenQueryScope scope = new FrozenQueryScope(FrozenQueryScope.SCHEMA, "FROZEN_SET", "scope-frozen", hash,
+                members.size(), "a".repeat(64), FrozenQueryScope.shardIdFor("scope-frozen", 0, hash), 0, 1, hash, members);
+        String request = JSON.writeValueAsString(Map.of("requestId", "request-stats", "gid", "group-frozen",
+                "startDate", "2026-09-01", "endDate", "2026-09-02", "queryKind", "METRICS", "scope", scope.asMap()));
+        for (String variant : List.of("FROZEN", "BAD_PROOF", "BAD_SCOPE", "LEGACY")) {
+            Fixture fixture = fixture();
+            OpenRun open = "LEGACY".equals(variant) ? openRun(fixture) : openRun(fixture,
+                    new WireRequest("POST", StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH, request));
+            CampaignStatisticsResultStore store = fixture.store();
+            Map<String, Object> proof = new LinkedHashMap<>(scope.proof("b".repeat(64)));
+            if ("BAD_PROOF".equals(variant)) proof.put("parentComplete", true);
+            Map<String, Object> snapshot = new LinkedHashMap<>(Map.of("snapshotId", "job-fixed",
+                    "quality", Map.of("status", "PARTIAL", "dimensionQuality", Map.of("country", "UNKNOWN")),
+                    "groupScopeComplete", false, "linkIds", members, "scopeProof", proof));
+            String snapshotJson = JSON.writeValueAsString(snapshot);
+            ReceiptSpec receipt = new ReceiptSpec("job-fixed", open.child().wire().hash(), "artifact-result",
+                    "BAD_SCOPE".equals(variant) ? "other-parent" : scope.parentScopeRef(), "periods-frozen", 1, 1, EXPIRES_AT);
+            try {
+                store.initialize(open.permit(), receipt);
+                store.append(open.permit(), new Page(0, null, 1, snapshotJson, METRICS, payload(1, 0)));
+                if (variant.startsWith("BAD_")) {
+                    var before = fixture.databaseState();
+                    assertThrows(IllegalArgumentException.class, () -> store.publish(open.permit()), variant);
+                    assertEquals(before, fixture.databaseState(), "Invalid proof must publish no artifact or READY child");
+                    assertEquals(0, fixture.count("campaign_artifact"));
+                    assertFalse(store.receipt(open.run(), "source").orElseThrow().published());
+                    continue;
+                }
+                ArtifactRef reference = store.publish(open.permit());
+                Artifact artifact = fixture.runs().readArtifact(OWNER, reference.artifactId(), ALLOW);
+                JsonNode provenance = json(artifact.metadata().provenanceJson());
+                assertEquals(snapshotJson, artifact.metadata().qualityJson());
+                assertEquals(json(snapshotJson), json(artifact.payloadJson()).path("meta"));
+                assertEquals("PARTIAL", json(artifact.metadata().qualityJson()).path("quality").path("status").asText());
+                assertEquals("UNKNOWN", json(artifact.metadata().qualityJson()).path("quality").path("dimensionQuality")
+                        .path("country").asText());
+                assertEquals(open.child().wire().hash(), provenance.path("requestHash").asText());
+                if ("LEGACY".equals(variant)) {
+                    assertEquals("CURRENT_QUERY", provenance.path("scopeMode").asText());
+                    assertFalse(provenance.has("scopeProof"), "A returned proof alone cannot upgrade an original query");
+                } else {
+                    assertEquals("FROZEN_SET", provenance.path("scopeMode").asText());
+                    assertFalse(provenance.path("scopeProof").path("parentComplete").booleanValue());
+                    assertEquals(JSON.readTree(JSON.writeValueAsString(scope.proof("b".repeat(64)))),
+                            provenance.path("scopeProof"));
+                    assertEquals(scope.parentScopeRef(), reference.scopeRef());
+                }
+            } finally {
+                fixture.runs().callbackExited(open.permit());
+            }
+        }
+    }
+
     private static OpenRun openRun(Fixture fixture) {
+        return openRun(fixture, new WireRequest("POST", "/analytics/query", "{\"scopeRef\":\"scope-frozen\"}"));
+    }
+
+    private static OpenRun openRun(Fixture fixture, WireRequest wire) {
         CampaignRunStore runs = fixture.runs();
         RunToken run = runs.createRun(new RunDefinition(OWNER, "session-1", "run-1", "plan-1", 1, "{\"scopeRef\":\"scope-frozen\"}"));
         runs.prepareAction(run, new ActionSpec("action-stats", "step-stats", "TOOL", "campaign_stats", "stats/1", "{}"));
-        ChildSpec child = new ChildSpec("source", "action-stats", ChildMode.ASYNC, "request-stats",
-                new WireRequest("POST", "/analytics/query", "{\"scopeRef\":\"scope-frozen\"}"));
+        ChildSpec child = new ChildSpec("source", "action-stats", ChildMode.ASYNC, "request-stats", wire);
         runs.prepareChild(run, child);
         DispatchPermit submit = runs.beginDispatch(run, child.childId());
         try {

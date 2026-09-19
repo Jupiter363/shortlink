@@ -15,12 +15,16 @@ import com.jupiter.shortlink.admin.remote.analytics.AgentAnalyticsFacade;
 import com.jupiter.shortlink.admin.remote.dto.req.*;
 import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
 import com.jupiter.shortlink.admin.service.GroupService;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Agent tools and scheduled profiles both reuse the authorized Analytics API. */
 @RestController
@@ -310,6 +314,24 @@ public class AgentToolInternalController {
                 request.dimensions(), request.filters()));
     }
 
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/authorize-scope")
+    public Result<Map<String, Object>> authorizeStatisticsScope(@RequestBody SelectedScopeRequest request) {
+        return Results.success(analytics.authorizeSelectedScope(request.gid(), request.linkIds(),
+                request.ownershipVersion()));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs")
+    public Result<Map<String, Object>> submitFrozenStatisticsJob(@RequestBody FrozenStatisticsJobRequest request) {
+        return Results.success(analytics.submitFrozenJob(request.requestId(), request.gid(), null,
+                request.startDate(), request.endDate(), request.queryKind(), request.dimensions(), request.filters(), request.scope()));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs/recover-existing")
+    public Result<Map<String, Object>> recoverFrozenStatisticsJob(@RequestBody FrozenStatisticsJobRequest request) {
+        return Results.success(analytics.recoverFrozenJob(request.requestId(), request.gid(), null,
+                request.startDate(), request.endDate(), request.queryKind(), request.dimensions(), request.filters(), request.scope()));
+    }
+
     @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}")
     public Result<Map<String, Object>> statisticsJobStatus(@PathVariable String jobId) {
         requirePrincipal();
@@ -336,6 +358,76 @@ public class AgentToolInternalController {
                 String startDate, String endDate, String queryKind) {
             this(requestId, gid, fullShortUrl, startDate, endDate, queryKind, null, null);
         }
+        @JsonAnySetter public void rejectUnknown(String name, Object value) {
+            throw new IllegalArgumentException("Unexpected statistics job field");
+        }
+    }
+
+    public record FrozenStatisticsJobRequest(String requestId, String gid,
+            String startDate, String endDate, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters, FrozenQueryScope scope) {
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public static FrozenStatisticsJobRequest from(Map<String, Object> values) {
+            closed(values, Set.of("requestId", "gid", "startDate", "endDate", "queryKind",
+                    "dimensions", "filters", "scope"));
+            Object rawScope = values.get("scope");
+            if (rawScope != null && !(rawScope instanceof Map<?, ?>)) throw new IllegalArgumentException("Invalid frozen scope");
+            return new FrozenStatisticsJobRequest(text(values.get("requestId")), text(values.get("gid")),
+                    text(values.get("startDate")), text(values.get("endDate")),
+                    text(values.get("queryKind")), strings(values.get("dimensions")), filterObjects(values.get("filters")),
+                    rawScope == null ? null : FrozenQueryScope.fromMap((Map<?, ?>) rawScope));
+        }
+        @JsonAnySetter public void rejectUnknown(String name, Object value) {
+            throw new IllegalArgumentException("Unexpected frozen statistics job field");
+        }
+    }
+
+    public record SelectedScopeRequest(String gid, List<Long> linkIds, String ownershipVersion) {
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public static SelectedScopeRequest from(Map<String, Object> values) {
+            closed(values, Set.of("gid", "linkIds", "ownershipVersion"));
+            if (!(values.get("linkIds") instanceof List<?> ids)) throw new IllegalArgumentException("Explicit members required");
+            List<Long> members = ids.stream().map(value -> {
+                if (!(value instanceof Integer || value instanceof Long || value instanceof java.math.BigInteger))
+                    throw new IllegalArgumentException("Member ids must be integers");
+                try { return new java.math.BigInteger(value.toString()).longValueExact(); }
+                catch (ArithmeticException invalid) { throw new IllegalArgumentException("Invalid member id"); }
+            }).toList();
+            return new SelectedScopeRequest(text(values.get("gid")), FrozenQueryScope.validatedMembers(members),
+                    text(values.get("ownershipVersion")));
+        }
+        @JsonAnySetter public void rejectUnknown(String name, Object value) {
+            throw new IllegalArgumentException("Unexpected selected scope field");
+        }
+    }
+
+    private static void closed(Map<String, Object> values, Set<String> fields) {
+        if (values == null || !fields.containsAll(values.keySet())) throw new IllegalArgumentException("Unexpected field");
+    }
+
+    private static String text(Object value) {
+        if (value != null && !(value instanceof String)) throw new IllegalArgumentException("Text required");
+        return (String) value;
+    }
+
+    private static List<String> strings(Object value) {
+        if (value == null) return null;
+        if (!(value instanceof List<?> values)) throw new IllegalArgumentException("Array required");
+        return values.stream().map(item -> {
+            if (!(item instanceof String text)) throw new IllegalArgumentException("Text required");
+            return text;
+        }).toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> filterObjects(Object value) {
+        if (value == null) return null;
+        if (!(value instanceof List<?> values)) throw new IllegalArgumentException("Array required");
+        return values.stream().map(item -> {
+            if (!(item instanceof Map<?, ?> filter) || !Set.of("dimension", "operator", "values").containsAll(filter.keySet()))
+                throw new IllegalArgumentException("Invalid filter fields");
+            return (Map<String, Object>) filter;
+        }).toList();
     }
 
     private void requireOwnedGid(String gid) {

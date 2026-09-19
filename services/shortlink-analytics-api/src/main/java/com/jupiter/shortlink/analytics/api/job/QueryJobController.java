@@ -30,6 +30,7 @@ public class QueryJobController {
             @RequestHeader(value = "X-Internal-Token", required = false) String token,
             @RequestBody QueryJobService.Submit request) {
         token(token);
+        scopeProtocol(request, false);
         return ok(jobs.submit(request));
     }
 
@@ -38,7 +39,31 @@ public class QueryJobController {
             @RequestHeader(value = "X-Internal-Token", required = false) String token,
             @RequestBody QueryJobService.Submit request) {
         token(token);
+        scopeProtocol(request, false);
         return ok(jobs.recoverExisting(request));
+    }
+
+    @PostMapping("/frozen")
+    public Map<String, Object> submitFrozen(
+            @RequestHeader(value = "X-Internal-Token", required = false) String token,
+            @RequestBody QueryJobService.Submit request) {
+        token(token);
+        scopeProtocol(request, true);
+        return ok(jobs.submitFrozen(request));
+    }
+
+    @PostMapping("/frozen/recover-existing")
+    public Map<String, Object> recoverExistingFrozen(
+            @RequestHeader(value = "X-Internal-Token", required = false) String token,
+            @RequestBody QueryJobService.Submit request) {
+        token(token);
+        scopeProtocol(request, true);
+        return ok(jobs.recoverExistingFrozen(request));
+    }
+
+    private static void scopeProtocol(QueryJobService.Submit request, boolean frozen) {
+        if (request == null || request.query() == null || (request.query().scope() != null) != frozen)
+            throw new QueryFailure("INVALID_QUERY", "Query scope does not match the submission protocol");
     }
 
     @PostMapping("/{id}/status")

@@ -20,6 +20,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.Statis
 import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -111,8 +112,10 @@ public final class StatisticsJobFixedExecutor {
                 boundary.beforeIo();
                 ToolResult response;
                 try {
-                    response = gateway.submitStatisticsJob(new ToolContext(definition.sessionId(), current.username(),
-                            bound.request(), current), bound.request());
+                    ToolContext call = new ToolContext(definition.sessionId(), current.username(), bound.request(), current);
+                    response = bound.request().containsKey("scope")
+                            ? gateway.submitFrozenStatisticsJob(call, bound.request())
+                            : gateway.submitStatisticsJob(call, bound.request());
                 } catch (RuntimeException uncertain) {
                     throw new SubmissionUnresolved();
                 }
@@ -191,6 +194,10 @@ public final class StatisticsJobFixedExecutor {
                 || !manifest.path("meta").equals(quality)
                 || !Objects.equals(bound.request().get("queryKind"), quality.path("queryKind").asText())
                 || !Objects.equals(bound.request().get("gid"), quality.path("gid").asText())) outputMismatch();
+        if (bound.request().get("scope") instanceof Map<?, ?> scope) {
+            if (!"FROZEN_SET".equals(provenance.path("scopeMode").asText())
+                    || !FrozenQueryScope.fromMap(scope).equals(proof(quality.path("scopeProof")))) outputMismatch();
+        } else if (!"CURRENT_QUERY".equals(provenance.path("scopeMode").asText())) outputMismatch();
     }
 
     private static boolean validManifest(JsonNode manifest) {
@@ -216,11 +223,36 @@ public final class StatisticsJobFixedExecutor {
         JsonNode provenance;
         try { provenance = object(metadata.provenanceJson()); }
         catch (BindingException invalid) { return false; }
-        return "CURRENT_QUERY".equals(provenance.path("scopeMode").asText())
+        boolean validScope;
+        if ("FROZEN_SET".equals(provenance.path("scopeMode").asText())) {
+            try {
+                FrozenQueryScope scope = proof(quality.path("scopeProof"));
+                validScope = scope != null && scope.parentScopeRef().equals(metadata.ref().scopeRef())
+                        && provenance.path("scopeProof").equals(quality.path("scopeProof"))
+                        && quality.path("groupScopeComplete").isBoolean() && !quality.path("groupScopeComplete").booleanValue()
+                        && sameMembers(scope, quality.path("linkIds"));
+            } catch (IllegalArgumentException invalid) { return false; }
+        } else validScope = "CURRENT_QUERY".equals(provenance.path("scopeMode").asText())
+                && !quality.has("scopeProof") && !provenance.has("scopeProof");
+        return validScope
                 && hash(provenance.path("requestHash")) && jobReference(provenance.path("jobId").asText(null))
                 && provenance.path("jobId").equals(quality.path("snapshotId"))
                 && nonnegative(quality.path("snapshotExpiresAt"))
                 && quality.path("snapshotExpiresAt").longValue() == metadata.ref().expiresAt().toEpochMilli();
+    }
+
+    private static FrozenQueryScope proof(JsonNode value) {
+        if (!value.isObject()) return null;
+        return FrozenQueryScope.fromProof(JSON.convertValue(value, Map.class));
+    }
+
+    private static boolean sameMembers(FrozenQueryScope scope, JsonNode value) {
+        if (!value.isArray() || value.size() != scope.linkIds().size()) return false;
+        for (int i = 0; i < value.size(); i++) {
+            if (!value.get(i).isIntegralNumber() || !value.get(i).canConvertToLong()
+                    || value.get(i).longValue() != scope.linkIds().get(i)) return false;
+        }
+        return true;
     }
 
     private static JsonNode object(String json) {

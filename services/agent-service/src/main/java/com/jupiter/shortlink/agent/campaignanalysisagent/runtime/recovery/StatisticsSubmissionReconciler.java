@@ -1,8 +1,5 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
@@ -17,8 +14,6 @@ import java.util.function.BooleanSupplier;
 
 /** One backend reconciliation of an uncertain POST. No model tool, retry loop or fresh submission. */
 public final class StatisticsSubmissionReconciler {
-    private static final String SUBMIT_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/jobs";
-    private static final ObjectMapper JSON = new ObjectMapper();
     private final CampaignRunStore store;
     private final ShortLinkBusinessGateway gateway;
 
@@ -59,7 +54,9 @@ public final class StatisticsSubmissionReconciler {
             var context = new ToolContext(token.definition().sessionId(), current.username(), request, current);
             ToolResult response;
             try {
-                response = gateway.recoverExistingStatisticsJob(context, request);
+                response = StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH.equals(child.spec().wire().path())
+                        ? gateway.recoverExistingFrozenStatisticsJob(context, request)
+                        : gateway.recoverExistingStatisticsJob(context, request);
             } catch (RuntimeException unavailable) {
                 store.markUnresolved(permit);
                 return result(childId, Outcome.UNRESOLVED, null, "REMOTE_UNAVAILABLE");
@@ -99,17 +96,7 @@ public final class StatisticsSubmissionReconciler {
     }
 
     private static Map<String, Object> frozenSubmission(ChildRecord child) {
-        WireRequest wire = child.spec().wire();
-        if (!"POST".equals(wire.method()) || !SUBMIT_PATH.equals(wire.path()))
-            throw new IllegalArgumentException("Child is not a frozen statistics submission");
-        try {
-            Map<String, Object> request = JSON.readValue(wire.bodyJson(), new TypeReference<>() {});
-            if (request == null || !child.spec().requestId().equals(request.get("requestId")))
-                throw new IllegalArgumentException("Frozen request identity does not match the child ledger");
-            return request;
-        } catch (JsonProcessingException invalid) {
-            throw new IllegalArgumentException("Invalid frozen statistics submission", invalid);
-        }
+        return StatisticsJobResultProtocol.originalRequest(child.spec());
     }
 
     private static void requireCurrentPrincipal(RunToken token, AgentPrincipal current) {

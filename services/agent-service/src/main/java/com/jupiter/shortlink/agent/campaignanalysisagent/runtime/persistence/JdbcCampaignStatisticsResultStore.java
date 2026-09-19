@@ -3,9 +3,11 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsJobResultProtocol;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -153,11 +155,21 @@ public final class JdbcCampaignStatisticsResultStore implements CampaignStatisti
             manifest.put("totalRows", receipt.storedRows());
             manifest.put("chainHash", receipt.chainHash());
             manifest.put("resultComplete", true);
-            manifest.put("meta", object(receipt.snapshotJson(), limits.artifactBytes()));
+            JsonNode snapshot = object(receipt.snapshotJson(), limits.artifactBytes());
+            manifest.put("meta", snapshot);
             manifest.put("metrics", object(receipt.metricsJson(), limits.artifactBytes()));
             String payload = encode(manifest, limits.artifactBytes());
-            String provenance = encode(Map.of("jobId", receipt.spec().jobId(), "requestHash", receipt.spec().requestHash(),
-                    "scopeMode", "CURRENT_QUERY"), limits.artifactBytes());
+            Map<String, Object> provenanceFields = new LinkedHashMap<>();
+            provenanceFields.put("jobId", receipt.spec().jobId());
+            provenanceFields.put("requestHash", receipt.spec().requestHash());
+            provenanceFields.put("scopeMode", "CURRENT_QUERY");
+            if (StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH.equals(child.spec().wire().path())) {
+                Map<String, Object> proof = new StatisticsJobResultProtocol(child).frozenScopeProof(
+                        receipt.spec().scopeRef(), JSON.convertValue(snapshot, new TypeReference<Map<String, Object>>() {}));
+                provenanceFields.put("scopeMode", "FROZEN_SET");
+                provenanceFields.put("scopeProof", proof);
+            }
+            String provenance = encode(provenanceFields, limits.artifactBytes());
             ArtifactRef reference = runs.publishReady(permit, new ArtifactDraft(receipt.spec().artifactId(), ARTIFACT_TYPE,
                     SCHEMA_VERSION, receipt.spec().scopeRef(), receipt.spec().periodsRef(), receipt.snapshotJson(), provenance,
                     Instant.ofEpochMilli(receipt.spec().expiresAtMillis()), payload));

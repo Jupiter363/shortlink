@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ChildMode;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ChildRecord;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ChildSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsResultStore;
 import com.jupiter.shortlink.agent.tool.shortlink.DimensionQuery;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -31,14 +33,17 @@ import java.util.TreeMap;
 /**
  * Closed decoder for an existing statistics job's original request and frozen result pages.
  * No HTTP, authorization, clock-based expiry decision, scope discovery or quality upgrading.
- * Accepted group evidence describes the original CURRENT_QUERY, never a FROZEN_SET proof.
+ * Frozen evidence is accepted only for an original frozen request carrying the same shard proof.
  */
 public final class StatisticsJobResultProtocol {
     private static final String PROTOCOL = "STATISTICS_READ_PROTOCOL_UNAVAILABLE";
     private static final String MISMATCH = "STATISTICS_RESULT_MISMATCH";
     private static final String SUBMIT_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/jobs";
+    public static final String FROZEN_SUBMIT_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs";
     private static final Set<String> REQUEST_FIELDS = Set.of("requestId", "gid", "fullShortUrl", "startDate",
             "endDate", "queryKind", "dimensions", "filters");
+    private static final Set<String> FROZEN_REQUEST_FIELDS = Set.of("requestId", "gid", "fullShortUrl", "startDate",
+            "endDate", "queryKind", "dimensions", "filters", "scope");
     private static final Set<String> KINDS = Set.of("METRICS", "ACCESS_RECORDS", "LINK_METRICS", "DIMENSION_BREAKDOWN");
     private static final Set<String> STATES = Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED");
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
@@ -53,30 +58,63 @@ public final class StatisticsJobResultProtocol {
 
     private final String jobId;
     private final Map<String, Object> request;
+    private final FrozenQueryScope frozenScope;
     private final long start;
     private final long end;
 
     public StatisticsJobResultProtocol(ChildRecord child) {
         require(child != null && child.spec() != null && child.spec().wire() != null
                 && child.spec().mode() == ChildMode.ASYNC && reference(child.jobId(), 128), PROTOCOL);
-        require("POST".equals(child.spec().wire().method()) && SUBMIT_PATH.equals(child.spec().wire().path()), PROTOCOL);
         jobId = child.jobId();
+        DecodedRequest decoded = decodeRequest(child.spec(), true);
+        request = decoded.request();
+        frozenScope = decoded.scope();
+        start = decoded.start();
+        end = decoded.end();
+    }
+
+    /** Original closed request, also usable before a lost submission's job identity is recovered. */
+    public static Map<String, Object> originalRequest(ChildSpec child) { return decodeRequest(child, false).request(); }
+
+    private static DecodedRequest decodeRequest(ChildSpec child, boolean validateQuery) {
+        require(child != null && child.mode() == ChildMode.ASYNC && child.wire() != null, PROTOCOL);
+        boolean frozen = FROZEN_SUBMIT_PATH.equals(child.wire().path());
+        require("POST".equals(child.wire().method()) && (frozen || SUBMIT_PATH.equals(child.wire().path())), PROTOCOL);
         Map<String, Object> parsed;
-        try { parsed = object(JSON.readValue(child.spec().wire().bodyJson(), Object.class)); }
+        try { parsed = object(JSON.readValue(child.wire().bodyJson(), Object.class)); }
         catch (JsonProcessingException | IllegalArgumentException invalid) { throw failure(PROTOCOL); }
-        require(REQUEST_FIELDS.containsAll(parsed.keySet()), PROTOCOL);
-        require(reference(child.spec().requestId(), 96) && child.spec().requestId().equals(parsed.get("requestId")), MISMATCH);
+        require((frozen ? FROZEN_REQUEST_FIELDS : REQUEST_FIELDS).containsAll(parsed.keySet()), PROTOCOL);
+        require(reference(child.requestId(), 96) && child.requestId().equals(parsed.get("requestId")), MISMATCH);
+        // Legacy identity recovery keeps its existing semantics. The frozen protocol and all
+        // result reads additionally require a valid complete query before accepting evidence.
+        if (!frozen && !validateQuery)
+            return new DecodedRequest(object(freezeJson(parsed, new IdentityHashMap<>(), 0)), null, 0, 0);
         require(text(parsed.get("gid")) && text(parsed.get("queryKind")) && KINDS.contains(parsed.get("queryKind")), PROTOCOL);
-        start = boundary(parsed.get("startDate"), false);
-        end = boundary(parsed.get("endDate"), true);
+        long start = boundary(parsed.get("startDate"), false);
+        long end = boundary(parsed.get("endDate"), true);
         require(start >= 0 && end > start && end - start <= 180L * 24 * 60 * 60 * 1000, PROTOCOL);
         if (parsed.get("fullShortUrl") != null) require(text(parsed.get("fullShortUrl")), PROTOCOL);
+        FrozenQueryScope scope = null;
+        if (frozen) {
+            require(!parsed.containsKey("fullShortUrl"), PROTOCOL);
+            require(((String) parsed.get("gid")).matches("[A-Za-z0-9_-]{1,64}"), PROTOCOL);
+            try { scope = FrozenQueryScope.fromMap(object(parsed.get("scope"))); }
+            catch (IllegalArgumentException invalid) { throw failure(PROTOCOL); }
+        }
         validateDimensions(parsed);
-        request = object(freezeJson(parsed, new IdentityHashMap<>(), 0));
+        return new DecodedRequest(object(freezeJson(parsed, new IdentityHashMap<>(), 0)), scope, start, end);
     }
 
     /** Deeply immutable original wire values; request identity is never regenerated or normalized. */
     public Map<String, Object> request() { return request; }
+
+    /** Validates the original shard before exposing its proof for durable artifact provenance. */
+    public Map<String, Object> frozenScopeProof(String scopeRef, Object snapshot) {
+        require(frozenScope != null && frozenScope.parentScopeRef().equals(scopeRef), MISMATCH);
+        Map<String, Object> meta = object(snapshot);
+        validateFrozenScope(meta);
+        return object(freezeJson(object(meta.get("scopeProof")), new IdentityHashMap<>(), 0));
+    }
 
     public Status status(Object data) {
         Map<String, Object> status = object(data);
@@ -117,12 +155,15 @@ public final class StatisticsJobResultProtocol {
         require(integer(meta.get("totalRows")) == status.totalRows() && integer(meta.get("pageIndex")) == pageIndex, MISMATCH);
         validateSnapshot(meta);
         Set<Long> linkIds = linkIds(meta.get("linkIds"));
-        if (request.get("fullShortUrl") != null) {
+        if (frozenScope != null) {
+            validateFrozenScope(meta);
+        } else if (request.get("fullShortUrl") != null) {
             require(linkIds.size() == 1 && text(meta.get("fullShortUrl"))
                     && normalizeUrl(request.get("fullShortUrl")).equals(normalizeUrl(meta.get("fullShortUrl"))), MISMATCH);
         } else {
             require(Boolean.TRUE.equals(meta.get("groupScopeComplete")), MISMATCH);
         }
+        if (frozenScope == null) require(!meta.containsKey("scopeProof"), MISMATCH);
         validateNestedProof(meta);
         if ("DIMENSION_BREAKDOWN".equals(request.get("queryKind"))) {
             require(DimensionQuery.matches(meta, request), MISMATCH);
@@ -164,6 +205,17 @@ public final class StatisticsJobResultProtocol {
                 require(query.get("filters") == null || query.get("filters") instanceof List<?> list && list.isEmpty(), PROTOCOL);
             }
         } catch (IllegalArgumentException invalid) { throw failure(PROTOCOL); }
+    }
+
+    private void validateFrozenScope(Map<String, Object> meta) {
+        require(Boolean.FALSE.equals(meta.get("groupScopeComplete")), MISMATCH);
+        require(!meta.containsKey("parentComplete") || Boolean.FALSE.equals(meta.get("parentComplete")), MISMATCH);
+        if (meta.containsKey("scopeRef")) require(frozenScope.parentScopeRef().equals(meta.get("scopeRef")), MISMATCH);
+        require(meta.get("linkIds") instanceof List<?>, PROTOCOL);
+        List<Long> members = ((List<?>) meta.get("linkIds")).stream().map(StatisticsJobResultProtocol::integer).toList();
+        require(frozenScope.linkIds().equals(members), MISMATCH);
+        try { require(frozenScope.equals(FrozenQueryScope.fromProof(object(meta.get("scopeProof")))), MISMATCH); }
+        catch (IllegalArgumentException invalid) { throw failure(MISMATCH); }
     }
 
     private static void validateSnapshot(Map<String, Object> meta) {
@@ -281,4 +333,5 @@ public final class StatisticsJobResultProtocol {
 
     private static void require(boolean condition, String code) { if (!condition) throw failure(code); }
     private static IllegalArgumentException failure(String code) { return new IllegalArgumentException(code); }
+    private record DecodedRequest(Map<String, Object> request, FrozenQueryScope scope, long start, long end) { }
 }

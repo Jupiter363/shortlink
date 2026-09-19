@@ -14,6 +14,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.proces
 import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,6 +38,27 @@ class StatisticsJobFixedExecutorTest {
     private static final PlanSpec.ExecutorRef CONSUME = new PlanSpec.ExecutorRef(PlanSpec.ExecutorKind.TOOL, "read_evidence", "1");
     private static final TypeRef PAGES = new TypeRef("StatisticsJobPages", 1, Cardinality.ONE);
     private static final String SCHEMA = CampaignStatisticsResultStore.SCHEMA_VERSION;
+
+    @Test
+    void frozenMembersRecoverOnDedicatedPathAndPublishProofWithoutClaimingParentCompleteness() throws Exception {
+        Fixture f = new Fixture(501, true);
+        f.gateway.loseAck = true;
+        f.runtime(f.token).graph().advance();
+        assertEquals(FrozenStatisticsJobQuery.FROZEN_SUBMIT_PATH, f.runs.children(f.token).get(0).spec().wire().path());
+        var partial = f.coordinator().resume(f.token, PRINCIPAL);
+        assertEquals(1, f.gateway.recoveries);
+        assertEquals(0, f.downstream.get());
+        var complete = f.coordinator().resume(partial.token(), PRINCIPAL);
+        assertEquals(1, f.gateway.submits);
+        assertEquals(1, f.gateway.recoveries);
+        assertEquals(1, f.downstream.get());
+        var artifact = f.runs.readArtifact(OWNER, f.runs.children(complete.token()).get(0).artifactId(), f.artifactAuth());
+        assertTrue(artifact.metadata().provenanceJson().contains("FROZEN_SET"));
+        assertTrue(artifact.metadata().provenanceJson().contains("\"parentComplete\":false"));
+        assertTrue(artifact.metadata().qualityJson().contains("PARTIAL"));
+        assertEquals(f.scope.asMap(), f.gateway.accepted.get("scope"));
+        f.assertExited();
+    }
 
     @Test
     void firstSubmissionIsFrozenBeforeIoAndPublishesOnlyAfterAllPagesThenReusesReadyOutput() throws Exception {
@@ -140,8 +162,14 @@ class StatisticsJobFixedExecutorTest {
         final AtomicInteger downstream = new AtomicInteger();
         final Gateway gateway = new Gateway(this);
         final int rows;
-        Fixture(int rows) {
+        final FrozenQueryScope scope;
+        Fixture(int rows) { this(rows, false); }
+        Fixture(int rows, boolean fixedMembers) {
             this.rows = rows;
+            String memberHash = FrozenQueryScope.memberHash(List.of(1L, 2L));
+            scope = fixedMembers ? new FrozenQueryScope(FrozenQueryScope.SCHEMA, "FROZEN_SET", "scope-g1",
+                    memberHash, 2, "a".repeat(64), FrozenQueryScope.shardIdFor("scope-g1", 0, memberHash),
+                    0, 1, memberHash, List.of(1L, 2L)) : null;
             var ds = new DriverManagerDataSource("jdbc:h2:mem:statistics_executor_" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
             ds.setDriverClassName("org.h2.Driver");
             new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919__campaign_run_ledger.sql"),
@@ -151,7 +179,7 @@ class StatisticsJobFixedExecutorTest {
             jdbc = new JdbcTemplate(ds); tx = new TransactionTemplate(new DataSourceTransactionManager(ds));
             runs = new JdbcCampaignRunStore(jdbc, tx, CLOCK); steps = new JdbcCampaignStepStore(jdbc, tx, CLOCK);
             results = new JdbcCampaignStatisticsResultStore(jdbc, tx, CLOCK);
-            token = steps.acquireRun(runs.createRun(frozen().definition(OWNER, "session-1")));
+            token = steps.acquireRun(runs.createRun(frozen(scope).definition(OWNER, "session-1")));
         }
         boolean queryAllowed(AgentPrincipal principal, String scope, String periods, Map<String, Object> request) {
             return allowed.get() && PRINCIPAL.equals(principal) && "scope-g1".equals(scope) && "period-september".equals(periods)
@@ -210,6 +238,14 @@ class StatisticsJobFixedExecutorTest {
         public ToolResult get(String path, ToolContext context, Map<String, Object> query) { throw new AssertionError("No legacy GET"); }
         public ToolResult post(String path, ToolContext context, Map<String, Object> query) { throw new AssertionError("No legacy POST"); }
         public ToolResult submitStatisticsJob(ToolContext context, Map<String, Object> request) {
+            assertNull(f.scope, "A frozen request must never use the current-group submit method");
+            return submit(context, request);
+        }
+        public ToolResult submitFrozenStatisticsJob(ToolContext context, Map<String, Object> request) {
+            assertNotNull(f.scope);
+            return submit(context, request);
+        }
+        private ToolResult submit(ToolContext context, Map<String, Object> request) {
             submits++; assertEquals(PRINCIPAL, context.principal()); assertEquals("session-1", context.sessionId());
             assertEquals("analyst", context.username()); assertEquals(request, context.arguments());
             var child = f.runs.children(f.token).get(0);
@@ -223,7 +259,16 @@ class StatisticsJobFixedExecutorTest {
             return ToolResult.success(Map.of("jobId", "job-original", "state", "SUCCEEDED"));
         }
         public ToolResult recoverExistingStatisticsJob(ToolContext context, Map<String, Object> request) {
-            recoveries++; assertEquals(accepted, request); assertEquals(PRINCIPAL, context.principal());
+            assertNull(f.scope, "A frozen request must never fall back to current-group recovery");
+            return recover(context, request);
+        }
+        public ToolResult recoverExistingFrozenStatisticsJob(ToolContext context, Map<String, Object> request) {
+            assertNotNull(f.scope);
+            return recover(context, request);
+        }
+        private ToolResult recover(ToolContext context, Map<String, Object> request) {
+            recoveries++; assertEquals(FrozenCampaignRun.encode(accepted), FrozenCampaignRun.encode(request));
+            assertEquals(PRINCIPAL, context.principal());
             return recoveryMissing ? new ToolResult(false, Map.of("code", "REPLAY_UNAVAILABLE"), "unavailable")
                     : ToolResult.success(Map.of("jobId", "job-original", "state", "SUCCEEDED"));
         }
@@ -237,7 +282,13 @@ class StatisticsJobFixedExecutorTest {
             if (revokeDuringPage) f.allowed.set(false);
             var items = IntStream.range(index * 500, Math.min(f.rows, (index + 1) * 500))
                     .mapToObj(sequence -> Map.of("linkId", 1L, "sequence", sequence)).toList();
-            return ToolResult.success(Map.of("items", items, "metrics", Map.of(), "meta", metadata(index, f.rows)));
+            var meta = metadata(index, f.rows);
+            if (f.scope != null) {
+                meta.put("linkIds", f.scope.linkIds());
+                meta.put("groupScopeComplete", false);
+                meta.put("scopeProof", f.scope.proof("b".repeat(64)));
+            }
+            return ToolResult.success(Map.of("items", items, "metrics", Map.of(), "meta", meta));
         }
     }
 
@@ -256,16 +307,17 @@ class StatisticsJobFixedExecutorTest {
         return meta;
     }
 
-    private static FrozenCampaignRun frozen() {
+    private static FrozenCampaignRun frozen(FrozenQueryScope scope) {
         var collect = new PlanSpec.Step("collect", List.of("goal"), PlanSpec.ExecutionMode.FIXED, QUERY, null, List.of(),
                 Map.of("scope", PlanBinding.input("scope"), "periods", PlanBinding.input("periods"), "query", PlanBinding.input("query")), Map.of(), SCHEMA);
         var consume = new PlanSpec.Step("consume", List.of("goal"), PlanSpec.ExecutionMode.FIXED, CONSUME, null, List.of("collect"),
                 Map.of("upstream", PlanBinding.output("collect", "pages")), Map.of(), SCHEMA);
         var plan = new PlanSpec(PlanSpec.SCHEMA_VERSION, "plan-1", 1, "run-1", "inputs-1",
                 List.of(new PlanSpec.Goal("goal", "Read original evidence", true, "Deliver evidence")), List.of(collect, consume));
-        var query = Map.<String, Object>of("schemaVersion", FrozenStatisticsJobQuery.SCHEMA, "scopeRef", "scope-g1",
+        var query = new LinkedHashMap<>(Map.<String, Object>of("schemaVersion", FrozenStatisticsJobQuery.SCHEMA, "scopeRef", "scope-g1",
                 "periodsRef", "period-september", "scopeKind", "CURRENT_GROUP", "gid", "g1", "queryKind", "ACCESS_RECORDS",
-                "startDate", "2026-09-01", "endDate", "2026-09-01", "businessTimezone", "Asia/Shanghai");
+                "startDate", "2026-09-01", "endDate", "2026-09-01", "businessTimezone", "Asia/Shanghai"));
+        if (scope != null) { query.put("scopeKind", "FROZEN_SET"); query.put("scope", scope.asMap()); }
         var inputs = new FrozenInputSet("inputs-1", "run-1", FrozenStatisticsJobQuery.INPUTS,
                 Map.of("scope", "scope-g1", "periods", "period-september", "query", query));
         var assessment = new PlanningAssessment("plan-1", 1, "catalog/v1",
