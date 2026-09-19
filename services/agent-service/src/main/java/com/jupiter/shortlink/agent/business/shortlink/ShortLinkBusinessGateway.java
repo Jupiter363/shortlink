@@ -18,4 +18,16 @@ public interface ShortLinkBusinessGateway {
         return new ToolResult(false, Map.of("code", "RECOVERY_PROTOCOL_UNAVAILABLE"),
                 "Statistics job recovery protocol is unavailable");
     }
+
+    /** Backend result reception only. Unsupported adapters must not fall back to legacy get/post. */
+    default ToolResult readStatisticsJob(ToolContext context, String jobId) {
+        return new ToolResult(false, Map.of("code", "STATISTICS_READ_PROTOCOL_UNAVAILABLE"),
+                "Statistics job read protocol is unavailable");
+    }
+
+    /** One page of the original job. The current wire protocol fixes size at 500, not a total-result limit. */
+    default ToolResult readStatisticsJobPage(ToolContext context, String jobId, int pageIndex, int size) {
+        return new ToolResult(false, Map.of("code", "STATISTICS_READ_PROTOCOL_UNAVAILABLE"),
+                "Statistics job read protocol is unavailable");
+    }
 }

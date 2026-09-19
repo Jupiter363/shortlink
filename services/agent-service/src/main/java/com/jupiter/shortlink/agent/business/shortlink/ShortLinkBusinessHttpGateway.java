@@ -15,6 +15,9 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,6 +27,10 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     private static final String INTERNAL_TOKEN_HEADER = "X-Agent-Internal-Token";
 
     private static final String USERNAME_HEADER = "X-Agent-Username";
+
+    private static final String STATISTICS_JOBS_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/jobs";
+
+    private static final String STATISTICS_READ_PROTOCOL_UNAVAILABLE = "STATISTICS_READ_PROTOCOL_UNAVAILABLE";
 
     private final AgentProperties agentProperties;
 
@@ -92,6 +99,101 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
             return failure("INVALID_QUERY", "Invalid frozen statistics job request");
         return post("/internal/short-link-admin/v1/agent-tools/statistics/jobs/recover-existing",
                 context, frozenRequest, true);
+    }
+
+    @Override
+    public ToolResult readStatisticsJob(ToolContext context, String jobId) {
+        if (!statisticsReadPrincipal(context)) return statisticsReadFailure("FORBIDDEN");
+        if (!validStatisticsJobId(jobId)) return statisticsReadFailure("INVALID_QUERY");
+        return readStatistics(context, jobId, Map.of(), false);
+    }
+
+    @Override
+    public ToolResult readStatisticsJobPage(ToolContext context, String jobId, int pageIndex, int size) {
+        if (!statisticsReadPrincipal(context)) return statisticsReadFailure("FORBIDDEN");
+        if (!validStatisticsJobId(jobId) || pageIndex < 0 || size != 500)
+            return statisticsReadFailure("INVALID_QUERY");
+        return readStatistics(context, jobId, Map.of("pageIndex", pageIndex, "size", size), true);
+    }
+
+    /** Strict, single-request backend contract; deliberately independent of legacy get/post behavior. */
+    @SuppressWarnings("unchecked")
+    private ToolResult readStatistics(ToolContext context, String jobId, Map<String, Object> query, boolean page) {
+        try {
+            String path = STATISTICS_JOBS_PATH + "/" + jobId + (page ? "/page" : "");
+            Map<String, Object> body;
+            if (transport != null) {
+                body = transport.exchange("GET", uri(path, query), headers(context).toSingleValueMap(), null);
+            } else {
+                ResponseEntity<Map> response = restTemplate.exchange(uri(path, query), HttpMethod.GET,
+                        new HttpEntity<>(headers(context)), Map.class);
+                if (response.getStatusCode().value() != 200)
+                    return statisticsReadHttpFailure(response.getStatusCode().value());
+                body = response.getBody();
+            }
+            if (body == null) return statisticsReadFailure(STATISTICS_READ_PROTOCOL_UNAVAILABLE);
+            Object code = body.get("code");
+            boolean success = "0".equals(code) || code instanceof Number number && "0".equals(number.toString());
+            if (!success) {
+                String safeCode = code instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}")
+                        ? value : STATISTICS_READ_PROTOCOL_UNAVAILABLE;
+                return statisticsReadFailure(safeCode);
+            }
+            if (!(body.get("data") instanceof Map<?, ?> data) || data.isEmpty()
+                    || !validStatisticsReadData(data, jobId, page)) {
+                return statisticsReadFailure(STATISTICS_READ_PROTOCOL_UNAVAILABLE);
+            }
+            return ToolResult.success(data);
+        } catch (com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport.HttpStatusFailure failure) {
+            return statisticsReadHttpFailure(failure.statusCode());
+        } catch (org.springframework.web.client.HttpStatusCodeException failure) {
+            return statisticsReadHttpFailure(failure.getStatusCode().value());
+        } catch (SecurityException denied) {
+            return statisticsReadFailure("FORBIDDEN");
+        } catch (RuntimeException failure) {
+            return statisticsReadFailure(statisticsReadDecodeFailure(failure)
+                    ? STATISTICS_READ_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
+        }
+    }
+
+    private static boolean validStatisticsReadData(Map<?, ?> data, String jobId, boolean page) {
+        // Real status DTO has jobId/state. Page DTO instead has items/metrics/meta; no top-level jobId/state.
+        if (page) return data.get("items") instanceof List<?> && data.get("metrics") instanceof Map<?, ?>
+                && data.get("meta") instanceof Map<?, ?>;
+        return jobId.equals(data.get("jobId")) && data.get("state") instanceof String state
+                && Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state);
+    }
+
+    private static boolean statisticsReadPrincipal(ToolContext context) {
+        return context != null && context.principal() != null && !context.principal().system()
+                && context.principal().username().equals(context.username());
+    }
+
+    private static boolean validStatisticsJobId(String jobId) {
+        return jobId != null && jobId.matches("[A-Za-z0-9_-]{1,128}");
+    }
+
+    private static ToolResult statisticsReadHttpFailure(int status) {
+        String code = status == 401 || status == 403 ? "FORBIDDEN"
+                : Set.of(404, 405, 501).contains(status) ? STATISTICS_READ_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE";
+        return statisticsReadFailure(code);
+    }
+
+    private static ToolResult statisticsReadFailure(String code) {
+        return failure(code, "Statistics job read failed: " + code);
+    }
+
+    private static boolean statisticsReadDecodeFailure(RuntimeException failure) {
+        // The bounded transport wraps Jackson's IOException; RestTemplate uses conversion exceptions.
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof com.fasterxml.jackson.core.JsonProcessingException
+                    || cause instanceof org.springframework.http.converter.HttpMessageConversionException
+                    || cause instanceof org.springframework.web.client.UnknownContentTypeException) return true;
+        }
+        // JSON null is rejected inside the existing bounded adapter before it can return its Map.
+        return failure instanceof IllegalStateException && failure.getCause() == null
+                && "Business authority returned an empty response".equals(failure.getMessage());
     }
 
     @SuppressWarnings("unchecked")
