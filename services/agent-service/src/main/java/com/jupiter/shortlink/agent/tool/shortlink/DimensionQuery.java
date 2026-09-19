@@ -12,13 +12,13 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /** Canonical dimensions and exact filters shared by requests and frozen-result proof checks. */
-final class DimensionQuery {
+public final class DimensionQuery {
     private static final Set<String> ALLOWED = Set.of("day", "hour", "weekday", "country", "province",
             "device", "os", "browser", "isp", "refererDomain");
 
     private DimensionQuery() {}
 
-    static List<String> dimensions(Object input) {
+    public static List<String> dimensions(Object input) {
         require(input instanceof List<?>, "请指定联合分析维度");
         var values = (List<?>) input;
         require(!values.isEmpty() && values.size() <= 3, "联合分析需要 1 至 3 个维度");
@@ -32,7 +32,7 @@ final class DimensionQuery {
         return List.copyOf(result);
     }
 
-    static List<Map<String, Object>> filters(Object input) {
+    public static List<Map<String, Object>> filters(Object input) {
         if (input == null) return List.of();
         require(input instanceof List<?>, "维度筛选格式无效");
         var values = (List<?>) input;
@@ -71,7 +71,7 @@ final class DimensionQuery {
         return List.copyOf(result);
     }
 
-    static boolean matches(Map<String, Object> meta, Map<String, Object> query) {
+    public static boolean matches(Map<String, Object> meta, Map<String, Object> query) {
         try {
             return "DIMENSION_BREAKDOWN".equals(meta.get("queryKind"))
                     && meta.containsKey("dimensions") && meta.containsKey("filters")
