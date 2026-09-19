@@ -322,7 +322,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     }
 
     @Override
-    public Artifact readArtifact(Caller current, String artifactId, ArtifactAuthorizer authorizer) {
+    public ArtifactMetadata inspectArtifact(Caller current, String artifactId, ArtifactAuthorizer authorizer) {
         validateCaller(current);
         id(artifactId, "artifactId", 96);
         Objects.requireNonNull(authorizer, "Current authorization callback is required");
@@ -333,6 +333,12 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         json(metadata.qualityJson(), limits.artifactBytes(), true);
         json(metadata.provenanceJson(), limits.artifactBytes(), true);
         if (!authorizer.mayRead(current, metadata)) throw new SecurityException("ARTIFACT_ACCESS_DENIED");
+        return metadata;
+    }
+
+    @Override
+    public Artifact readArtifact(Caller current, String artifactId, ArtifactAuthorizer authorizer) {
+        ArtifactMetadata metadata = inspectArtifact(current, artifactId, authorizer);
         String payload = jdbc.queryForObject("SELECT payload_json FROM campaign_artifact_payload WHERE artifact_id=?",
                 String.class, artifactId);
         json(payload, limits.artifactBytes(), false);
