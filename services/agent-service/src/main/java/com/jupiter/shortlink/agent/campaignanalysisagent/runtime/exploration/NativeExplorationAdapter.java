@@ -1,0 +1,384 @@
+package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration;
+
+import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.action.AsyncNodeActionWithConfig;
+import com.alibaba.cloud.ai.graph.agent.ReactAgent;
+import com.alibaba.cloud.ai.graph.agent.hook.HookPosition;
+import com.alibaba.cloud.ai.graph.agent.hook.HookPositions;
+import com.alibaba.cloud.ai.graph.agent.hook.JumpTo;
+import com.alibaba.cloud.ai.graph.agent.hook.ModelHook;
+import com.alibaba.cloud.ai.graph.agent.hook.messages.AgentCommand;
+import com.alibaba.cloud.ai.graph.agent.hook.messages.MessagesModelHook;
+import com.alibaba.cloud.ai.graph.agent.hook.messages.UpdatePolicy;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ToolCallHandler;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ToolCallRequest;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ToolCallResponse;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ToolInterceptor;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ModelInterceptor;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ModelCallHandler;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ModelRequest;
+import com.alibaba.cloud.ai.graph.agent.interceptor.ModelResponse;
+import com.alibaba.cloud.ai.graph.agent.tool.CancellableAsyncToolCallback;
+import com.alibaba.cloud.ai.graph.agent.tool.CancellationToken;
+import com.alibaba.cloud.ai.graph.agent.tool.ToolCancelledException;
+import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
+import com.jupiter.shortlink.agent.infrastructure.persistence.AgentStateSerializerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.ai.tool.metadata.ToolMetadata;
+
+/**
+ * P0-only native ReactAgent adapter. Deliberately has no Spring annotation or production entry point.
+ * It owns admission/projection boundaries; all model/tool looping remains in ReactAgent 1.1.2.3.
+ */
+public final class NativeExplorationAdapter {
+    public static final String DISPATCH_SCOPE = NativeExplorationAdapter.class.getName() + ".dispatch";
+    public static final String INPUT_KEY = "explorationInput";
+    public static final String OUTPUT_KEY = "explorationResult";
+
+    public record ExecutionKey(String tenantId, String subject, long authVersion, String sessionId, String runId,
+                               String planId, int revision, String stepId, String policyVersion,
+                               String runnerVersion, String topologyVersion) {
+        public ExecutionKey {
+            for (String value : List.of(tenantId, subject, sessionId, runId, planId, stepId,
+                    policyVersion, runnerVersion, topologyVersion)) {
+                if (value.isBlank()) throw new IllegalArgumentException("Trusted execution identity is required");
+            }
+            if (revision < 1 || authVersion < 0) throw new IllegalArgumentException("Invalid execution version");
+        }
+
+        public String threadId() {
+            // Length-prefixed fields avoid delimiter collisions. User input cannot supply this ID.
+            StringBuilder material = new StringBuilder();
+            for (String value : List.of(tenantId, subject, Long.toString(authVersion), sessionId, runId, planId,
+                    Integer.toString(revision), stepId, policyVersion, runnerVersion, topologyVersion))
+                material.append(value.length()).append(':').append(value);
+            return UUID.nameUUIDFromBytes(material.toString().getBytes(StandardCharsets.UTF_8)).toString();
+        }
+    }
+
+    public record Limits(int repairAttempts, int inputCharacters, int observationCharacters,
+                         int modelResponseCharacters, int modelToolCalls, Duration toolTimeout) {
+        public Limits {
+            if (repairAttempts < 0 || inputCharacters < 1 || observationCharacters < 1
+                    || modelResponseCharacters < 1 || modelToolCalls < 1
+                    || toolTimeout == null || toolTimeout.isZero() || toolTimeout.isNegative()) {
+                throw new IllegalArgumentException("Explicit P0 limits are required");
+            }
+        }
+    }
+
+    /** Projection is supplied by a trusted Artifact writer, never by model output. */
+    public record Observation(String artifactId, String jobId) {
+        public Observation {
+            if ((artifactId == null) == (jobId == null))
+                throw new IllegalArgumentException("Exactly one ready artifact or pending job is required");
+            String reference = artifactId != null ? artifactId : jobId;
+            if (!reference.matches("[A-Za-z0-9_-]{1,128}"))
+                throw new IllegalArgumentException("An opaque backend reference is required");
+        }
+
+        public static Observation ready(String artifactId) { return new Observation(artifactId, null); }
+        public static Observation pending(String jobId) { return new Observation(null, jobId); }
+
+        String json() {
+            return artifactId != null ? "{\"status\":\"READY\",\"artifactId\":\"" + artifactId + "\"}"
+                    : "{\"status\":\"PENDING\",\"jobId\":\"" + jobId + "\"}";
+        }
+    }
+
+    public record RegisteredTool(ToolCallback callback, Function<String, Observation> persistAndProject) {
+        public RegisteredTool {
+            Objects.requireNonNull(callback);
+            Objects.requireNonNull(persistAndProject);
+        }
+    }
+
+    /** Passed through trusted ToolContext; an internal HTTP/page operation must use this boundary. */
+    public static final class DispatchScope {
+        private final ExplorationLedger ledger;
+        private final long attempt;
+        private final CancellationToken cancellation;
+
+        private DispatchScope(ExplorationLedger ledger, long attempt, CancellationToken cancellation) {
+            this.ledger = ledger;
+            this.attempt = attempt;
+            this.cancellation = cancellation;
+        }
+
+        public <T> T dispatch(Callable<T> operation) throws Exception {
+            if (cancellation.isCancelled() || !ledger.mayDispatch(attempt))
+                throw new IllegalStateException("Exploration dispatch permission was revoked");
+            // A network operation already admitted here may finish after cancellation.
+            return operation.call();
+        }
+    }
+
+    private final ExecutionKey identity;
+    private final ExplorationLedger ledger;
+    private final Limits limits;
+    private final ReactAgent agent;
+    private final ThreadLocal<String> acceptedToolCall = new ThreadLocal<>();
+
+    public NativeExplorationAdapter(ExecutionKey identity, ExplorationLedger ledger, ChatModel model,
+            List<RegisteredTool> tools, BaseCheckpointSaver saver, Executor executor, Limits limits) {
+        this.identity = Objects.requireNonNull(identity);
+        this.ledger = Objects.requireNonNull(ledger);
+        this.limits = Objects.requireNonNull(limits);
+        if (!identity.equals(ledger.identity())) throw new IllegalArgumentException("Ledger identity mismatch");
+        var names = new HashSet<String>();
+        List<ToolCallback> guarded = new ArrayList<>();
+        for (RegisteredTool tool : tools) {
+            if (!names.add(tool.callback().getToolDefinition().name()))
+                throw new IllegalArgumentException("Duplicate registered tool");
+            guarded.add(new GuardedCallback(tool, executor));
+        }
+        agent = ReactAgent.builder().name("campaign_exploration_p0").model(Objects.requireNonNull(model))
+                .tools(guarded).parallelToolExecution(false).wrapSyncToolsAsAsync(false)
+                .hooks(new AdmissionHook(), new ProtocolHook()).interceptors(new ResponseBoundary(), new DispatchInterceptor())
+                .saver(Objects.requireNonNull(saver)).releaseThread(false)
+                .stateSerializer(AgentStateSerializerFactory.create())
+                .outputKey("candidate").enableLogging(false).build();
+    }
+
+    public Map<String, Object> invoke(String prompt) throws Exception {
+        if (prompt == null || prompt.length() > limits.inputCharacters())
+            throw new IllegalArgumentException("Exploration input exceeds its explicit bound");
+        if (!identity.equals(ledger.identity())) throw new IllegalStateException("Ledger identity changed");
+        // A waiting/terminal step must not append another user message or START checkpoint.
+        // The before-model hook repeats this check for revocation racing with native invocation.
+        if (ledger.mayCallModel())
+            agent.invoke(prompt, RunnableConfig.builder().threadId(identity.threadId()).build());
+        var state = ledger.view();
+        var result = new LinkedHashMap<String, Object>();
+        result.put("status", state.status().name());
+        result.put("reason", state.reason());
+        result.put("artifactIds", state.artifactIds());
+        if (state.jobId() != null) result.put("jobId", state.jobId());
+        return Map.copyOf(result);
+    }
+
+    /**
+     * Only boundary projection: parent state and parent thread identity never enter the child graph.
+     * The negative asNode sentinel test documents why includeContents=false alone is insufficient.
+     */
+    public AsyncNodeActionWithConfig projectedNode() {
+        return AsyncNodeActionWithConfig.node_async((state, config) -> {
+            Object prompt = state.data().get(INPUT_KEY);
+            if (!(prompt instanceof String text)) throw new IllegalArgumentException("Missing exploration input");
+            return Map.of(OUTPUT_KEY, invoke(text));
+        });
+    }
+
+    ReactAgent nativeAgentForVerification() { return agent; }
+
+    @HookPositions(HookPosition.BEFORE_MODEL)
+    private final class AdmissionHook extends ModelHook {
+        @Override public String getName() { return "campaign_admission"; }
+        @Override public List<JumpTo> canJumpTo() { return List.of(JumpTo.end); }
+
+        @Override
+        public CompletableFuture<Map<String, Object>> beforeModel(OverAllState state, RunnableConfig config) {
+            // AgentCommand(null, ...) does not clear jump_to in native 1.1.2.3. Consume the
+            // previous repair jump explicitly before the admission hook's conditional edge.
+            return CompletableFuture.completedFuture(Map.of("jump_to",
+                    ledger.mayCallModel() ? OverAllState.MARK_FOR_REMOVAL : JumpTo.end));
+        }
+    }
+
+    @HookPositions(HookPosition.AFTER_MODEL)
+    private final class ProtocolHook extends MessagesModelHook {
+        @Override public String getName() { return "campaign_protocol"; }
+        @Override public List<JumpTo> canJumpTo() { return List.of(JumpTo.model, JumpTo.end); }
+
+        @Override
+        public AgentCommand afterModel(List<Message> messages, RunnableConfig config) {
+            Message last = messages.isEmpty() ? null : messages.get(messages.size() - 1);
+            if (!(last instanceof AssistantMessage assistant)) {
+                ledger.fail("MODEL_PROTOCOL_INVALID");
+                return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
+            }
+            List<AssistantMessage.ToolCall> calls = assistant.getToolCalls();
+            if (calls == null || calls.isEmpty()) {
+                ledger.candidate();
+                return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
+            }
+            var ids = new HashSet<String>();
+            for (var call : calls) {
+                if (call.id() == null || call.id().isBlank() || !ids.add(call.id())) {
+                    ledger.fail("MODEL_PROTOCOL_INVALID");
+                    return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
+                }
+            }
+            if (calls.size() > 1) {
+                var repaired = new ArrayList<>(messages);
+                repaired.add(ToolResponseMessage.builder().responses(calls.stream()
+                        .map(call -> new ToolResponseMessage.ToolResponse(call.id(), call.name(),
+                                "{\"executed\":false,\"code\":\"BATCH_REJECTED\"}"))
+                        .toList()).build());
+                boolean retry = ledger.rejectBatch(limits.repairAttempts());
+                return new AgentCommand(retry ? JumpTo.model : JumpTo.end, repaired, UpdatePolicy.REPLACE);
+            }
+            return new AgentCommand(messages, UpdatePolicy.REPLACE);
+        }
+    }
+
+    private final class DispatchInterceptor extends ToolInterceptor {
+        @Override public String getName() { return "campaign_dispatch"; }
+
+        @Override
+        public ToolCallResponse interceptToolCall(ToolCallRequest request, ToolCallHandler handler) {
+            if (!ledger.mayCallModel())
+                return ToolCallResponse.error(request.getToolCallId(), request.getToolName(), "DISPATCH_REVOKED");
+            acceptedToolCall.set(request.getToolCallId());
+            try {
+                return handler.call(request);
+            } finally {
+                acceptedToolCall.remove();
+            }
+        }
+    }
+
+    /** Reject before AgentLlmNode can put model text/arguments/metadata into state or a checkpoint. */
+    private final class ResponseBoundary extends ModelInterceptor {
+        private final ObjectMapper json = AgentStateSerializerFactory.create().objectMapper();
+        @Override public String getName() { return "campaign_response_boundary"; }
+
+        @Override
+        public ModelResponse interceptModel(ModelRequest request, ModelCallHandler handler) {
+            if (!ledger.mayCallModel()) {
+                return ModelResponse.of(new AssistantMessage("EXPLORATION_NOT_ACTIVE"));
+            }
+            ModelResponse response = handler.call(request);
+            if (!(response.getMessage() instanceof AssistantMessage message)) {
+                ledger.fail("MODEL_PROTOCOL_INVALID");
+                return ModelResponse.of(new AssistantMessage("MODEL_PROTOCOL_INVALID"));
+            }
+            try {
+                if (message.getToolCalls() != null && message.getToolCalls().size() > limits.modelToolCalls())
+                    throw new IOException("Model tool-call batch exceeds its bound");
+                // Count serialized content without allocating a second copy of an oversized response.
+                // Bound the exact values AgentLlmNode publishes: message and token usage. The
+                // transport ChatResponse itself is not stored in graph state and contains Spring
+                // metadata objects that are not general Jackson beans. Use the production graph
+                // mapper so normal messages/usage have the same serialization as a checkpoint.
+                var published = new LinkedHashMap<String, Object>();
+                published.put("message", message);
+                if (response.getChatResponse() != null)
+                    published.put("usage", response.getChatResponse().getMetadata().getUsage());
+                json.writeValue(new BoundedWriter(limits.modelResponseCharacters()), published);
+                return response;
+            } catch (IOException invalid) {
+                ledger.fail("MODEL_RESPONSE_REJECTED");
+                return ModelResponse.of(new AssistantMessage("MODEL_RESPONSE_REJECTED"));
+            }
+        }
+    }
+
+    private static final class BoundedWriter extends Writer {
+        private long remaining;
+        private BoundedWriter(long remaining) { this.remaining = remaining; }
+        @Override public void write(char[] text, int offset, int length) throws IOException {
+            if (length > remaining) throw new IOException("Model response exceeds its bound");
+            remaining -= length;
+        }
+        @Override public void flush() {}
+        @Override public void close() {}
+    }
+
+    /**
+     * Native AgentToolNode copies Throwable.getMessage() into a ToolResponse. Expose a fixed
+     * code without the original cause/message, while retaining native cancellation/interrupt
+     * categories. A production diagnostic sink is intentionally outside this P0 adapter.
+     */
+    private static Throwable failureForNative(Throwable failure) {
+        if (failure instanceof TimeoutException) return new TimeoutException("TOOL_EXECUTION_TIMED_OUT");
+        if (failure instanceof CancellationException) return new CancellationException("TOOL_EXECUTION_CANCELLED");
+        if (failure instanceof ToolCancelledException) return new ToolCancelledException("TOOL_EXECUTION_CANCELLED");
+        if (failure instanceof InterruptedException) return new InterruptedException("TOOL_EXECUTION_INTERRUPTED");
+        return new IllegalStateException("TOOL_EXECUTION_FAILED");
+    }
+
+    private final class GuardedCallback implements CancellableAsyncToolCallback {
+        private final RegisteredTool tool;
+        private final Executor executor;
+
+        private GuardedCallback(RegisteredTool tool, Executor executor) {
+            this.tool = tool;
+            this.executor = Objects.requireNonNull(executor);
+        }
+
+        @Override public ToolDefinition getToolDefinition() { return tool.callback().getToolDefinition(); }
+        @Override public ToolMetadata getToolMetadata() { return tool.callback().getToolMetadata(); }
+        @Override public Duration getTimeout() { return limits.toolTimeout(); }
+        @Override public String call(String input) { throw new UnsupportedOperationException("Native async path required"); }
+
+        @Override
+        public CompletableFuture<String> callAsync(String input, ToolContext context, CancellationToken cancellation) {
+            long attempt = ledger.beginCallback(Objects.requireNonNull(acceptedToolCall.get(),
+                    "Native tool admission must precede callback execution"), getToolDefinition().name());
+            cancellation.onCancel(() -> ledger.unresolved(attempt));
+            var data = new LinkedHashMap<>(context.getContext());
+            data.put(DISPATCH_SCOPE, new DispatchScope(ledger, attempt, cancellation));
+            // AgentToolNode applies orTimeout to this exposed promise. It must not be the
+            // executor's AsyncSupply future: completion while queued would skip its supplier
+            // entirely, including the finally that owns the callback permit.
+            var result = new CompletableFuture<String>();
+            try {
+                executor.execute(() -> {
+                    String observation = null;
+                    Throwable failure = null;
+                    try {
+                        if (!ledger.mayDispatch(attempt) || cancellation.isCancelled())
+                            throw new IllegalStateException("Dispatch permission was revoked before execution");
+                        String raw = tool.callback().call(input, new ToolContext(data));
+                        Observation projected = Objects.requireNonNull(tool.persistAndProject().apply(raw));
+                        observation = projected.json();
+                        if (observation.length() > limits.observationCharacters())
+                            throw new IllegalStateException("Observation exceeds its explicit bound");
+                        ledger.recordObservation(attempt, projected);
+                    } catch (Throwable thrown) {
+                        failure = thrown;
+                        ledger.unresolved(attempt);
+                        if (thrown instanceof InterruptedException) Thread.currentThread().interrupt();
+                    } finally {
+                        ledger.callbackExited(attempt);
+                    }
+                    // Complete only after actual exit, so the next model cannot race the
+                    // finally block and mistake an ordinary successful callback for in-flight.
+                    if (failure == null) result.complete(observation);
+                    else result.completeExceptionally(failureForNative(failure));
+                });
+            } catch (RuntimeException | Error rejected) {
+                ledger.unresolved(attempt);
+                ledger.callbackExited(attempt);
+                result.completeExceptionally(failureForNative(rejected));
+            }
+            return result;
+        }
+    }
+}

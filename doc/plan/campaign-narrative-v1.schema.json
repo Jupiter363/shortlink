@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CampaignNarrativeV1 design proposal",
+  "$comment": "Design artifact only. Runtime reference and semantic validation are mandatory and not implemented by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "leadFindingId", "findings", "viewRefs", "actions"],
+  "properties": {
+    "schemaVersion": { "const": "campaign.narrative.v1" },
+    "leadFindingId": { "oneOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "findings": {
+      "type": "array", "maxItems": 5,
+      "items": { "oneOf": [{ "$ref": "#/$defs/observation" }, { "$ref": "#/$defs/hypothesis" }] }
+    },
+    "viewRefs": { "type": "array", "maxItems": 3, "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "actions": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/action" } }
+  },
+  "$defs": {
+    "ref": { "type": "string", "minLength": 1, "maxLength": 96, "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$" },
+    "evidenceRefs": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "limitationRefs": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "claimRef", "explanation", "evidenceRefs", "limitationRefs"],
+      "properties": {
+        "id": { "$ref": "#/$defs/ref" },
+        "kind": { "const": "OBSERVATION" },
+        "claimRef": { "$ref": "#/$defs/ref" },
+        "explanation": { "type": "string", "maxLength": 80 },
+        "evidenceRefs": { "$ref": "#/$defs/evidenceRefs" },
+        "limitationRefs": { "$ref": "#/$defs/limitationRefs" }
+      }
+    },
+    "hypothesis": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "text", "evidenceRefs", "limitationRefs", "verificationActionRef"],
+      "properties": {
+        "id": { "$ref": "#/$defs/ref" },
+        "kind": { "const": "HYPOTHESIS" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "evidenceRefs": { "$ref": "#/$defs/evidenceRefs" },
+        "limitationRefs": { "$ref": "#/$defs/limitationRefs" },
+        "verificationActionRef": { "$ref": "#/$defs/ref" }
+      }
+    },
+    "action": {
+      "type": "object", "additionalProperties": false,
+      "required": ["actionRef", "rationale", "evidenceRefs"],
+      "properties": {
+        "actionRef": { "$ref": "#/$defs/ref" },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "evidenceRefs": { "$ref": "#/$defs/evidenceRefs" }
+      }
+    }
+  }
+}

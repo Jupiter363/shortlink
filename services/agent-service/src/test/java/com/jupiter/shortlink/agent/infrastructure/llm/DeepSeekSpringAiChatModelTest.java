@@ -13,6 +13,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -105,6 +106,55 @@ class DeepSeekSpringAiChatModelTest {
 
         assertThat(response.getResult().getOutput().getToolCalls()).singleElement()
                 .satisfies(call -> assertThat(call.name()).isEqualTo("list_groups"));
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\n\t"})
+    void missingToolIdentityIsRejectedInsteadOfInventingAnId(String id) throws Exception {
+        Map<String, Object> call = new LinkedHashMap<>();
+        call.put("id", id);
+        call.put("type", "function");
+        call.put("function", Map.of("name", "list_groups", "arguments", "{}"));
+        expectResponse("tool_calls", null, List.of(call));
+
+        assertThatThrownBy(() -> model.call(new Prompt("List groups")))
+                .isInstanceOf(LlmChatClientException.class)
+                .hasMessage("DeepSeek chat response has invalid tool call identities");
+        server.verify();
+    }
+
+    @Test
+    void duplicateToolIdentitiesRejectTheWholeBatch() throws Exception {
+        Object call = validToolCalls().get(0);
+        expectResponse("tool_calls", null, List.of(call, call));
+
+        assertThatThrownBy(() -> model.call(new Prompt("List groups")))
+                .isInstanceOf(LlmChatClientException.class)
+                .hasMessage("DeepSeek chat response has invalid tool call identities");
+        server.verify();
+    }
+
+    @Test
+    void malformedEntryCannotBeSilentlyDroppedFromAnOtherwiseValidBatch() throws Exception {
+        expectResponse("tool_calls", null, Arrays.asList(validToolCalls().get(0), null));
+
+        assertThatThrownBy(() -> model.call(new Prompt("List groups")))
+                .isInstanceOf(LlmChatClientException.class)
+                .hasMessage("DeepSeek chat response has invalid tool call identities");
+        server.verify();
+    }
+
+    @Test
+    void distinctIdentitiesRemainUnchangedForTheNativeBatchGate() throws Exception {
+        expectResponse("tool_calls", null, List.of(validToolCalls().get(0),
+                Map.of("id", "call-2", "type", "function",
+                        "function", Map.of("name", "list_groups", "arguments", "{}"))));
+
+        assertThat(model.call(new Prompt("List groups")).getResult().getOutput().getToolCalls())
+                .extracting(org.springframework.ai.chat.messages.AssistantMessage.ToolCall::id)
+                .containsExactly("call-1", "call-2");
         server.verify();
     }
 

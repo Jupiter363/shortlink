@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "campaign.narrative.v1",
+  "leadFindingId": "finding_1",
+  "findings": [
+    {
+      "id": "finding_1",
+      "kind": "OBSERVATION",
+      "claimRef": "claim_peak_day",
+      "explanation": "峰值集中在单日，建议结合当日投放记录核查原因。",
+      "evidenceRefs": ["evidence_daily"],
+      "limitationRefs": []
+    }
+  ],
+  "viewRefs": ["view_daily_trend", "view_link_ranking"],
+  "actions": [
+    {
+      "actionRef": "action_peak_device_breakdown",
+      "rationale": "查看高峰是否集中在某类设备。",
+      "evidenceRefs": ["evidence_daily"]
+    }
+  ]
+}
