@@ -13,6 +13,12 @@ public interface ShortLinkBusinessGateway {
         return ToolResult.failure("Statistics job submission is unavailable");
     }
 
+    /** Backend ledger dispatch only. Unsupported adapters must never use the legacy post fallback. */
+    default ToolResult submitStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
+        return new ToolResult(false, Map.of("code", "STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE"),
+                "Statistics job submission protocol is unavailable");
+    }
+
     /** Backend reconciliation only; never fall back to the create-or-find submission API. */
     default ToolResult recoverExistingStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
         return new ToolResult(false, Map.of("code", "RECOVERY_PROTOCOL_UNAVAILABLE"),

@@ -3,6 +3,7 @@ package com.jupiter.shortlink.agent.business.shortlink;
 import com.jupiter.shortlink.agent.harness.tool.ToolContext;
 import com.jupiter.shortlink.agent.harness.tool.ToolResult;
 import com.jupiter.shortlink.agent.infrastructure.config.AgentProperties;
+import com.jupiter.shortlink.agent.tool.shortlink.DimensionQuery;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -16,7 +17,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +34,8 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     private static final String STATISTICS_JOBS_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/jobs";
 
     private static final String STATISTICS_READ_PROTOCOL_UNAVAILABLE = "STATISTICS_READ_PROTOCOL_UNAVAILABLE";
+
+    private static final String STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE = "STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE";
 
     private final AgentProperties agentProperties;
 
@@ -86,6 +91,110 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
     @Override
     public ToolResult post(String path, ToolContext context, Map<String, Object> payload) {
         return post(path, context, payload, false);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public ToolResult submitStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
+        if (!statisticsReadPrincipal(context)) return statisticsSubmitFailure("FORBIDDEN");
+        final Map<String, Object> request;
+        try {
+            request = frozenStatisticsSubmission(frozenRequest);
+        } catch (RuntimeException invalid) {
+            return statisticsSubmitFailure("INVALID_QUERY");
+        }
+        try {
+            Map<String, Object> body;
+            if (transport != null) {
+                body = transport.exchange("POST", uri(STATISTICS_JOBS_PATH, Map.of()),
+                        headers(context).toSingleValueMap(), request);
+            } else {
+                ResponseEntity<Map> response = restTemplate.exchange(uri(STATISTICS_JOBS_PATH, Map.of()),
+                        HttpMethod.POST, new HttpEntity<>(request, headers(context)), Map.class);
+                if (response.getStatusCode().value() != 200)
+                    return statisticsSubmitHttpFailure(response.getStatusCode().value());
+                body = response.getBody();
+            }
+            if (body == null) return statisticsSubmitFailure(STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE);
+            Object code = body.get("code");
+            boolean success = "0".equals(code) || code instanceof Number number && "0".equals(number.toString());
+            if (!success) {
+                String safeCode = code instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}")
+                        ? value : STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE;
+                return statisticsSubmitFailure(safeCode);
+            }
+            if (Boolean.FALSE.equals(body.get("success"))
+                    || body.containsKey("success") && !(body.get("success") instanceof Boolean)
+                    || !validRecoveredJob(body.get("data"))) {
+                return statisticsSubmitFailure(STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE);
+            }
+            return ToolResult.success(body.get("data"));
+        } catch (com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport.HttpStatusFailure failure) {
+            return statisticsSubmitHttpFailure(failure.statusCode());
+        } catch (org.springframework.web.client.HttpStatusCodeException failure) {
+            return statisticsSubmitHttpFailure(failure.getStatusCode().value());
+        } catch (SecurityException denied) {
+            return statisticsSubmitFailure("FORBIDDEN");
+        } catch (RuntimeException failure) {
+            return statisticsSubmitFailure(statisticsReadDecodeFailure(failure)
+                    ? STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
+        }
+    }
+
+    /** Closed wire shape is also a finite JSON copy: no recursive arbitrary values reach serialization. */
+    private static Map<String, Object> frozenStatisticsSubmission(Map<String, Object> source) {
+        Set<String> fields = Set.of("requestId", "gid", "startDate", "endDate", "queryKind",
+                "fullShortUrl", "dimensions", "filters");
+        if (source == null || !fields.containsAll(source.keySet())
+                || !(source.get("requestId") instanceof String requestId)
+                || !requestId.matches("[A-Za-z0-9_-]{1,96}")) throw new IllegalArgumentException();
+        Map<String, Object> copy = new LinkedHashMap<>();
+        for (String field : List.of("requestId", "gid", "startDate", "endDate", "queryKind")) {
+            if (!(source.get(field) instanceof String text) || text.isBlank()
+                    || text.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
+            copy.put(field, text);
+        }
+        String kind = (String) copy.get("queryKind");
+        if (!Set.of("METRICS", "ACCESS_RECORDS", "LINK_METRICS", "DIMENSION_BREAKDOWN").contains(kind))
+            throw new IllegalArgumentException();
+        if (source.containsKey("fullShortUrl")) {
+            if (!(source.get("fullShortUrl") instanceof String url) || url.isBlank()
+                    || url.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
+            copy.put("fullShortUrl", url);
+        }
+        if ("DIMENSION_BREAKDOWN".equals(kind)) {
+            copy.put("dimensions", DimensionQuery.dimensions(source.get("dimensions")));
+            if (source.containsKey("filters")) {
+                if (!(source.get("filters") instanceof List<?> filters)) throw new IllegalArgumentException();
+                DimensionQuery.filters(filters); // Validate without rewriting the frozen request's ordering/values.
+                List<Map<String, Object>> frozen = new ArrayList<>();
+                for (Object entry : filters) {
+                    Map<?, ?> filter = (Map<?, ?>) entry;
+                    if (!Set.of("dimension", "operator", "values").containsAll(filter.keySet()))
+                        throw new IllegalArgumentException();
+                    Map<String, Object> value = new LinkedHashMap<>();
+                    value.put("dimension", filter.get("dimension"));
+                    value.put("operator", filter.get("operator"));
+                    if (filter.containsKey("values")) value.put("values", filter.get("values") == null
+                            ? null : List.copyOf((List<?>) filter.get("values")));
+                    frozen.add(Collections.unmodifiableMap(value));
+                }
+                copy.put("filters", List.copyOf(frozen));
+            }
+        } else if (source.containsKey("dimensions") || source.containsKey("filters")) {
+            throw new IllegalArgumentException();
+        }
+        return Collections.unmodifiableMap(copy);
+    }
+
+    private static ToolResult statisticsSubmitHttpFailure(int status) {
+        String code = status == 401 || status == 403 ? "FORBIDDEN"
+                : Set.of(404, 405, 501).contains(status) ? STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE";
+        return statisticsSubmitFailure(code);
+    }
+
+    private static ToolResult statisticsSubmitFailure(String code) {
+        return failure(code, "Statistics job submission failed: " + code);
     }
 
     @Override
