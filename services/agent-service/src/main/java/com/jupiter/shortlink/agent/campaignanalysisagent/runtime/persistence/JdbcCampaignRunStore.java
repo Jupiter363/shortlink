@@ -5,12 +5,18 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.Approval;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.InvocationSpec;
 import com.jupiter.shortlink.contract.GroupMembersPage;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -157,6 +163,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     @Override
     public ChildRecord prepareChild(RunToken token, ChildSpec spec) {
         validateChild(spec);
+        if (spec.mode() == ChildMode.LOCAL) conflict("LOCAL_CHILD_REQUIRES_APPROVAL");
         return transaction(() -> {
             lockRun(token, true);
             if (action(token, spec.actionId()).isEmpty()) conflict("ACTION_NOT_FOUND");
@@ -171,6 +178,30 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                     token.definition().runId(), token.definition().revision(), spec.childId(), spec.actionId(),
                     token.definition().caller().tenantId(), spec.mode().name(), spec.requestId(), spec.wire().method(),
                     spec.wire().path(), spec.wire().hash(), spec.wire().bodyJson(), now(), now());
+            return findChild(token.definition(), spec.childId(), false).orElseThrow();
+        });
+    }
+
+    @Override
+    public ChildRecord prepareLocalChild(RunToken token, ChildSpec spec, Approval approval, ArtifactAuthorizer authorizer) {
+        validateChild(spec);
+        requireLocalApproval(spec, approval);
+        return transaction(() -> {
+            lockRun(token, true);
+            if (action(token, spec.actionId()).isEmpty()) conflict("ACTION_NOT_FOUND");
+            verifyLocalInputs(token.definition().caller(), spec.localInvocation(), authorizer);
+            var existing = findChild(token.definition(), spec.childId(), true);
+            if (existing.isPresent()) {
+                if (!existing.get().spec().equals(spec)) conflict("CHILD_REQUEST_CHANGED");
+                return existing.get();
+            }
+            String invocation = LocalCalculationRegistry.encode(spec.localInvocation());
+            json(invocation, limits.definitionBytes(), true);
+            jdbc.update("INSERT INTO campaign_child_ledger (run_id,revision,child_id,action_id,tenant_id,child_mode,request_id,"
+                            + "local_invocation_json,local_invocation_hash,child_state,attempt_version,callback_active,created_at,updated_at) "
+                            + "VALUES (?,?,?,?,?,'LOCAL',?,?,?,'PREPARED',0,FALSE,?,?)",
+                    token.definition().runId(), token.definition().revision(), spec.childId(), spec.actionId(),
+                    token.definition().caller().tenantId(), spec.requestId(), invocation, CampaignRunStore.sha256(invocation), now(), now());
             return findChild(token.definition(), spec.childId(), false).orElseThrow();
         });
     }
@@ -270,6 +301,23 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return begin(token, childId, DispatchPurpose.RELEASE);
     }
 
+    @Override public DispatchPermit beginLocalReplay(RunToken token, String childId, Approval approval,
+                                                     ArtifactAuthorizer authorizer) {
+        id(childId, "childId", 96);
+        return transaction(() -> {
+            lockRun(token, true);
+            requireNoCallbacks(token.definition().runId());
+            ChildRecord child = findChild(token.definition(), childId, true)
+                    .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            requireLocalApproval(child.spec(), approval);
+            if (child.state() != ChildState.UNRESOLVED || child.reason() != UnresolvedReason.LOCAL_RESULT_UNKNOWN
+                    || child.jobId() != null || child.artifactId() != null || !localBindings(token, childId).isEmpty())
+                conflict("LOCAL_REPLAY_REQUIRES_UNRESOLVED_RESULT");
+            verifyLocalInputs(token.definition().caller(), child.spec().localInvocation(), authorizer);
+            return begin(token, childId, DispatchPurpose.LOCAL_REPLAY);
+        });
+    }
+
     private DispatchPermit begin(RunToken token, String childId, DispatchPurpose purpose) {
         id(childId, "childId", 96);
         return transaction(() -> {
@@ -295,6 +343,9 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             if (purpose == DispatchPurpose.RELEASE && (child.spec().mode() != ChildMode.ASYNC
                     || child.state() != ChildState.READY || child.jobId() == null || child.artifactId() == null))
                 conflict("RELEASE_REQUIRES_ASYNC_READY_RESULT");
+            if (purpose == DispatchPurpose.LOCAL_REPLAY && (child.spec().mode() != ChildMode.LOCAL
+                    || child.state() != ChildState.UNRESOLVED || child.reason() != UnresolvedReason.LOCAL_RESULT_UNKNOWN))
+                conflict("LOCAL_REPLAY_REQUIRES_UNRESOLVED_RESULT");
             var permit = new DispatchPermit(token, childId, freshId(), Math.addExact(child.attemptVersion(), 1), purpose);
             String resultTransition = purpose == DispatchPurpose.RELEASE ? ""
                     : "child_state='DISPATCHING',unresolved_reason=NULL,";
@@ -368,6 +419,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return transaction(() -> {
             lockRun(permit.token(), true);
             ChildRecord child = requireAttempt(permit);
+            if (child.spec().mode() == ChildMode.LOCAL) conflict("LOCAL_RESULT_REQUIRES_MULTI_OUTPUT_PUBLICATION");
             ActionSpec action = action(permit.token(), child.spec().actionId()).orElseThrow();
             ArtifactMetadata expected = metadata(permit, child, action, draft);
             var existing = findArtifact(draft.artifactId());
@@ -393,6 +445,93 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                             + "WHERE run_id=? AND revision=? AND child_id=?",
                     draft.artifactId(), now(), definition.runId(), definition.revision(), permit.childId());
             return expected.ref();
+        });
+    }
+
+    @Override
+    public Map<String, ArtifactRef> publishLocalReady(CampaignStepStore.StepPermit step, DispatchPermit permit,
+                                                     Approval approval, Map<String, ArtifactDraft> supplied,
+                                                     ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(step); Objects.requireNonNull(permit);
+        if (supplied == null || supplied.entrySet().stream().anyMatch(entry -> entry.getKey() == null || entry.getValue() == null))
+            throw new IllegalArgumentException("LOCAL_OUTPUTS_REQUIRED");
+        Map<String, ArtifactDraft> outputs = Map.copyOf(supplied);
+        if (!step.runToken().equals(permit.token())) conflict("LOCAL_STEP_RUN_MISMATCH");
+        return transaction(() -> {
+            lockRun(permit.token(), true);
+            lockLocalStep(step);
+            ChildRecord child = requireAttempt(permit);
+            requireLocalApproval(child.spec(), approval);
+            if (permit.purpose() != DispatchPurpose.FRESH && permit.purpose() != DispatchPurpose.LOCAL_REPLAY)
+                conflict("LOCAL_ATTEMPT_PURPOSE_INVALID");
+            if (child.jobId() != null || child.artifactId() != null) conflict("LOCAL_RESULT_BINDING_INVALID");
+            if (!child.callbackActive()) conflict("ATTEMPT_NOT_DISPATCHING");
+            ActionSpec action = action(permit.token(), child.spec().actionId()).orElseThrow();
+            if (!step.stepId().equals(action.stepId())) conflict("LOCAL_STEP_ACTION_MISMATCH");
+            verifyLocalInputs(permit.token().definition().caller(), child.spec().localInvocation(), authorizer);
+            for (ArtifactDraft draft : outputs.values()) validateArtifact(draft);
+            // Enforce configured encoded-byte bounds before registry output-schema parsing.
+            approval.validateOutputs(outputs);
+            if (child.state() == ChildState.READY) {
+                Map<String, ArtifactRef> existing = verifiedLocalOutputs(permit.token(), child, authorizer);
+                if (!existing.keySet().equals(outputs.keySet())) conflict("ARTIFACT_IMMUTABLE");
+                for (var output : outputs.entrySet()) {
+                    Artifact actual = readArtifact(permit.token().definition().caller(), output.getValue().artifactId(), authorizer);
+                    if (!actual.metadata().equals(metadata(permit, child, action, output.getValue()))
+                            || !actual.payloadJson().equals(output.getValue().payloadJson())) conflict("ARTIFACT_IMMUTABLE");
+                }
+                return existing;
+            }
+            if (child.state() != ChildState.DISPATCHING || !child.callbackActive()) conflict("ATTEMPT_NOT_DISPATCHING");
+            if (!localBindings(permit.token(), permit.childId()).isEmpty()) conflict("LOCAL_OUTPUT_BINDING_CONFLICT");
+            Map<String, ArtifactRef> references = new LinkedHashMap<>();
+            var definition = permit.token().definition();
+            for (var output : outputs.entrySet()) {
+                ArtifactDraft draft = output.getValue();
+                if (findArtifact(draft.artifactId()).isPresent()) conflict("ARTIFACT_ID_ALREADY_USED");
+                ArtifactMetadata expected = metadata(permit, child, action, draft);
+                insertLocalArtifact(expected, draft.payloadJson());
+                jdbc.update("INSERT INTO campaign_local_output (run_id,revision,child_id,output_name,artifact_id) VALUES (?,?,?,?,?)",
+                        definition.runId(), definition.revision(), permit.childId(), output.getKey(), draft.artifactId());
+                references.put(output.getKey(), expected.ref());
+            }
+            jdbc.update("UPDATE campaign_child_ledger SET child_state='READY',unresolved_reason=NULL,updated_at=? "
+                            + "WHERE run_id=? AND revision=? AND child_id=?",
+                    now(), definition.runId(), definition.revision(), permit.childId());
+            return Collections.unmodifiableMap(references);
+        });
+    }
+
+    @Override
+    public Map<String, ArtifactRef> localOutputs(RunToken token, String childId, ArtifactAuthorizer authorizer) {
+        id(childId, "childId", 96);
+        return transaction(() -> {
+            lockRun(token, false);
+            ChildRecord child = findChild(token.definition(), childId, true)
+                    .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            if (child.spec().mode() != ChildMode.LOCAL || child.state() != ChildState.READY)
+                conflict("LOCAL_OUTPUTS_REQUIRE_READY");
+            verifyLocalInputs(token.definition().caller(), child.spec().localInvocation(), authorizer);
+            return verifiedLocalOutputs(token, child, authorizer);
+        });
+    }
+
+    @Override
+    public void markLocalInvalid(DispatchPermit permit) {
+        Objects.requireNonNull(permit);
+        transaction(() -> {
+            lockRun(permit.token(), true);
+            ChildRecord child = requireAttempt(permit);
+            if (child.spec().mode() != ChildMode.LOCAL || !child.callbackActive()
+                    || (permit.purpose() != DispatchPurpose.FRESH && permit.purpose() != DispatchPurpose.LOCAL_REPLAY))
+                conflict("LOCAL_INVALID_REQUIRES_ACTIVE_ATTEMPT");
+            if (child.state() == ChildState.UNRESOLVED && child.reason() == UnresolvedReason.LOCAL_RESULT_INVALID) return null;
+            if (child.state() != ChildState.DISPATCHING) conflict("ATTEMPT_NOT_DISPATCHING");
+            jdbc.update("UPDATE campaign_child_ledger SET child_state='UNRESOLVED',unresolved_reason=?,updated_at=? "
+                            + "WHERE run_id=? AND revision=? AND child_id=?",
+                    UnresolvedReason.LOCAL_RESULT_INVALID.name(), now(), permit.token().definition().runId(),
+                    permit.token().definition().revision(), permit.childId());
+            return null;
         });
     }
 
@@ -459,8 +598,87 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return new Artifact(metadata, payload);
     }
 
+    private static void requireLocalApproval(ChildSpec child, Approval approval) {
+        if (child == null || child.mode() != ChildMode.LOCAL || child.wire() != null || child.localInvocation() == null
+                || approval == null || !child.localInvocation().equals(approval.invocation()))
+            throw new IllegalArgumentException("LOCAL_INVOCATION_NOT_APPROVED");
+    }
+
+    private void verifyLocalInputs(Caller caller, InvocationSpec invocation, ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(authorizer, "Current authorization callback is required");
+        if (!clock.instant().isBefore(invocation.expiresAt())) throw new SecurityException("LOCAL_INVOCATION_EXPIRED");
+        for (ArtifactMetadata expected : invocation.inputs().values()) {
+            Artifact actual = readArtifact(caller, expected.ref().artifactId(), authorizer);
+            if (!actual.metadata().equals(expected)) throw new SecurityException("LOCAL_INPUT_BINDING_CHANGED");
+            if (invocation.expiresAt().isAfter(actual.metadata().ref().expiresAt()))
+                throw new IllegalArgumentException("LOCAL_OUTPUT_OUTLIVES_INPUT");
+        }
+    }
+
+    private void lockLocalStep(CampaignStepStore.StepPermit permit) {
+        var token = permit.runToken();
+        List<Boolean> matches = jdbc.query("SELECT step_status,callback_active,attempt_id,attempt_version,"
+                        + "dispatch_run_version,dispatch_run_token FROM campaign_step_ledger "
+                        + "WHERE run_id=? AND revision=? AND step_id=? FOR UPDATE", (rs, row) ->
+                        "RUNNING".equals(rs.getString("step_status")) && rs.getBoolean("callback_active")
+                                && Objects.equals(permit.attemptId(), rs.getString("attempt_id"))
+                                && permit.attemptVersion() == rs.getLong("attempt_version")
+                                && token.version() == rs.getLong("dispatch_run_version")
+                                && token.advanceToken().equals(rs.getString("dispatch_run_token")),
+                token.definition().runId(), token.definition().revision(), permit.stepId());
+        if (matches.size() != 1 || !matches.get(0)) conflict("LOCAL_STEP_ATTEMPT_FENCED");
+    }
+
+    private Map<String, String> localBindings(RunToken token, String childId) {
+        Map<String, String> bindings = new LinkedHashMap<>();
+        jdbc.query("SELECT output_name,artifact_id FROM campaign_local_output "
+                        + "WHERE run_id=? AND revision=? AND child_id=? ORDER BY output_name FOR UPDATE",
+                rs -> {
+                    String output = rs.getString("output_name"), artifact = rs.getString("artifact_id");
+                    text(output, "output name", 128); id(artifact, "artifactId", 96);
+                    if (bindings.putIfAbsent(output, artifact) != null) conflict("LOCAL_OUTPUT_BINDING_CORRUPTED");
+                }, token.definition().runId(), token.definition().revision(), childId);
+        return bindings;
+    }
+
+    private Map<String, ArtifactRef> verifiedLocalOutputs(RunToken token, ChildRecord child, ArtifactAuthorizer authorizer) {
+        InvocationSpec invocation = child.spec().localInvocation();
+        Map<String, String> bindings = localBindings(token, child.spec().childId());
+        if (child.jobId() != null || child.artifactId() != null || !bindings.keySet().equals(invocation.outputs().keySet()))
+            conflict("LOCAL_OUTPUT_BINDING_CORRUPTED");
+        ActionSpec action = action(token, child.spec().actionId()).orElseThrow();
+        Map<String, ArtifactRef> references = new LinkedHashMap<>();
+        for (var entry : invocation.outputs().entrySet()) {
+            var expected = entry.getValue();
+            if (!expected.artifactId().equals(bindings.get(entry.getKey()))) conflict("LOCAL_OUTPUT_BINDING_CORRUPTED");
+            Artifact actual = readArtifact(token.definition().caller(), expected.artifactId(), authorizer);
+            var metadata = actual.metadata(); var ref = metadata.ref(); var definition = token.definition();
+            if (!definition.runId().equals(metadata.runId()) || !definition.planId().equals(metadata.planId())
+                    || definition.revision() != metadata.revision() || !child.spec().actionId().equals(metadata.actionId())
+                    || !child.spec().childId().equals(metadata.childId()) || !action.executorVersion().equals(metadata.executorVersion())
+                    || !expected.type().equals(ref.type()) || !expected.schemaVersion().equals(ref.schemaVersion())
+                    || !expected.scopeRef().equals(ref.scopeRef()) || !expected.periodsRef().equals(ref.periodsRef())
+                    || !invocation.expiresAt().equals(ref.expiresAt())) conflict("LOCAL_OUTPUT_BINDING_CORRUPTED");
+            references.put(entry.getKey(), ref);
+        }
+        return Collections.unmodifiableMap(references);
+    }
+
+    private void insertLocalArtifact(ArtifactMetadata metadata, String payload) {
+        var ref = metadata.ref(); var owner = metadata.owner();
+        jdbc.update("INSERT INTO campaign_artifact (artifact_id,tenant_id,subject_name,auth_version,run_id,plan_id,revision,"
+                        + "action_id,child_id,executor_version,artifact_type,schema_version,scope_ref,periods_ref,quality_json,"
+                        + "provenance_json,payload_hash,expires_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ref.artifactId(), owner.tenantId(), owner.subject(), owner.authVersion(), metadata.runId(), metadata.planId(),
+                metadata.revision(), metadata.actionId(), metadata.childId(), metadata.executorVersion(), ref.type(),
+                ref.schemaVersion(), ref.scopeRef(), ref.periodsRef(), metadata.qualityJson(), metadata.provenanceJson(),
+                ref.payloadHash(), ref.expiresAt().toEpochMilli(), now());
+        jdbc.update("INSERT INTO campaign_artifact_payload (artifact_id,payload_json) VALUES (?,?)", ref.artifactId(), payload);
+    }
+
     private void unresolved(RunDefinition definition, ChildRecord child) {
-        UnresolvedReason reason = child.spec().mode() == ChildMode.SYNC ? UnresolvedReason.READ_RESULT_UNKNOWN
+        UnresolvedReason reason = child.spec().mode() == ChildMode.LOCAL ? UnresolvedReason.LOCAL_RESULT_UNKNOWN
+                : child.spec().mode() == ChildMode.SYNC ? UnresolvedReason.READ_RESULT_UNKNOWN
                 : child.jobId() == null ? UnresolvedReason.SUBMISSION_UNRESOLVED : UnresolvedReason.JOB_RESULT_UNKNOWN;
         jdbc.update("UPDATE campaign_child_ledger SET child_state='UNRESOLVED',unresolved_reason=?,updated_at=? "
                         + "WHERE run_id=? AND revision=? AND child_id=?",
@@ -627,12 +845,26 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     }
 
     private ChildRecord child(ResultSet rs) throws SQLException {
-        String body = rs.getString("wire_body");
-        json(body, limits.requestBytes(), true);
-        var wire = new WireRequest(rs.getString("wire_method"), rs.getString("wire_path"), body);
-        if (!wire.hash().equals(rs.getString("wire_hash"))) conflict("CHILD_REQUEST_CORRUPTED");
-        var spec = new ChildSpec(rs.getString("child_id"), rs.getString("action_id"), ChildMode.valueOf(rs.getString("child_mode")),
-                rs.getString("request_id"), wire);
+        ChildMode mode = ChildMode.valueOf(rs.getString("child_mode"));
+        WireRequest wire = null;
+        InvocationSpec invocation = null;
+        if (mode == ChildMode.LOCAL) {
+            if (rs.getString("wire_method") != null || rs.getString("wire_path") != null
+                    || rs.getString("wire_body") != null || rs.getString("wire_hash") != null)
+                conflict("LOCAL_INVOCATION_CORRUPTED");
+            String body = rs.getString("local_invocation_json");
+            json(body, limits.definitionBytes(), true);
+            if (!CampaignRunStore.sha256(body).equals(rs.getString("local_invocation_hash"))) conflict("LOCAL_INVOCATION_CORRUPTED");
+            invocation = LocalCalculationRegistry.decode(body);
+            if (!invocation.hash().equals(rs.getString("local_invocation_hash"))) conflict("LOCAL_INVOCATION_CORRUPTED");
+        } else {
+            String body = rs.getString("wire_body");
+            json(body, limits.requestBytes(), true);
+            wire = new WireRequest(rs.getString("wire_method"), rs.getString("wire_path"), body);
+            if (!wire.hash().equals(rs.getString("wire_hash"))) conflict("CHILD_REQUEST_CORRUPTED");
+        }
+        var spec = new ChildSpec(rs.getString("child_id"), rs.getString("action_id"), mode,
+                rs.getString("request_id"), wire, invocation);
         String purpose = rs.getString("attempt_purpose");
         String reason = rs.getString("unresolved_reason");
         return new ChildRecord(spec, ChildState.valueOf(rs.getString("child_state")), rs.getString("job_id"), rs.getString("artifact_id"),
@@ -666,10 +898,21 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     }
 
     private void validateChild(ChildSpec child) {
-        Objects.requireNonNull(child); Objects.requireNonNull(child.mode()); Objects.requireNonNull(child.wire());
+        Objects.requireNonNull(child); Objects.requireNonNull(child.mode());
         id(child.childId(), "childId", 96); id(child.actionId(), "actionId", 96);
         if (child.requestId() == null || !child.requestId().matches("[A-Za-z0-9_-]{1,96}"))
             throw new IllegalArgumentException("Invalid requestId");
+        if (child.mode() == ChildMode.LOCAL) {
+            if (child.wire() != null || child.localInvocation() == null) throw new IllegalArgumentException("Invalid local invocation");
+            json(LocalCalculationRegistry.encode(child.localInvocation()), limits.definitionBytes(), true);
+            child.localInvocation().outputs().forEach((name, binding) -> {
+                text(name, "output name", 128); id(binding.artifactId(), "artifactId", 96);
+                text(binding.type(), "artifact type", 128); text(binding.schemaVersion(), "schemaVersion", 128);
+                text(binding.scopeRef(), "scopeRef", 256); text(binding.periodsRef(), "periodsRef", 256);
+            });
+            return;
+        }
+        if (child.wire() == null || child.localInvocation() != null) throw new IllegalArgumentException("Invalid remote request");
         if (!List.of("GET", "POST").contains(child.wire().method())) throw new IllegalArgumentException("Invalid wire method");
         text(child.wire().path(), "wire path", 2048);
         if (!child.wire().path().startsWith("/") || child.wire().path().startsWith("//"))

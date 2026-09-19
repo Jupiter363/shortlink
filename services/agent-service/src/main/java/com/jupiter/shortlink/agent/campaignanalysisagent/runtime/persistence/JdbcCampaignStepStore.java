@@ -6,6 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ArtifactAuthorizer;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunToken;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ArtifactMetadata;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ChildMode;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ChildState;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.UnresolvedReason;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.Approval;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -211,10 +216,7 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
                 fail("STEP_CHILD_RESULT_INCOMPLETE");
             for (String artifactId : new HashSet<>(outputs.values())) {
                 var artifact = runs.inspectArtifact(token.definition().caller(), artifactId, authorizer);
-                Integer ready = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger WHERE run_id=? AND revision=? "
-                                + "AND child_id=? AND child_state='READY' AND artifact_id=?", Integer.class,
-                        artifact.runId(), artifact.revision(), artifact.childId(), artifactId);
-                if (ready == null || ready != 1) fail("STEP_OUTPUT_ARTIFACT_NOT_READY");
+                if (!readyArtifact(artifact, artifactId)) fail("STEP_OUTPUT_ARTIFACT_NOT_READY");
             }
             if (step.status() != StepStatus.RUNNING) return step;
             jdbc.update("UPDATE campaign_step_ledger SET step_status=?,outputs_json=?,reason=?,row_version=row_version+1,"
@@ -291,6 +293,60 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
                     now(), token.definition().runId(), token.definition().revision(), stepId);
             return requireStep(token, stepId).record();
         });
+    }
+
+    @Override
+    public StepRecord refreshLocalReplay(RunToken token, String stepId, Map<String, Approval> supplied,
+                                         ArtifactAuthorizer authorizer) {
+        id(stepId, 96);
+        Map<String, Approval> approvals = Map.copyOf(supplied);
+        Objects.requireNonNull(authorizer);
+        return transaction(() -> {
+            requireRun(token, true);
+            StepRecord step = requireStep(token, stepId).record();
+            if (step.status() != StepStatus.BLOCKED || !"STEP_RESULT_UNKNOWN".equals(step.reason())) return step;
+            if (hasCallbacks(token.definition().runId())) return step;
+            boolean unknownLocal = false;
+            for (ChildReceipt receipt : childReceipts(token, stepId)) {
+                if ("READY".equals(receipt.state())) continue;
+                var child = runs.child(token, receipt.childId()).orElseThrow();
+                if (child.spec().mode() != ChildMode.LOCAL || child.state() != ChildState.UNRESOLVED
+                        || child.reason() != UnresolvedReason.LOCAL_RESULT_UNKNOWN) return step;
+                Approval approved = approvals.get(receipt.childId());
+                if (approved == null) return step;
+                if (!approved.invocation().equals(child.spec().localInvocation())) fail("LOCAL_INVOCATION_CHANGED");
+                if (!clock.instant().isBefore(approved.invocation().expiresAt()))
+                    throw new SecurityException("LOCAL_INVOCATION_EXPIRED");
+                for (ArtifactMetadata input : approved.invocation().inputs().values()) {
+                    var actual = runs.readArtifact(token.definition().caller(), input.ref().artifactId(), authorizer);
+                    if (!input.equals(actual.metadata())) fail("LOCAL_INPUT_CHANGED");
+                    if (approved.invocation().expiresAt().isAfter(input.ref().expiresAt())) fail("LOCAL_EXPIRY_EXCEEDS_INPUT");
+                }
+                unknownLocal = true;
+            }
+            if (!unknownLocal) return step;
+            for (String dependency : step.spec().dependsOn()) {
+                if (requireStep(token, dependency).record().status() != StepStatus.SUCCEEDED) return step;
+            }
+            jdbc.update("UPDATE campaign_step_ledger SET step_status='READY',reason=NULL,row_version=row_version+1,updated_at=? "
+                            + "WHERE run_id=? AND revision=? AND step_id=?",
+                    now(), token.definition().runId(), token.definition().revision(), stepId);
+            return requireStep(token, stepId).record();
+        });
+    }
+
+    /** LOCAL outputs have a named association; remote single-output children keep their old proof. */
+    private boolean readyArtifact(ArtifactMetadata artifact, String artifactId) {
+        var children = jdbc.queryForList("SELECT child_mode,artifact_id FROM campaign_child_ledger "
+                        + "WHERE run_id=? AND revision=? AND child_id=? AND child_state='READY'",
+                artifact.runId(), artifact.revision(), artifact.childId());
+        if (children.size() != 1) return false;
+        if (!"LOCAL".equals(children.get(0).get("child_mode")))
+            return artifactId.equals(children.get(0).get("artifact_id"));
+        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_local_output WHERE run_id=? AND revision=? "
+                        + "AND child_id=? AND artifact_id=?", Integer.class,
+                artifact.runId(), artifact.revision(), artifact.childId(), artifactId);
+        return count != null && count == 1;
     }
 
     private void requireRun(RunToken token, boolean current) {

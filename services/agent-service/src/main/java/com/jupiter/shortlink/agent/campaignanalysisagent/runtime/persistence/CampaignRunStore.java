@@ -1,5 +1,6 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -9,16 +10,17 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Business ledger, independent of native graph checkpoints. No production registration in P1b. */
 public interface CampaignRunStore {
     enum RunStatus { ACTIVE, CANCELLED, SUPERSEDED }
-    enum ChildMode { SYNC, ASYNC }
+    enum ChildMode { SYNC, ASYNC, LOCAL }
     enum ChildState { PREPARED, DISPATCHING, WAITING, READY, UNRESOLVED }
-    enum DispatchPurpose { FRESH, RECONCILE, RELEASE, AUTHORITY_PAGE_READ }
+    enum DispatchPurpose { FRESH, RECONCILE, RELEASE, AUTHORITY_PAGE_READ, LOCAL_REPLAY }
     /** QUERY_CAPACITY_EXHAUSTED is a proven non-admission marker, not an unknown submission. */
-    enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN, QUERY_CAPACITY_EXHAUSTED }
+    enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN, QUERY_CAPACITY_EXHAUSTED, LOCAL_RESULT_UNKNOWN, LOCAL_RESULT_INVALID }
     enum CapacityKind { ACTIVE_EXECUTION, RESULT_STORAGE, RECOVERY_IDENTITY }
 
     record SubmissionBackoff(long initialDelayMillis, long maxDelayMillis) {
@@ -73,7 +75,12 @@ public interface CampaignRunStore {
         }
     }
 
-    record ChildSpec(String childId, String actionId, ChildMode mode, String requestId, WireRequest wire) {}
+    record ChildSpec(String childId, String actionId, ChildMode mode, String requestId, WireRequest wire,
+                     LocalCalculationRegistry.InvocationSpec localInvocation) {
+        public ChildSpec(String childId, String actionId, ChildMode mode, String requestId, WireRequest wire) {
+            this(childId, actionId, mode, requestId, wire, null);
+        }
+    }
 
     record ChildRecord(ChildSpec spec, ChildState state, String jobId, String artifactId,
                        String attemptId, long attemptVersion, DispatchPurpose purpose,
@@ -116,6 +123,10 @@ public interface CampaignRunStore {
 
     ChildRecord prepareChild(RunToken token, ChildSpec child);
 
+    /** Trusted registered local calculation only; no HTTP request is synthesized. */
+    ChildRecord prepareLocalChild(RunToken token, ChildSpec child, LocalCalculationRegistry.Approval approval,
+                                  ArtifactAuthorizer authorizer);
+
     /** Service-side records include frozen requests; Graph callers should project short refs only. */
     List<ChildRecord> children(RunToken token);
 
@@ -146,6 +157,10 @@ public interface CampaignRunStore {
      */
     DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId);
 
+    /** Replays only an unresolved approved calculation while all frozen inputs remain authorized. */
+    DispatchPermit beginLocalReplay(RunToken token, String childId, LocalCalculationRegistry.Approval approval,
+                                    ArtifactAuthorizer authorizer);
+
     /**
      * Acquire a separate callback attempt for an ASYNC READY result without changing its output.
      * The trusted caller must first prepare a release intent in the release-binding store and must
@@ -165,7 +180,18 @@ public interface CampaignRunStore {
     /** Immutable payload + metadata + child READY reference are committed in one transaction. */
     ArtifactRef publishReady(DispatchPermit permit, ArtifactDraft artifact);
 
+    /** All local outputs and READY publish atomically under the current running step and child attempts. */
+    Map<String, ArtifactRef> publishLocalReady(CampaignStepStore.StepPermit step, DispatchPermit permit,
+                                               LocalCalculationRegistry.Approval approval,
+                                               Map<String, ArtifactDraft> outputs, ArtifactAuthorizer authorizer);
+
+    /** Read a READY local output binding with current authorization, expiry and payload verification. */
+    Map<String, ArtifactRef> localOutputs(RunToken token, String childId, ArtifactAuthorizer authorizer);
+
     void markUnresolved(DispatchPermit permit);
+
+    /** Known local contract rejection is not replayable uncertainty; actual callback exit is separate. */
+    void markLocalInvalid(DispatchPermit permit);
 
     /** Does not release callbackActive: re-opening a store is not proof of process death. */
     void recoverInterrupted(RunToken token);
