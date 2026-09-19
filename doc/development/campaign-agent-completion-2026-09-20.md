@@ -44,6 +44,7 @@
 | [E13：本地结果证明与释放恢复][E13] | 12 项定向测试首次通过；全页证明、单 producer 绑定、REQUESTED/CONFIRMED、READY 独立释放 attempt、丢 ACK 和取消晚到事实、原生 Graph 下游本地读取。 | 可选单生产者协调已验；持久容量退避、第9子项自动续接、多消费者 adopt/GC 与生产装配仍待完成。 |
 | [E14：可信退避与九任务续接][E14] | 7 项定向测试首次通过；未受理证明幂等／跨重开退避、混合 pending/READY、中断恢复、严格错误分类；九任务 submit10/job9/page9/release9/recover0，前8项原证据不变。 | 固定查询组件链已验；远端为替身，生产装配、多消费者采用及真实MySQL未由此验收。 |
 | [E15：权威成员分页合同][E15] | 7 项定向测试通过；闭字段/整数/游标/主体、501与空组、跨层错误码；真实Command业务创建的成员与revision提交/回滚一致。 | 可复用权威页边界；不是耐久collector或历史快照，真实MySQL RR并发窗口待验。 |
+| [E16：耐久范围收集与分片][E16] | 6 项定向测试通过；原页续接、未知首屏停止、固定版本后续页重读、变版本整代失效、终页原子发布、501两期同片及空组。 | 完整成员凭证；实际统计结果的父集合覆盖、生产授权装配与MySQL并发仍另验。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -98,8 +99,8 @@
 
 | 要求 | 来源 | 证据 | 当前状态 | 剩余动作 |
 | --- | --- | --- | --- | --- |
-| P2-01：CURRENT_GROUP／FROZEN_SET 不混；可信 FrozenScope 保存主体、来源组、完整 members/hash、枚举证明与授权版本；Graph 仅 scopeRef。 | C §3、§5；R §4.1；R14 | E11固定成员/纯冻结器、E15严格权威页与实际成员变更版本验证。 | 部分已验 | 耐久权威枚举收集器、业务 scope 引用持久化及生产装配；旧版本不是历史可重读快照。 |
-| P2-02：>500 成员确定性无重叠分片，各期间同片，scopeProof 区分片／冻结全集／当前全组；并集、唯一性、hash、返回 members 对账。 | R §4.1；C §3；V29 | E11 501→500＋1、两期同片、精确 proof 和返回 members 校验。 | 部分已验 | 全部 shard Artifact 的父集合收集覆盖对账；UV/UIP cohort 仍必须独立去重不能求和。 |
+| P2-01：CURRENT_GROUP／FROZEN_SET 不混；可信 FrozenScope 保存主体、来源组、完整 members/hash、枚举证明与授权版本；Graph 仅 scopeRef。 | C §3、§5；R §4.1；R14 | E11固定成员、E15严格权威页、E16耐久collector/ScopeArtifact/流式摘要。 | 部分已验 | 复合Skill/Plan绑定及生产当前授权装配；枚举版本不是历史可重读快照。 |
+| P2-02：>500 成员确定性无重叠分片，各期间同片，scopeProof 区分片／冻结全集／当前全组；并集、唯一性、hash、返回 members 对账。 | R §4.1；C §3；V29 | E11成员proof、E16耐久501→500＋1/两期同片及完整成员摘要。 | 部分已验 | 全部统计 shard Artifact 的父集合覆盖对账；UV/UIP cohort 仍必须独立去重不能求和。 |
 | P2-03：完整候选＋两期间全页＋逐对象可比或明确原因＋计算完成才 selectionComplete；51/16组合/10页之外的下降对象不能遗漏。 | C §4、§6；R09；V22 | E08 解开单任务 10 页障碍；旧 rank/compare 有界。 | 部分已验 | 持久化跨对象／期间／分片收集 coverage、cursor、代次；过期不接新快照后半页；不完整显式 PARTIAL。 |
 | P2-04：periodsRef 冻结自然日期／时区；query signature 各自 snapshot；可比性 VERIFIED/UNVERIFIED/INCOMPATIBLE，有证据才共同底座。 | R §4.2；C §5、§9.3 | E08/E10 同查询范围日期／版本校验。 | 部分已验 | 同期间跨维度／过滤／回填验证；不同期间 manifest 不要求字面相等；分母、指标定义、观测截止和限制入产物。 |
 | P2-05：活动执行、结果数量／字节、轻量恢复身份分账；QUERY_CAPACITY_EXHAUSTED＋capacityKind＋admitted=false；未知 ACK 不退回待提交。 | R §4.4；R18；I §2 | E12服务端分账、E14耐久拒绝/到期锁内校验/混合pending恢复。 | 组件已验 | 生产装配与复杂Skill接相同边界；无可信回执的旧未知记录不自动重投。 |
@@ -189,7 +190,7 @@
 | V26：源expiry/epoch与报告清理竞争，历史本地manifest＋当前权限，新分析严格复用，无悬空引用。 | I §6 #26；P5-07–08 | E03/E08仅artifact前置 | 待实现／验收 | 发布与清理同载荷CAS及两种用途授权。 |
 | V27：旧客户端无新协议不得新入口，状态显示另有前端门槛。 | I §6 #27；B09/UI-01 | 入口尚未开启 | 待实现／验收 | 能力协商及新Run旧client恢复拒绝；禁止fallback重取。 |
 | V28：旧Admin/Analytics、剥字段、近expiry gate竞争恢复INSERT0，合法首submit正常。 | I §6 #28；P1-04 | E02/E10 | 组件已验 | 保留故障注入证据，真实部署联通另列环境待验。 |
-| V29：冻结AB后加C、撤B、501分片；原集合、授权、并集/唯一/hash，UV不求和。 | I §6 #29；P2-01–02 | E11已验成员授权、501分片与proof拒错 | 部分已验 | 耐久全集收集与最终并集对账、实际业务UV口径。 |
+| V29：冻结AB后加C、撤B、501分片；原集合、授权、并集/唯一/hash，UV不求和。 | I §6 #29；P2-01–02 | E11成员授权及proof拒错，E16耐久完整成员收集/两期同片/撤权与变代停止 | 部分已验 | 全部统计结果并集对账、实际业务UV口径与生产授权接线。 |
 | V30：A同步READY、BWAIT；A落盘B ACK前崩溃，A GET1/hash不变、B submit1只对账B；失败不丢等待。 | I §6 #30；P1-06 | E03通用ledger，E10单异步 | 部分已验 | 实际同步＋异步复合业务adapter，非只wrapper聚合响应。 |
 | V31：callback忽略cancel、旧/新writer重叠，额外model0/后续I/O0、迟到不发布。 | I §6 #31；P3-05 | E00原生反例；E06进程/epoch | 部分已验 | native＋JDBCchild＋当前恢复者一体化测试。 |
 | V32：首次sync丢响应明确unknown/新代次；冻结page超时原snapshot恢复不混。 | I §6 #32；P1-03/12 | E03 unknown分类，E08页cursor恢复 | 部分已验 | 实际sync适配和新收集代次；页恢复证据不可代替首GET语义。 |
@@ -252,7 +253,7 @@
 | R11/P1：旧页面／导出误把部分结果显示完整。 | R1/R §5.2 | 入口关闭是防护，不是兼容实现 | 待实现／验收 | v2能力门＋旧answer适配＋客户端最小状态消费。 |
 | R12/P2：晚验框架导致重复建设。 | R1/R §6 | E00/E01真实native及方法包；非静态API自证 | P0机制已验；保持约束 | P2/P3复用原生、禁止自造循环/Skill DSL；版本变化做必要独立回归。 |
 | R13/P1：EXISTING_ONLY经旧Admin丢失降级创建。 | R2 §2/R §2 | E02独立双端恢复及旧协议fixture；V28 | 窄协议已实现／已验 | P2固定成员、生产装配保留该窄入口，不以可选字段替代。 |
-| R14/P1：冻结候选与当前全组鉴权/证明冲突。 | R2 §2/R §4.1 | E11三层FROZEN_SET与指定成员授权／proof | 实现部分；全集集成待验 | 耐久枚举、父集合最终覆盖对账与生产当前授权装配。 |
+| R14/P1：冻结候选与当前全组鉴权/证明冲突。 | R2 §2/R §4.1 | E11指定成员授权／proof、E15权威页、E16耐久枚举及固定成员凭证 | 实现部分；统计全集集成待验 | 统计结果的父集合最终覆盖对账与生产当前授权装配。 |
 | R15/P2：复合Tool恢复会重查syncREADY、丢pending。 | R2 §2/R §2.1 | E03/E04底座 | 实现部分；业务适配待验 | V09/V30/V32真实同步异步复合执行路径，不能只保存聚合jobs数组。 |
 | R16/P1：native超时后旧callback仍可继续请求。 | R2 §2/R §1.5 | E00实际忽略cancel回调，E04/E06fencing | 实现部分；集成待验 | P3每真实I/O与next-model durable门控；新writer≠旧callback退出。 |
 | R17/P2：算完未交付每个目标。 | R2 §2/R §5.1 | E00静态DELIVERY覆盖 | 待实现／验收 | P5真draft与正式可读结果终评；V35。 |
@@ -304,6 +305,7 @@
 [E13]: ../integration/campaign-plan-p2-release-coordination-2026-09-20.md
 [E14]: ../integration/campaign-plan-p2-capacity-continuation-2026-09-20.md
 [E15]: ../integration/campaign-plan-p2-authority-pages-2026-09-20.md
+[E16]: ../integration/campaign-plan-p2-scope-collector-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

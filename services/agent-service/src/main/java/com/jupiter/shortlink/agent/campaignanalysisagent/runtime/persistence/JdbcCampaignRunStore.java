@@ -1,7 +1,11 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jupiter.shortlink.contract.GroupMembersPage;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -24,6 +28,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 public final class JdbcCampaignRunStore implements CampaignRunStore {
     private static final JsonFactory JSON = new JsonFactory();
+    private static final String AUTHORITY_PAGE_PATH =
+            "/internal/short-link-admin/v1/agent-tools/authorization/group-members-page";
+    private static final ObjectMapper AUTHORITY_JSON = new ObjectMapper()
+            .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final Clock clock;
@@ -50,6 +59,11 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                 || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
                 || transactions.isReadOnly())
             throw new IllegalArgumentException("Ledger requires one writable REQUIRED DataSource transaction");
+    }
+
+    /** Narrow composition proof for stores that must publish business rows and READY atomically. */
+    boolean sharesTransactionDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
     }
 
     @Override
@@ -248,6 +262,10 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return begin(token, childId, DispatchPurpose.RECONCILE);
     }
 
+    @Override public DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId) {
+        return begin(token, childId, DispatchPurpose.AUTHORITY_PAGE_READ);
+    }
+
     @Override public DispatchPermit beginRelease(RunToken token, String childId) {
         return begin(token, childId, DispatchPurpose.RELEASE);
     }
@@ -267,6 +285,13 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             if (purpose == DispatchPurpose.RECONCILE && (child.spec().mode() != ChildMode.ASYNC
                     || (child.state() != ChildState.WAITING && child.state() != ChildState.UNRESOLVED)))
                 conflict("RECONCILIATION_REQUIRES_ASYNC_WAITING_OR_UNRESOLVED");
+            if (purpose == DispatchPurpose.AUTHORITY_PAGE_READ) {
+                if (child.spec().mode() != ChildMode.SYNC || child.state() != ChildState.UNRESOLVED
+                        || child.reason() != UnresolvedReason.READ_RESULT_UNKNOWN
+                        || child.jobId() != null || child.artifactId() != null)
+                    conflict("AUTHORITY_PAGE_READ_REQUIRES_UNRESOLVED_SYNC");
+                requirePinnedAuthorityPage(child.spec().wire());
+            }
             if (purpose == DispatchPurpose.RELEASE && (child.spec().mode() != ChildMode.ASYNC
                     || child.state() != ChildState.READY || child.jobId() == null || child.artifactId() == null))
                 conflict("RELEASE_REQUIRES_ASYNC_READY_RESULT");
@@ -469,6 +494,20 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                 permit.token().version(), permit.token().advanceToken());
         if (matching == null || matching != 1) conflict("ATTEMPT_RUN_TOKEN_MISMATCH");
         return child;
+    }
+
+    private static void requirePinnedAuthorityPage(WireRequest wire) {
+        if (!"POST".equals(wire.method()) || !AUTHORITY_PAGE_PATH.equals(wire.path()))
+            conflict("AUTHORITY_PAGE_READ_REQUIRES_PINNED_REQUEST");
+        try {
+            GroupMembersPage.Request request = AUTHORITY_JSON.readValue(wire.bodyJson(), GroupMembersPage.Request.class);
+            if (request == null || request.afterLinkId() == null || request.afterLinkId() <= 0
+                    || request.ownershipVersion() == null
+                    || !request.ownershipVersion().matches("[a-f0-9]{64}"))
+                conflict("AUTHORITY_PAGE_READ_REQUIRES_PINNED_REQUEST");
+        } catch (java.io.IOException | IllegalArgumentException invalid) {
+            throw new IllegalStateException("AUTHORITY_PAGE_READ_REQUIRES_PINNED_REQUEST");
+        }
     }
 
     private static boolean isDeferred(ChildRecord child) {
