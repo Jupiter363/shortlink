@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -13,6 +14,7 @@ import com.jupiter.shortlink.agent.harness.tool.ToolResult;
 import com.jupiter.shortlink.agent.infrastructure.config.DeepSeekProperties;
 import com.jupiter.shortlink.agent.infrastructure.config.SpringAiChatConfig;
 import com.jupiter.shortlink.agent.infrastructure.llm.DeepSeekSpringAiChatModel;
+import com.jupiter.shortlink.agent.infrastructure.llm.LlmChatClientException;
 import com.jupiter.shortlink.agent.tool.registry.AgentToolCallbackConfiguration;
 import com.jupiter.shortlink.agent.tool.shortlink.GetGroupAccessRecordsTool;
 import com.jupiter.shortlink.agent.tool.shortlink.GetGroupStatsTool;
@@ -134,6 +136,33 @@ class ChatModelToolCallTest {
         assertThat(model.calls).hasValue(2);
         assertThat(gateway.context.username()).isEqualTo("alice");
         assertThat(gateway.context.sessionId()).isEqualTo("session-001");
+    }
+
+    @Test
+    void invalidProviderBatchDoesNotExecuteEvenItsFirstValidCallback() {
+        CapturingGateway gateway = new CapturingGateway();
+        DeepSeekProperties properties = new DeepSeekProperties();
+        properties.setApiKey("test-key");
+        RestTemplate transport = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.createServer(transport);
+        ChatClient client = new SpringAiChatConfig().agentChatClient(
+                new DeepSeekSpringAiChatModel(properties, transport), provider(gateway));
+        server.expect(requestTo("https://api.deepseek.com/chat/completions"))
+                .andRespond(withSuccess("""
+                        {"id":"response","model":"test","choices":[{
+                          "finish_reason":"tool_calls","message":{"role":"assistant","tool_calls":[
+                            {"id":"same","type":"function","function":{"name":"list_groups","arguments":"{}"}},
+                            {"id":"same","type":"function","function":{"name":"list_groups","arguments":"{}"}}
+                          ]}}]}
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.prompt("List groups")
+                .toolContext(Map.of("sessionId", "session-001", "username", "alice"))
+                .call().content())
+                .isInstanceOf(LlmChatClientException.class)
+                .hasMessage("DeepSeek chat response has invalid tool call identities");
+        assertThat(gateway.context).isNull();
+        server.verify();
     }
 
     private MethodToolCallbackProvider provider(CapturingGateway gateway) {

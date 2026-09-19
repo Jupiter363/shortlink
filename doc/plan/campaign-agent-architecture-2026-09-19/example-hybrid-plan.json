@@ -1,0 +1,1127 @@
+{
+  "documentStatus": "PROPOSED",
+  "description": "PROPOSED CONTRACT ONLY: fixed decline comparison, local dimension exploration, fixed evidence synthesis; no Skill or Tool in this example is claimed to be deployed.",
+  "conversation": {
+    "sessionId": "SESSION_ID_PLACEHOLDER"
+  },
+  "run": {
+    "runId": "RUN_ID_PLACEHOLDER",
+    "sessionId": "SESSION_ID_PLACEHOLDER",
+    "planRef": {
+      "planId": "PLAN_ID_PLACEHOLDER",
+      "revision": 1
+    }
+  },
+  "inputSets": [
+    {
+      "inputSetRef": "INPUT_SET_REF_PLACEHOLDER",
+      "runId": "RUN_ID_PLACEHOLDER",
+      "inputContracts": {
+        "scopeRef": {
+          "type": "ScopeRef",
+          "required": true
+        },
+        "periodsRef": {
+          "type": "PeriodsRef",
+          "required": true
+        }
+      },
+      "inputValues": {
+        "scopeRef": "SCOPE_REF_PLACEHOLDER",
+        "periodsRef": "PERIODS_REF_PLACEHOLDER"
+      }
+    }
+  ],
+  "planSpec": {
+    "schemaVersion": "campaign-plan/v1",
+    "planId": "PLAN_ID_PLACEHOLDER",
+    "revision": 1,
+    "runId": "RUN_ID_PLACEHOLDER",
+    "inputSetRef": "INPUT_SET_REF_PLACEHOLDER",
+    "goals": [
+      {
+        "goalId": "find-declining-links",
+        "question": "找出本期相比上期访问量下降的短链",
+        "required": true,
+        "acceptance": "完整对齐授权对象的两个冻结期间 PV，返回所有可比且 delta<0 的短链；披露扫描覆盖、不可比对象与空集原因。"
+      },
+      {
+        "goalId": "explain-region-device-changes",
+        "question": "分析这些下降短链的地域和设备变化",
+        "required": true,
+        "acceptance": "继承确切入选对象和两个期间，以真实省份×设备联合统计解释观测变化，提供证据引用、分母与质量限制；不做无依据因果推断。"
+      }
+    ],
+    "steps": [
+      {
+        "stepId": "select-declines",
+        "goalIds": [
+          "find-declining-links",
+          "explain-region-device-changes"
+        ],
+        "executor": {
+          "kind": "SKILL",
+          "name": "decline_selection",
+          "version": "0.1.0-proposed"
+        },
+        "dependsOn": [],
+        "inputBindings": {
+          "scope": {
+            "source": "INPUT",
+            "input": "scopeRef"
+          },
+          "periods": {
+            "source": "INPUT",
+            "input": "periodsRef"
+          }
+        },
+        "parameters": {
+          "metric": "pv",
+          "baselineRole": "BASELINE",
+          "targetRole": "TARGET",
+          "selectionRule": "NEGATIVE_DELTA",
+          "orderBy": "ABSOLUTE_DECREASE_DESC",
+          "resultPolicy": "ALL_MATCHING_ENTITIES"
+        },
+        "outputContractRef": "campaign.decline-selection.outputs/v1",
+        "executionMode": "FIXED"
+      },
+      {
+        "stepId": "explore-dimension-change",
+        "goalIds": [
+          "explain-region-device-changes"
+        ],
+        "dependsOn": [
+          "select-declines"
+        ],
+        "inputBindings": {
+          "scope": {
+            "source": "INPUT",
+            "input": "scopeRef"
+          },
+          "periods": {
+            "source": "INPUT",
+            "input": "periodsRef"
+          },
+          "selectedEntities": {
+            "source": "STEP_OUTPUT",
+            "stepId": "select-declines",
+            "output": "selectedEntities"
+          },
+          "selectionEvidence": {
+            "source": "STEP_OUTPUT",
+            "stepId": "select-declines",
+            "output": "selectionEvidence"
+          }
+        },
+        "parameters": {
+          "requiredDimensions": [
+            "province",
+            "device"
+          ],
+          "comparisonMode": "JOINT_PERIOD_COMPARISON",
+          "claimPolicy": "OBSERVATIONS_WITH_EVIDENCE"
+        },
+        "outputContractRef": "campaign.dimension-change.outputs/v1",
+        "executionMode": "REACT",
+        "explorationPolicy": {
+          "policyRef": "campaign.dimension-exploration",
+          "policyVersion": "0.1.0-proposed",
+          "allowedExecutors": [
+            {
+              "kind": "TOOL",
+              "name": "inspect_dimension_coverage",
+              "version": "0.1.0-proposed"
+            },
+            {
+              "kind": "TOOL",
+              "name": "query_joint_dimension_change",
+              "version": "0.1.0-proposed"
+            },
+            {
+              "kind": "SKILL",
+              "name": "review_dimension_evidence",
+              "version": "0.1.0-proposed"
+            }
+          ],
+          "scopeRef": "SCOPE_REF_PLACEHOLDER",
+          "periodsRef": "PERIODS_REF_PLACEHOLDER",
+          "completionCriteria": [
+            {
+              "criterionRef": "campaign.frozen-selection-preserved/v1"
+            },
+            {
+              "criterionRef": "campaign.required-joint-dimensions/v1",
+              "parameters": {
+                "dimensions": [
+                  "province",
+                  "device"
+                ]
+              }
+            },
+            {
+              "criterionRef": "campaign.dimension-change-output-valid/v1"
+            },
+            {
+              "criterionRef": "campaign.quality-and-coverage-preserved/v1"
+            }
+          ],
+          "terminationPolicyRef": "campaign.dimension-exploration.termination/v1"
+        }
+      },
+      {
+        "stepId": "synthesize-evidence",
+        "goalIds": [
+          "find-declining-links",
+          "explain-region-device-changes"
+        ],
+        "executor": {
+          "kind": "SKILL",
+          "name": "evidence_synthesis",
+          "version": "0.1.0-proposed"
+        },
+        "dependsOn": [
+          "select-declines",
+          "explore-dimension-change"
+        ],
+        "inputBindings": {
+          "scope": {
+            "source": "INPUT",
+            "input": "scopeRef"
+          },
+          "periods": {
+            "source": "INPUT",
+            "input": "periodsRef"
+          },
+          "selectionEvidence": {
+            "source": "STEP_OUTPUT",
+            "stepId": "select-declines",
+            "output": "selectionEvidence"
+          },
+          "dimensionChanges": {
+            "source": "STEP_OUTPUT",
+            "stepId": "explore-dimension-change",
+            "output": "dimensionChanges"
+          }
+        },
+        "parameters": {
+          "language": "zh-CN",
+          "claimPolicy": "OBSERVATIONS_WITH_EVIDENCE",
+          "includeGoalReferences": true
+        },
+        "outputContractRef": "campaign.evidence-synthesis.outputs/v1",
+        "executionMode": "FIXED"
+      }
+    ]
+  },
+  "proposedExecutors": [
+    {
+      "kind": "SKILL",
+      "name": "decline_selection",
+      "version": "0.1.0-proposed",
+      "availability": "PROPOSED",
+      "inputContractRef": "campaign.decline-selection.inputs/v1",
+      "inputPorts": {
+        "scope": {
+          "type": "ScopeRef",
+          "required": true
+        },
+        "periods": {
+          "type": "PeriodsRef",
+          "required": true
+        }
+      },
+      "outputContractRef": "campaign.decline-selection.outputs/v1",
+      "inputPolicies": {
+        "requireTwoFrozenPeriods": true,
+        "unknownValues": "DO_NOT_COERCE_TO_ZERO",
+        "population": "ALIGN_COMPLETE_AUTHORIZED_ENTITY_SET"
+      }
+    },
+    {
+      "kind": "SKILL",
+      "name": "evidence_synthesis",
+      "version": "0.1.0-proposed",
+      "availability": "PROPOSED",
+      "inputContractRef": "campaign.evidence-synthesis.inputs/v1",
+      "inputPorts": {
+        "scope": {
+          "type": "ScopeRef",
+          "required": true
+        },
+        "periods": {
+          "type": "PeriodsRef",
+          "required": true
+        },
+        "selectionEvidence": {
+          "type": "ArtifactRef<campaign.decline-evidence/v1>",
+          "required": true
+        },
+        "dimensionChanges": {
+          "type": "ArtifactRef<campaign.dimension-changes/v1>",
+          "required": true
+        }
+      },
+      "outputContractRef": "campaign.evidence-synthesis.outputs/v1",
+      "inputPolicies": {
+        "missingRequiredArtifact": "BLOCK",
+        "partialEvidence": "PRESERVE_LIMITATIONS_IN_ANALYSIS",
+        "notApplicable": "EXPLAIN_SELECTION_OUTCOME_WITHOUT_INVENTING_DIMENSION_RESULTS"
+      }
+    },
+    {
+      "kind": "TOOL",
+      "name": "inspect_dimension_coverage",
+      "version": "0.1.0-proposed",
+      "availability": "PROPOSED",
+      "inputContractRef": "campaign.inspect-dimension-coverage.inputs/v1",
+      "inputPorts": {
+        "scope": {
+          "type": "ScopeRef",
+          "required": true
+        },
+        "periods": {
+          "type": "PeriodsRef",
+          "required": true
+        },
+        "selectedEntities": {
+          "type": "ArtifactRef<campaign.selected-entities/v1>",
+          "required": true
+        }
+      },
+      "outputContractRef": "campaign.dimension-coverage.outputs/v1",
+      "invokesLocalExplorer": false,
+      "transitiveExecutors": []
+    },
+    {
+      "kind": "TOOL",
+      "name": "query_joint_dimension_change",
+      "version": "0.1.0-proposed",
+      "availability": "PROPOSED",
+      "inputContractRef": "campaign.query-joint-dimension-change.inputs/v1",
+      "inputPorts": {
+        "scope": {
+          "type": "ScopeRef",
+          "required": true
+        },
+        "periods": {
+          "type": "PeriodsRef",
+          "required": true
+        },
+        "selectedEntities": {
+          "type": "ArtifactRef<campaign.selected-entities/v1>",
+          "required": true
+        }
+      },
+      "outputContractRef": "campaign.joint-dimension-query.outputs/v1",
+      "invokesLocalExplorer": false,
+      "transitiveExecutors": []
+    },
+    {
+      "kind": "SKILL",
+      "name": "review_dimension_evidence",
+      "version": "0.1.0-proposed",
+      "availability": "PROPOSED",
+      "inputContractRef": "campaign.review-dimension-evidence.inputs/v1",
+      "inputPorts": {
+        "scope": {
+          "type": "ScopeRef",
+          "required": true
+        },
+        "periods": {
+          "type": "PeriodsRef",
+          "required": true
+        },
+        "selectionEvidence": {
+          "type": "ArtifactRef<campaign.decline-evidence/v1>",
+          "required": true
+        },
+        "dimensionEvidence": {
+          "type": "ArtifactRef<campaign.joint-dimension-evidence/v1>",
+          "required": true
+        }
+      },
+      "outputContractRef": "campaign.dimension-change.outputs/v1",
+      "invokesLocalExplorer": false,
+      "transitiveExecutors": []
+    }
+  ],
+  "outputContracts": {
+    "campaign.decline-selection.outputs/v1": {
+      "outputs": {
+        "selectedEntities": {
+          "type": "ArtifactRef<campaign.selected-entities/v1>",
+          "required": true
+        },
+        "selectionEvidence": {
+          "type": "ArtifactRef<campaign.decline-evidence/v1>",
+          "required": true
+        }
+      },
+      "requiredEvidence": [
+        "resultComplete",
+        "selectionComplete",
+        "coverage",
+        "emptyReason",
+        "comparisonLimitations"
+      ]
+    },
+    "campaign.dimension-change.outputs/v1": {
+      "outputs": {
+        "dimensionChanges": {
+          "type": "ArtifactRef<campaign.dimension-changes/v1>",
+          "required": true
+        }
+      },
+      "requiredEvidence": [
+        "resultComplete",
+        "coverage",
+        "evidenceDisposition",
+        "quality",
+        "ratioDenominators"
+      ]
+    },
+    "campaign.evidence-synthesis.outputs/v1": {
+      "outputs": {
+        "analysis": {
+          "type": "ArtifactRef<campaign.evidence-analysis/v1>",
+          "required": true
+        }
+      },
+      "requiredEvidence": [
+        "goalIds",
+        "evidenceArtifactIds",
+        "limitations"
+      ]
+    },
+    "campaign.dimension-coverage.outputs/v1": {
+      "outputs": {
+        "coverage": {
+          "type": "ArtifactRef<campaign.dimension-coverage/v1>",
+          "required": true
+        }
+      },
+      "requiredEvidence": [
+        "coverage",
+        "quality",
+        "availableDimensions",
+        "limitations"
+      ]
+    },
+    "campaign.joint-dimension-query.outputs/v1": {
+      "outputs": {
+        "dimensionEvidence": {
+          "type": "ArtifactRef<campaign.joint-dimension-evidence/v1>",
+          "required": true
+        }
+      },
+      "requiredEvidence": [
+        "resultComplete",
+        "coverage",
+        "quality",
+        "jointDimensions",
+        "ratioDenominators",
+        "sourceArtifactIds"
+      ]
+    }
+  },
+  "reportAssemblyContract": {
+    "owner": "BACKEND_GOAL_ASSESSOR_AND_REPORT_ASSEMBLER",
+    "requiredGoalIds": [
+      "find-declining-links",
+      "explain-region-device-changes"
+    ],
+    "analysisArtifactType": "ArtifactRef<campaign.evidence-analysis/v1>",
+    "goalAssessmentStatuses": [
+      "PENDING",
+      "ANSWERED",
+      "PARTIAL",
+      "NEEDS_INPUT",
+      "UNSUPPORTED",
+      "UNAVAILABLE",
+      "CANCELLED"
+    ],
+    "modelMaySetCompletionStatus": false,
+    "requirementStatuses": [
+      "MET",
+      "NOT_MET",
+      "UNKNOWN",
+      "NOT_APPLICABLE"
+    ],
+    "completionPolicy": "ALL_REQUIRED_CRITERIA_MET_OR_BACKEND_PROVEN_NOT_APPLICABLE",
+    "catalogAvailabilityPolicy": "PROPOSED_CRITERIA_MUST_BE_IMPLEMENTED_AND_REGISTERED_BEFORE_RUNTIME",
+    "goalDeliveryPolicy": {
+      "authority": "SERVER_REGISTERED_POLICY_NOT_PLANNER_OR_MODEL_CONFIGURABLE",
+      "evaluationStage": "FINAL_REPORT_BEFORE_PUBLICATION",
+      "requiredForGoalStatus": "ANSWERED",
+      "evaluationContext": "PUBLISHER_INJECTED_FINAL_REPORT_MANIFEST_AND_AUTHORIZATION",
+      "dataDelivery": "INLINE_OR_AUTHORIZED_FULL_OUTPUT_REF",
+      "fullOutputRefPolicy": "ACTUALLY_READABLE_FROM_SAME_REPORT_REVISION_DURABLE_MANIFEST",
+      "missingDelivery": "REJECT_ANSWERED_FOR_AFFECTED_GOAL",
+      "goalIdsAloneAreInsufficient": true
+    }
+  },
+  "proposedPolicies": [
+    {
+      "policyRef": "campaign.dimension-exploration",
+      "policyVersion": "0.1.0-proposed",
+      "allowedExecutors": [
+        {
+          "kind": "TOOL",
+          "name": "inspect_dimension_coverage",
+          "version": "0.1.0-proposed"
+        },
+        {
+          "kind": "TOOL",
+          "name": "query_joint_dimension_change",
+          "version": "0.1.0-proposed"
+        },
+        {
+          "kind": "SKILL",
+          "name": "review_dimension_evidence",
+          "version": "0.1.0-proposed"
+        }
+      ],
+      "scopeRef": "SCOPE_REF_PLACEHOLDER",
+      "periodsRef": "PERIODS_REF_PLACEHOLDER",
+      "completionCriteria": [
+        {
+          "criterionRef": "campaign.frozen-selection-preserved/v1"
+        },
+        {
+          "criterionRef": "campaign.required-joint-dimensions/v1",
+          "parameters": {
+            "dimensions": [
+              "province",
+              "device"
+            ]
+          }
+        },
+        {
+          "criterionRef": "campaign.dimension-change-output-valid/v1"
+        },
+        {
+          "criterionRef": "campaign.quality-and-coverage-preserved/v1"
+        }
+      ],
+      "terminationPolicyRef": "campaign.dimension-exploration.termination/v1",
+      "availability": "PROPOSED",
+      "inputContractRef": "campaign.dimension-exploration.inputs/v1",
+      "inputPorts": {
+        "scope": {
+          "type": "ScopeRef",
+          "required": true
+        },
+        "periods": {
+          "type": "PeriodsRef",
+          "required": true
+        },
+        "selectedEntities": {
+          "type": "ArtifactRef<campaign.selected-entities/v1>",
+          "required": true
+        },
+        "selectionEvidence": {
+          "type": "ArtifactRef<campaign.decline-evidence/v1>",
+          "required": true
+        }
+      },
+      "outputContractRef": "campaign.dimension-change.outputs/v1",
+      "parameterContract": {
+        "requiredDimensions": [
+          "province",
+          "device"
+        ],
+        "comparisonMode": "JOINT_PERIOD_COMPARISON",
+        "claimPolicy": "OBSERVATIONS_WITH_EVIDENCE"
+      },
+      "allowedQueryDimensions": [
+        "province",
+        "device",
+        "country",
+        "browser"
+      ],
+      "qualityPolicyRef": "campaign.preserve-unknown-partial-and-approximation/v1",
+      "nestedExploration": "FORBIDDEN",
+      "selfInvocation": "FORBIDDEN",
+      "transitiveCalls": "REQUIRE_DECLARED_APPROVED_CAPABILITY_CLOSURE",
+      "partialEvidence": "PUBLISH_LIMITATIONS_WITHOUT_PROMOTING_GOAL_STATUS",
+      "completeEmptySelection": "NO_QUERY_AND_EXPLICIT_NOT_APPLICABLE_EVIDENCE",
+      "insufficientEvidenceEmptySelection": "NO_QUERY_AND_EXPLICIT_INSUFFICIENT_EVIDENCE"
+    }
+  ],
+  "proposedTerminationPolicies": [
+    {
+      "terminationPolicyRef": "campaign.dimension-exploration.termination/v1",
+      "availability": "PROPOSED",
+      "executionOrder": "SEQUENTIAL",
+      "budgetAllocation": "SERVER_APPROVED_WITHOUT_NUMERIC_DEFAULT_IN_THIS_EXAMPLE",
+      "budgetLedgerScope": "RUN_ACROSS_RESUMES_AND_PLAN_REVISIONS",
+      "budgetExhausted": {
+        "stepStatus": "BLOCKED",
+        "reasonCode": "BUDGET_EXHAUSTED",
+        "preserveArtifactsAndProgress": true
+      },
+      "noProgress": {
+        "stepStatus": "BLOCKED",
+        "reasonCode": "NO_PROGRESS",
+        "criterionRef": "campaign.no-evidence-or-coverage-progress/v1"
+      },
+      "waiting": {
+        "stepStatus": "WAITING",
+        "preserve": [
+          "runId",
+          "planId",
+          "revision",
+          "stepId",
+          "actionId",
+          "jobId"
+        ]
+      },
+      "completion": "BACKEND_VALIDATE_BEFORE_SUCCEEDED",
+      "goalAssessment": "OUTER_COMMON_ASSESSOR",
+      "resume": "RECONCILE_EXISTING_ACTION_AND_JOB_BEFORE_ANY_NEW_CALL",
+      "replan": "OUTER_VALIDATION_AND_ATOMIC_REVISION_WITH_EXPLICIT_ADOPT_JOB"
+    }
+  ],
+  "illustrativeLocalInputSet": {
+    "exampleOnly": true,
+    "stepId": "explore-dimension-change",
+    "planId": "PLAN_ID_PLACEHOLDER",
+    "revision": 1,
+    "explorationInputSetRef": "EXPLORATION_INPUT_SET_PLACEHOLDER",
+    "inputContracts": {
+      "scope": {
+        "type": "ScopeRef",
+        "required": true
+      },
+      "periods": {
+        "type": "PeriodsRef",
+        "required": true
+      },
+      "selectedEntities": {
+        "type": "ArtifactRef<campaign.selected-entities/v1>",
+        "required": true
+      },
+      "selectionEvidence": {
+        "type": "ArtifactRef<campaign.decline-evidence/v1>",
+        "required": true
+      }
+    },
+    "inputValues": {
+      "scope": "SCOPE_REF_PLACEHOLDER",
+      "periods": "PERIODS_REF_PLACEHOLDER",
+      "selectedEntities": "SELECTED_ENTITIES_ARTIFACT_PLACEHOLDER",
+      "selectionEvidence": "SELECTION_EVIDENCE_ARTIFACT_PLACEHOLDER"
+    },
+    "freezeRule": "SERVER_RESOLVES_OUTER_INPUT_BINDINGS_ONCE_FOR_THIS_NODE_INSTANCE"
+  },
+  "illustrativeReadyArtifactTypes": {
+    "SELECTED_ENTITIES_ARTIFACT_PLACEHOLDER": {
+      "type": "ArtifactRef<campaign.selected-entities/v1>",
+      "exampleOnly": true
+    },
+    "SELECTION_EVIDENCE_ARTIFACT_PLACEHOLDER": {
+      "type": "ArtifactRef<campaign.decline-evidence/v1>",
+      "exampleOnly": true
+    },
+    "DIMENSION_EVIDENCE_ARTIFACT_PLACEHOLDER": {
+      "type": "ArtifactRef<campaign.joint-dimension-evidence/v1>",
+      "exampleOnly": true
+    },
+    "DIMENSION_CHANGES_ARTIFACT_PLACEHOLDER": {
+      "type": "ArtifactRef<campaign.dimension-changes/v1>",
+      "exampleOnly": true
+    }
+  },
+  "illustrativeLocalActions": [
+    {
+      "actionId": "QUERY_ACTION_ID_PLACEHOLDER",
+      "kind": "CALL",
+      "executor": {
+        "kind": "TOOL",
+        "name": "query_joint_dimension_change",
+        "version": "0.1.0-proposed"
+      },
+      "inputBindings": {
+        "scope": {
+          "source": "INPUT",
+          "input": "scope"
+        },
+        "periods": {
+          "source": "INPUT",
+          "input": "periods"
+        },
+        "selectedEntities": {
+          "source": "INPUT",
+          "input": "selectedEntities"
+        }
+      },
+      "parameters": {
+        "dimensions": [
+          "province",
+          "device"
+        ],
+        "aggregation": "JOINT",
+        "analysisUnit": "EACH_SELECTED_ENTITY"
+      },
+      "decisionSummary": "Request joint province/device evidence for the frozen selected entities and periods.",
+      "evidenceArtifactIds": [
+        "SELECTION_EVIDENCE_ARTIFACT_PLACEHOLDER"
+      ]
+    },
+    {
+      "actionId": "REVIEW_ACTION_ID_PLACEHOLDER",
+      "kind": "CALL",
+      "executor": {
+        "kind": "SKILL",
+        "name": "review_dimension_evidence",
+        "version": "0.1.0-proposed"
+      },
+      "inputBindings": {
+        "scope": {
+          "source": "INPUT",
+          "input": "scope"
+        },
+        "periods": {
+          "source": "INPUT",
+          "input": "periods"
+        },
+        "selectionEvidence": {
+          "source": "INPUT",
+          "input": "selectionEvidence"
+        },
+        "dimensionEvidence": {
+          "source": "ARTIFACT",
+          "artifactId": "DIMENSION_EVIDENCE_ARTIFACT_PLACEHOLDER"
+        }
+      },
+      "parameters": {
+        "claimPolicy": "OBSERVATIONS_WITH_EVIDENCE"
+      },
+      "decisionSummary": "Review published joint evidence and retain data quality and coverage limitations.",
+      "evidenceArtifactIds": [
+        "SELECTION_EVIDENCE_ARTIFACT_PLACEHOLDER",
+        "DIMENSION_EVIDENCE_ARTIFACT_PLACEHOLDER"
+      ]
+    },
+    {
+      "actionId": "COMPLETE_ACTION_ID_PLACEHOLDER",
+      "kind": "COMPLETE",
+      "outputBindings": {
+        "dimensionChanges": {
+          "source": "ARTIFACT",
+          "artifactId": "DIMENSION_CHANGES_ARTIFACT_PLACEHOLDER"
+        }
+      },
+      "decisionSummary": "Request backend acceptance of the declared step output; do not assign a goal status.",
+      "evidenceArtifactIds": [
+        "DIMENSION_CHANGES_ARTIFACT_PLACEHOLDER"
+      ]
+    }
+  ],
+  "illustrativeActionPublications": [
+    {
+      "actionId": "QUERY_ACTION_ID_PLACEHOLDER",
+      "output": "dimensionEvidence",
+      "artifactId": "DIMENSION_EVIDENCE_ARTIFACT_PLACEHOLDER",
+      "exampleOnly": true
+    },
+    {
+      "actionId": "REVIEW_ACTION_ID_PLACEHOLDER",
+      "output": "dimensionChanges",
+      "artifactId": "DIMENSION_CHANGES_ARTIFACT_PLACEHOLDER",
+      "exampleOnly": true
+    }
+  ],
+  "exampleNotes": [
+    "Local actions illustrate one allowed path, not a fixed workflow or a claim that calls have run.",
+    "The server persists actionId, typed inputs, executor version, idempotencyKey and dispatchState before dispatch; omitted runtime values are server-owned.",
+    "Every illustrative ARTIFACT reference requires real backend publication and reauthorization before runtime use.",
+    "inspect_dimension_coverage is an optional allowed tool when evidence quality needs inspection; a domain Skill is not required to begin exploration.",
+    "Tool success, local COMPLETE, step SUCCEEDED and authoritative GoalAssessment are separate checks."
+  ],
+  "planningAssessment": {
+    "planId": "PLAN_ID_PLACEHOLDER",
+    "revision": 1,
+    "capabilityCatalogVersion": "campaign-catalog/0.1.0-proposed",
+    "evaluationBasis": "PROPOSED_CATALOG_ONLY_NOT_RUNTIME_AUTHORIZATION",
+    "requirements": [
+      {
+        "requirementId": "candidate-coverage",
+        "goalId": "find-declining-links",
+        "kind": "DATA",
+        "required": true,
+        "criterionRef": "campaign.candidate-period-coverage/v1",
+        "criterionVersion": "0.1.0-proposed",
+        "parameters": {
+          "metric": "pv",
+          "periodRoles": [
+            "BASELINE",
+            "TARGET"
+          ],
+          "scopePolicy": "FROZEN_AUTHORIZED_MEMBERS"
+        }
+      },
+      {
+        "requirementId": "negative-selection",
+        "goalId": "find-declining-links",
+        "kind": "CALCULATION",
+        "required": true,
+        "criterionRef": "campaign.negative-pv-selection/v1",
+        "criterionVersion": "0.1.0-proposed",
+        "parameters": {
+          "selectionRule": "NEGATIVE_DELTA",
+          "orderBy": "ABSOLUTE_DECREASE_DESC",
+          "resultPolicy": "ALL_MATCHING_ENTITIES"
+        }
+      },
+      {
+        "requirementId": "selection-delivery",
+        "goalId": "find-declining-links",
+        "kind": "DELIVERY",
+        "required": true,
+        "criterionRef": "campaign.selection-result-delivery/v1",
+        "criterionVersion": "0.1.0-proposed",
+        "parameters": {
+          "orderBy": "ABSOLUTE_DECREASE_DESC",
+          "resultPolicy": "ALL_MATCHING_ENTITIES",
+          "deliveryPolicy": "INLINE_OR_AUTHORIZED_FULL_OUTPUT_REF",
+          "includeLimitations": true
+        }
+      },
+      {
+        "requirementId": "joint-evidence",
+        "goalId": "explain-region-device-changes",
+        "kind": "DATA",
+        "required": true,
+        "criterionRef": "campaign.selected-joint-dimension-coverage/v1",
+        "criterionVersion": "0.1.0-proposed",
+        "parameters": {
+          "dimensions": [
+            "province",
+            "device"
+          ],
+          "cohortPolicy": "EXACT_SELECTED_ENTITIES"
+        }
+      },
+      {
+        "requirementId": "joint-calculation",
+        "goalId": "explain-region-device-changes",
+        "kind": "CALCULATION",
+        "required": true,
+        "criterionRef": "campaign.joint-change-calculation/v1",
+        "criterionVersion": "0.1.0-proposed",
+        "parameters": {
+          "ratioMetric": "pv",
+          "denominatorPolicy": "ENTITY_PERIOD_FILTERED_FULL_WINDOW_PV"
+        }
+      },
+      {
+        "requirementId": "evidence-explanation",
+        "goalId": "explain-region-device-changes",
+        "kind": "DELIVERY",
+        "required": true,
+        "criterionRef": "campaign.evidence-bound-explanation/v1",
+        "criterionVersion": "0.1.0-proposed",
+        "parameters": {
+          "claimPolicy": "OBSERVATIONS_WITH_EVIDENCE",
+          "includeLimitations": true,
+          "deliveryPolicy": "INLINE_OR_AUTHORIZED_FULL_OUTPUT_REF"
+        }
+      }
+    ],
+    "coverageBindings": [
+      {
+        "requirementId": "candidate-coverage",
+        "evidenceOutputs": [
+          {
+            "stepId": "select-declines",
+            "output": "selectionEvidence"
+          }
+        ]
+      },
+      {
+        "requirementId": "negative-selection",
+        "evidenceOutputs": [
+          {
+            "stepId": "select-declines",
+            "output": "selectedEntities"
+          },
+          {
+            "stepId": "select-declines",
+            "output": "selectionEvidence"
+          }
+        ]
+      },
+      {
+        "requirementId": "selection-delivery",
+        "evidenceOutputs": [
+          {
+            "stepId": "select-declines",
+            "output": "selectedEntities"
+          },
+          {
+            "stepId": "select-declines",
+            "output": "selectionEvidence"
+          }
+        ]
+      },
+      {
+        "requirementId": "joint-evidence",
+        "evidenceOutputs": [
+          {
+            "stepId": "select-declines",
+            "output": "selectedEntities"
+          },
+          {
+            "stepId": "explore-dimension-change",
+            "output": "dimensionChanges"
+          }
+        ]
+      },
+      {
+        "requirementId": "joint-calculation",
+        "evidenceOutputs": [
+          {
+            "stepId": "explore-dimension-change",
+            "output": "dimensionChanges"
+          }
+        ]
+      },
+      {
+        "requirementId": "evidence-explanation",
+        "evidenceOutputs": [
+          {
+            "stepId": "explore-dimension-change",
+            "output": "dimensionChanges"
+          },
+          {
+            "stepId": "synthesize-evidence",
+            "output": "analysis"
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "previousPlanRef": null,
+    "replanReason": null,
+    "evidenceArtifactIds": []
+  },
+  "proposedCriteria": [
+    {
+      "criterionRef": "campaign.candidate-period-coverage/v1",
+      "kind": "DATA",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metric",
+          "periodRoles",
+          "scopePolicy"
+        ],
+        "properties": {
+          "metric": {
+            "const": "pv"
+          },
+          "periodRoles": {
+            "const": [
+              "BASELINE",
+              "TARGET"
+            ]
+          },
+          "scopePolicy": {
+            "const": "FROZEN_AUTHORIZED_MEMBERS"
+          }
+        }
+      },
+      "checks": [
+        "Frozen candidate enumeration is complete",
+        "Each candidate is classified in both periods with explicit unavailable or incomparable reasons",
+        "Coverage is not inferred from ranking resultComplete"
+      ],
+      "allowsNotApplicable": false,
+      "criterionVersion": "0.1.0-proposed",
+      "availability": "PROPOSED"
+    },
+    {
+      "criterionRef": "campaign.negative-pv-selection/v1",
+      "kind": "CALCULATION",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "selectionRule",
+          "orderBy",
+          "resultPolicy"
+        ],
+        "properties": {
+          "selectionRule": {
+            "const": "NEGATIVE_DELTA"
+          },
+          "orderBy": {
+            "const": "ABSOLUTE_DECREASE_DESC"
+          },
+          "resultPolicy": {
+            "const": "ALL_MATCHING_ENTITIES"
+          }
+        }
+      },
+      "checks": [
+        "Align by immutable entity identity",
+        "Compute target minus baseline for comparable PV only",
+        "Publish every matching entity or mark incomplete; missing values are not zero"
+      ],
+      "allowsNotApplicable": false,
+      "criterionVersion": "0.1.0-proposed",
+      "availability": "PROPOSED"
+    },
+    {
+      "criterionRef": "campaign.selection-result-delivery/v1",
+      "kind": "DELIVERY",
+      "evaluationStage": "FINAL_REPORT_BEFORE_PUBLICATION",
+      "requiredEvaluationContext": [
+        "FINAL_REPORT_DRAFT",
+        "REPORT_EVIDENCE_MANIFEST",
+        "CURRENT_AUTHORIZATION"
+      ],
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "orderBy",
+          "resultPolicy",
+          "deliveryPolicy",
+          "includeLimitations"
+        ],
+        "properties": {
+          "orderBy": {
+            "const": "ABSOLUTE_DECREASE_DESC"
+          },
+          "resultPolicy": {
+            "const": "ALL_MATCHING_ENTITIES"
+          },
+          "deliveryPolicy": {
+            "const": "INLINE_OR_AUTHORIZED_FULL_OUTPUT_REF"
+          },
+          "includeLimitations": {
+            "const": true
+          }
+        }
+      },
+      "checks": [
+        "The publisher injects the final report draft, retained evidence manifest and current authorization; model or planner fields cannot weaken this policy",
+        "The final report binds this goal to result blocks or an authorized full-output reference containing every selected entity in the required order, with baseline PV, target PV and delta from selectionEvidence",
+        "A preview, goalId mention or opaque internal Artifact ID alone is not delivery; the complete output must actually be readable by the authorized client from the same report revision",
+        "The final report explains the selection outcome and rule, scope/period coverage and incomparable exclusions using verified facts; a deterministic backend explanation is sufficient without a successful synthesis Skill",
+        "Backend-proven NO_DECLINES requires an explicit evidence-backed empty outcome, not an empty table; INSUFFICIENT_EVIDENCE cannot satisfy an all-matching-entities delivery",
+        "Missing or unreadable delivery prevents ANSWERED for this goal without discarding another goal's valid delivery"
+      ],
+      "allowsNotApplicable": false,
+      "criterionVersion": "0.1.0-proposed",
+      "availability": "PROPOSED"
+    },
+    {
+      "criterionRef": "campaign.selected-joint-dimension-coverage/v1",
+      "kind": "DATA",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dimensions",
+          "cohortPolicy"
+        ],
+        "properties": {
+          "dimensions": {
+            "const": [
+              "province",
+              "device"
+            ]
+          },
+          "cohortPolicy": {
+            "const": "EXACT_SELECTED_ENTITIES"
+          }
+        }
+      },
+      "checks": [
+        "The selected cohort and period bindings are preserved",
+        "Evidence contains actual joint province/device values with query-specific provenance",
+        "Required coverage and comparability are verified; unknown evidence is not complete"
+      ],
+      "allowsNotApplicable": true,
+      "notApplicableWhen": "Backend proves complete comparable candidate coverage and NO_DECLINES; an empty result caused by missing evidence is not applicable to this exception.",
+      "criterionVersion": "0.1.0-proposed",
+      "availability": "PROPOSED"
+    },
+    {
+      "criterionRef": "campaign.joint-change-calculation/v1",
+      "kind": "CALCULATION",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ratioMetric",
+          "denominatorPolicy"
+        ],
+        "properties": {
+          "ratioMetric": {
+            "const": "pv"
+          },
+          "denominatorPolicy": {
+            "const": "ENTITY_PERIOD_FILTERED_FULL_WINDOW_PV"
+          }
+        }
+      },
+      "checks": [
+        "Use corresponding entity/period/filters for denominators",
+        "Calculate observed differences from compatible evidence",
+        "Do not sum UV/UIP across overlapping entities or periods"
+      ],
+      "allowsNotApplicable": true,
+      "notApplicableWhen": "Same backend-verified NO_DECLINES proof as the joint-dimension evidence criterion.",
+      "criterionVersion": "0.1.0-proposed",
+      "availability": "PROPOSED"
+    },
+    {
+      "criterionRef": "campaign.evidence-bound-explanation/v1",
+      "kind": "DELIVERY",
+      "evaluationStage": "FINAL_REPORT_BEFORE_PUBLICATION",
+      "requiredEvaluationContext": [
+        "FINAL_REPORT_DRAFT",
+        "REPORT_EVIDENCE_MANIFEST",
+        "CURRENT_AUTHORIZATION"
+      ],
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claimPolicy",
+          "includeLimitations",
+          "deliveryPolicy"
+        ],
+        "properties": {
+          "claimPolicy": {
+            "const": "OBSERVATIONS_WITH_EVIDENCE"
+          },
+          "includeLimitations": {
+            "const": true
+          },
+          "deliveryPolicy": {
+            "const": "INLINE_OR_AUTHORIZED_FULL_OUTPUT_REF"
+          }
+        }
+      },
+      "checks": [
+        "The publisher injects the final report draft, retained evidence manifest and current authorization; model or planner fields cannot weaken this policy",
+        "The final report binds this goal to the actual delivered explanation and the corresponding joint-change data, not just an analysis Artifact or a goalId mention",
+        "Joint-change data is delivered inline or through a complete output reference actually readable by the authorized client from the same report revision; backend-proven NO_DECLINES instead requires its evidence-backed not-applicable explanation without invented dimension results",
+        "Required interpretation, limitations and supporting evidence remain available in the final report without a fixed sentence or card count; a synthesis draft alone does not satisfy final delivery",
+        "Numerical statements reference verified facts",
+        "Separate observations and hypotheses; this checker is not proof of free-text truth",
+        "Missing or unreadable delivery prevents ANSWERED for this goal without discarding another goal's valid delivery"
+      ],
+      "allowsNotApplicable": false,
+      "criterionVersion": "0.1.0-proposed",
+      "availability": "PROPOSED"
+    }
+  ]
+}

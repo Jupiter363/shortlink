@@ -29,6 +29,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -291,13 +292,17 @@ public final class DeepSeekSpringAiChatModel implements ChatModel {
             return List.of();
         }
         List<AssistantMessage.ToolCall> toolCalls = new ArrayList<>();
+        Set<String> callIds = new HashSet<>();
         for (DeepSeekToolCall apiToolCall : apiToolCalls) {
-            if (apiToolCall == null || apiToolCall.function() == null) {
-                continue;
+            // Reject the entire response before any callback can run. Inventing a shared ID
+            // or skipping malformed entries makes recovery and tool-response pairing ambiguous.
+            if (apiToolCall == null || apiToolCall.function() == null
+                    || !StringUtils.hasText(apiToolCall.id()) || !callIds.add(apiToolCall.id())) {
+                throw new LlmChatClientException("DeepSeek chat response has invalid tool call identities");
             }
             DeepSeekFunction function = apiToolCall.function();
             toolCalls.add(new AssistantMessage.ToolCall(
-                    textOrDefault(apiToolCall.id(), "tool-call"),
+                    apiToolCall.id(),
                     textOrDefault(apiToolCall.type(), "function"),
                     function.name(),
                     textOrDefault(function.arguments(), "{}")

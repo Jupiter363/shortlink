@@ -13,6 +13,24 @@
 
     <artifactId>shortlink-agent-service</artifactId>
 
+    <properties>
+        <!-- Match graph-core 1.1.2.3's published Jackson line. Boot 3.0's 2.14 line
+             lacks the treeToValue(TreeNode, TypeReference) used by native message checkpoints. -->
+        <agent.jackson.version>2.19.4</agent.jackson.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${agent.jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
     <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
