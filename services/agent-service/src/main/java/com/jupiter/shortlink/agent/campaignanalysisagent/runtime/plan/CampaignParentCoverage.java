@@ -77,6 +77,18 @@ public final class CampaignParentCoverage {
 
     public Summary check(Caller current, String scopeArtifactId, List<Period> supplied, SlotResolver slots,
                          ArtifactAuthorizer authorizer, Consumer<Gap> gaps, Consumer<VerifiedSlot> sink) {
+        return checkRange(current, scopeArtifactId, supplied, slots, authorizer, gaps, sink, null);
+    }
+
+    /** One deterministic shard; summary counts describe only this shard, never the full parent. */
+    public Summary checkShard(Caller current, String scopeArtifactId, List<Period> supplied, SlotResolver slots,
+                              ArtifactAuthorizer authorizer, Consumer<Gap> gaps, Consumer<VerifiedSlot> sink, int shardIndex) {
+        if (shardIndex < 0) throw new IllegalArgumentException("COVERAGE_SHARD_INVALID");
+        return checkRange(current, scopeArtifactId, supplied, slots, authorizer, gaps, sink, shardIndex);
+    }
+
+    private Summary checkRange(Caller current, String scopeArtifactId, List<Period> supplied, SlotResolver slots,
+                               ArtifactAuthorizer authorizer, Consumer<Gap> gaps, Consumer<VerifiedSlot> sink, Integer selectedShard) {
         Objects.requireNonNull(slots); Objects.requireNonNull(gaps); Objects.requireNonNull(sink);
         List<Period> periods = List.copyOf(supplied);
         if (periods.size() != 2) throw new IllegalArgumentException("COVERAGE_REQUIRES_TWO_PERIODS");
@@ -91,8 +103,14 @@ public final class CampaignParentCoverage {
         int shardCount = Math.toIntExact(count(parent.get("shardCount")));
         require(shardCount == members / 500 + (members % 500 == 0 ? 0 : 1)
                 && count(parent.get("pageCount")) == Math.max(1, shardCount), "COVERAGE_SCOPE_INVALID");
-        int expectedSlots = Math.multiplyExact(shardCount, 2);
-        long expectedMembers = Math.multiplyExact(members, 2);
+        if (selectedShard != null && selectedShard >= Math.max(1, shardCount))
+            throw new IllegalArgumentException("COVERAGE_SHARD_INVALID");
+        int startShard = selectedShard == null ? 0 : selectedShard;
+        int endShard = selectedShard == null ? shardCount : Math.min(shardCount, startShard + 1);
+        int checkedShards = endShard - startShard;
+        long checkedMembers = selectedShard == null ? members : Math.min(500, Math.max(0, members - startShard * 500L));
+        int expectedSlots = Math.multiplyExact(checkedShards, 2);
+        long expectedMembers = Math.multiplyExact(checkedMembers, 2);
         int[] completed = new int[2]; long[] observations = new long[2];
         BigInteger[] pv = {BigInteger.ZERO, BigInteger.ZERO};
         int gapCount = 0;
@@ -102,7 +120,7 @@ public final class CampaignParentCoverage {
                 if (!"SCOPE_SHARD_UNAVAILABLE".equals(empty.getMessage())) throw empty;
             }
         }
-        for (int shardIndex = 0; shardIndex < shardCount; shardIndex++) {
+        for (int shardIndex = startShard; shardIndex < endShard; shardIndex++) {
             FrozenQueryScope scope = scopes.shard(current, scopeArtifactId, shardIndex, authorizer);
             require(scope.parentMemberCount() == members && scope.shardCount() == shardCount && scope.shardIndex() == shardIndex
                     && scope.parentScopeRef().equals(text(parent, "scopeRef"))
@@ -123,8 +141,8 @@ public final class CampaignParentCoverage {
             }
         }
         List<PeriodCoverage> coverage = List.of(
-                new PeriodCoverage(0, completed[0] == shardCount, completed[0], observations[0], pv[0]),
-                new PeriodCoverage(1, completed[1] == shardCount, completed[1], observations[1], pv[1]));
+                new PeriodCoverage(0, completed[0] == checkedShards, completed[0], observations[0], pv[0]),
+                new PeriodCoverage(1, completed[1] == checkedShards, completed[1], observations[1], pv[1]));
         return new Summary(gapCount == 0, expectedSlots, completed[0] + completed[1], expectedMembers,
                 observations[0] + observations[1], gapCount, coverage);
     }

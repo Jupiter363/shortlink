@@ -39,6 +39,19 @@ public final class CampaignObservedLinkComparison {
     public Summary compare(Caller current, String scopeArtifactId, List<CampaignParentCoverage.Period> periods,
                            SlotResolver slots, ArtifactAuthorizer authorizer, Metric metric,
                            Consumer<Gap> gaps, Consumer<Result> sink) {
+        return compareRange(current, scopeArtifactId, periods, slots, authorizer, metric, gaps, sink, null);
+    }
+
+    public Summary compareShard(Caller current, String scopeArtifactId, List<CampaignParentCoverage.Period> periods,
+                                SlotResolver slots, ArtifactAuthorizer authorizer, Metric metric,
+                                Consumer<Gap> gaps, Consumer<Result> sink, int shardIndex) {
+        if (shardIndex < 0) throw new IllegalArgumentException("COVERAGE_SHARD_INVALID");
+        return compareRange(current, scopeArtifactId, periods, slots, authorizer, metric, gaps, sink, shardIndex);
+    }
+
+    private Summary compareRange(Caller current, String scopeArtifactId, List<CampaignParentCoverage.Period> periods,
+                                 SlotResolver slots, ArtifactAuthorizer authorizer, Metric metric,
+                                 Consumer<Gap> gaps, Consumer<Result> sink, Integer shardIndex) {
         Objects.requireNonNull(metric);
         Objects.requireNonNull(sink);
         if (periods == null || periods.size() != 2) throw new IllegalArgumentException("TWO_FROZEN_PERIODS_REQUIRED");
@@ -88,7 +101,9 @@ public final class CampaignObservedLinkComparison {
             private void clear() { baseline = null; baselineObservation = null; pendingShard = -1; }
         }
         PairSink pairs = new PairSink();
-        var checked = coverage.check(current, scopeArtifactId, frozenPeriods, slots, authorizer, gaps, pairs);
+        var checked = shardIndex == null
+                ? coverage.check(current, scopeArtifactId, frozenPeriods, slots, authorizer, gaps, pairs)
+                : coverage.checkShard(current, scopeArtifactId, frozenPeriods, slots, authorizer, gaps, pairs, shardIndex);
         return new Summary(checked, pairs.paired, pairs.negative, pairs.incompatible, pairs.unverified);
     }
 
