@@ -137,7 +137,16 @@ public final class StatisticsJobFixedExecutor {
     public static CampaignStepExecution.ChildResult submit(CampaignStepExecution.IoBoundary boundary,
             RunDefinition definition, AgentPrincipal current, ShortLinkBusinessGateway gateway,
             Map<String, Object> request, BooleanSupplier authorized) {
-        Objects.requireNonNull(boundary); Objects.requireNonNull(definition); Objects.requireNonNull(gateway);
+        Objects.requireNonNull(boundary);
+        return submit(boundary.request(), boundary::beforeIo, definition, current, gateway, request, authorized);
+    }
+
+    /** Real frozen wire boundary for an admitted CALL; no synthetic fixed step or action is required. */
+    public static CampaignStepExecution.ChildResult submit(WireRequest frozen, Runnable beforeIo,
+            RunDefinition definition, AgentPrincipal current, ShortLinkBusinessGateway gateway,
+            Map<String, Object> request, BooleanSupplier authorized) {
+        Objects.requireNonNull(frozen); Objects.requireNonNull(beforeIo);
+        Objects.requireNonNull(definition); Objects.requireNonNull(gateway);
         Objects.requireNonNull(request); Objects.requireNonNull(authorized);
         var owner = definition.caller();
         if (current == null || current.system() || owner == null
@@ -145,13 +154,12 @@ public final class StatisticsJobFixedExecutor {
                 || !Objects.equals(owner.subject(), current.username()) || owner.authVersion() != current.authVersion())
             throw new SecurityException("STATISTICS_PRINCIPAL_MISMATCH");
         if (!authorized.getAsBoolean()) throw new SecurityException("STATISTICS_QUERY_ACCESS_DENIED");
-        WireRequest frozen = boundary.request();
         String expectedPath = request.containsKey("scope") ? FrozenStatisticsJobQuery.FROZEN_SUBMIT_PATH
                 : FrozenStatisticsJobQuery.SUBMIT_PATH;
         if (!"POST".equals(frozen.method()) || !expectedPath.equals(frozen.path())
                 || !FrozenCampaignRun.encode(request).equals(frozen.bodyJson()))
             throw new IllegalArgumentException("STATISTICS_WIRE_BINDING_MISMATCH");
-        boundary.beforeIo();
+        beforeIo.run();
         ToolResult response;
         try {
             ToolContext call = new ToolContext(definition.sessionId(), current.username(), request, current);

@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.Cardinality;
+import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.Parameters;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.Port;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.Signature;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.TypeRef;
@@ -14,7 +15,9 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,6 +30,14 @@ import static com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.
  * output discovery, plan mutation, goal assessment or production registration happens here.
  */
 public final class StepBindings {
+    // Same authority-bearing parameter names rejected by static plan validation. Local calls do
+    // not pass through PlanValidator and must not turn a registered parameter into a binding.
+    private static final Set<String> RESERVED_PARAMETERS = Set.of(
+            "executor", "sql", "expression", "jsonpath", "url", "scope", "scoperef", "scopekind",
+            "periodsref", "snapshot", "snapshotid", "artifactid", "jobid", "principal", "tenantid",
+            "userid", "username", "gid", "groupid", "linkid", "linkids", "fullshorturl",
+            "inputbindings", "inputsetref", "authorization", "token");
+
     @FunctionalInterface
     public interface CompletedOutputLookup {
         /** Trusted ledger lookup: only the named port of a SUCCEEDED producer in this frozen run. */
@@ -78,18 +89,7 @@ public final class StepBindings {
             PlanBinding binding = entry.getValue();
             requireClosed(binding);
             if (binding.source() == PlanBinding.Source.INPUT) {
-                Port actual = frozen.inputContracts().get(binding.input());
-                Object value = frozen.inputValues().get(binding.input());
-                if (actual == null || !expected.equals(actual.type())) throw new BindingException(TYPE_MISMATCH);
-                if (value == null) throw new BindingException(INVALID_BINDING);
-                if ((expected.cardinality() == Cardinality.MANY) != (value instanceof List<?>)) {
-                    throw new BindingException(TYPE_MISMATCH);
-                }
-                if (Set.of("ScopeRef", "PeriodsRef").contains(expected.name())) {
-                    if (!(value instanceof String ref) || ref.isBlank()) throw new BindingException(INVALID_BINDING);
-                    if (!inputAuthorizer.mayUse(caller, expected, value)) throw new BindingException(INPUT_ACCESS_DENIED);
-                }
-                values.put(name, value);
+                values.put(name, resolveInput(expected, frozen, binding));
             } else {
                 String artifactId;
                 if (binding.source() == PlanBinding.Source.STEP_OUTPUT) {
@@ -113,6 +113,70 @@ public final class StepBindings {
             result.close();
             throw failure;
         }
+    }
+
+    /**
+     * Binds one registered local capability without inventing a FIXED plan step. The caller must
+     * obtain visible metadata from this call's verified source MODEL invocation, not model text.
+     * INPUT names are FrozenInputSet names, limited to the actual exploring step's INPUT bindings.
+     * The outer StepPolicy is deliberately not a local capability policy: the adapter checks its
+     * frozen scope/query policy and calls reauthorize at every real I/O gate.
+     */
+    public BoundInputs resolveLocal(PlanSpec.Step explorationStep, FrozenInputSet frozen, Signature signature,
+                                    Map<String, PlanBinding> inputBindings, Map<String, Object> parameters,
+                                    Map<String, ArtifactMetadata> modelVisibleArtifacts) {
+        Objects.requireNonNull(explorationStep);
+        Objects.requireNonNull(frozen);
+        Objects.requireNonNull(signature);
+        Objects.requireNonNull(modelVisibleArtifacts);
+        if (explorationStep.executionMode() != PlanSpec.ExecutionMode.REACT
+                || explorationStep.executor() != null || explorationStep.explorationPolicy() == null) {
+            throw new BindingException(INVALID_BINDING);
+        }
+        requireParameters(parameters, signature.parameters());
+        requirePorts(signature.inputs(), inputBindings, INVALID_BINDING);
+
+        Set<String> allowedInputs = new HashSet<>();
+        for (PlanBinding binding : explorationStep.inputBindings().values()) {
+            requireClosed(binding);
+            if (binding.source() == PlanBinding.Source.INPUT) allowedInputs.add(binding.input());
+        }
+        Map<String, ArtifactMetadata> visibleById = new HashMap<>();
+        for (ArtifactMetadata metadata : modelVisibleArtifacts.values()) {
+            if (metadata == null || metadata.ref() == null || !reference(metadata.ref().artifactId())) {
+                throw new BindingException(INVALID_BINDING);
+            }
+            ArtifactMetadata duplicate = visibleById.putIfAbsent(metadata.ref().artifactId(), metadata);
+            if (duplicate != null && !duplicate.equals(metadata)) {
+                throw new BindingException(ARTIFACT_CONTRACT_MISMATCH);
+            }
+        }
+
+        Map<String, Object> values = new HashMap<>();
+        Map<String, BoundArtifact> artifacts = new HashMap<>();
+        for (Map.Entry<String, PlanBinding> entry : inputBindings.entrySet()) {
+            String name = entry.getKey();
+            TypeRef expected = signature.inputs().get(name).type();
+            PlanBinding binding = entry.getValue();
+            requireClosed(binding);
+            if (binding.source() == PlanBinding.Source.INPUT) {
+                if (!allowedInputs.contains(binding.input())) throw new BindingException(INPUT_ACCESS_DENIED);
+                values.put(name, resolveInput(expected, frozen, binding));
+            } else if (binding.source() == PlanBinding.Source.ARTIFACT) {
+                ArtifactMetadata visible = visibleById.get(binding.artifactId());
+                if (visible == null) throw new BindingException(INPUT_ACCESS_DENIED);
+                BoundArtifact artifact = registry.validateArtifact(expected, binding.artifactId(),
+                        store, caller, artifactAuthorizer);
+                if (!visible.equals(artifact.metadata())) throw new BindingException(ARTIFACT_CONTRACT_MISMATCH);
+                artifacts.put(name, artifact);
+                values.put(name, artifact.payload());
+            } else {
+                // STEP_OUTPUT is only resolved by the frozen outer plan; a local call cannot
+                // discover another step's outputs or widen the source MODEL's visible inputs.
+                throw new BindingException(INVALID_BINDING);
+            }
+        }
+        return new BoundInputs(values, artifacts);
     }
 
     /** Validate all named outputs before publishing the step's success; never implies Goal ANSWERED. */
@@ -153,6 +217,56 @@ public final class StepBindings {
                     && !inputAuthorizer.mayUse(caller, expected, entry.getValue())) {
                 throw new BindingException(INPUT_ACCESS_DENIED);
             }
+        }
+    }
+
+    private Object resolveInput(TypeRef expected, FrozenInputSet frozen, PlanBinding binding) {
+        Port actual = frozen.inputContracts().get(binding.input());
+        Object value = frozen.inputValues().get(binding.input());
+        if (actual == null || !expected.equals(actual.type())) throw new BindingException(TYPE_MISMATCH);
+        if (value == null) throw new BindingException(INVALID_BINDING);
+        if ((expected.cardinality() == Cardinality.MANY) != (value instanceof List<?>)) {
+            throw new BindingException(TYPE_MISMATCH);
+        }
+        if (Set.of("ScopeRef", "PeriodsRef").contains(expected.name())) {
+            if (!(value instanceof String ref) || ref.isBlank()) throw new BindingException(INVALID_BINDING);
+            if (!inputAuthorizer.mayUse(caller, expected, value)) throw new BindingException(INPUT_ACCESS_DENIED);
+        }
+        return value;
+    }
+
+    private static void requireParameters(Map<String, Object> values, Parameters rules) {
+        if (values == null || rules == null || !values.keySet().containsAll(rules.required())
+                || !rules.properties().keySet().containsAll(values.keySet())) {
+            throw new BindingException(INVALID_BINDING);
+        }
+        requireSafeParameterKeys(values, 0);
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            boolean valid;
+            try {
+                valid = rules.properties().get(entry.getKey()).test(entry.getValue());
+            } catch (RuntimeException failure) {
+                valid = false;
+            }
+            if (!valid) throw new BindingException(INVALID_BINDING);
+        }
+    }
+
+    private static void requireSafeParameterKeys(Object value, int depth) {
+        if ((value instanceof Map<?, ?> || value instanceof List<?>) && depth >= 128) {
+            throw new BindingException(INVALID_BINDING);
+        }
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (!(entry.getKey() instanceof String key) || key.isBlank()
+                        || RESERVED_PARAMETERS.contains(key.replaceAll("[^A-Za-z0-9]", "")
+                        .toLowerCase(Locale.ROOT))) {
+                    throw new BindingException(INVALID_BINDING);
+                }
+                requireSafeParameterKeys(entry.getValue(), depth + 1);
+            }
+        } else if (value instanceof List<?> list) {
+            for (Object element : list) requireSafeParameterKeys(element, depth + 1);
         }
     }
 
