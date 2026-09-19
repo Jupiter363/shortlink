@@ -126,6 +126,9 @@ public interface CampaignRunStore {
     /** Allowed after fencing/cancellation, but only for the exact original attempt identity. */
     void callbackExited(DispatchPermit permit);
 
+    /** Recheck current ownership, authorization and expiry without loading the immutable payload. */
+    ArtifactMetadata inspectArtifact(Caller current, String artifactId, ArtifactAuthorizer authorizer);
+
     /** Analysis reuse only: current owner/auth version, expiry and authorization callback all apply. */
     Artifact readArtifact(Caller current, String artifactId, ArtifactAuthorizer authorizer);
 
