@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.LongBinaryOperator;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -33,13 +35,13 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.transaction.support.TransactionTemplate;
 
 class CampaignParentCoverageTest {
-    private static final ObjectMapper JSON = new ObjectMapper();
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-20T00:00:00Z"), ZoneOffset.UTC);
-    private static final long EXPIRY = CLOCK.millis() + 3_600_000;
-    private static final Caller OWNER = new Caller("1", "analyst", 7);
-    private static final ArtifactAuthorizer ALLOW = (caller, artifact) -> true;
-    private static final String VERSION = "a".repeat(64);
-    private static final List<Period> PERIODS = List.of(
+    static final ObjectMapper JSON = new ObjectMapper();
+    static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-20T00:00:00Z"), ZoneOffset.UTC);
+    static final long EXPIRY = CLOCK.millis() + 3_600_000;
+    static final Caller OWNER = new Caller("1", "analyst", 7);
+    static final ArtifactAuthorizer ALLOW = (caller, artifact) -> true;
+    static final String VERSION = "a".repeat(64);
+    static final List<Period> PERIODS = List.of(
             new Period("baseline", "2026-09-01", "2026-09-01", "Asia/Shanghai"),
             new Period("target", "2026-09-02", "2026-09-02", "Asia/Shanghai"));
 
@@ -130,7 +132,7 @@ class CampaignParentCoverageTest {
         }
     }
 
-    private static final class Fixture {
+    static final class Fixture {
         final JdbcTemplate jdbc;
         final TransactionTemplate transactions;
         final CampaignRunStore runs;
@@ -143,8 +145,11 @@ class CampaignParentCoverageTest {
                     + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1", "sa", "");
             new ResourceDatabasePopulator(
                     new ClassPathResource("sql/migration/V20260919__campaign_run_ledger.sql"),
+                    new ClassPathResource("sql/migration/V20260919_2__campaign_step_ledger.sql"),
                     new ClassPathResource("sql/migration/V20260920__campaign_statistics_result.sql"),
-                    new ClassPathResource("sql/migration/V20260920_5__campaign_scope_collection.sql")).execute(source);
+                    new ClassPathResource("sql/migration/V20260920_5__campaign_scope_collection.sql"),
+                    new ClassPathResource("sql/migration/V20260920_6__campaign_local_calculation.sql"),
+                    new ClassPathResource("sql/migration/V20260920_7__campaign_decline_selection.sql")).execute(source);
             jdbc = new JdbcTemplate(source);
             transactions = new TransactionTemplate(new DataSourceTransactionManager(source));
             runs = new JdbcCampaignRunStore(jdbc, transactions, CLOCK);
@@ -154,11 +159,16 @@ class CampaignParentCoverageTest {
         }
 
         String publishScope() throws Exception {
+            return publishScope(501);
+        }
+
+        String publishScope(int count) throws Exception {
+            if (count < 0) throw new IllegalArgumentException("Fixture member count must be nonnegative");
             var action = new ActionSpec("enumeration", "enumeration", "TOOL", "group_members", "1", "{}");
             var definition = new CampaignScopeStore.Definition("collection", action, "group-a", Instant.ofEpochMilli(EXPIRY));
             var collection = scopes.prepare(token, definition);
-            for (int pageIndex = 0; pageIndex < 2; pageIndex++) {
-                Long after = pageIndex == 0 ? null : 500L;
+            for (int pageIndex = 0; pageIndex < Math.max(1, (count + 499) / 500); pageIndex++) {
+                Long after = pageIndex == 0 ? null : (long) pageIndex * 500;
                 var request = new GroupMembersPage.Request("group-a", after, pageIndex == 0 ? null : VERSION);
                 String childId = "authority-" + pageIndex;
                 var child = new ChildSpec(childId, action.actionId(), ChildMode.SYNC, "request-" + childId,
@@ -166,10 +176,11 @@ class CampaignParentCoverageTest {
                 runs.prepareChild(token, child);
                 var permit = runs.beginDispatch(token, childId);
                 try {
-                    List<Long> members = LongStream.rangeClosed(pageIndex == 0 ? 1 : 501, pageIndex == 0 ? 500 : 501).boxed().toList();
+                    long last = Math.min((long) (pageIndex + 1) * 500, count);
+                    List<Long> members = LongStream.rangeClosed((long) pageIndex * 500 + 1, last).boxed().toList();
                     collection = scopes.commitPage(permit, definition.collectionId(), new GroupMembersPage(GroupMembersPage.SCHEMA,
                             OWNER.tenantId(), OWNER.subject(), OWNER.authVersion(), definition.gid(), VERSION,
-                            after, members, pageIndex == 0 ? 500L : null));
+                            after, members, last < count ? last : null));
                 } finally { runs.callbackExited(permit); }
             }
             assertEquals(CampaignScopeStore.State.PUBLISHED, collection.state());
@@ -177,6 +188,12 @@ class CampaignParentCoverageTest {
         }
 
         Slot publish(String key, FrozenQueryScope scope, int periodIndex, String variant) throws Exception {
+            return publish(key, scope, periodIndex, variant,
+                    (id, period) -> id == 1 ? 0 : period == 0 ? 2 : 1, meta -> {});
+        }
+
+        Slot publish(String key, FrozenQueryScope scope, int periodIndex, String variant,
+                LongBinaryOperator observedPv, Consumer<Map<String, Object>> customizeMetadata) throws Exception {
             Period period = PERIODS.get(periodIndex);
             String actionId = "action-" + key, childId = "child-" + key, artifactId = "artifact-" + key, jobId = "job-" + key;
             String requestId = "request-" + key;
@@ -196,13 +213,14 @@ class CampaignParentCoverageTest {
                 if ("DUPLICATE".equals(variant)) ids.set(ids.size() - 1, ids.get(ids.size() - 2));
                 long pvSum = 0;
                 for (long id : ids) {
-                    long pv = id == 1 ? 0 : periodIndex == 0 ? 2 : 1;
+                    long pv = observedPv.applyAsLong(id, periodIndex);
                     pvSum += pv;
                     var row = new LinkedHashMap<>(counts(pv, pv == 0 ? 0 : 1, period));
                     row.put("linkId", id); rows.add(row);
                 }
                 Map<String, Object> metrics = Map.of("requested", counts(pvSum, 1, period));
                 Map<String, Object> meta = metadata(jobId, scope, period, rows.size());
+                customizeMetadata.accept(meta);
                 var protocol = new StatisticsJobResultProtocol(runs.child(token, childId).orElseThrow());
                 var page = protocol.page(new StatisticsJobResultProtocol.Status(jobId, "SUCCEEDED", rows.size(), 1, EXPIRY, null),
                         Map.of("items", rows, "metrics", metrics, "meta", meta), 0);
