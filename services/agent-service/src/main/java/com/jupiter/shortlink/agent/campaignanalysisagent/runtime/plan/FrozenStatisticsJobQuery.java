@@ -6,6 +6,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsJobResultReceiver;
 import com.jupiter.shortlink.agent.tool.shortlink.DimensionQuery;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -20,13 +21,14 @@ import java.util.TreeMap;
 public final class FrozenStatisticsJobQuery {
     public static final String SCHEMA = "statistics-job-query/v1";
     public static final String SUBMIT_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/jobs";
+    public static final String FROZEN_SUBMIT_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs";
     public static final TypeRef SCOPE_TYPE = new TypeRef("ScopeRef", 1, Cardinality.ONE);
     public static final TypeRef PERIODS_TYPE = new TypeRef("PeriodsRef", 1, Cardinality.ONE);
     public static final TypeRef QUERY_TYPE = new TypeRef("StatisticsJobQuery", 1, Cardinality.ONE);
     public static final Map<String, Port> INPUTS = Map.of("scope", new Port(SCOPE_TYPE, true),
             "periods", new Port(PERIODS_TYPE, true), "query", new Port(QUERY_TYPE, true));
     private static final Set<String> FIELDS = Set.of("schemaVersion", "scopeRef", "periodsRef", "scopeKind",
-            "gid", "fullShortUrl", "startDate", "endDate", "businessTimezone", "queryKind", "dimensions", "filters");
+            "gid", "fullShortUrl", "startDate", "endDate", "businessTimezone", "queryKind", "dimensions", "filters", "scope");
     private static final Set<String> KINDS = Set.of("METRICS", "ACCESS_RECORDS", "LINK_METRICS", "DIMENSION_BREAKDOWN");
 
     private FrozenStatisticsJobQuery() {}
@@ -65,9 +67,15 @@ public final class FrozenStatisticsJobQuery {
             Map<String, Object> descriptor = object(values.get("query"));
             require(FIELDS.containsAll(descriptor.keySet()) && SCHEMA.equals(descriptor.get("schemaVersion"))
                     && scope.equals(descriptor.get("scopeRef")) && periods.equals(descriptor.get("periodsRef"))
-                    && "CURRENT_GROUP".equals(descriptor.get("scopeKind"))
                     && "Asia/Shanghai".equals(descriptor.get("businessTimezone")));
             Map<String, Object> request = new TreeMap<>();
+            boolean fixedMembers = "FROZEN_SET".equals(descriptor.get("scopeKind"));
+            if (fixedMembers) {
+                require(!descriptor.containsKey("fullShortUrl"));
+                FrozenQueryScope shard = FrozenQueryScope.fromMap(object(descriptor.get("scope")));
+                require(scope.equals(shard.parentScopeRef()));
+                request.put("scope", shard.asMap());
+            } else require("CURRENT_GROUP".equals(descriptor.get("scopeKind")) && !descriptor.containsKey("scope"));
             request.put("gid", text(descriptor.get("gid"), 128));
             String kind = text(descriptor.get("queryKind"), 64);
             require(KINDS.contains(kind));
@@ -102,7 +110,7 @@ public final class FrozenStatisticsJobQuery {
                     executor, descriptor, request)));
             request.put("requestId", requestId);
             ChildSpec child = new ChildSpec("stats-child-" + slot, "stats-action-" + slot, ChildMode.ASYNC,
-                    requestId, new WireRequest("POST", SUBMIT_PATH, FrozenCampaignRun.encode(request)));
+                    requestId, new WireRequest("POST", fixedMembers ? FROZEN_SUBMIT_PATH : SUBMIT_PATH, FrozenCampaignRun.encode(request)));
             Bound bound = new Bound(step, scope, periods, descriptor, child,
                     new StatisticsJobResultReceiver.Target("stats-result-" + slot, scope, periods), request);
             require(bindings.putIfAbsent(step.stepId(), bound) == null);

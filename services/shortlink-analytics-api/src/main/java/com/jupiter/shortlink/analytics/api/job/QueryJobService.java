@@ -77,8 +77,16 @@ public class QueryJobService {
     }
 
     public Status submit(Submit submit) {
-        QueryRequest q = validatedSubmission(submit);
-        var scope = auth.authorize(q);
+        return submit(submit, false);
+    }
+
+    public Status submitFrozen(Submit submit) {
+        return submit(submit, true);
+    }
+
+    private Status submit(Submit submit, boolean frozenScope) {
+        QueryRequest q = validatedSubmission(submit, frozenScope);
+        var scope = authorize(q);
         String epoch = auth.activeEpoch();
         String digest = digestRequest(q);
         return tx.execute(
@@ -177,7 +185,15 @@ public class QueryJobService {
      * a mapping removed while this request waits for the gate cannot fall through to creation.
      */
     public Status recoverExisting(Submit submit) {
-        QueryRequest q = validatedSubmission(submit);
+        return recoverExisting(submit, false);
+    }
+
+    public Status recoverExistingFrozen(Submit submit) {
+        return recoverExisting(submit, true);
+    }
+
+    private Status recoverExisting(Submit submit, boolean frozenScope) {
+        QueryRequest q = validatedSubmission(submit, frozenScope);
         if (q.tenantId() == null || q.subjectId() == null || q.authVersion() < 0)
             throw new QueryFailure("FORBIDDEN", "Current identity required");
         String digest = digestRequest(q);
@@ -199,7 +215,7 @@ public class QueryJobService {
                     // omitted linkIds field); current authorization uses the stored frozen members.
                     QueryRequest frozen = with(read(row.get("request_json").toString(), QueryRequest.class),
                             q.authVersion(), null);
-                    var scope = auth.authorize(frozen);
+                    var scope = authorize(frozen);
                     String epoch = auth.activeEpoch();
                     long checkedAt = now();
                     assertRecoveryRetention(row, checkedAt);
@@ -213,7 +229,9 @@ public class QueryJobService {
                 });
     }
 
-    private QueryRequest validatedSubmission(Submit submit) {
+    private QueryRequest validatedSubmission(Submit submit, boolean frozen) {
+        if (submit == null || submit.query() == null || (submit.query().scope() != null) != frozen)
+            throw new QueryFailure("INVALID_QUERY", "Query scope does not match the submission protocol");
         if (submit == null || submit.requestId() == null || submit.requestId().isBlank()
                 || submit.requestId().length() > 96)
             throw new QueryFailure("INVALID_QUERY", "requestId must be 1..96 characters");
@@ -263,6 +281,10 @@ public class QueryJobService {
         meta.put("queryKind", q.kind());
         meta.put("gid", q.gid());
         meta.put("linkIds", q.linkIds());
+        if (q.scope() != null) {
+            meta.put("scopeProof", q.scope().proof(job.get("ownership_version").toString()));
+            meta.put("groupScopeComplete", false);
+        }
         meta.put("snapshotId", id);
         meta.put("recoveryEpoch", job.get("recovery_epoch"));
         meta.put("manifestSelectionHash", job.get("manifest_hash"));
@@ -355,7 +377,7 @@ public class QueryJobService {
                         read(row.get("request_json").toString(), QueryRequest.class),
                         identity.authVersion(),
                         null);
-        assertScope(row, auth.authorize(q), auth.activeEpoch(), now());
+        assertScope(row, authorize(q), auth.activeEpoch(), now());
         return row;
     }
 
@@ -472,7 +494,7 @@ public class QueryJobService {
     }
 
     private void checkExecution(Lease lease) {
-        var scope = auth.authorize(lease.query());
+        var scope = authorize(lease.query());
         if (!lease.epoch().equals(auth.activeEpoch()))
             throw new QueryFailure("SNAPSHOT_EXPIRED", "Epoch changed");
         if (!lease.ownershipVersion().equals(scope.ownershipVersion()))
@@ -825,6 +847,13 @@ public class QueryJobService {
                     "Jobs require one fixed historical interval without a previous snapshot");
         if (q.linkIds() != null && q.linkIds().size() > 500)
             throw new QueryFailure("TOO_LARGE", "Scope exceeds 500 links");
+        if (q.scope() != null) FrozenScopeValidation.request(q);
+    }
+
+    private AuthorizationClient.Scope authorize(QueryRequest query) {
+        AuthorizationClient.Scope authorized = auth.authorize(query);
+        if (query.scope() != null) FrozenScopeValidation.authorized(query, authorized);
+        return authorized;
     }
 
     private QueryRequest with(QueryRequest q, long version, List<Long> ids) {

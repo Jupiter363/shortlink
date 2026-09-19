@@ -2,6 +2,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -174,11 +175,73 @@ class StatisticsJobResultProtocolTest {
                 "Display identity changes remain detectable by the store's immutable page checksum");
     }
 
+    @Test
+    void frozenPagesRequireTheExactOriginalShardProofWithoutUpgradingPartialQualityOrLegacyRequests() throws Exception {
+        FrozenQueryScope scope = scope(List.of(1L, 2L));
+        Map<String, Object> query = request("ACCESS_RECORDS");
+        query.put("scope", scope.asMap());
+        var protocol = protocol(query, StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH);
+        var status = protocol.status(status(1));
+        Map<String, Object> data = page(1, 0);
+        meta(data).put("linkIds", List.of(1L, 2L));
+        meta(data).put("groupScopeComplete", false);
+        meta(data).put("scopeProof", scope.proof("b".repeat(64)));
+        var accepted = protocol.page(status, data, 0);
+        var snapshot = JSON.readTree(accepted.snapshotJson());
+        assertEquals("PARTIAL", snapshot.path("completeness").asText());
+        assertEquals("UNKNOWN", snapshot.path("collectionQuality").path("status").asText());
+        assertFalse(snapshot.path("scopeProof").path("parentComplete").booleanValue());
+        assertEquals(scope, FrozenQueryScope.fromProof(protocol.frozenScopeProof(scope.parentScopeRef(), meta(data))));
+        fixedFailure(() -> protocol.frozenScopeProof("other-parent", meta(data)));
+
+        for (Consumer<Map<String, Object>> mutate : List.<Consumer<Map<String, Object>>>of(
+                value -> value.remove("scopeProof"),
+                value -> value.put("scopeProof", scope(List.of(1L, 3L)).proof("b".repeat(64))),
+                value -> { var proof = new LinkedHashMap<>(scope.proof("b".repeat(64))); proof.put("parentComplete", true); value.put("scopeProof", proof); },
+                value -> { var proof = new LinkedHashMap<>(scope.proof("b".repeat(64))); proof.put("extra", true); value.put("scopeProof", proof); },
+                value -> value.put("linkIds", List.of(1L, 3L)),
+                value -> value.put("linkIds", List.of(2L, 1L)),
+                value -> value.put("groupScopeComplete", true),
+                value -> value.put("parentComplete", true),
+                value -> value.put("scopeRef", "other-parent"))) {
+            Map<String, Object> invalid = new LinkedHashMap<>(data);
+            invalid.put("meta", new LinkedHashMap<>(meta(data)));
+            mutate.accept(meta(invalid));
+            fixedFailure(() -> protocol.page(status, invalid, 0));
+        }
+
+        fixedFailure(() -> protocol(query)); // The old endpoint has no scope field.
+        fixedFailure(() -> protocol(request("ACCESS_RECORDS"), StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH));
+        Map<String, Object> withUrl = new LinkedHashMap<>(query);
+        withUrl.put("fullShortUrl", "https://short.test/a");
+        fixedFailure(() -> protocol(withUrl, StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH));
+        withUrl.put("fullShortUrl", null);
+        fixedFailure(() -> protocol(withUrl, StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH));
+        Map<String, Object> extraField = new LinkedHashMap<>(query);
+        extraField.put("scopeMode", "FROZEN_SET");
+        fixedFailure(() -> protocol(extraField, StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH));
+        Map<String, Object> legacyData = page(1, 0);
+        meta(legacyData).put("scopeProof", scope.proof("b".repeat(64)));
+        var legacy = protocol(request("ACCESS_RECORDS"));
+        fixedFailure(() -> legacy.page(status, legacyData, 0));
+    }
+
     private static StatisticsJobResultProtocol protocol(Map<String, Object> request) throws Exception {
+        return protocol(request, "/internal/short-link-admin/v1/agent-tools/statistics/jobs");
+    }
+
+    private static StatisticsJobResultProtocol protocol(Map<String, Object> request, String path) throws Exception {
         var spec = new ChildSpec("child-1", "action-1", ChildMode.ASYNC, "request-1",
-                new WireRequest("POST", "/internal/short-link-admin/v1/agent-tools/statistics/jobs", JSON.writeValueAsString(request)));
+                new WireRequest("POST", path, JSON.writeValueAsString(request)));
         return new StatisticsJobResultProtocol(new ChildRecord(spec, ChildState.WAITING, JOB, null,
                 "attempt-1", 1, DispatchPurpose.FRESH, false, null));
+    }
+
+    private static FrozenQueryScope scope(List<Long> members) {
+        String hash = FrozenQueryScope.memberHash(members);
+        return new FrozenQueryScope(FrozenQueryScope.SCHEMA, "FROZEN_SET", "scope-frozen", hash,
+                members.size(), "a".repeat(64), FrozenQueryScope.shardIdFor("scope-frozen", 0, hash),
+                0, 1, hash, members);
     }
 
     private static Map<String, Object> request(String kind) {

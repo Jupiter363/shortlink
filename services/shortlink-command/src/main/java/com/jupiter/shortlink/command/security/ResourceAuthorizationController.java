@@ -1,5 +1,7 @@
 package com.jupiter.shortlink.command.security;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import com.jupiter.shortlink.risk.HostNormalizer;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,6 +45,63 @@ public class ResourceAuthorizationController {
     public record AnalyticsScope(
             boolean allowed, String tenantId, List<Long> linkIds, String ownershipVersion) {}
 
+    /** An explicit selection never falls back to the current contents of its group. */
+    public record SelectedRequest(String gid, List<Long> linkIds, String ownershipVersion) {
+        public SelectedRequest {
+            if (gid == null || gid.isBlank() || gid.length() > 64
+                    || gid.chars().anyMatch(c -> c < 32 || c == 127))
+                throw new IllegalArgumentException("Invalid selected group");
+            linkIds = FrozenQueryScope.validatedMembers(linkIds);
+            if (ownershipVersion != null && !ownershipVersion.matches("[a-f0-9]{64}"))
+                throw new IllegalArgumentException("Invalid selected ownership version");
+        }
+
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public static SelectedRequest fromJson(Map<String, Object> values) {
+            Set<String> fields = Set.of("gid", "linkIds", "ownershipVersion");
+            if (values == null || !fields.containsAll(values.keySet())
+                    || !values.keySet().containsAll(Set.of("gid", "linkIds")))
+                throw new IllegalArgumentException("Invalid selected scope fields");
+            return new SelectedRequest(selectedText(values.get("gid")), selectedMembers(values.get("linkIds")),
+                    values.get("ownershipVersion") == null ? null : selectedText(values.get("ownershipVersion")));
+        }
+    }
+
+    /** A strict wire DTO only for the new endpoint; the existing analytics contract is unchanged. */
+    public record SelectedAnalyticsRequest(
+            String tenantId, String subjectId, long authVersion, String gid, List<Long> linkIds) {
+        public SelectedAnalyticsRequest {
+            SelectedRequest selection = new SelectedRequest(gid, linkIds, null);
+            linkIds = selection.linkIds();
+        }
+
+        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+        public static SelectedAnalyticsRequest fromJson(Map<String, Object> values) {
+            if (values == null || !values.keySet().equals(Set.of("tenantId", "subjectId", "authVersion", "gid", "linkIds")))
+                throw new IllegalArgumentException("Invalid selected analytics fields");
+            return new SelectedAnalyticsRequest(selectedText(values.get("tenantId")), selectedText(values.get("subjectId")),
+                    selectedInteger(values.get("authVersion")), selectedText(values.get("gid")),
+                    selectedMembers(values.get("linkIds")));
+        }
+    }
+
+    public record SelectedScope(
+            String schemaVersion,
+            boolean allowed,
+            String tenantId,
+            String subjectId,
+            long authVersion,
+            String gid,
+            List<Long> linkIds,
+            String memberHash,
+            String ownershipVersion,
+            List<LinkIdentity> links) {
+        public SelectedScope {
+            linkIds = List.copyOf(linkIds);
+            links = List.copyOf(links);
+        }
+    }
+
     private final JdbcTemplate jdbc;
     private final CommandAuthorization auth;
 
@@ -71,6 +130,110 @@ public class ResourceAuthorizationController {
     @PostMapping("/internal/command/authorization/resolve")
     public Scope resolve(@RequestBody ResolveRequest q, HttpServletRequest r) {
         return resolve(auth.principal(r), q);
+    }
+
+    @PostMapping("/internal/command/authorization/resolve-selected")
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public SelectedScope resolveSelected(@RequestBody SelectedRequest q, HttpServletRequest r) {
+        return resolveSelected(auth.principal(r), q);
+    }
+
+    @PostMapping("/internal/v1/authorization/analytics-selected")
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public SelectedScope analyticsSelected(@RequestBody SelectedAnalyticsRequest q, HttpServletRequest r) {
+        auth.requireService(r);
+        CommandPrincipal principal;
+        try {
+            principal = new CommandPrincipal(Long.parseLong(q.tenantId()), q.subjectId(), q.authVersion());
+        } catch (IllegalArgumentException invalid) {
+            CommandAuthorization.denied();
+            return null;
+        }
+        return resolveSelected(principal, new SelectedRequest(q.gid(), q.linkIds(), null));
+    }
+
+    private SelectedScope resolveSelected(CommandPrincipal principal, SelectedRequest request) {
+        auth.check(principal, false);
+        requireSelectedGroup(principal, request.gid());
+        List<LinkIdentity> links = List.of();
+        if (!request.linkIds().isEmpty()) {
+            List<Object> parameters = new ArrayList<>();
+            parameters.add(principal.tenantId());
+            parameters.add(request.gid());
+            parameters.addAll(request.linkIds());
+            links = jdbc.query(
+                    "SELECT link_id,current_gid,domain_norm,short_uri,ownership_version"
+                            + " FROM t_link_route WHERE tenant_id=? AND current_gid=?"
+                            + " AND route_status<>'DELETED' AND link_id IN ("
+                            + String.join(",", Collections.nCopies(request.linkIds().size(), "?"))
+                            + ") ORDER BY link_id",
+                    (rs, n) -> new LinkIdentity(rs.getLong(1), rs.getString(2), rs.getString(3),
+                            rs.getString(4), "https://" + rs.getString(3) + "/" + rs.getString(4),
+                            rs.getLong(5)),
+                    parameters.toArray());
+        }
+        if (!links.stream().map(LinkIdentity::linkId).toList().equals(request.linkIds()))
+            CommandAuthorization.denied();
+
+        // Group revisions include unrelated additions; only selected route ownership is pinned.
+        StringBuilder version = new StringBuilder("selected-ownership/v1");
+        appendSelectedIdentity(version, Long.toString(principal.tenantId()));
+        appendSelectedIdentity(version, principal.username());
+        appendSelectedIdentity(version, Long.toString(principal.authVersion()));
+        appendSelectedIdentity(version, request.gid());
+        for (LinkIdentity link : links) {
+            appendSelectedIdentity(version, Long.toString(link.linkId()));
+            appendSelectedIdentity(version, Long.toString(link.ownershipVersion()));
+        }
+        String ownership = digest(version.toString());
+        if (request.ownershipVersion() != null && !request.ownershipVersion().equals(ownership))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Selected ownership changed");
+
+        // New selected endpoints use READ_COMMITTED so these are current authorization checks.
+        auth.check(principal, false);
+        requireSelectedGroup(principal, request.gid());
+        return new SelectedScope("selected-scope/v1", true, Long.toString(principal.tenantId()),
+                principal.username(), principal.authVersion(), request.gid(), request.linkIds(),
+                FrozenQueryScope.memberHash(request.linkIds()), ownership, links);
+    }
+
+    private void requireSelectedGroup(CommandPrincipal principal, String gid) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM t_group WHERE username=? AND tenant_id=? AND gid=? AND del_flag=0",
+                Integer.class, principal.username(), principal.tenantId(), gid);
+        if (count == null || count != 1) CommandAuthorization.denied();
+    }
+
+    private static void appendSelectedIdentity(StringBuilder target, String value) {
+        target.append('|').append(value.length()).append(':').append(value);
+    }
+
+    private static String selectedText(Object value) {
+        if (!(value instanceof String text)) throw new IllegalArgumentException("Invalid selected scope text");
+        return text;
+    }
+
+    private static List<Long> selectedMembers(Object value) {
+        if (!(value instanceof List<?> values) || values.size() > FrozenQueryScope.SHARD_SIZE)
+            throw new IllegalArgumentException("Invalid selected members");
+        return values.stream().map(ResourceAuthorizationController::selectedInteger).toList();
+    }
+
+    private static long selectedInteger(Object value) {
+        if (!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long
+                || value instanceof java.math.BigInteger))
+            throw new IllegalArgumentException("Selected scope requires integer values");
+        try {
+            long result = new java.math.BigInteger(value.toString()).longValueExact();
+            if (result <= 0) throw new IllegalArgumentException("Selected scope requires positive integers");
+            return result;
+        } catch (ArithmeticException invalid) {
+            throw new IllegalArgumentException("Selected scope integer overflow", invalid);
+        }
     }
 
     public Scope resolve(CommandPrincipal p, ResolveRequest q) {

@@ -6,6 +6,7 @@ import com.jupiter.shortlink.admin.common.convention.exception.ClientException;
 import com.jupiter.shortlink.admin.common.convention.exception.RemoteException;
 import com.jupiter.shortlink.admin.dto.req.analytics.AnalyticsQueryRequest;
 import com.jupiter.shortlink.admin.dto.resp.analytics.StatsEnvelope;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 
 import org.springframework.stereotype.Service;
 
@@ -202,6 +203,127 @@ public class AgentAnalyticsFacade {
         return jobData(response, true);
     }
 
+    /** A current authorization of exactly these members. Empty means empty, never current group. */
+    public Map<String, Object> authorizeSelectedScope(String gid, List<Long> linkIds, String ownershipVersion) {
+        requireFrozenPrincipal();
+        List<Long> members;
+        try {
+            if (gid == null || gid.isBlank() || gid.length() > 64 || gid.chars().anyMatch(Character::isISOControl)
+                    || ownershipVersion != null && !hash(ownershipVersion)) throw new IllegalArgumentException();
+            members = FrozenQueryScope.validatedMembers(linkIds);
+        } catch (IllegalArgumentException invalid) {
+            throw AnalyticsJsonClient.frozenFailure("INVALID_QUERY");
+        }
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("gid", gid);
+        request.put("linkIds", members);
+        if (ownershipVersion != null) request.put("ownershipVersion", ownershipVersion);
+        JSONObject response = client.resolveSelected(request);
+        if (response != null && Boolean.FALSE.equals(response.get("allowed")))
+            throw AnalyticsJsonClient.frozenFailure("FORBIDDEN");
+        if (response == null || !"selected-scope/v1".equals(response.get("schemaVersion"))
+                || !Boolean.TRUE.equals(response.get("allowed"))
+                || !hash(response.get("ownershipVersion")) || !(response.get("links") instanceof List<?> links)
+                || !(response.get("linkIds") instanceof List<?> rawIds))
+            throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        List<Long> actual = selectedIds(rawIds);
+        if (!UserContext.getUserId().equals(response.get("tenantId"))
+                || !UserContext.getUsername().equals(response.get("subjectId"))
+                || selectedInteger(response.get("authVersion")) != UserContext.getAuthVersion()
+                || !gid.equals(response.get("gid")) || !members.equals(actual)
+                || !FrozenQueryScope.memberHash(members).equals(response.get("memberHash")))
+            throw AnalyticsJsonClient.frozenFailure("FORBIDDEN");
+        if (ownershipVersion != null && !ownershipVersion.equals(response.get("ownershipVersion")))
+            throw AnalyticsJsonClient.frozenFailure("QUERY_SCOPE_CHANGED");
+        if (links.size() != members.size()) throw AnalyticsJsonClient.frozenFailure("FORBIDDEN");
+        for (int i = 0; i < links.size(); i++) {
+            if (!(links.get(i) instanceof Map<?, ?> link)
+                    || selectedInteger(link.get("linkId")) != members.get(i) || !gid.equals(link.get("gid")))
+                throw AnalyticsJsonClient.frozenFailure("FORBIDDEN");
+            for (String field : List.of("domain", "shortUri", "fullShortUrl"))
+                if (!(link.get(field) instanceof String text) || text.isBlank())
+                    throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+            selectedInteger(link.get("ownershipVersion"));
+        }
+        return new LinkedHashMap<>(response);
+    }
+
+    public Map<String, Object> submitFrozenJob(String requestId, String gid, String fullShortUrl,
+            String start, String end, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters, FrozenQueryScope scope) {
+        return frozenJobData(client.createFrozenJob(frozenJobRequest(requestId, gid, fullShortUrl,
+                start, end, queryKind, dimensions, filters, scope)));
+    }
+
+    public Map<String, Object> recoverFrozenJob(String requestId, String gid, String fullShortUrl,
+            String start, String end, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters, FrozenQueryScope scope) {
+        return frozenJobData(client.recoverFrozenJob(frozenJobRequest(requestId, gid, fullShortUrl,
+                start, end, queryKind, dimensions, filters, scope)));
+    }
+
+    private Map<String, Object> frozenJobRequest(String requestId, String gid, String fullShortUrl,
+            String start, String end, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters, FrozenQueryScope scope) {
+        requireFrozenPrincipal();
+        if (scope == null || fullShortUrl != null || requestId == null || !requestId.matches("[A-Za-z0-9_-]{1,96}")
+                || queryKind == null || !Set.of("METRICS", "ACCESS_RECORDS", "LINK_METRICS", "DIMENSION_BREAKDOWN").contains(queryKind)
+                || !"DIMENSION_BREAKDOWN".equals(queryKind) && (dimensions != null || filters != null)
+                || "DIMENSION_BREAKDOWN".equals(queryKind) && (dimensions == null || dimensions.isEmpty()))
+            throw AnalyticsJsonClient.frozenFailure("INVALID_QUERY");
+        long from, until;
+        try {
+            from = parse(start, false); until = parse(end, true);
+            if (from < 0 || until <= from || until - from > Duration.ofDays(180).toMillis())
+                throw new IllegalArgumentException();
+        } catch (ClientException | IllegalArgumentException invalid) {
+            throw AnalyticsJsonClient.frozenFailure("INVALID_QUERY");
+        }
+        authorizeSelectedScope(gid, scope.linkIds(), null);
+        var query = new AnalyticsQueryRequest(UserContext.getUserId(), UserContext.getUsername(),
+                UserContext.getAuthVersion(), gid, scope.linkIds(), from, until, null, "REQUESTED",
+                null, null, 500, queryKind, dimensions, filters, scope);
+        return Map.of("requestId", requestId, "query", query);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> frozenJobData(JSONObject response) {
+        if (response == null || !(response.get("code") instanceof String code))
+            throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        if (!"0".equals(code)) throw AnalyticsJsonClient.frozenFailure(code);
+        if (!(response.get("data") instanceof Map<?, ?> data)
+                || !(data.get("jobId") instanceof String jobId) || !jobId.matches("[A-Za-z0-9_-]{1,128}")
+                || !(data.get("state") instanceof String state)
+                || !Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state))
+            throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        Map<String, Object> result = new LinkedHashMap<>((Map<String, Object>) data);
+        result.put("status", Set.of("QUEUED", "RUNNING").contains(state) ? "PENDING" : state);
+        result.put("resultReady", "SUCCEEDED".equals(state));
+        return result;
+    }
+
+    private static void requireFrozenPrincipal() {
+        if (UserContext.getUserId() == null || UserContext.getUsername() == null || UserContext.getAuthVersion() == null)
+            throw AnalyticsJsonClient.frozenFailure("FORBIDDEN");
+    }
+
+    private static boolean hash(Object value) { return value instanceof String text && text.matches("[a-f0-9]{64}"); }
+
+    private static long selectedInteger(Object value) {
+        if (!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long
+                || value instanceof java.math.BigInteger)) throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        try {
+            long result = new java.math.BigInteger(value.toString()).longValueExact();
+            if (result < 0) throw new ArithmeticException();
+            return result;
+        } catch (ArithmeticException invalid) { throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE"); }
+    }
+
+    private static List<Long> selectedIds(List<?> values) {
+        try { return FrozenQueryScope.validatedMembers(values.stream().map(AgentAnalyticsFacade::selectedInteger).toList()); }
+        catch (IllegalArgumentException invalid) { throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE"); }
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> jobRequest(String requestId, String gid, String fullShortUrl,
             String start, String end, String queryKind, List<String> dimensions,
@@ -306,6 +428,10 @@ public class AgentAnalyticsFacade {
     @SuppressWarnings("unchecked")
     private void enrichJobIdentities(Map<String, Object> result) {
         Map<String, Object> meta = new LinkedHashMap<>((Map<String, Object>) result.get("meta"));
+        if (meta.containsKey("scopeProof")) {
+            enrichFrozenJobIdentities(result, meta);
+            return;
+        }
         // Older frozen jobs have no scope metadata. Preserve them without inventing an identity.
         if (!(meta.get("linkIds") instanceof List<?> rawIds) || meta.get("gid") == null) return;
         List<Long> ids = rawIds.stream().map(AgentAnalyticsFacade::readLinkId).toList();
@@ -330,6 +456,44 @@ public class AgentAnalyticsFacade {
             if (item.get("linkId") != null) {
                 Map<String, Object> identity = identities.get(readLinkId(item.get("linkId")));
                 if (identity == null) throw AnalyticsJsonClient.readFailure("FORBIDDEN");
+                for (String field : List.of("gid", "domain", "shortUri", "fullShortUrl"))
+                    item.put(field, identity.get(field));
+            }
+            enriched.add(item);
+        }
+        result.put("meta", meta);
+        result.put("items", enriched);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void enrichFrozenJobIdentities(Map<String, Object> result, Map<String, Object> meta) {
+        FrozenQueryScope scope;
+        String version;
+        try {
+            if (!(meta.get("scopeProof") instanceof Map<?, ?> proof)) throw new IllegalArgumentException();
+            scope = FrozenQueryScope.fromProof(proof);
+            version = (String) proof.get("authorizedSelectionVersion");
+            if (!(meta.get("gid") instanceof String) || !(meta.get("linkIds") instanceof List<?> ids)
+                    || !scope.linkIds().equals(selectedIds(ids))) throw new IllegalArgumentException();
+        } catch (IllegalArgumentException invalid) {
+            throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        }
+        Map<String, Object> selected = authorizeSelectedScope((String) meta.get("gid"), scope.linkIds(), version);
+        Map<Long, Map<String, Object>> identities = new LinkedHashMap<>();
+        for (Object value : (List<?>) selected.get("links")) {
+            Map<String, Object> identity = (Map<String, Object>) value;
+            identities.put(selectedInteger(identity.get("linkId")), identity);
+        }
+        // A complete shard is not proof of either the current group or the full frozen parent.
+        meta.put("groupScopeComplete", false);
+        if (scope.linkIds().size() == 1)
+            meta.put("fullShortUrl", identities.get(scope.linkIds().get(0)).get("fullShortUrl"));
+        List<Map<String, Object>> enriched = new ArrayList<>();
+        for (Object value : (List<?>) result.get("items")) {
+            Map<String, Object> item = new LinkedHashMap<>((Map<String, Object>) value);
+            if (item.get("linkId") != null) {
+                Map<String, Object> identity = identities.get(selectedInteger(item.get("linkId")));
+                if (identity == null) throw AnalyticsJsonClient.frozenFailure("FORBIDDEN");
                 for (String field : List.of("gid", "domain", "shortUri", "fullShortUrl"))
                     item.put(field, identity.get(field));
             }

@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.analytics.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import java.util.List;
 
 /** Milliseconds since epoch; interval is [startInclusive,endExclusive). */
@@ -19,7 +20,20 @@ public record QueryRequest(
         Integer pageSize,
         String queryKind,
         @JsonInclude(JsonInclude.Include.NON_NULL) List<String> dimensions,
-        @JsonInclude(JsonInclude.Include.NON_NULL) List<DimensionFilter> filters) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) List<DimensionFilter> filters,
+        @JsonInclude(JsonInclude.Include.NON_NULL) FrozenQueryScope scope) {
+    public QueryRequest {
+        if (scope != null && linkIds != null) linkIds = List.copyOf(linkIds);
+    }
+
+    public QueryRequest(String tenantId, String subjectId, long authVersion, String gid,
+            List<Long> linkIds, Long startInclusive, Long endExclusive, List<String> windows,
+            String endPolicy, String snapshotId, String cursor, Integer pageSize, String queryKind,
+            List<String> dimensions, List<DimensionFilter> filters) {
+        this(tenantId, subjectId, authVersion, gid, linkIds, startInclusive, endExclusive,
+                windows, endPolicy, snapshotId, cursor, pageSize, queryKind, dimensions, filters, null);
+    }
+
     public QueryRequest(String tenantId, String subjectId, long authVersion, String gid,
             List<Long> linkIds, Long startInclusive, Long endExclusive, List<String> windows,
             String endPolicy, String snapshotId, String cursor, Integer pageSize, String queryKind) {

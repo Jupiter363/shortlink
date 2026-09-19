@@ -1,6 +1,8 @@
 # 投放分析 Agent：外层 Plan 与局部 ReAct 实施计划
 
-状态：**P0 组件验证完成，P1 实施中，P2–P5 待开始**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行检查与边界见 [首批 P0 验证](../../integration/campaign-plan-p0-2026-09-19.md)及[补充验收](../../integration/campaign-plan-p0-recovery-2026-09-19.md)。后续阶段清单不等于已实现；新入口仍关闭。
+状态：**P0 组件验证完成，P1 实施中，P2 范围合同已开始，P3–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行检查与边界见 [首批 P0 验证](../../integration/campaign-plan-p0-2026-09-19.md)及[补充验收](../../integration/campaign-plan-p0-recovery-2026-09-19.md)。后续阶段清单不等于已实现；新入口仍关闭。
+
+P2 前置进度：[冻结成员与范围证明](../../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员当前授权、501 成员确定性分片、跨服务专用查询／恢复及 Artifact proof；耐久枚举收集、父集合对账、配额释放和业务组合仍待完成。全部完成条件见[逐项完成矩阵](../../development/campaign-agent-completion-2026-09-20.md)。
 
 P1 分批进度：[独立恢复协议](../../integration/campaign-plan-p1-recovery-2026-09-19.md)、[耐久账本与原生计划扫描](../../integration/campaign-plan-p1-ledger-2026-09-19.md)、[步骤输出与持久化 Graph 驱动](../../integration/campaign-plan-p1-steps-2026-09-19.md)已合并；[授权进度与可用结果视图](../../integration/campaign-plan-p1-progress-2026-09-19.md)区分执行进度与交付结论；[进程死亡确认与恢复协调](../../integration/campaign-plan-p1-process-recovery-2026-09-19.md)提供精确回调接管与原生 Graph 续接；[统计任务读取合同](../../integration/campaign-plan-p1-job-read-2026-09-20.md)补齐结果接收前置的跨服务机器错误码；[分页耐久接收](../../integration/campaign-plan-p1-paged-results-2026-09-20.md)保存进度并在完整发布后唤醒原生 Graph；[结果接收进度](../../integration/campaign-plan-p1-result-progress-2026-09-20.md)按授权快照展示已登记结果的页数与行数；[真实统计固定执行器](../../integration/campaign-plan-p1-statistics-executor-2026-09-20.md)将首次提交纳入冻结请求与原任务恢复链路。整体 P1 与生产运行入口尚未完成。
 

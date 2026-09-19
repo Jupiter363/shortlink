@@ -10,6 +10,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningAssessment;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
+import com.jupiter.shortlink.contract.FrozenQueryScope;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -35,6 +36,28 @@ class FrozenStatisticsJobQueryTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-20T08:00:00Z"), ZoneOffset.UTC);
     private static final PlanSpec.ExecutorRef EXECUTOR = executor("1");
     private static final String STEP = "analysis";
+
+    @Test
+    void twoPeriodsKeepTheSameFrozenMembersAndCannotMixGroupOrUrlScope() {
+        String hash = FrozenQueryScope.memberHash(List.of(7L, 9L));
+        var shard = new FrozenQueryScope(FrozenQueryScope.SCHEMA, "FROZEN_SET", "scope-main", hash, 2,
+                "a".repeat(64), FrozenQueryScope.shardIdFor("scope-main", 0, hash), 0, 1, hash, List.of(7L, 9L));
+        var query = changed(changed(descriptor("LINK_METRICS"), "scopeKind", "FROZEN_SET"), "scope", shard.asMap());
+        var previous = changed(changed(query, "startDate", "2026-08-25"), "endDate", "2026-08-31");
+        var plan = frozen(List.of(new Query("current", EXECUTOR, query), new Query("previous", EXECUTOR, previous)));
+        var bindings = FrozenStatisticsJobQuery.resolve(plan.definition(OWNER, "session-1"), EXECUTOR);
+        var current = bindings.get("current");
+        var baseline = bindings.get("previous");
+        assertEquals(shard, FrozenQueryScope.fromMap(map(current.request().get("scope"))));
+        assertEquals(current.request().get("scope"), baseline.request().get("scope"));
+        assertNotEquals(current.child().requestId(), baseline.child().requestId());
+        assertEquals(FrozenStatisticsJobQuery.FROZEN_SUBMIT_PATH, current.child().wire().path());
+        for (var invalid : List.of(changed(query, "scopeKind", "CURRENT_GROUP"),
+                changed(query, "fullShortUrl", "https://short.example/one"), changed(query, "scopeRef", "scope-other"))) {
+            assertThrows(IllegalArgumentException.class, () -> FrozenStatisticsJobQuery.resolve(
+                    one(EXECUTOR, invalid).definition(OWNER, "session-1"), EXECUTOR));
+        }
+    }
 
     @Test
     void frozenRunRoundTripPreservesDeterministicRequestsAndDeeplyImmutableDescriptorsForAllFourKinds() {

@@ -19,6 +19,24 @@ public interface ShortLinkBusinessGateway {
                 "Statistics job submission protocol is unavailable");
     }
 
+    /** Frozen-set dispatch has a dedicated protocol and never falls back to current-group submission. */
+    default ToolResult submitFrozenStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
+        return new ToolResult(false, Map.of("code", "FROZEN_SCOPE_PROTOCOL_UNAVAILABLE"),
+                "Frozen statistics protocol is unavailable");
+    }
+
+    /** Existing-only recovery of the original frozen request; never creates a replacement job. */
+    default ToolResult recoverExistingFrozenStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
+        return new ToolResult(false, Map.of("code", "FROZEN_SCOPE_PROTOCOL_UNAVAILABLE"),
+                "Frozen statistics protocol is unavailable");
+    }
+
+    /** Current authorization of exactly the specified IDs, including an explicit empty set. */
+    default ToolResult authorizeStatisticsScope(ToolContext context, Map<String, Object> request) {
+        return new ToolResult(false, Map.of("code", "FROZEN_SCOPE_PROTOCOL_UNAVAILABLE"),
+                "Frozen statistics authorization protocol is unavailable");
+    }
+
     /** Backend reconciliation only; never fall back to the create-or-find submission API. */
     default ToolResult recoverExistingStatisticsJob(ToolContext context, Map<String, Object> frozenRequest) {
         return new ToolResult(false, Map.of("code", "RECOVERY_PROTOCOL_UNAVAILABLE"),

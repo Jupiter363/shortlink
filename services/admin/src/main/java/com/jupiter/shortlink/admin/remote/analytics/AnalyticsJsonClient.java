@@ -23,7 +23,7 @@ import java.util.concurrent.Flow;
 
 @Component
 public class AnalyticsJsonClient {
-    private enum ResponseContract { DEFAULT, RECOVERY, JOB_READ, JOB_SCOPE_READ }
+    private enum ResponseContract { DEFAULT, RECOVERY, JOB_READ, JOB_SCOPE_READ, FROZEN_JOB, SELECTED_SCOPE }
 
     private final HttpClient client =
             HttpClient.newBuilder()
@@ -68,6 +68,21 @@ public class AnalyticsJsonClient {
                 ResponseContract.RECOVERY);
     }
 
+    /** Explicit selected members only; an unavailable authority never falls back to group resolution. */
+    public JSONObject resolveSelected(Object request) {
+        return post(commandUrl + "/internal/command/authorization/resolve-selected", request,
+                ResponseContract.SELECTED_SCOPE);
+    }
+
+    public JSONObject createFrozenJob(Object request) {
+        return post(analyticsUrl + "/internal/analytics/v1/jobs/frozen", request, ResponseContract.FROZEN_JOB);
+    }
+
+    public JSONObject recoverFrozenJob(Object request) {
+        return post(analyticsUrl + "/internal/analytics/v1/jobs/frozen/recover-existing", request,
+                ResponseContract.FROZEN_JOB);
+    }
+
     public JSONObject job(String jobId, String operation, Object request) {
         if (jobId == null
                 || !jobId.matches("[A-Za-z0-9_-]{1,128}")
@@ -84,6 +99,7 @@ public class AnalyticsJsonClient {
 
     private JSONObject post(String url, Object payload, ResponseContract contract) {
         boolean recovery = contract == ResponseContract.RECOVERY;
+        boolean frozen = contract == ResponseContract.FROZEN_JOB || contract == ResponseContract.SELECTED_SCOPE;
         boolean jobRead = contract == ResponseContract.JOB_READ
                 || contract == ResponseContract.JOB_SCOPE_READ;
         if (internalToken == null
@@ -91,6 +107,7 @@ public class AnalyticsJsonClient {
                 || UserContext.getUserId() == null
                 || UserContext.getUsername() == null
                 || UserContext.getAuthVersion() == null) {
+            if (frozen) throw frozenFailure("FORBIDDEN");
             if (jobRead) throw readFailure("FORBIDDEN");
             throw new RemoteException("Trusted analytics service identity is unavailable");
         }
@@ -107,12 +124,14 @@ public class AnalyticsJsonClient {
                         .POST(HttpRequest.BodyPublishers.ofString(JSON.toJSONString(payload)))
                         .build();
         if (!permits.tryAcquire()) {
+            if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             throw new RemoteException("Analytics request concurrency budget is exhausted");
         }
         try {
             HttpResponse<byte[]> response =
                     client.send(request, ignored -> new LimitedBody(2 * 1024 * 1024));
+            if (frozen) return frozenResponse(response, contract == ResponseContract.SELECTED_SCOPE);
             if (jobRead) return readResponse(response, contract == ResponseContract.JOB_SCOPE_READ);
             if (recovery && List.of(404, 405, 501).contains(response.statusCode())) {
                 throw recoveryFailure("RECOVERY_PROTOCOL_UNAVAILABLE");
@@ -129,16 +148,52 @@ public class AnalyticsJsonClient {
             return result;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             if (recovery) throw recoveryFailure("UNAVAILABLE");
             throw new RemoteException("Analytics request interrupted");
         } catch (java.io.IOException | IllegalArgumentException unavailable) {
+            if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             if (recovery) throw recoveryFailure("UNAVAILABLE");
             throw new RemoteException("Analytics authority is unavailable");
         } finally {
             permits.release();
         }
+    }
+
+    private static JSONObject frozenResponse(HttpResponse<byte[]> response, boolean selectedScope) {
+        int status = response.statusCode();
+        if (status == 401 || status == 403) throw frozenFailure("FORBIDDEN");
+        if (status == 400) throw frozenFailure("INVALID_QUERY");
+        if (status == 409) throw frozenFailure("QUERY_SCOPE_CHANGED");
+        if (status == 404 || status == 405 || status == 501)
+            throw frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        if (status != 200) throw frozenFailure("REMOTE_UNAVAILABLE");
+        JSONObject result;
+        try {
+            result = JSON.parseObject(new String(response.body(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (RuntimeException invalid) {
+            throw frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        }
+        if (result == null) throw frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        // Command is an unwrapped, versioned authority response, not an Analytics result envelope.
+        if (selectedScope && !result.containsKey("code")) return result;
+        if (!(result.get("code") instanceof String code))
+            throw frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        if (!"0".equals(code)) throw frozenFailure(code);
+        if (selectedScope || result.containsKey("success") && !Boolean.TRUE.equals(result.get("success")))
+            throw frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        return result;
+    }
+
+    static RemoteException frozenFailure(String upstreamCode) {
+        String code = upstreamCode != null && upstreamCode.matches("[A-Z][A-Z0-9_]{0,63}")
+                ? upstreamCode : "FROZEN_SCOPE_PROTOCOL_UNAVAILABLE";
+        return new RemoteException("Frozen statistics scope unavailable", new IErrorCode() {
+            @Override public String code() { return code; }
+            @Override public String message() { return "Frozen statistics scope unavailable"; }
+        });
     }
 
     private static JSONObject readResponse(HttpResponse<byte[]> response, boolean scopeResponse) {

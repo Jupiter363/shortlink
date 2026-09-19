@@ -11,6 +11,7 @@
     </parent>
     <artifactId>shortlink-admin</artifactId>
     <dependencies>
+        <dependency><groupId>com.jupiter.shortlink</groupId><artifactId>event-contract</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.jupiter.shortlink</groupId><artifactId>risk-core</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
     <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
