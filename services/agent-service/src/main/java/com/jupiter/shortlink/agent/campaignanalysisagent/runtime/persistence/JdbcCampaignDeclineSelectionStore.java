@@ -114,6 +114,25 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
         });
     }
 
+    @Override public Optional<Receipt> loadReceipt(RunToken token, String collectionId, ArtifactAuthorizer authorizer) {
+        id(collectionId); Objects.requireNonNull(authorizer);
+        return transaction(() -> {
+            requireRun(token, false);
+            Optional<Stored> found = find(collectionId, true);
+            if (found.isEmpty()) return Optional.empty();
+            Stored stored = found.get(); matchOwner(token, stored);
+            Chain head = verifyPrefix(token, stored, authorizer);
+            if (stored.receipt().sealed()) {
+                requireCompletePages(stored.receipt());
+                FinalPair actual = finalPair(token, stored, stored.finalChildId(), head, authorizer);
+                require(actual.selected().metadata().ref().artifactId().equals(stored.receipt().selectedArtifactId())
+                        && actual.evidence().metadata().ref().artifactId().equals(stored.receipt().evidenceArtifactId()),
+                        "SELECTION_FINAL_CHANGED");
+            }
+            return Optional.of(stored.receipt());
+        });
+    }
+
     @Override public Receipt seal(RunToken token, String collectionId, String finalChildId, ArtifactAuthorizer authorizer) {
         id(collectionId); id(finalChildId);
         return transaction(() -> {
@@ -262,9 +281,19 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     }
 
     private Chain verifyAll(RunToken token, Stored stored, ArtifactAuthorizer authorizer) {
+        requireCompletePages(stored.receipt());
+        return verifyPrefix(token, stored, authorizer);
+    }
+
+    private static void requireCompletePages(Receipt receipt) {
+        require(receipt.committedPages() == Math.max(1, receipt.definition().shardCount()), "SELECTION_PAGES_INCOMPLETE");
+    }
+
+    private Chain verifyPrefix(RunToken token, Stored stored, ArtifactAuthorizer authorizer) {
         Receipt receipt = stored.receipt(); Definition definition = receipt.definition();
         Artifact scope = scope(token.definition().caller(), definition, authorizer);
-        require(receipt.committedPages() == Math.max(1, definition.shardCount()), "SELECTION_PAGES_INCOMPLETE");
+        require(receipt.committedPages() > 0 && receipt.committedPages() <= Math.max(1, definition.shardCount()),
+                "SELECTION_INDEX_CORRUPTED");
         Long pageCount = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_decline_page WHERE collection_id=?", Long.class,
                 definition.collectionId());
         require(pageCount != null && pageCount == receipt.committedPages(), "SELECTION_INDEX_CORRUPTED");

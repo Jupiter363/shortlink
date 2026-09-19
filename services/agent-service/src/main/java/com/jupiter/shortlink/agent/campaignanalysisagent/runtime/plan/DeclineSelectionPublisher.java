@@ -19,6 +19,8 @@ import java.util.Objects;
 
 /** Bounded, opt-in publication adapter over actual durable statistics; not a tool or another runner. */
 public final class DeclineSelectionPublisher {
+    /** Invocation approval may be reconstructed for recovery without dispatching or calculating. */
+    public record Prepared(ChildSpec child, Approval approval, CampaignStepExecution.LocalCall calculation) {}
     public static final String SELECTED_TYPE = "SelectedEntitiesArtifact";
     public static final String SELECTED_SCHEMA = "campaign.selected-entities/v1";
     public static final String EVIDENCE_TYPE = "DeclineEvidenceArtifact";
@@ -41,6 +43,14 @@ public final class DeclineSelectionPublisher {
             Definition definition, List<Period> supplied, SlotResolver resolver, int shardIndex,
             String previousChainArtifactId) throws Exception {
         context.requireCurrent();
+        Prepared prepared = prepareShard(token, context.step().stepId(), definition, supplied, resolver, shardIndex, previousChainArtifactId);
+        context.local(prepared.child(), prepared.approval(), authorizer, prepared.calculation());
+        context.requireCurrent();
+        return selections.append(token, prepared.child().childId(), authorizer);
+    }
+
+    public Prepared prepareShard(RunToken token, String stepId, Definition definition, List<Period> supplied,
+                                  SlotResolver resolver, int shardIndex, String previousChainArtifactId) {
         List<Period> periods = List.copyOf(supplied);
         if (periods.size() != 2 || shardIndex < 0 || shardIndex >= Math.max(1, definition.shardCount()))
             throw new IllegalArgumentException("SELECTION_SHARD_INVALID");
@@ -59,7 +69,7 @@ public final class DeclineSelectionPublisher {
             }
         }
         Instant expiry = expiry(inputs);
-        String identity = identity(token, context.step().stepId(), definition.collectionId(), Integer.toString(shardIndex));
+        String identity = identity(token, stepId, definition.collectionId(), Integer.toString(shardIndex));
         String pageId = "decline-page-" + identity, chainId = "decline-chain-" + identity;
         Map<String, OutputBinding> outputs = Map.of(
                 "comparisonPage", new OutputBinding(pageId, DeclineSelectionPage.PAGE_TYPE, DeclineSelectionPage.PAGE_SCHEMA,
@@ -79,7 +89,7 @@ public final class DeclineSelectionPublisher {
                     && chain.equals(DeclineSelectionPage.advance(page, pageId, previous));
         });
         ChildSpec child = localChild(identity, invocation);
-        context.local(child, approved, authorizer, boundary -> {
+        return new Prepared(child, approved, boundary -> {
             for (String name : inputs.keySet()) boundary.readInput(name);
             List<CampaignLinkComparability.Result> rows = new ArrayList<>(500);
             List<Gap> gaps = new ArrayList<>(2);
@@ -94,14 +104,20 @@ public final class DeclineSelectionPublisher {
             return Map.of("comparisonPage", draft(outputs.get("comparisonPage"), expiry, DeclineSelectionPage.encode(page)),
                     "selectionChain", draft(outputs.get("selectionChain"), expiry, DeclineSelectionPage.encodeChain(chain)));
         });
-        context.requireCurrent();
-        return selections.append(token, child.childId(), authorizer);
     }
 
     /** Final publication reads the frozen head; the index is exposed only after durable sealing. */
     public CampaignDeclineSelectionStore.Receipt finish(CampaignStepExecution context, RunToken token,
                                                          String headArtifactId) throws Exception {
         context.requireCurrent();
+        Prepared prepared = prepareFinal(token, context.step().stepId(), headArtifactId);
+        context.local(prepared.child(), prepared.approval(), authorizer, prepared.calculation());
+        context.requireCurrent();
+        Chain chain = DeclineSelectionPage.decodeChain(read(token, headArtifactId).payloadJson());
+        return selections.seal(token, chain.definition().collectionId(), prepared.child().childId(), authorizer);
+    }
+
+    public Prepared prepareFinal(RunToken token, String stepId, String headArtifactId) {
         Artifact head = read(token, headArtifactId);
         Chain chain = DeclineSelectionPage.decodeChain(head.payloadJson());
         Definition definition = chain.definition();
@@ -110,7 +126,7 @@ public final class DeclineSelectionPublisher {
         Artifact scope = read(token, definition.scopeArtifactId());
         Map<String, ArtifactMetadata> inputs = Map.of("head", head.metadata(), "scope", scope.metadata());
         Instant expiry = expiry(inputs);
-        String identity = identity(token, context.step().stepId(), definition.collectionId(), "final");
+        String identity = identity(token, stepId, definition.collectionId(), "final");
         Map<String, OutputBinding> outputs = Map.of(
                 "selectedEntities", new OutputBinding("selected-" + identity, SELECTED_TYPE, SELECTED_SCHEMA,
                         definition.scopeRef(), definition.periodsRef()),
@@ -123,13 +139,11 @@ public final class DeclineSelectionPublisher {
         Approval approved = approve(invocation, values -> values.entrySet().stream()
                 .allMatch(entry -> entry.getValue().equals(tree(payloads.get(entry.getKey())))));
         ChildSpec child = localChild(identity, invocation);
-        context.local(child, approved, authorizer, boundary -> {
+        return new Prepared(child, approved, boundary -> {
             boundary.readInput("head"); boundary.readInput("scope");
             return Map.of("selectedEntities", draft(outputs.get("selectedEntities"), expiry, payloads.get("selectedEntities")),
                     "selectionEvidence", draft(outputs.get("selectionEvidence"), expiry, payloads.get("selectionEvidence")));
         });
-        context.requireCurrent();
-        return selections.seal(token, definition.collectionId(), child.childId(), authorizer);
     }
 
     public static String manifest(Chain chain, ArtifactRef head, String schema) {
