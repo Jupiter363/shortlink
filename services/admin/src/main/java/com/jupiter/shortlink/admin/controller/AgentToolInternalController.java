@@ -12,6 +12,7 @@ import com.jupiter.shortlink.admin.dto.resp.analytics.StatsEnvelope;
 import com.jupiter.shortlink.admin.remote.CommandRiskRemoteService;
 import com.jupiter.shortlink.admin.remote.ShortLinkActualRemoteService;
 import com.jupiter.shortlink.admin.remote.analytics.AgentAnalyticsFacade;
+import com.jupiter.shortlink.admin.remote.analytics.AnalyticsJsonClient;
 import com.jupiter.shortlink.admin.remote.dto.req.*;
 import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
 import com.jupiter.shortlink.admin.service.GroupService;
@@ -330,6 +331,19 @@ public class AgentToolInternalController {
     public Result<Map<String, Object>> recoverFrozenStatisticsJob(@RequestBody FrozenStatisticsJobRequest request) {
         return Results.success(analytics.recoverFrozenJob(request.requestId(), request.gid(), null,
                 request.startDate(), request.endDate(), request.queryKind(), request.dimensions(), request.filters(), request.scope()));
+    }
+
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs/{jobId}/release-result")
+    public Result<Map<String, Object>> releaseFrozenStatisticsResult(@PathVariable String jobId,
+            @RequestBody FrozenStatisticsJobRequest request) {
+        return Results.success(analytics.releaseFrozenJobResult(jobId, request.requestId(), request.gid(), null,
+                request.startDate(), request.endDate(), request.queryKind(), request.dimensions(), request.filters(), request.scope()));
+    }
+
+    @ExceptionHandler(AnalyticsJsonClient.StatisticsCapacityException.class)
+    public Map<String, Object> statisticsCapacity(AnalyticsJsonClient.StatisticsCapacityException exhausted) {
+        return Map.of("code", "QUERY_CAPACITY_EXHAUSTED", "message", "Statistics query capacity exhausted",
+                "admitted", false, "capacityKind", exhausted.capacityKind());
     }
 
     @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}")

@@ -67,7 +67,7 @@ Kafka 的 `KAFKA_SECURITY_PROPERTIES` 指向权限受控、UTF-8 且最多 64 Ki
 
 1. 为业务、统计控制、Agent 创建独立空 schema。业务采用一个物理库；分表不是跨库分布式事务。
 2. 在明确指定的业务库依次执行 `mysql/001-business-schema.sql`、`mysql/004-route-membership.sql`。账号服务和 Command 共用此物理库；Redirect 使用独立账号，对 `t_link_route`、`t_cache_generation`、`t_route_membership`、`t_route_membership_control` 授予 `SELECT`，仅对 `t_cache_generation` 额外授予表级 `UPDATE`。Redis 世代标记缺失时，`GenerationCoordinator` 需要条件更新缓存世代并回读；其他业务表保持只读，`UPDATE` 权限不扩大到整个业务库。Command 另需登记表 INSERT、控制表 UPDATE 和原 Outbox 权限。ID 分配仍采用独立连接池和事务。
-3. 在统计控制库执行 `mysql/002-analytics-control-schema.sql`。在新的 Agent 空库执行 `mysql/003-agent-analytics-adaptation.sql`；它包含本版完整建表定义，不属于业务库。不能将 `CREATE TABLE IF NOT EXISTS` 当作修改旧表的迁移器；旧开发表应继续保留，使用新库验收和首次部署。
+3. 在统计控制库依次执行 `mysql/002-analytics-control-schema.sql`、`mysql/005-analytics-result-release.sql`。已有统计库升级时只执行一次后者的增量迁移，不重新创建已有任务；发布新版 Analytics 前完成迁移。在新的 Agent 空库执行 `mysql/003-agent-analytics-adaptation.sql`；它包含本版完整建表定义，不属于业务库。不能将 `CREATE TABLE IF NOT EXISTS` 当作修改旧表的迁移器；旧开发表应继续保留，使用新库验收和首次部署。
 4. 配置对象存储独立导入/归档 bucket 和版本保留。导入必须保留 versionId；归档对象、外部恢复世代标记、manifest 日志和 Flink checkpoint 不能配置为任意覆盖或随意到期。
 5. 创建 Kafka Topic：`kafka/topics.yaml`、`kafka/create-topics.sh`。生产 RF=3、minISR=2；raw 两条流使用 LogAppendTime；关闭自动建 Topic。为各生产者/消费者提供最小 Topic、consumer-group 和 transactional-id 权限，避免共用超级用户。
 6. 配置 CH/Keeper。单机开发用 `clickhouse/001-analytics.sql` 和 `002-connect-landing.sql`；副本环境用 `003-replicated.sql.template` 填入实际集群名/宏。连接器依照 `clickhouse/connect-config.json` 安装，不启用跳过坏记录继续成功的容错模式。

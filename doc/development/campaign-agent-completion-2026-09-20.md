@@ -40,6 +40,7 @@
 | [E09：结果接收进度][E09] | 10 项：Reader 3、接收进度 3、既有进度 4；同事务轻量快照、逐结果页／行数、零行、权限。 | 不把已登记 child 当全部业务工作量；前端进度条未实现验收。 |
 | [E10：固定统计执行器][E10] | 9 项：FrozenQuery 3、FixedExecutor 3、首次提交 HTTP 合同 3；四类 query、冻结首次请求、丢 ACK 只恢复原身份、READY 零重取。 | `statistics_query_job@1` 固定异步适配；CURRENT_GROUP／CURRENT_QUERY，未交付同步复合 Tool、P2 或生产接线。 |
 | [E11：冻结成员与范围证明][E11] | 40 项定向测试最终通过；指定成员授权、501 成员分片、两期同 scope、专用查询／恢复、proof 拒错及分页发布。 | 纯冻结器与跨层合同；耐久枚举、父集合覆盖对账、生产装配和结果释放仍待完成。 |
+| [E12：远端结果释放与配额分账][E12] | 42 项定向测试首次通过；第9任务、原身份/TTL、恢复零INSERT、页/epoch/清理竞争、容量白名单及跨服务状态。 | 远端协议已验；本地消费者与releaseIntent、自动释放及待提交子项退避尚未接入。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -98,9 +99,9 @@
 | P2-02：>500 成员确定性无重叠分片，各期间同片，scopeProof 区分片／冻结全集／当前全组；并集、唯一性、hash、返回 members 对账。 | R §4.1；C §3；V29 | E11 501→500＋1、两期同片、精确 proof 和返回 members 校验。 | 部分已验 | 全部 shard Artifact 的父集合收集覆盖对账；UV/UIP cohort 仍必须独立去重不能求和。 |
 | P2-03：完整候选＋两期间全页＋逐对象可比或明确原因＋计算完成才 selectionComplete；51/16组合/10页之外的下降对象不能遗漏。 | C §4、§6；R09；V22 | E08 解开单任务 10 页障碍；旧 rank/compare 有界。 | 部分已验 | 持久化跨对象／期间／分片收集 coverage、cursor、代次；过期不接新快照后半页；不完整显式 PARTIAL。 |
 | P2-04：periodsRef 冻结自然日期／时区；query signature 各自 snapshot；可比性 VERIFIED/UNVERIFIED/INCOMPATIBLE，有证据才共同底座。 | R §4.2；C §5、§9.3 | E08/E10 同查询范围日期／版本校验。 | 部分已验 | 同期间跨维度／过滤／回填验证；不同期间 manifest 不要求字面相等；分母、指标定义、观测截止和限制入产物。 |
-| P2-05：活动执行、结果数量／字节、轻量恢复身份分账；QUERY_CAPACITY_EXHAUSTED＋capacityKind＋admitted=false；未知 ACK 不退回待提交。 | R §4.4；R18；I §2 | 既有服务保留完成 job 仍占名额；当前不是新协议。 | 待实现／验收 | 修改现有容量协议及 Agent child 归并／可信退避；有 pending 同时保留，不换 requestId 或让模型循环规避。 |
-| P2-06：release-result 只新协议终态同主体 job；先耐久 READY／所有 consumer 可读，再同 binding CAS releaseIntent；网络事务外，重复／丢 ACK 对账。 | R §4.4；C §5 | E08 提供本地耐久接收前置。 | 待实现／验收 | Admin→Analytics 窄释放 API；删除页／配额／RELEASED 同 gate 事务，保留原身份／hash／范围／epoch／期限；submit/recover 只返原 job，page 明示 RELEASED。 |
-| P2-07：第九个异步查询可在结果释放后推进，只做剩余 child；旧协议 TTL 不变；身份容量仍有高配置与清理，未知释放时间不编造 ETA。 | R §4.4；V33 | 无该全链验收。 | 待实现／验收 | 八个完成任务＋第九个、释放/消费竞争、重复释放、丢 ACK、恢复零创建后端故障用例。 |
+| P2-05：活动执行、结果数量／字节、轻量恢复身份分账；QUERY_CAPACITY_EXHAUSTED＋capacityKind＋admitted=false；未知 ACK 不退回待提交。 | R §4.4；R18；I §2 | E12服务端分账、跨层可信未受理回执。 | 部分已验 | Agent child 归并／可信退避；有 pending 同时保留，不换 requestId 或让模型循环规避。 |
+| P2-06：release-result 只新协议终态同主体 job；先耐久 READY／所有 consumer 可读，再同 binding CAS releaseIntent；网络事务外，重复／丢 ACK 对账。 | R §4.4；C §5 | E08耐久接收、E12远端窄释放和原身份保留。 | 部分已验 | 同binding消费者登记与当前可读证明、releaseIntent CAS、事务外释放/丢ACK协调。 |
+| P2-07：第九个异步查询可在结果释放后推进，只做剩余 child；旧协议 TTL 不变；身份容量仍有高配置与清理，未知释放时间不编造 ETA。 | R §4.4；V33 | E12服务端第9任务、重复释放/恢复零创建、原TTL已验。 | 部分已验 | Agent自动释放/消费竞争及只推进未提交child的完整故障验收。 |
 | P2-08：`decline_selection` 真实执行两期全量对齐，delta<0 保留全部且按口径排序；baseline=0 rate=null，缺失／未创建／无遥测不当零。 | C §6、§9.3 | 拟新增，旧 rank 只是整窗 Top N。 | 待实现／验收 | 注册版本执行器与 selectedEntities／selectionEvidence 合同；未结束／长度不同／同对象重叠／近似／定义变化进入可比性。 |
 | P2-09：`dimension_change` 继承确切动态入选集合，两期间真实联合维度；UNKNOWN/NOT_APPLICABLE 分开，PV 全窗分母，UV/UIP 独立去重。 | C §6；R §4.2 | 既有单对象下钻＋E10 DIMENSION_BREAKDOWN 是底层能力。 | 待实现／验收 | 固定集合／逐对象或明确 cohort 的组合适配与 artifacts；不可拼边际分布冒充交叉分布。 |
 | P2-10：四种上游结果：真 NO_DECLINES、部分有选中、证据不足空集、无有效 Artifact 的 WAITING/NEEDS_INPUT/FAILED，各自传播。 | C §6“上游部分结果与空集合” | E04 只有一般依赖／schema 规则。 | 待实现／验收 | 真空集下钻零请求＋可追溯 NOT_APPLICABLE；不足空集不得称无下降；可用子集按策略 PARTIAL；缺必需输出阻断。SKIPPED 需可选端口及传播合同。 |
@@ -252,7 +253,7 @@
 | R15/P2：复合Tool恢复会重查syncREADY、丢pending。 | R2 §2/R §2.1 | E03/E04底座 | 实现部分；业务适配待验 | V09/V30/V32真实同步异步复合执行路径，不能只保存聚合jobs数组。 |
 | R16/P1：native超时后旧callback仍可继续请求。 | R2 §2/R §1.5 | E00实际忽略cancel回调，E04/E06fencing | 实现部分；集成待验 | P3每真实I/O与next-model durable门控；新writer≠旧callback退出。 |
 | R17/P2：算完未交付每个目标。 | R2 §2/R §5.1 | E00静态DELIVERY覆盖 | 待实现／验收 | P5真draft与正式可读结果终评；V35。 |
-| R18/P2：完成job仍占8保留名额，第9子查询阻断。 | R2 §2/R §4.4 | E08仅耐久接收前置 | 待实现／验收 | P2分账/release-result/退避/第9任务、同request恢复身份保留；cancel不当释放。 |
+| R18/P2：完成job仍占8保留名额，第9子查询阻断。 | R2 §2/R §4.4 | E12远端分账/释放和第9任务 | 实现部分；自动续接待验 | 本地消费证明/releaseIntent/退避及第9子项自动推进；cancel不当释放。 |
 | R19/P2：单请求有界≠多Run内存安全。 | R2 §2/R §1.6 | E00进程准入组件 | 实现部分；整链峰值待验 | P3活跃/model/解析准入和实际退出、共享风险Agent；高上限依据测量。 |
 
 ## 7. 当前可执行的下一批与最终验收边界
@@ -296,6 +297,7 @@
 [E09]: ../integration/campaign-plan-p1-result-progress-2026-09-20.md
 [E10]: ../integration/campaign-plan-p1-statistics-executor-2026-09-20.md
 [E11]: ../integration/campaign-plan-p2-frozen-scope-2026-09-20.md
+[E12]: ../integration/campaign-plan-p2-result-release-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
