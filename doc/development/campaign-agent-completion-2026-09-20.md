@@ -45,6 +45,7 @@
 | [E14：可信退避与九任务续接][E14] | 7 项定向测试首次通过；未受理证明幂等／跨重开退避、混合 pending/READY、中断恢复、严格错误分类；九任务 submit10/job9/page9/release9/recover0，前8项原证据不变。 | 固定查询组件链已验；远端为替身，生产装配、多消费者采用及真实MySQL未由此验收。 |
 | [E15：权威成员分页合同][E15] | 7 项定向测试通过；闭字段/整数/游标/主体、501与空组、跨层错误码；真实Command业务创建的成员与revision提交/回滚一致。 | 可复用权威页边界；不是耐久collector或历史快照，真实MySQL RR并发窗口待验。 |
 | [E16：耐久范围收集与分片][E16] | 6 项定向测试通过；原页续接、未知首屏停止、固定版本后续页重读、变版本整代失效、终页原子发布、501两期同片及空组。 | 完整成员凭证；实际统计结果的父集合覆盖、生产授权装配与MySQL并发仍另验。 |
+| [E17：父结果覆盖与观测比较][E17] | 3项定向测试首次通过；501成员两期四slot耐久页对账、逐对象观测差/可比性及损坏证据拒绝。 | 统计覆盖与观测计算组件；确切筛选集合/证据的耐久发布及注册Skill仍待实现。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -100,13 +101,13 @@
 | 要求 | 来源 | 证据 | 当前状态 | 剩余动作 |
 | --- | --- | --- | --- | --- |
 | P2-01：CURRENT_GROUP／FROZEN_SET 不混；可信 FrozenScope 保存主体、来源组、完整 members/hash、枚举证明与授权版本；Graph 仅 scopeRef。 | C §3、§5；R §4.1；R14 | E11固定成员、E15严格权威页、E16耐久collector/ScopeArtifact/流式摘要。 | 部分已验 | 复合Skill/Plan绑定及生产当前授权装配；枚举版本不是历史可重读快照。 |
-| P2-02：>500 成员确定性无重叠分片，各期间同片，scopeProof 区分片／冻结全集／当前全组；并集、唯一性、hash、返回 members 对账。 | R §4.1；C §3；V29 | E11成员proof、E16耐久501→500＋1/两期同片及完整成员摘要。 | 部分已验 | 全部统计 shard Artifact 的父集合覆盖对账；UV/UIP cohort 仍必须独立去重不能求和。 |
-| P2-03：完整候选＋两期间全页＋逐对象可比或明确原因＋计算完成才 selectionComplete；51/16组合/10页之外的下降对象不能遗漏。 | C §4、§6；R09；V22 | E08 解开单任务 10 页障碍；旧 rank/compare 有界。 | 部分已验 | 持久化跨对象／期间／分片收集 coverage、cursor、代次；过期不接新快照后半页；不完整显式 PARTIAL。 |
-| P2-04：periodsRef 冻结自然日期／时区；query signature 各自 snapshot；可比性 VERIFIED/UNVERIFIED/INCOMPATIBLE，有证据才共同底座。 | R §4.2；C §5、§9.3 | E08/E10 同查询范围日期／版本校验。 | 部分已验 | 同期间跨维度／过滤／回填验证；不同期间 manifest 不要求字面相等；分母、指标定义、观测截止和限制入产物。 |
+| P2-02：>500 成员确定性无重叠分片，各期间同片，scopeProof 区分片／冻结全集／当前全组；并集、唯一性、hash、返回 members 对账。 | R §4.1；C §3；V29 | E11成员proof、E16耐久成员凭证、E17两期全部slot/成员/实际页链摘要对账。 | 部分已验 | 复合Skill及生产查询挂载；UV/UIP cohort 仍必须独立去重不能求和。 |
+| P2-03：完整候选＋两期间全页＋逐对象可比或明确原因＋计算完成才 selectionComplete；51/16组合/10页之外的下降对象不能遗漏。 | C §4、§6；R09；V22 | E08单任务全页、E16完整候选、E17跨期slot覆盖和逐对象流式配对。 | 部分已验 | 把gap、计算进度及确切筛选结果耐久化，接版本Skill；覆盖完整不冒充selectionComplete。 |
+| P2-04：periodsRef 冻结自然日期／时区；query signature 各自 snapshot；可比性 VERIFIED/UNVERIFIED/INCOMPATIBLE，有证据才共同底座。 | R §4.2；C §5、§9.3 | E08/E10同查询验证，E17期间/观察截止/指标定义/近似/质量的逐对象判定。 | 部分已验 | 同期间跨维度／过滤／回填接dimension_change；比较证据与限制需入耐久产物，结构VERIFIED不证明采集完整。 |
 | P2-05：活动执行、结果数量／字节、轻量恢复身份分账；QUERY_CAPACITY_EXHAUSTED＋capacityKind＋admitted=false；未知 ACK 不退回待提交。 | R §4.4；R18；I §2 | E12服务端分账、E14耐久拒绝/到期锁内校验/混合pending恢复。 | 组件已验 | 生产装配与复杂Skill接相同边界；无可信回执的旧未知记录不自动重投。 |
 | P2-06：release-result 只新协议终态同主体 job；先耐久 READY／所有 consumer 可读，再同 binding CAS releaseIntent；网络事务外，重复／丢 ACK 对账。 | R §4.4；C §5 | E08耐久接收、E12远端协议、E13全页证明与单producer协调。 | 部分已验 | 生产当前 grant 装配、多消费者 adopt 与 GC 须锁同 binding；单producer组件不替代P4消费竞争。 |
 | P2-07：第九个异步查询可在结果释放后推进，只做剩余 child；旧协议 TTL 不变；身份容量仍有高配置与清理，未知释放时间不编造 ETA。 | R §4.4；V33 | E12服务端第9任务、E13本地证明与释放、E14真实Agent执行链第9项续接，原TTL不变。 | 部分已验 | 生产/真实MySQL接线及P4多消费者竞争；不把可重试时间当容量恢复ETA。 |
-| P2-08：`decline_selection` 真实执行两期全量对齐，delta<0 保留全部且按口径排序；baseline=0 rate=null，缺失／未创建／无遥测不当零。 | C §6、§9.3 | 拟新增，旧 rank 只是整窗 Top N。 | 待实现／验收 | 注册版本执行器与 selectedEntities／selectionEvidence 合同；未结束／长度不同／同对象重叠／近似／定义变化进入可比性。 |
+| P2-08：`decline_selection` 真实执行两期全量对齐，delta<0 保留全部且按口径排序；baseline=0 rate=null，缺失／未创建／无遥测不当零。 | C §6、§9.3 | E17流式观测比较与零基期/大数/可比性组件；旧rank不作数据源。 | 部分已验 | 注册版本Skill与两具名输出耐久发布、完整筛选排序；观测负差不是自动合格的入选集合。 |
 | P2-09：`dimension_change` 继承确切动态入选集合，两期间真实联合维度；UNKNOWN/NOT_APPLICABLE 分开，PV 全窗分母，UV/UIP 独立去重。 | C §6；R §4.2 | 既有单对象下钻＋E10 DIMENSION_BREAKDOWN 是底层能力。 | 待实现／验收 | 固定集合／逐对象或明确 cohort 的组合适配与 artifacts；不可拼边际分布冒充交叉分布。 |
 | P2-10：四种上游结果：真 NO_DECLINES、部分有选中、证据不足空集、无有效 Artifact 的 WAITING/NEEDS_INPUT/FAILED，各自传播。 | C §6“上游部分结果与空集合” | E04 只有一般依赖／schema 规则。 | 待实现／验收 | 真空集下钻零请求＋可追溯 NOT_APPLICABLE；不足空集不得称无下降；可用子集按策略 PARTIAL；缺必需输出阻断。SKIPPED 需可选端口及传播合同。 |
 | P2-11：Skill 方法包用原生注册／Hook，确定性业务用普通代码或原生 StateGraph；固定内容版本、传递能力闭包，每内部调用恢复／授权同入口。 | C §6、§9.4；R12 | E01 RunPinnedSkills 只证明方法包机制。 | 部分已验 | 注册上述成熟组合及 evidence_synthesis 合同；没有匹配 Skill 仍允许合法 Tool 计划，不建新 loader/Runner/workflow DSL。 |
@@ -306,6 +307,7 @@
 [E14]: ../integration/campaign-plan-p2-capacity-continuation-2026-09-20.md
 [E15]: ../integration/campaign-plan-p2-authority-pages-2026-09-20.md
 [E16]: ../integration/campaign-plan-p2-scope-collector-2026-09-20.md
+[E17]: ../integration/campaign-plan-p2-parent-coverage-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
