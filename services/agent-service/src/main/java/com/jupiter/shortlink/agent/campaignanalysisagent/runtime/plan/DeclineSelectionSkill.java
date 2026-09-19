@@ -14,6 +14,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignDeclineSelectionStore.Receipt;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenDeclineSelection.Bound;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenDeclineSelection.BoundQuery;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenDeclineSelection.Template;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsJobResultReceiver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.skills.RunPinnedSkills;
 import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
@@ -42,6 +43,10 @@ public final class DeclineSelectionSkill {
     private final ArtifactAuthorizer artifactAuthorizer;
     private final DeclineSelectionPublisher publisher;
     private final Map<String, Bound> bindings;
+    private final Map<String, Template> templates;
+    private final Map<String, PlanSpec.Step> configuredSteps;
+    private final PlanSpec.ExecutorRef executor;
+    private final FrozenCampaignRun frozen;
     private final RunPinnedSkills methods;
 
     public DeclineSelectionSkill(RunToken token, AgentPrincipal current, Path approvedSkillsRoot,
@@ -49,6 +54,17 @@ public final class DeclineSelectionSkill {
             CampaignStatisticsResultStore results, CampaignDeclineSelectionStore selections,
             ShortLinkBusinessGateway gateway, StatisticsJobFixedExecutor.QueryAuthorizer queryAuthorizer,
             ArtifactAuthorizer artifactAuthorizer) {
+        this(token, current, approvedSkillsRoot, runs, steps, scopes, results, selections, gateway,
+                queryAuthorizer, artifactAuthorizer, FrozenDeclineSelection.REF);
+    }
+
+    public DeclineSelectionSkill(RunToken token, AgentPrincipal current, Path approvedSkillsRoot,
+            CampaignRunStore runs, CampaignStepStore steps, CampaignScopeStore scopes,
+            CampaignStatisticsResultStore results, CampaignDeclineSelectionStore selections,
+            ShortLinkBusinessGateway gateway, StatisticsJobFixedExecutor.QueryAuthorizer queryAuthorizer,
+            ArtifactAuthorizer artifactAuthorizer, PlanSpec.ExecutorRef executor) {
+        requireExecutor(executor);
+        this.executor = executor;
         this.token = Objects.requireNonNull(token); this.current = Objects.requireNonNull(current);
         var owner = token.definition().caller();
         if (current.system() || !owner.tenantId().equals(current.tenantId()) || !owner.subject().equals(current.username())
@@ -57,9 +73,17 @@ public final class DeclineSelectionSkill {
         this.scopes = Objects.requireNonNull(scopes); this.selections = Objects.requireNonNull(selections);
         this.gateway = Objects.requireNonNull(gateway); this.queryAuthorizer = Objects.requireNonNull(queryAuthorizer);
         this.artifactAuthorizer = Objects.requireNonNull(artifactAuthorizer);
-        this.bindings = FrozenDeclineSelection.resolve(token.definition());
-        if (bindings.isEmpty()) throw new IllegalArgumentException("DECLINE_SKILL_NOT_IN_PLAN");
-        List<RunPinnedSkills.SkillPin> pins = bindings.values().stream().map(Bound::skillPin).distinct().toList();
+        this.frozen = FrozenCampaignRun.read(token.definition());
+        this.bindings = dynamic() ? Map.of() : FrozenDeclineSelection.resolve(token.definition());
+        this.templates = dynamic() ? FrozenDeclineSelection.templates(token.definition()) : Map.of();
+        Map<String, PlanSpec.Step> selected = new LinkedHashMap<>();
+        bindings.forEach((id, bound) -> selected.put(id, bound.step()));
+        templates.forEach((id, template) -> selected.put(id, template.step()));
+        this.configuredSteps = Map.copyOf(selected);
+        if (configuredSteps.isEmpty()) throw new IllegalArgumentException("DECLINE_SKILL_NOT_IN_PLAN");
+        List<RunPinnedSkills.SkillPin> pins = dynamic()
+                ? templates.values().stream().map(Template::skillPin).distinct().toList()
+                : bindings.values().stream().map(Bound::skillPin).distinct().toList();
         if (pins.size() != 1) throw new IllegalArgumentException("DECLINE_METHOD_PIN_CONFLICT");
         this.methods = new RunPinnedSkills(token.definition().runId(), approvedSkillsRoot, pins, Set.of(), List.of(),
                 (runId, toolName) -> false); // Fixed execution uses business boundaries, never method-activated callbacks.
@@ -69,7 +93,13 @@ public final class DeclineSelectionSkill {
     }
 
     public static Capability capability() {
-        return new Capability(FrozenDeclineSelection.REF, new Signature(FrozenDeclineSelection.INPUTS,
+        return capability(FrozenDeclineSelection.REF);
+    }
+
+    public static Capability capability(PlanSpec.ExecutorRef executor) {
+        requireExecutor(executor);
+        return new Capability(executor, new Signature(FrozenDeclineSelection.REF_V2.equals(executor)
+                ? FrozenDeclineSelection.INPUTS_V2 : FrozenDeclineSelection.INPUTS,
                 FrozenDeclineSelection.OUTPUT_CONTRACT,
                 Map.of("selectedEntities", new Port(SELECTED, true), "selectionEvidence", new Port(EVIDENCE, true)),
                 new Parameters(Set.of("metric"), Map.of("metric", value -> value instanceof String metric
@@ -93,7 +123,7 @@ public final class DeclineSelectionSkill {
     }
 
     public PersistentPlanDriver.FixedExecutor registration() {
-        return new PersistentPlanDriver.FixedExecutor(FrozenDeclineSelection.REF, new StepBindings.StepPolicy() {
+        return new PersistentPlanDriver.FixedExecutor(executor, new StepBindings.StepPolicy() {
             @Override public void validateInputs(PlanSpec.Step step, BoundInputs inputs) { validateBound(step, inputs); }
             @Override public void validateOutputs(PlanSpec.Step step, BoundInputs inputs, Map<String, BoundArtifact> outputs) {
                 validateBound(step, inputs);
@@ -109,7 +139,8 @@ public final class DeclineSelectionSkill {
     /** Registry approved local recovery only; no gateway calls and no unknown remote resubmission. */
     public void prepareRecovery() {
         requireCurrent();
-        for (Bound bound : bindings.values()) {
+        for (PlanSpec.Step configured : configuredSteps.values()) {
+            Bound bound = readyBound(configured); if (bound == null) continue;
             var step = steps.step(token, bound.step().stepId());
             if (step.isEmpty() || step.get().status() != CampaignStepStore.StepStatus.BLOCKED
                     || !"STEP_RESULT_UNKNOWN".equals(step.get().reason())) continue;
@@ -135,7 +166,8 @@ public final class DeclineSelectionSkill {
     public Map<String, StatisticsJobResultReceiver.Target> resultTargets() {
         requireCurrent();
         Map<String, StatisticsJobResultReceiver.Target> targets = new LinkedHashMap<>();
-        for (Bound bound : bindings.values()) {
+        for (PlanSpec.Step configured : configuredSteps.values()) {
+            Bound bound = readyBound(configured); if (bound == null) continue;
             var definition = definition(bound);
             Receipt receipt = selections.loadReceipt(token, bound.collectionId(), artifactAuthorizer).orElse(null);
             int next = receipt == null ? 0 : receipt.committedPages();
@@ -146,6 +178,11 @@ public final class DeclineSelectionSkill {
     }
 
     public boolean authorized() {
+        if (dynamic()) {
+            requireCurrent();
+            for (PlanSpec.Step configured : configuredSteps.values()) readyBound(configured);
+            return true; // An unfinished producer is scheduling, not an authorization failure.
+        }
         try { requireCurrent(); bindings.values().forEach(this::definition); return true; }
         catch (SecurityException | IllegalArgumentException | IllegalStateException unavailable) { return false; }
     }
@@ -187,6 +224,14 @@ public final class DeclineSelectionSkill {
     private List<BoundQuery> queries(Bound bound, DeclineSelectionPage.Definition definition, int shardIndex) {
         if (definition.memberCount() == 0) return List.of();
         FrozenQueryScope shard = scopes.shard(token.definition().caller(), bound.scopeArtifactId(), shardIndex, artifactAuthorizer);
+        if (dynamic()) {
+            ResolvedScope source = resolvedScope(templates.get(bound.step().stepId()));
+            if (source == null || !bound.equals(source.bound())) throw new IllegalArgumentException("DECLINE_SCOPE_CHANGED");
+            return List.of(FrozenDeclineSelection.queryResolved(token.definition(), templates.get(bound.step().stepId()),
+                            bound, source.metadata(), source.summary(), shard, 0),
+                    FrozenDeclineSelection.queryResolved(token.definition(), templates.get(bound.step().stepId()),
+                            bound, source.metadata(), source.summary(), shard, 1));
+        }
         return List.of(FrozenDeclineSelection.query(token.definition(), bound, shard, 0),
                 FrozenDeclineSelection.query(token.definition(), bound, shard, 1));
     }
@@ -203,10 +248,21 @@ public final class DeclineSelectionSkill {
     private boolean authorized(Bound bound, BoundQuery query) {
         requireCurrent();
         definition(bound);
+        if (dynamic()) {
+            var requested = FrozenQueryScope.fromMap((Map<?, ?>) query.request().get("scope"));
+            if (!requested.equals(scopes.shard(token.definition().caller(), bound.scopeArtifactId(),
+                    requested.shardIndex(), artifactAuthorizer))) throw new IllegalArgumentException("DECLINE_SCOPE_CHANGED");
+        }
         return queryAuthorizer.mayUse(current, bound.scopeRef(), query.periodsRef(), query.request());
     }
 
     private DeclineSelectionPage.Definition definition(Bound bound) {
+        if (dynamic()) {
+            ResolvedScope source = resolvedScope(templates.get(bound.step().stepId()));
+            if (source == null || !bound.equals(source.bound())) throw new IllegalArgumentException("DECLINE_SCOPE_CHANGED");
+            return new DeclineSelectionPage.Definition(bound.collectionId(), bound.scopeArtifactId(), bound.scopeRef(),
+                    bound.periodsRef(), bound.metric(), source.summary().shardCount(), source.summary().memberCount());
+        }
         Artifact scope = runs.readArtifact(token.definition().caller(), bound.scopeArtifactId(), artifactAuthorizer);
         JsonNode value;
         try { value = JSON.readTree(scope.payloadJson()); }
@@ -222,7 +278,7 @@ public final class DeclineSelectionSkill {
 
     private void validateBound(PlanSpec.Step step, BoundInputs inputs) {
         Bound bound = bound(step); requireCurrent();
-        if (!bound.scopeRef().equals(inputs.value("scope")) || !bound.periodsRef().equals(inputs.value("periods"))
+        if ((!dynamic() && !bound.scopeRef().equals(inputs.value("scope"))) || !bound.periodsRef().equals(inputs.value("periods"))
                 || !bound.descriptor().equals(inputs.value("definition")) || inputs.artifact("scopeArtifact") == null
                 || !bound.scopeArtifactId().equals(inputs.artifact("scopeArtifact").metadata().ref().artifactId()))
             throw new IllegalArgumentException("DECLINE_INPUT_MISMATCH");
@@ -230,9 +286,67 @@ public final class DeclineSelectionSkill {
     }
 
     private Bound bound(PlanSpec.Step step) {
-        Bound bound = bindings.get(step.stepId());
-        if (bound == null || !bound.step().equals(step)) throw new IllegalArgumentException("DECLINE_STEP_CHANGED");
+        Bound bound = readyBound(step);
+        if (bound == null) throw new IllegalArgumentException("DECLINE_SOURCE_NOT_READY");
         return bound;
+    }
+
+    private Bound readyBound(PlanSpec.Step step) {
+        if (step == null || !step.equals(configuredSteps.get(step.stepId())))
+            throw new IllegalArgumentException("DECLINE_STEP_CHANGED");
+        if (!dynamic()) return bindings.get(step.stepId());
+        ResolvedScope source = resolvedScope(templates.get(step.stepId()));
+        return source == null ? null : source.bound();
+    }
+
+    private record ResolvedScope(Bound bound, ArtifactMetadata metadata, FrozenCampaignScope.Summary summary) {}
+
+    /** A successful producer must have a valid named receipt; invalid success is never treated as pending. */
+    private ResolvedScope resolvedScope(Template template) {
+        requireCurrent();
+        var producer = steps.step(token, template.upstreamStepId());
+        if (producer.isEmpty() || producer.get().status() != CampaignStepStore.StepStatus.SUCCEEDED) return null;
+        PlanSpec.Step planned = frozen.plan().steps().stream()
+                .filter(step -> template.upstreamStepId().equals(step.stepId())).findFirst().orElseThrow();
+        String artifactId = producer.get().outputs().get("scopeArtifact");
+        if (artifactId == null || artifactId.isBlank()
+                || !FrozenCampaignRun.encode(planned).equals(producer.get().spec().definitionJson()))
+            throw new IllegalArgumentException("DECLINE_SCOPE_PRODUCER_INVALID");
+        var summary = scopes.inspectPublished(token.definition().caller(), artifactId, artifactAuthorizer);
+        Artifact actual = runs.readArtifact(token.definition().caller(), artifactId, artifactAuthorizer);
+        ArtifactMetadata metadata = actual.metadata();
+        JsonNode manifest;
+        try { manifest = JSON.readTree(actual.payloadJson()); }
+        catch (java.io.IOException invalid) { throw new IllegalArgumentException("DECLINE_SCOPE_INVALID", invalid); }
+        if (manifest == null || !manifest.isObject() || !manifest.path("collectionId").isTextual())
+            throw new IllegalArgumentException("DECLINE_SCOPE_INVALID");
+        var collection = scopes.load(token, manifest.path("collectionId").textValue());
+        var action = collection.definition().action();
+        if (collection.state() != CampaignScopeStore.State.PUBLISHED || !artifactId.equals(collection.artifactId())
+                || !template.upstreamStepId().equals(action.stepId()) || planned.executor() == null
+                || !planned.executor().kind().name().equals(action.executorKind())
+                || !planned.executor().name().equals(action.executorName()) || !planned.executor().version().equals(action.executorVersion())
+                || !FrozenCampaignRun.encode(planned).equals(action.definitionJson())
+                || !action.actionId().equals(metadata.actionId()) || !action.executorVersion().equals(metadata.executorVersion())
+                || !collection.definition().expiresAt().equals(metadata.ref().expiresAt())
+                || !template.gid().equals(collection.definition().gid()) || !template.gid().equals(manifest.path("gid").asText())
+                || !summary.scopeRef().equals(manifest.path("scopeRef").asText())
+                || !summary.memberHash().equals(manifest.path("memberHash").asText())
+                || !summary.enumerationVersion().equals(manifest.path("enumerationVersion").asText())
+                || collection.memberCount() != summary.memberCount() || collection.pageCount() != summary.pageCount())
+            throw new IllegalArgumentException("DECLINE_SCOPE_PRODUCER_INVALID");
+        ChildRecord child = runs.child(token, metadata.childId()).orElseThrow();
+        if (child.state() != ChildState.READY || child.spec().mode() != ChildMode.SYNC
+                || !artifactId.equals(child.artifactId()) || !action.actionId().equals(child.spec().actionId()))
+            throw new IllegalArgumentException("DECLINE_SCOPE_PRODUCER_INVALID");
+        Bound bound = FrozenDeclineSelection.bindResolved(token.definition(), template, metadata, summary);
+        return new ResolvedScope(bound, metadata, summary);
+    }
+
+    private boolean dynamic() { return FrozenDeclineSelection.REF_V2.equals(executor); }
+    private static void requireExecutor(PlanSpec.ExecutorRef executor) {
+        if (!FrozenDeclineSelection.REF.equals(executor) && !FrozenDeclineSelection.REF_V2.equals(executor))
+            throw new IllegalArgumentException("DECLINE_EXECUTOR_UNSUPPORTED");
     }
 
     private void requireCurrent() {

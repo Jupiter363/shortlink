@@ -189,7 +189,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
                     "SELECTION_FINAL_CHANGED");
             return new SelectionPair(selected.metadata(), evidence.metadata(), stored.receipt().definition(),
                     scope.metadata(), sourcePeriods.get(0), DeclineSelectionPage.selectionComplete(head),
-                    DeclineSelectionPage.emptyReason(head), head.totals().selected());
+                    DeclineSelectionPage.emptyReason(head), head.totals().selected(), stored.stepId());
         });
     }
 
