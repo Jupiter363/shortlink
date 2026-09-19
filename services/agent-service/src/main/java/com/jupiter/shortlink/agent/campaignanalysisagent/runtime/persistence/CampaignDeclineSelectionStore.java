@@ -2,6 +2,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignLinkComparability.Result;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Period;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage.Definition;
 import java.util.List;
 import java.util.Optional;
@@ -13,11 +14,20 @@ public interface CampaignDeclineSelectionStore {
     record PageResult(List<Result> rows, String nextCursor) {
         public PageResult { rows = List.copyOf(rows); }
     }
+    /** Actual paired publications and their source periods, not dates inferred from an opaque reference. */
+    record SelectionPair(ArtifactMetadata selectedEntities, ArtifactMetadata selectionEvidence,
+                         Definition definition, ArtifactMetadata scopeArtifact, List<Period> periods,
+                         boolean selectionComplete, String emptyReason, long selectedCount) {
+        public SelectionPair { periods = List.copyOf(periods); }
+    }
 
     Receipt append(RunToken token, String childId, ArtifactAuthorizer authorizer);
     /** Current-token read of the verified committed prefix; never requires unfinished shards. */
     Optional<Receipt> loadReceipt(RunToken token, String collectionId, ArtifactAuthorizer authorizer);
     Receipt seal(RunToken token, String collectionId, String finalChildId, ArtifactAuthorizer authorizer);
+    SelectionPair inspectPair(Caller caller, String selectedId, String evidenceId, ArtifactAuthorizer authorizer);
     PageResult readSelectedPage(Caller caller, String selectedArtifactId, String cursor, int size, ArtifactAuthorizer authorizer);
+    /** Exact selected membership in ascending link order; its cursor cannot be used by another ordering. */
+    PageResult readSelectedByLinkId(Caller caller, String selectedArtifactId, String cursor, int size, ArtifactAuthorizer authorizer);
     PageResult readEvidencePage(Caller caller, String evidenceArtifactId, String cursor, int size, ArtifactAuthorizer authorizer);
 }

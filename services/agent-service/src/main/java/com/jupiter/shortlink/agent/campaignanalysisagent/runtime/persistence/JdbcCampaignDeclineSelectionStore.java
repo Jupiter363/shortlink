@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignLinkComparability.Result;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Period;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage.*;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,6 +42,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
             "headArtifactId", "headPayloadHash", "chainHash", "candidateCount", "comparedCount", "selectedCount",
             "selectionComplete", "emptyReason");
     private static final Set<String> CURSOR_FIELDS = Set.of("collectionId", "artifactHash", "order", "delta", "linkId");
+    private static final Set<String> PERIOD_FIELDS = Set.of("periodsRef", "startDate", "endDate", "timeZone");
     private static final ObjectMapper JSON = new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
@@ -155,17 +158,58 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
         });
     }
 
+    @Override public SelectionPair inspectPair(Caller caller, String selectedId, String evidenceId, ArtifactAuthorizer authorizer) {
+        id(selectedId); id(evidenceId); Objects.requireNonNull(authorizer);
+        return transaction(() -> {
+            Artifact selected = runs.readArtifact(caller, selectedId, authorizer);
+            Artifact evidence = runs.readArtifact(caller, evidenceId, authorizer);
+            contract(selected, SELECTED_TYPE, SELECTED_SCHEMA); contract(evidence, EVIDENCE_TYPE, EVIDENCE_SCHEMA);
+            List<String> keys = jdbc.queryForList("SELECT collection_id FROM campaign_decline_collection "
+                    + "WHERE selected_artifact_id=? AND evidence_artifact_id=?", String.class, selectedId, evidenceId);
+            require(keys.size() == 1, "SELECTION_PAIR_MISMATCH");
+            Stored peek = required(keys.get(0), false);
+            RunToken token = currentStoredToken(caller, peek);
+            Stored stored = required(keys.get(0), true); matchOwner(token, stored);
+            require(stored.receipt().sealed(), "SELECTION_NOT_SEALED");
+            requireCompletePages(stored.receipt());
+            List<List<Period>> sourcePeriods = new ArrayList<>(1);
+            Chain head = verifyPrefix(token, stored, authorizer, page -> {
+                List<Period> actual = sourcePeriods(page);
+                if (sourcePeriods.isEmpty()) sourcePeriods.add(actual);
+                else require(sourcePeriods.get(0).equals(actual), "SELECTION_PERIODS_MISMATCH");
+            });
+            require(sourcePeriods.size() == 1, "SELECTION_PERIODS_MISSING");
+            FinalPair actual = finalPair(token, stored, stored.finalChildId(), head, authorizer);
+            require(selected.equals(actual.selected()) && evidence.equals(actual.evidence()), "SELECTION_PAIR_MISMATCH");
+            Artifact scope = scope(caller, stored.receipt().definition(), authorizer);
+            // A long source-chain check must not return permission or expiry captured only at entry.
+            require(selected.metadata().equals(runs.inspectArtifact(caller, selectedId, authorizer))
+                    && evidence.metadata().equals(runs.inspectArtifact(caller, evidenceId, authorizer))
+                    && scope.metadata().equals(runs.inspectArtifact(caller, scope.metadata().ref().artifactId(), authorizer)),
+                    "SELECTION_FINAL_CHANGED");
+            return new SelectionPair(selected.metadata(), evidence.metadata(), stored.receipt().definition(),
+                    scope.metadata(), sourcePeriods.get(0), DeclineSelectionPage.selectionComplete(head),
+                    DeclineSelectionPage.emptyReason(head), head.totals().selected());
+        });
+    }
+
     @Override public PageResult readSelectedPage(Caller caller, String artifactId, String cursor, int size, ArtifactAuthorizer authorizer) {
-        return read(caller, artifactId, cursor, size, authorizer, true);
+        return read(caller, artifactId, cursor, size, authorizer, ReadOrder.SELECTED_DELTA);
+    }
+
+    @Override public PageResult readSelectedByLinkId(Caller caller, String artifactId, String cursor, int size, ArtifactAuthorizer authorizer) {
+        return read(caller, artifactId, cursor, size, authorizer, ReadOrder.SELECTED_LINK);
     }
 
     @Override public PageResult readEvidencePage(Caller caller, String artifactId, String cursor, int size, ArtifactAuthorizer authorizer) {
-        return read(caller, artifactId, cursor, size, authorizer, false);
+        return read(caller, artifactId, cursor, size, authorizer, ReadOrder.EVIDENCE_LINK);
     }
 
-    private PageResult read(Caller caller, String artifactId, String cursor, int size, ArtifactAuthorizer authorizer, boolean selected) {
+    private PageResult read(Caller caller, String artifactId, String cursor, int size, ArtifactAuthorizer authorizer, ReadOrder readOrder) {
         id(artifactId);
         if (size < 1 || size > 500) throw new IllegalArgumentException("SELECTION_PAGE_SIZE_INVALID");
+        boolean selected = readOrder != ReadOrder.EVIDENCE_LINK;
+        boolean deltaOrder = readOrder == ReadOrder.SELECTED_DELTA;
         return transaction(() -> {
             Artifact actual = runs.readArtifact(caller, artifactId, authorizer);
             contract(actual, selected ? SELECTED_TYPE : EVIDENCE_TYPE, selected ? SELECTED_SCHEMA : EVIDENCE_SCHEMA);
@@ -181,7 +225,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
             FinalPair finalOutputs = finalPair(token, stored, stored.finalChildId(), head, authorizer);
             Artifact finalArtifact = selected ? finalOutputs.selected() : finalOutputs.evidence();
             require(actual.equals(finalArtifact), "SELECTION_FINAL_CHANGED");
-            Cursor after = cursor == null ? null : cursor(cursor, stored, finalArtifact, selected);
+            Cursor after = cursor == null ? null : cursor(cursor, stored, finalArtifact, readOrder.cursorOrder);
             String predicate = "collection_id=?" + (selected ? " AND selected=TRUE" : "");
             List<Object> arguments = new ArrayList<>(); arguments.add(stored.receipt().definition().collectionId());
             if (after != null) {
@@ -189,11 +233,11 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
                         + "WHERE collection_id=? AND link_id=?", after.collectionId(), after.linkId());
                 require(boundary.size() == 1 && ((Number) boundary.get(0).get("delta_value")).longValue() == after.delta()
                         && (!selected || Boolean.TRUE.equals(boundary.get(0).get("selected"))), "SELECTION_CURSOR_INVALID");
-                predicate += selected ? " AND (delta_value>? OR (delta_value=? AND link_id>?))" : " AND link_id>?";
-                if (selected) { arguments.add(after.delta()); arguments.add(after.delta()); }
+                predicate += deltaOrder ? " AND (delta_value>? OR (delta_value=? AND link_id>?))" : " AND link_id>?";
+                if (deltaOrder) { arguments.add(after.delta()); arguments.add(after.delta()); }
                 arguments.add(after.linkId());
             }
-            String order = selected ? "delta_value,link_id" : "link_id";
+            String order = deltaOrder ? "delta_value,link_id" : "link_id";
             arguments.add(size + 1);
             List<Result> rows = jdbc.query("SELECT result_json FROM campaign_decline_row WHERE " + predicate
                     + " ORDER BY " + order + " LIMIT ?", (rs, index) -> result(rs.getString("result_json")), arguments.toArray());
@@ -205,7 +249,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
             if (more) {
                 Result last = rows.get(rows.size() - 1);
                 next = cursor(new Cursor(stored.receipt().definition().collectionId(), finalArtifact.metadata().ref().payloadHash(),
-                        selected ? "DELTA_LINK" : "LINK", last.delta().longValueExact(), last.linkId()));
+                        readOrder.cursorOrder, last.delta().longValueExact(), last.linkId()));
             }
             return new PageResult(rows, next);
         });
@@ -290,6 +334,10 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     }
 
     private Chain verifyPrefix(RunToken token, Stored stored, ArtifactAuthorizer authorizer) {
+        return verifyPrefix(token, stored, authorizer, ignored -> {});
+    }
+
+    private Chain verifyPrefix(RunToken token, Stored stored, ArtifactAuthorizer authorizer, Consumer<Pair> verifiedPage) {
         Receipt receipt = stored.receipt(); Definition definition = receipt.definition();
         Artifact scope = scope(token.definition().caller(), definition, authorizer);
         require(receipt.committedPages() > 0 && receipt.committedPages() <= Math.max(1, definition.shardCount()),
@@ -306,6 +354,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
             requireDeclaredInput(actual.child(), scope.metadata());
             verifyAdvance(actual, previous);
             verifyRows(definition.collectionId(), actual.page());
+            verifiedPage.accept(actual);
             previous = actual.chainArtifact(); head = actual.chain();
         }
         require(previous != null && previous.metadata().ref().artifactId().equals(receipt.chainArtifactId())
@@ -313,6 +362,28 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
         Long rowCount = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_decline_row WHERE collection_id=?", Long.class, definition.collectionId());
         require(head != null && rowCount != null && rowCount == head.totals().compared(), "SELECTION_INDEX_CORRUPTED");
         return head;
+    }
+
+    /** The immutable LOCAL invocation is the source of dates; manifests only carry opaque period references. */
+    private static List<Period> sourcePeriods(Pair page) {
+        require(page.child().spec().mode() == ChildMode.LOCAL && page.child().spec().localInvocation() != null,
+                "SELECTION_PERIODS_MISSING");
+        JsonNode parameters = object(page.child().spec().localInvocation().parametersJson());
+        require(object(encode(page.page().definition())).equals(parameters.get("definition"))
+                && number(parameters.get("shardIndex"), false) == page.page().shardIndex(), "SELECTION_PERIODS_MISMATCH");
+        JsonNode raw = parameters.get("periods");
+        require(raw != null && raw.isArray() && raw.size() == 2, "SELECTION_PERIODS_MISSING");
+        List<Period> periods = new ArrayList<>(2);
+        for (JsonNode value : raw) {
+            require(value.isObject() && fields(value).equals(PERIOD_FIELDS), "SELECTION_PERIODS_INVALID");
+            try {
+                periods.add(new Period(text(value, "periodsRef"), text(value, "startDate"),
+                        text(value, "endDate"), text(value, "timeZone")));
+            } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
+                throw failure("SELECTION_PERIODS_INVALID");
+            }
+        }
+        return List.copyOf(periods);
     }
 
     private Artifact previous(RunToken token, Stored stored, int ordinal, ArtifactAuthorizer authorizer) {
@@ -493,7 +564,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
         require(node != null && node.isIntegralNumber() && node.canConvertToLong() && (signed || node.longValue() >= 0), "SELECTION_NUMBER_INVALID");
         return node.longValue();
     }
-    private static Cursor cursor(String supplied, Stored stored, Artifact artifact, boolean selected) {
+    private static Cursor cursor(String supplied, Stored stored, Artifact artifact, String expectedOrder) {
         try {
             require(supplied.matches("[A-Za-z0-9_-]{1,2048}"), "SELECTION_CURSOR_INVALID");
             JsonNode value = object(new String(Base64.getUrlDecoder().decode(supplied), StandardCharsets.UTF_8));
@@ -502,7 +573,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
                     number(value.get("delta"), true), number(value.get("linkId"), false));
             require(decoded.collectionId().equals(stored.receipt().definition().collectionId())
                     && decoded.artifactHash().equals(artifact.metadata().ref().payloadHash())
-                    && decoded.order().equals(selected ? "DELTA_LINK" : "LINK") && decoded.linkId() > 0,
+                    && decoded.order().equals(expectedOrder) && decoded.linkId() > 0,
                     "SELECTION_CURSOR_INVALID");
             return decoded;
         } catch (IllegalArgumentException invalid) { throw failure("SELECTION_CURSOR_INVALID"); }
@@ -521,4 +592,9 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     private record Indexed(long id, int ordinal, long delta, boolean selected, String json) {}
     private record FinalPair(Artifact selected, Artifact evidence) {}
     private record Cursor(String collectionId, String artifactHash, String order, long delta, long linkId) {}
+    private enum ReadOrder {
+        SELECTED_DELTA("DELTA_LINK"), EVIDENCE_LINK("LINK"), SELECTED_LINK("SELECTED_LINK");
+        private final String cursorOrder;
+        ReadOrder(String cursorOrder) { this.cursorOrder = cursorOrder; }
+    }
 }
