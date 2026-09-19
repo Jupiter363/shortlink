@@ -25,6 +25,24 @@ class StatisticsJobResultProtocolTest {
     private static final long EXPIRES = day("2026-10-01");
 
     @Test
+    void releasedStatusCannotBecomeAnEmptyResultOrStartPageReception() throws Exception {
+        var protocol = protocol(request("METRICS"));
+        var released = new LinkedHashMap<String, Object>(status(501));
+        released.put("resultState", "RELEASED");
+        released.put("resultCode", "RESULT_RELEASED");
+        released.put("resultReady", false);
+        var unavailable = assertThrows(IllegalArgumentException.class, () -> protocol.status(released));
+        assertEquals("RESULT_RELEASED", unavailable.getMessage());
+        released.put("resultReady", true);
+        assertEquals("STATISTICS_READ_PROTOCOL_UNAVAILABLE",
+                assertThrows(IllegalArgumentException.class, () -> protocol.status(released)).getMessage());
+        released.put("resultState", "AVAILABLE");
+        released.remove("resultCode");
+        assertEquals(501, protocol.status(released).totalRows());
+        assertEquals(501, protocol.status(status(501)).totalRows(), "Legacy status stays readable");
+    }
+
+    @Test
     void acceptsFixedTwoPageAndZeroRowReceiptsWithoutRequiringCountsWhileStillWaiting() throws Exception {
         StatisticsJobResultProtocol protocol = protocol(request("ACCESS_RECORDS"));
         var status = protocol.status(status(501));

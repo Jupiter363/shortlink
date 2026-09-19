@@ -74,7 +74,8 @@ public class QueryJobServiceTest {
                     + " BIGINT DEFAULT 0,row_count BIGINT DEFAULT 0,byte_count BIGINT DEFAULT"
                     + " 0,page_count INT DEFAULT 0,error_code VARCHAR(128),created_at"
                     + " BIGINT,updated_at BIGINT,expires_at"
-                    + " BIGINT,UNIQUE(tenant_id,subject_id,request_id))");
+                    + " BIGINT,release_allowed BOOLEAN NOT NULL DEFAULT FALSE,result_state VARCHAR(24) NOT NULL DEFAULT 'PENDING',"
+                    + "released_at BIGINT,UNIQUE(tenant_id,subject_id,request_id))");
         db.execute(
                 "CREATE TABLE analytics_query_page(job_id VARCHAR(64),lease_token BIGINT,page_index"
                         + " INT,payload_json TEXT,PRIMARY KEY(job_id,lease_token,page_index))");

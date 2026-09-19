@@ -40,6 +40,10 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
 
     private static final String FROZEN_SCOPE_PROTOCOL_UNAVAILABLE = "FROZEN_SCOPE_PROTOCOL_UNAVAILABLE";
 
+    private static final String STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE = "STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE";
+
+    private static final String QUERY_CAPACITY_EXHAUSTED = "QUERY_CAPACITY_EXHAUSTED";
+
     private static final String FROZEN_JOBS_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs";
 
     private static final String AUTHORIZE_STATISTICS_SCOPE_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/authorize-scope";
@@ -126,6 +130,8 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
             Object code = body.get("code");
             boolean success = "0".equals(code) || code instanceof Number number && "0".equals(number.toString());
             if (!success) {
+                if (QUERY_CAPACITY_EXHAUSTED.equals(code))
+                    return statisticsCapacityFailure(body, STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE);
                 String safeCode = code instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}")
                         ? value : STATISTICS_SUBMIT_PROTOCOL_UNAVAILABLE;
                 return statisticsSubmitFailure(safeCode);
@@ -218,18 +224,95 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
         if (!statisticsReadPrincipal(context)) return frozenStatisticsFailure("FORBIDDEN");
         final Map<String, Object> request;
         try {
-            if (source == null || source.containsKey("fullShortUrl")
-                    || !(source.get("scope") instanceof Map<?, ?> scope)) throw new IllegalArgumentException();
-            FrozenQueryScope selected = FrozenQueryScope.fromMap(scope);
-            Map<String, Object> query = new LinkedHashMap<>(source);
-            query.remove("scope");
-            Map<String, Object> copy = new LinkedHashMap<>(frozenStatisticsSubmission(query));
-            copy.put("scope", selected.asMap());
-            request = Collections.unmodifiableMap(copy);
+            request = frozenSetStatisticsSubmission(source);
         } catch (RuntimeException invalid) {
             return frozenStatisticsFailure("INVALID_QUERY");
         }
         return frozenStatisticsPost(FROZEN_JOBS_PATH + (recovery ? "/recover-existing" : ""), context, request, false);
+    }
+
+    private static Map<String, Object> frozenSetStatisticsSubmission(Map<String, Object> source) {
+        if (source == null || source.containsKey("fullShortUrl")
+                || !(source.get("scope") instanceof Map<?, ?> scope)) throw new IllegalArgumentException();
+        FrozenQueryScope selected = FrozenQueryScope.fromMap(scope);
+        Map<String, Object> query = new LinkedHashMap<>(source);
+        query.remove("scope");
+        Map<String, Object> copy = new LinkedHashMap<>(frozenStatisticsSubmission(query));
+        String startText = (String) copy.get("startDate"), endText = (String) copy.get("endDate");
+        java.time.LocalDate start = java.time.LocalDate.parse(startText), end = java.time.LocalDate.parse(endText);
+        if (((String) copy.get("gid")).length() > 64 || !start.toString().equals(startText)
+                || !end.toString().equals(endText) || end.isBefore(start)) throw new IllegalArgumentException();
+        copy.put("scope", selected.asMap());
+        return Collections.unmodifiableMap(copy);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public ToolResult releaseStatisticsJobResult(ToolContext context, String jobId,
+                                                Map<String, Object> originalFrozenRequest) {
+        if (!statisticsReadPrincipal(context)) return statisticsReleaseFailure("FORBIDDEN");
+        if (!validStatisticsJobId(jobId)) return statisticsReleaseFailure("INVALID_QUERY");
+        final Map<String, Object> request;
+        try {
+            request = frozenSetStatisticsSubmission(originalFrozenRequest);
+        } catch (RuntimeException invalid) {
+            return statisticsReleaseFailure("INVALID_QUERY");
+        }
+        try {
+            String path = FROZEN_JOBS_PATH + "/" + jobId + "/release-result";
+            Map<String, Object> body;
+            if (transport != null) {
+                body = transport.exchange("POST", uri(path, Map.of()), headers(context).toSingleValueMap(), request);
+            } else {
+                ResponseEntity<Map> response = restTemplate.exchange(uri(path, Map.of()), HttpMethod.POST,
+                        new HttpEntity<>(request, headers(context)), Map.class);
+                if (response.getStatusCode().value() != 200)
+                    return statisticsReleaseHttpFailure(response.getStatusCode().value());
+                body = response.getBody();
+            }
+            if (body == null) return statisticsReleaseFailure(STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE);
+            Object code = body.get("code");
+            if (!("0".equals(code) || code instanceof Number number && "0".equals(number.toString()))) {
+                return statisticsReleaseFailure(code instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}")
+                        ? value : STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE);
+            }
+            if (body.containsKey("success") && !Boolean.TRUE.equals(body.get("success"))
+                    || !(body.get("data") instanceof Map<?, ?> data)
+                    || !validReleasedJob(data, jobId))
+                return statisticsReleaseFailure(STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE);
+            // A release receipt is a short protocol fact, not an arbitrary remote result payload.
+            return ToolResult.success(Map.of("jobId", jobId, "state", data.get("state"),
+                    "resultState", "RELEASED", "resultCode", "RESULT_RELEASED", "resultReady", false,
+                    "expiresAt", selectedInteger(data.get("expiresAt"))));
+        } catch (com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport.HttpStatusFailure failure) {
+            return statisticsReleaseHttpFailure(failure.statusCode());
+        } catch (org.springframework.web.client.HttpStatusCodeException failure) {
+            return statisticsReleaseHttpFailure(failure.getStatusCode().value());
+        } catch (SecurityException denied) {
+            return statisticsReleaseFailure("FORBIDDEN");
+        } catch (RuntimeException failure) {
+            return statisticsReleaseFailure(statisticsReadDecodeFailure(failure)
+                    ? STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
+        }
+    }
+
+    private static ToolResult statisticsReleaseHttpFailure(int status) {
+        return statisticsReleaseFailure(status == 401 || status == 403 ? "FORBIDDEN"
+                : Set.of(404, 405, 501).contains(status) ? STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
+    }
+
+    private static ToolResult statisticsReleaseFailure(String code) {
+        return failure(code, "Statistics result release failed: " + code);
+    }
+
+    private static ToolResult statisticsCapacityFailure(Map<String, Object> envelope, String protocolUnavailable) {
+        if (!Boolean.FALSE.equals(envelope.get("admitted"))
+                || !(envelope.get("capacityKind") instanceof String kind)
+                || !Set.of("ACTIVE_EXECUTION", "RESULT_STORAGE", "RECOVERY_IDENTITY").contains(kind)
+                || envelope.containsKey("success") && !Boolean.FALSE.equals(envelope.get("success")))
+            return failure(protocolUnavailable, "Statistics capacity receipt is invalid");
+        return new ToolResult(false, Map.of("code", QUERY_CAPACITY_EXHAUSTED, "admitted", false,
+                "capacityKind", kind), "Statistics query capacity is unavailable");
     }
 
     @Override
@@ -269,6 +352,10 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
             if (body == null) return frozenStatisticsFailure(FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
             Object code = body.get("code");
             if (!("0".equals(code) || code instanceof Number number && "0".equals(number.toString()))) {
+                if (QUERY_CAPACITY_EXHAUSTED.equals(code))
+                    return !authorization && FROZEN_JOBS_PATH.equals(path)
+                            ? statisticsCapacityFailure(body, FROZEN_SCOPE_PROTOCOL_UNAVAILABLE)
+                            : frozenStatisticsFailure(FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
                 return frozenStatisticsFailure(code instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}")
                         ? value : FROZEN_SCOPE_PROTOCOL_UNAVAILABLE);
             }
@@ -409,8 +496,7 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
         // Real status DTO has jobId/state. Page DTO instead has items/metrics/meta; no top-level jobId/state.
         if (page) return data.get("items") instanceof List<?> && data.get("metrics") instanceof Map<?, ?>
                 && data.get("meta") instanceof Map<?, ?>;
-        return jobId.equals(data.get("jobId")) && data.get("state") instanceof String state
-                && Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state);
+        return jobId.equals(data.get("jobId")) && validRecoveredJob(data);
     }
 
     private static boolean statisticsReadPrincipal(ToolContext context) {
@@ -487,7 +573,25 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
         return data instanceof Map<?, ?> job
                 && job.get("jobId") instanceof String id && id.matches("[A-Za-z0-9_-]{1,128}")
                 && job.get("state") instanceof String state
-                && Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state);
+                && Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state)
+                && validJobResultState(job, id);
+    }
+
+    private static boolean validJobResultState(Map<?, ?> job, String jobId) {
+        if (job.containsKey("resultState") && (!(job.get("resultState") instanceof String resultState)
+                || !Set.of("PENDING", "AVAILABLE", "UNAVAILABLE", "RELEASED").contains(resultState))) return false;
+        if ("RELEASED".equals(job.get("resultState")) || "RESULT_RELEASED".equals(job.get("resultCode")))
+            return validReleasedJob(job, jobId);
+        return true;
+    }
+
+    private static boolean validReleasedJob(Map<?, ?> job, String jobId) {
+        if (!jobId.equals(job.get("jobId")) || !(job.get("state") instanceof String state)
+                || !Set.of("SUCCEEDED", "FAILED", "CANCELLED").contains(state)
+                || !"RELEASED".equals(job.get("resultState")) || !"RESULT_RELEASED".equals(job.get("resultCode"))
+                || !Boolean.FALSE.equals(job.get("resultReady"))) return false;
+        try { return selectedInteger(job.get("expiresAt")) > 0; }
+        catch (RuntimeException invalid) { return false; }
     }
 
     private static ToolResult httpFailure(int status, boolean recovery) {

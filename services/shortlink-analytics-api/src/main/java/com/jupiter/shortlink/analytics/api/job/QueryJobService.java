@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.analytics.api.*;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -21,13 +22,15 @@ public class QueryJobService {
     static final long RETENTION = 86_400_000L, LEASE = 360_000L, MAX_BYTES = 64L * 1024 * 1024;
     static final int MAX_ROWS = 200_000, PAGE_ROWS = 500;
     private static final String STATE_COLUMNS =
-            "job_id,tenant_id,subject_id,request_id,request_hash,request_json,recovery_epoch,ownership_version,manifest_hash,state,lease_owner,lease_token,lease_until,attempts,next_attempt_at,row_count,byte_count,page_count,error_code,created_at,updated_at,expires_at";
+            "job_id,tenant_id,subject_id,request_id,request_hash,request_json,recovery_epoch,ownership_version,manifest_hash,state,lease_owner,lease_token,lease_until,attempts,next_attempt_at,row_count,byte_count,page_count,error_code,created_at,updated_at,expires_at,release_allowed,result_state,released_at";
     private final JdbcTemplate db;
     private final ObjectMapper json;
     private final AuthorizationClient auth;
     private final ApiSettings settings;
     private final JobClickHouseStream clickhouse;
     private final TransactionTemplate tx;
+    private final TransactionTemplate pageTx;
+    private final QueryJobCapacity capacity;
 
     public record Submit(String requestId, QueryRequest query) {}
 
@@ -41,7 +44,16 @@ public class QueryJobService {
             long byteCount,
             int pageCount,
             String errorCode,
-            long expiresAt) {}
+            long expiresAt,
+            String resultState,
+            boolean resultReady,
+            String resultCode) {
+        public Status(String jobId, String state, long rowCount, long byteCount, int pageCount,
+                String errorCode, long expiresAt) {
+            this(jobId, state, rowCount, byteCount, pageCount, errorCode, expiresAt,
+                    resultStateFor(state), "SUCCEEDED".equals(state), null);
+        }
+    }
 
     public record Lease(
             String jobId,
@@ -65,15 +77,31 @@ public class QueryJobService {
             ApiSettings settings,
             JobClickHouseStream clickhouse,
             PlatformTransactionManager manager) {
+        this(db, json, auth, settings, clickhouse, manager, QueryJobCapacity.defaults());
+    }
+
+    @Autowired
+    public QueryJobService(
+            JdbcTemplate db,
+            ObjectMapper json,
+            AuthorizationClient auth,
+            ApiSettings settings,
+            JobClickHouseStream clickhouse,
+            PlatformTransactionManager manager,
+            QueryJobCapacity capacity) {
         this.db = db;
         this.json = json;
         this.auth = auth;
         this.settings = settings;
         this.clickhouse = clickhouse;
+        this.capacity = Objects.requireNonNull(capacity);
         tx = new TransactionTemplate(manager);
         tx.setTimeout(15);
         tx.setIsolationLevel(
                 org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        pageTx = new TransactionTemplate(manager);
+        pageTx.setTimeout(15);
+        pageTx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
     public Status submit(Submit submit) {
@@ -110,33 +138,8 @@ public class QueryJobService {
                         assertScope(row, scope, epoch, now);
                         return status(row);
                     }
-                    var retained =
-                            db.queryForList(
-                                    "SELECT tenant_id,state,byte_count,OCTET_LENGTH(manifest_json)"
-                                            + " AS manifest_bytes FROM analytics_query_job");
-                    long tenantJobs = 0, active = 0, tenantActive = 0, reservedBytes = 0;
-                    for (var job : retained) {
-                        boolean same = q.tenantId().equals(job.get("tenant_id")),
-                                running = Set.of("QUEUED", "RUNNING").contains(job.get("state"));
-                        if (same) tenantJobs++;
-                        if (running) {
-                            active++;
-                            if (same) tenantActive++;
-                        }
-                        reservedBytes +=
-                                number(job.get("manifest_bytes")).longValue()
-                                        + (running
-                                                ? MAX_BYTES
-                                                : number(job.get("byte_count")).longValue());
-                    }
-                    if (retained.size() >= 128
-                            || tenantJobs >= 8
-                            || active >= 8
-                            || tenantActive >= 2)
-                        throw new QueryFailure(
-                                "TOO_LARGE",
-                                "Persistent query capacity exhausted; retry after completion or"
-                                        + " result expiry");
+                    var usage = capacityUsage(q.tenantId());
+                    assertCountCapacity(usage);
                     assertEpoch(epoch);
                     ManifestPlan plan =
                             ManifestPlan.capture(
@@ -149,19 +152,22 @@ public class QueryJobService {
                     String frozen = write(plan);
                     if (frozen.getBytes(StandardCharsets.UTF_8).length > 16 * 1024 * 1024)
                         throw new QueryFailure("TOO_LARGE", "Manifest selection exceeds 16 MiB");
-                    if (reservedBytes + MAX_BYTES + frozen.getBytes(StandardCharsets.UTF_8).length
-                            > 1024L * 1024 * 1024)
-                        throw new QueryFailure(
-                                "TOO_LARGE", "Persistent query storage reservation exceeds 1 GiB");
+                    if (number(usage.get("result_bytes")).longValue()
+                            > capacity.resultBytes() - MAX_BYTES - frozen.getBytes(StandardCharsets.UTF_8).length)
+                        throw capacityFailure("RESULT_STORAGE");
                     QueryRequest fixed = with(q, q.authVersion(), scope.linkIds());
                     String request = write(fixed);
                     if (request.length() > 65536)
                         throw new QueryFailure("TOO_LARGE", "Query description too large");
+                    long identityBytes = identityBytes(request, q, submit.requestId(), epoch, scope.ownershipVersion());
+                    if (number(usage.get("identity_bytes")).longValue() > capacity.globalIdentityBytes() - identityBytes
+                            || number(usage.get("tenant_identity_bytes")).longValue() > capacity.tenantIdentityBytes() - identityBytes)
+                        throw capacityFailure("RECOVERY_IDENTITY");
                     String id = UUID.randomUUID().toString();
                     db.update(
                             "INSERT INTO"
-                                + " analytics_query_job(job_id,tenant_id,subject_id,request_id,request_hash,request_json,recovery_epoch,ownership_version,manifest_json,manifest_hash,state,created_at,updated_at,expires_at)"
-                                + " VALUES(?,?,?,?,?,?,?,?,?,?,'QUEUED',?,?,?)",
+                                + " analytics_query_job(job_id,tenant_id,subject_id,request_id,request_hash,request_json,recovery_epoch,ownership_version,manifest_json,manifest_hash,state,release_allowed,result_state,created_at,updated_at,expires_at)"
+                                + " VALUES(?,?,?,?,?,?,?,?,?,?,'QUEUED',?,'PENDING',?,?,?)",
                             id,
                             q.tenantId(),
                             q.subjectId(),
@@ -172,6 +178,7 @@ public class QueryJobService {
                             scope.ownershipVersion(),
                             frozen,
                             hash(frozen),
+                            frozenScope,
                             now,
                             now,
                             now + RETENTION);
@@ -249,12 +256,21 @@ public class QueryJobService {
     }
 
     public Map<String, Object> page(String id, Identity identity) {
+        if (identity == null) throw new QueryFailure("FORBIDDEN", "Current identity required");
+        // A release/cleanup cannot delete the page, summary or manifest while this row is locked.
+        // No admission gate is taken here: the lock order remains gate -> job for mutations.
+        return pageTx.execute(transaction -> readPage(id, identity));
+    }
+
+    private Map<String, Object> readPage(String id, Identity identity) {
         int index = identity.pageIndex() == null ? 0 : identity.pageIndex();
         int size = identity.size() == null ? PAGE_ROWS : identity.size();
         if (index < 0 || size != PAGE_ROWS)
             throw new QueryFailure(
                     "INVALID_QUERY", "pageIndex must be nonnegative and page size is 500");
-        var job = authorized(id, identity);
+        var job = authorized(id, identity, true);
+        if ("RELEASED".equals(job.get("result_state")))
+            throw new QueryFailure("RESULT_RELEASED", "Query result has been released");
         if (!"SUCCEEDED".equals(job.get("state")))
             throw new QueryFailure("NOT_READY", "Query job has no published results");
         int count = number(job.get("page_count")).intValue();
@@ -339,6 +355,45 @@ public class QueryJobService {
         return Map.of("items", items, "metrics", metrics, "meta", meta);
     }
 
+    /** Release storage, never the original request identity or its retention deadline. */
+    public Status releaseResult(String id, Submit submit) {
+        QueryRequest q = validatedSubmission(submit,
+                submit != null && submit.query() != null && submit.query().scope() != null);
+        if (q.tenantId() == null || q.subjectId() == null || q.authVersion() < 0)
+            throw new QueryFailure("FORBIDDEN", "Current identity required");
+        String digest = digestRequest(q);
+        return tx.execute(transaction -> {
+            gate();
+            var rows = db.queryForList("SELECT " + STATE_COLUMNS + " FROM analytics_query_job"
+                            + " WHERE job_id=? AND tenant_id=? AND subject_id=? FOR UPDATE",
+                    id, q.tenantId(), q.subjectId());
+            if (rows.size() != 1)
+                throw new QueryFailure("FORBIDDEN", "Query result unavailable to this subject");
+            var row = rows.get(0);
+            assertRecoveryRetention(row, now());
+            if (!submit.requestId().equals(row.get("request_id")) || !digest.equals(row.get("request_hash")))
+                throw new QueryFailure("CONFLICT", "Release does not match the original query identity");
+            if (!(Boolean.TRUE.equals(row.get("release_allowed")) || "1".equals(Objects.toString(row.get("release_allowed")))))
+                throw new QueryFailure("RESULT_RELEASE_UNSUPPORTED", "This query does not allow managed result release");
+            QueryRequest original = with(read(row.get("request_json").toString(), QueryRequest.class), q.authVersion(), null);
+            var scope = authorize(original);
+            String epoch = auth.activeEpoch();
+            assertScope(row, scope, epoch, now());
+            if (!Objects.equals(original.linkIds(), scope.linkIds()))
+                throw new QueryFailure("QUERY_SCOPE_CHANGED", "Authorized resource scope changed");
+            assertEpoch(epoch);
+            assertRecoveryRetention(row, now());
+            if (!Set.of("SUCCEEDED", "FAILED", "CANCELLED").contains(row.get("state")))
+                throw new QueryFailure("RESULT_NOT_RELEASABLE", "Only terminal query results can be released");
+            if ("RELEASED".equals(row.get("result_state"))) return status(row);
+            long releasedAt = now();
+            db.update("DELETE FROM analytics_query_page WHERE job_id=?", id);
+            db.update("UPDATE analytics_query_job SET manifest_json='{}',result_state='RELEASED',"
+                            + "released_at=?,updated_at=? WHERE job_id=?", releasedAt, releasedAt, id);
+            return status(locked(id));
+        });
+    }
+
     public Status cancel(String id, Identity identity) {
         authorized(id, identity);
         return tx.execute(
@@ -347,7 +402,7 @@ public class QueryJobService {
                     if (Set.of("QUEUED", "RUNNING").contains(row.get("state"))) {
                         db.update(
                                 "UPDATE analytics_query_job SET"
-                                    + " state='CANCELLED',lease_token=lease_token+1,lease_until=0,error_code='CANCELLED',updated_at=?"
+                                    + " state='CANCELLED',result_state='UNAVAILABLE',lease_token=lease_token+1,lease_until=0,error_code='CANCELLED',updated_at=?"
                                     + " WHERE job_id=?",
                                 now(),
                                 id);
@@ -358,6 +413,10 @@ public class QueryJobService {
     }
 
     private Map<String, Object> authorized(String id, Identity identity) {
+        return authorized(id, identity, false);
+    }
+
+    private Map<String, Object> authorized(String id, Identity identity, boolean lock) {
         if (identity == null || identity.tenantId() == null || identity.subjectId() == null)
             throw new QueryFailure("FORBIDDEN", "Current identity required");
         var rows =
@@ -365,7 +424,7 @@ public class QueryJobService {
                         "SELECT "
                                 + STATE_COLUMNS
                                 + " FROM analytics_query_job WHERE job_id=? AND tenant_id=? AND"
-                                + " subject_id=?",
+                                + " subject_id=?" + (lock ? " FOR UPDATE" : ""),
                         id,
                         identity.tenantId(),
                         identity.subjectId());
@@ -416,7 +475,7 @@ public class QueryJobService {
                         if (number(row.get("attempts")).intValue() >= 3) {
                             db.update(
                                     "UPDATE analytics_query_job SET"
-                                        + " state='FAILED',error_code='ATTEMPTS_EXHAUSTED',lease_token=lease_token+1,updated_at=?"
+                                        + " state='FAILED',result_state='UNAVAILABLE',error_code='ATTEMPTS_EXHAUSTED',lease_token=lease_token+1,updated_at=?"
                                         + " WHERE job_id=?",
                                     now,
                                     id);
@@ -426,7 +485,7 @@ public class QueryJobService {
                         long token = number(row.get("lease_token")).longValue() + 1;
                         db.update(
                                 "UPDATE analytics_query_job SET"
-                                    + " state='RUNNING',lease_owner=?,lease_token=?,lease_until=?,attempts=attempts+1,row_count=0,byte_count=0,page_count=0,error_code=NULL,updated_at=?"
+                                    + " state='RUNNING',result_state='PENDING',lease_owner=?,lease_token=?,lease_until=?,attempts=attempts+1,row_count=0,byte_count=0,page_count=0,error_code=NULL,updated_at=?"
                                     + " WHERE job_id=?",
                                 owner,
                                 token,
@@ -482,7 +541,7 @@ public class QueryJobService {
                         assertEpoch(lease.epoch());
                         db.update(
                                 "UPDATE analytics_query_job SET"
-                                        + " state='SUCCEEDED',lease_until=0,updated_at=? WHERE"
+                                        + " state='SUCCEEDED',result_state='AVAILABLE',lease_until=0,updated_at=? WHERE"
                                         + " job_id=?",
                                 now(),
                                 lease.jobId());
@@ -682,9 +741,10 @@ public class QueryJobService {
                                         && number(row.get("attempts")).intValue() < 3;
                         db.update(
                                 "UPDATE analytics_query_job SET"
-                                    + " state=?,lease_until=0,error_code=?,next_attempt_at=?,updated_at=?"
+                                    + " state=?,result_state=?,lease_until=0,error_code=?,next_attempt_at=?,updated_at=?"
                                     + " WHERE job_id=?",
                                 retry ? "QUEUED" : "FAILED",
+                                retry ? "PENDING" : "UNAVAILABLE",
                                 code,
                                 now() + 5000,
                                 now(),
@@ -815,6 +875,8 @@ public class QueryJobService {
     }
 
     private static Status status(Map<String, Object> r) {
+        String resultState = "RELEASED".equals(r.get("result_state")) ? "RELEASED"
+                : resultStateFor(r.get("state").toString());
         return new Status(
                 r.get("job_id").toString(),
                 r.get("state").toString(),
@@ -822,7 +884,60 @@ public class QueryJobService {
                 number(r.get("byte_count")).longValue(),
                 number(r.get("page_count")).intValue(),
                 Objects.toString(r.get("error_code"), null),
-                number(r.get("expires_at")).longValue());
+                number(r.get("expires_at")).longValue(),
+                resultState,
+                "AVAILABLE".equals(resultState),
+                "RELEASED".equals(resultState) ? "RESULT_RELEASED" : null);
+    }
+
+    private static String resultStateFor(String state) {
+        return switch (state) {
+            case "QUEUED", "RUNNING" -> "PENDING";
+            case "SUCCEEDED" -> "AVAILABLE";
+            default -> "UNAVAILABLE";
+        };
+    }
+
+    private Map<String, Object> capacityUsage(String tenant) {
+        // A bounded aggregate avoids materializing all (potentially thousands of) recovery identities.
+        String identitySize = "256+OCTET_LENGTH(request_json)+OCTET_LENGTH(tenant_id)"
+                + "+OCTET_LENGTH(subject_id)+OCTET_LENGTH(request_id)+OCTET_LENGTH(recovery_epoch)"
+                + "+OCTET_LENGTH(ownership_version)";
+        return db.queryForMap("SELECT COUNT(*) AS identities,COALESCE(SUM(same_tenant),0) AS tenant_identities,"
+                + "COALESCE(SUM(active_slot),0) AS active,COALESCE(SUM(same_tenant*active_slot),0) AS tenant_active,"
+                + "COALESCE(SUM(result_slot),0) AS results,COALESCE(SUM(same_tenant*result_slot),0) AS tenant_results,"
+                + "COALESCE(SUM(result_bytes),0) AS result_bytes,COALESCE(SUM(identity_bytes),0) AS identity_bytes,"
+                + "COALESCE(SUM(same_tenant*identity_bytes),0) AS tenant_identity_bytes FROM (SELECT "
+                + "CASE WHEN tenant_id=? THEN 1 ELSE 0 END AS same_tenant,"
+                + "CASE WHEN state IN ('QUEUED','RUNNING') THEN 1 ELSE 0 END AS active_slot,"
+                + "CASE WHEN result_state='RELEASED' THEN 0 ELSE 1 END AS result_slot,"
+                + "CASE WHEN result_state='RELEASED' THEN 0 ELSE OCTET_LENGTH(manifest_json)+"
+                + "CASE WHEN state IN ('QUEUED','RUNNING') THEN " + MAX_BYTES + " ELSE byte_count END END AS result_bytes,"
+                + identitySize + " AS identity_bytes FROM analytics_query_job) retained", tenant);
+    }
+
+    private void assertCountCapacity(Map<String, Object> usage) {
+        if (number(usage.get("identities")).longValue() >= capacity.globalIdentities()
+                || number(usage.get("tenant_identities")).longValue() >= capacity.tenantIdentities())
+            throw capacityFailure("RECOVERY_IDENTITY");
+        if (number(usage.get("active")).longValue() >= capacity.globalActive()
+                || number(usage.get("tenant_active")).longValue() >= capacity.tenantActive())
+            throw capacityFailure("ACTIVE_EXECUTION");
+        if (number(usage.get("results")).longValue() >= capacity.globalResults()
+                || number(usage.get("tenant_results")).longValue() >= capacity.tenantResults())
+            throw capacityFailure("RESULT_STORAGE");
+    }
+
+    private static long identityBytes(String request, QueryRequest q, String requestId, String epoch, String ownershipVersion) {
+        long bytes = 256; // Job id, two digests, state, timestamps, counters and release metadata.
+        for (String value : List.of(request, q.tenantId(), q.subjectId(), requestId, epoch, ownershipVersion))
+            bytes += value.getBytes(StandardCharsets.UTF_8).length;
+        return bytes;
+    }
+
+    private static QueryFailure capacityFailure(String kind) {
+        return new QueryFailure("QUERY_CAPACITY_EXHAUSTED", "Persistent query capacity exhausted",
+                Map.of("admitted", false, "capacityKind", kind));
     }
 
     private void validate(QueryRequest q) {

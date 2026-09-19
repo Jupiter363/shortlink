@@ -41,6 +41,11 @@ class QueryJobMySqlIntegrationTest {
                 .analyticsControlSchema(Path.of(""));
         try (var connection = data.getConnection()) {
             ScriptUtils.executeSqlScript(connection, new FileSystemResource(schema));
+            try (var columns = connection.getMetaData().getColumns(
+                    connection.getCatalog(), null, "analytics_query_job", "result_state")) {
+                if (!columns.next()) ScriptUtils.executeSqlScript(connection,
+                        new FileSystemResource(schema.resolveSibling("005-analytics-result-release.sql")));
+            }
         }
         String tenant = "job-it-" + UUID.randomUUID(), epoch = "job-epoch-" + UUID.randomUUID();
         long start = 300000L, end = 600000L;

@@ -121,6 +121,19 @@ public final class StatisticsJobResultProtocol {
         require(jobId.equals(status.get("jobId")), MISMATCH);
         require(status.get("state") instanceof String state && STATES.contains(state), PROTOCOL);
         String state = (String) status.get("state");
+        if (status.containsKey("resultState")) {
+            Object resultState = status.get("resultState");
+            if ("RELEASED".equals(resultState)) {
+                require(Set.of("SUCCEEDED", "FAILED", "CANCELLED").contains(state)
+                        && Boolean.FALSE.equals(status.get("resultReady"))
+                        && "RESULT_RELEASED".equals(status.get("resultCode")), PROTOCOL);
+                throw failure("RESULT_RELEASED");
+            }
+            String expected = "SUCCEEDED".equals(state) ? "AVAILABLE"
+                    : Set.of("QUEUED", "RUNNING").contains(state) ? "PENDING" : "UNAVAILABLE";
+            require(expected.equals(resultState) && Boolean.valueOf("AVAILABLE".equals(expected)).equals(status.get("resultReady"))
+                    && status.get("resultCode") == null, PROTOCOL);
+        }
         String error = null;
         if (status.get("errorCode") != null) {
             require(status.get("errorCode") instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}"), PROTOCOL);

@@ -4,6 +4,8 @@
 
 P2 前置进度：[冻结成员与范围证明](../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员授权、确定性分片和跨服务专用请求；完整枚举、父集合对账与容量释放仍待完成。全量要求见[完成矩阵](../development/campaign-agent-completion-2026-09-20.md)。
 
+[结果释放与配额分账](../integration/campaign-plan-p2-result-release-2026-09-20.md)已完成远端协议及跨服务可读状态合同；本地消费登记和自动释放仍待实现。
+
 P1 分批进度：[独立恢复协议](../integration/campaign-plan-p1-recovery-2026-09-19.md)、[耐久账本与原生计划扫描](../integration/campaign-plan-p1-ledger-2026-09-19.md)、[步骤输出与持久化 Graph 驱动](../integration/campaign-plan-p1-steps-2026-09-19.md)已合并；[授权进度与可用结果视图](../integration/campaign-plan-p1-progress-2026-09-19.md)区分执行进度与交付结论；[进程死亡确认与恢复协调](../integration/campaign-plan-p1-process-recovery-2026-09-19.md)提供精确回调接管与原生 Graph 续接；[统计任务读取合同](../integration/campaign-plan-p1-job-read-2026-09-20.md)补齐结果接收前置的跨服务机器错误码；[分页耐久接收](../integration/campaign-plan-p1-paged-results-2026-09-20.md)保存进度并在完整发布后唤醒原生 Graph；[结果接收进度](../integration/campaign-plan-p1-result-progress-2026-09-20.md)按授权快照展示已登记结果的页数与行数；[真实统计固定执行器](../integration/campaign-plan-p1-statistics-executor-2026-09-20.md)将首次提交纳入冻结请求与原任务恢复链路。整体 P1 与生产运行入口尚未完成。
 
 已确认的架构方向：**外层 Plan 管目标和依赖，局部按需探索。** 具体实施顺序见[实施计划](campaign-agent-architecture-2026-09-19/implementation-plan.md)，图运行与恢复边界见[Graph 适配方案](campaign-agent-architecture-2026-09-19/graph-adaptation.md)，两种执行策略的组合见[混合计划示例](campaign-agent-architecture-2026-09-19/example-hybrid-plan.json)。

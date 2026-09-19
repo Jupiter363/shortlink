@@ -93,6 +93,15 @@ public class QueryJobController {
         return ok(jobs.cancel(id, identity));
     }
 
+    @PostMapping("/{id}/release-result")
+    public Map<String, Object> releaseResult(
+            @RequestHeader(value = "X-Internal-Token", required = false) String token,
+            @PathVariable String id,
+            @RequestBody QueryJobService.Submit request) {
+        token(token);
+        return ok(jobs.releaseResult(id, request));
+    }
+
     @SuppressWarnings("unchecked")
     @PostMapping("/{id}/export")
     public void export(
@@ -201,9 +210,13 @@ public class QueryJobController {
 
     @ExceptionHandler(QueryFailure.class)
     public ResponseEntity<Map<String, Object>> failure(QueryFailure error) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("code", error.code);
+        body.put("message", error.getMessage());
+        body.putAll(error.details);
         return ResponseEntity.status(
                         error.code.equals("FORBIDDEN") ? HttpStatus.FORBIDDEN : HttpStatus.OK)
-                .body(Map.of("code", error.code, "message", error.getMessage()));
+                .body(body);
     }
 
     @ExceptionHandler(Exception.class)

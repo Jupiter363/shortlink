@@ -262,6 +262,33 @@ public class AgentAnalyticsFacade {
                 start, end, queryKind, dimensions, filters, scope)));
     }
 
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> releaseFrozenJobResult(String jobId, String requestId, String gid, String fullShortUrl,
+            String start, String end, String queryKind, List<String> dimensions,
+            List<Map<String, Object>> filters, FrozenQueryScope scope) {
+        if (jobId == null || !jobId.matches("[A-Za-z0-9_-]{1,128}"))
+            throw AnalyticsJsonClient.releaseFailure("INVALID_QUERY");
+        JSONObject response = client.releaseFrozenJobResult(jobId, frozenJobRequest(requestId, gid, fullShortUrl,
+                start, end, queryKind, dimensions, filters, scope));
+        if (response == null || !(response.get("code") instanceof String code))
+            throw AnalyticsJsonClient.releaseFailure("STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE");
+        if (!"0".equals(code)) throw AnalyticsJsonClient.releaseFailure(code);
+        if (!(response.get("data") instanceof Map<?, ?> data)
+                || !Set.of("jobId", "state", "rowCount", "byteCount", "pageCount", "errorCode", "expiresAt",
+                        "resultState", "resultReady", "resultCode").containsAll(data.keySet())
+                || !jobId.equals(data.get("jobId")) || !(data.get("state") instanceof String state)
+                || !Set.of("SUCCEEDED", "FAILED", "CANCELLED").contains(state)
+                || !"RELEASED".equals(data.get("resultState")) || !Boolean.FALSE.equals(data.get("resultReady"))
+                || !"RESULT_RELEASED".equals(data.get("resultCode")) || !integerAtLeast(data.get("expiresAt"), 1))
+            throw AnalyticsJsonClient.releaseFailure("STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE");
+        for (String count : List.of("rowCount", "byteCount", "pageCount"))
+            if (data.containsKey(count) && !integerAtLeast(data.get(count), 0))
+                throw AnalyticsJsonClient.releaseFailure("STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE");
+        Map<String, Object> result = new LinkedHashMap<>((Map<String, Object>) data);
+        result.put("status", state);
+        return result;
+    }
+
     private Map<String, Object> frozenJobRequest(String requestId, String gid, String fullShortUrl,
             String start, String end, String queryKind, List<String> dimensions,
             List<Map<String, Object>> filters, FrozenQueryScope scope) {
@@ -290,6 +317,7 @@ public class AgentAnalyticsFacade {
     private static Map<String, Object> frozenJobData(JSONObject response) {
         if (response == null || !(response.get("code") instanceof String code))
             throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
+        AnalyticsJsonClient.rejectCapacity(response);
         if (!"0".equals(code)) throw AnalyticsJsonClient.frozenFailure(code);
         if (!(response.get("data") instanceof Map<?, ?> data)
                 || !(data.get("jobId") instanceof String jobId) || !jobId.matches("[A-Za-z0-9_-]{1,128}")
@@ -298,8 +326,39 @@ public class AgentAnalyticsFacade {
             throw AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
         Map<String, Object> result = new LinkedHashMap<>((Map<String, Object>) data);
         result.put("status", Set.of("QUEUED", "RUNNING").contains(state) ? "PENDING" : state);
-        result.put("resultReady", "SUCCEEDED".equals(state));
+        resultReadiness(result, state, () -> AnalyticsJsonClient.frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE"));
         return result;
+    }
+
+    /** Execution success and retained result availability are independent in the new protocol. */
+    private static void resultReadiness(Map<String, Object> result, String state,
+            java.util.function.Supplier<RemoteException> invalid) {
+        if (!result.containsKey("resultState")) {
+            // Old Analytics versions did not expose result lifecycle fields.
+            if (result.get("resultCode") != null) throw invalid.get();
+            result.put("resultReady", "SUCCEEDED".equals(state));
+            return;
+        }
+        Object resultState = result.get("resultState");
+        if (!(resultState instanceof String lifecycle)
+                || !Set.of("PENDING", "AVAILABLE", "UNAVAILABLE", "RELEASED").contains(lifecycle)
+                || !(result.get("resultReady") instanceof Boolean ready)
+                || ready != "AVAILABLE".equals(lifecycle)
+                || "AVAILABLE".equals(lifecycle) && !"SUCCEEDED".equals(state)
+                || "PENDING".equals(lifecycle) && !Set.of("QUEUED", "RUNNING").contains(state)
+                || "UNAVAILABLE".equals(lifecycle) && !Set.of("FAILED", "CANCELLED").contains(state)
+                || "RELEASED".equals(lifecycle) && !Set.of("SUCCEEDED", "FAILED", "CANCELLED").contains(state)
+                || "RELEASED".equals(lifecycle) && !"RESULT_RELEASED".equals(result.get("resultCode"))
+                || !"RELEASED".equals(lifecycle) && result.get("resultCode") != null)
+            throw invalid.get();
+        result.put("resultReady", ready);
+    }
+
+    private static boolean integerAtLeast(Object value, long minimum) {
+        if (!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long
+                || value instanceof java.math.BigInteger)) return false;
+        try { return new java.math.BigInteger(value.toString()).longValueExact() >= minimum; }
+        catch (ArithmeticException invalid) { return false; }
     }
 
     private static void requireFrozenPrincipal() {
@@ -367,7 +426,7 @@ public class AgentAnalyticsFacade {
                 || !Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state))
             throw AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE");
         result.put("status", Set.of("QUEUED", "RUNNING").contains(state) ? "PENDING" : state);
-        result.put("resultReady", "SUCCEEDED".equals(state));
+        resultReadiness(result, state, () -> AnalyticsJsonClient.readFailure("STATISTICS_READ_PROTOCOL_UNAVAILABLE"));
         return result;
     }
 
@@ -515,6 +574,7 @@ public class AgentAnalyticsFacade {
     }
 
     private Map<String, Object> jobData(JSONObject response, boolean status) {
+        AnalyticsJsonClient.rejectCapacity(response);
         if (!"0".equals(response.getString("code")) || response.getJSONObject("data") == null)
             throw new RemoteException("Statistics job unavailable: " + response.getString("code"));
         Map<String, Object> result = new LinkedHashMap<>(response.getJSONObject("data"));
@@ -523,7 +583,7 @@ public class AgentAnalyticsFacade {
             if (!Set.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(state))
                 throw new RemoteException("Statistics job state is invalid");
             result.put("status", Set.of("QUEUED", "RUNNING").contains(state) ? "PENDING" : state);
-            result.put("resultReady", "SUCCEEDED".equals(state));
+            resultReadiness(result, state, () -> new RemoteException("Statistics job result state is invalid"));
         }
         return result;
     }
