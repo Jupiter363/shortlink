@@ -37,6 +37,14 @@ public final class StatisticsSubmissionReconciler {
         if (!authorized.getAsBoolean()) return result(childId, Outcome.STOPPED, null, "RUN_ACCESS_DENIED");
         ChildRecord child = store.child(token, childId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown campaign child reference"));
+        // A model invocation has no statistics wire/job and no provider recovery contract.
+        if (child.spec().mode() == ChildMode.MODEL) {
+            if (child.state() == ChildState.READY) return result(childId, Outcome.ALREADY_READY, null, null);
+            if (child.state() == ChildState.PREPARED) return result(childId, Outcome.NOT_DISPATCHED, null, null);
+            return result(childId, Outcome.UNRESOLVED, null,
+                    child.state() == ChildState.UNRESOLVED && !child.callbackActive()
+                            ? "MODEL_RESULT_UNKNOWN" : "EXECUTION_UNRESOLVED");
+        }
         if (child.state() == ChildState.READY) return result(childId, Outcome.ALREADY_READY, child.jobId(), null);
         if (child.jobId() != null) return result(childId, Outcome.KNOWN_JOB, child.jobId(), null);
         if (child.state() == ChildState.PREPARED) return result(childId, Outcome.NOT_DISPATCHED, null, null);

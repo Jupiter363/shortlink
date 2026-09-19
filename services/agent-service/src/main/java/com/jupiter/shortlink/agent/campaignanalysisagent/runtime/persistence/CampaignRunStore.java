@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -16,11 +17,11 @@ import java.util.Optional;
 /** Business ledger, independent of native graph checkpoints. No production registration in P1b. */
 public interface CampaignRunStore {
     enum RunStatus { ACTIVE, CANCELLED, SUPERSEDED }
-    enum ChildMode { SYNC, ASYNC, LOCAL }
+    enum ChildMode { SYNC, ASYNC, LOCAL, MODEL }
     enum ChildState { PREPARED, DISPATCHING, WAITING, READY, UNRESOLVED }
     enum DispatchPurpose { FRESH, RECONCILE, RELEASE, AUTHORITY_PAGE_READ, LOCAL_REPLAY }
     /** QUERY_CAPACITY_EXHAUSTED is a proven non-admission marker, not an unknown submission. */
-    enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN, QUERY_CAPACITY_EXHAUSTED, LOCAL_RESULT_UNKNOWN, LOCAL_RESULT_INVALID }
+    enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN, QUERY_CAPACITY_EXHAUSTED, LOCAL_RESULT_UNKNOWN, LOCAL_RESULT_INVALID, MODEL_RESULT_UNKNOWN }
     enum CapacityKind { ACTIVE_EXECUTION, RESULT_STORAGE, RECOVERY_IDENTITY }
 
     record SubmissionBackoff(long initialDelayMillis, long maxDelayMillis) {
@@ -76,9 +77,14 @@ public interface CampaignRunStore {
     }
 
     record ChildSpec(String childId, String actionId, ChildMode mode, String requestId, WireRequest wire,
-                     LocalCalculationRegistry.InvocationSpec localInvocation) {
+                     LocalCalculationRegistry.InvocationSpec localInvocation,
+                     ModelInvocationRegistry.InvocationSpec modelInvocation) {
         public ChildSpec(String childId, String actionId, ChildMode mode, String requestId, WireRequest wire) {
-            this(childId, actionId, mode, requestId, wire, null);
+            this(childId, actionId, mode, requestId, wire, null, null);
+        }
+        public ChildSpec(String childId, String actionId, ChildMode mode, String requestId, WireRequest wire,
+                         LocalCalculationRegistry.InvocationSpec localInvocation) {
+            this(childId, actionId, mode, requestId, wire, localInvocation, null);
         }
     }
 
@@ -126,6 +132,22 @@ public interface CampaignRunStore {
     /** Trusted registered local calculation only; no HTTP request is synthesized. */
     ChildRecord prepareLocalChild(RunToken token, ChildSpec child, LocalCalculationRegistry.Approval approval,
                                   ArtifactAuthorizer authorizer);
+
+    /** Approved MODEL requests are separate from capability actions and never masquerade as HTTP children. */
+    ChildRecord prepareModelChild(CampaignStepStore.StepPermit step, ModelInvocationRegistry.ModelActionSpec action,
+                                  ChildSpec child, ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer);
+
+    /** Fresh PREPARED models only. Unknown outcomes require a later explicit recovery protocol, not redispatch. */
+    DispatchPermit beginModelDispatch(CampaignStepStore.StepPermit step, String childId,
+                                      ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer);
+
+    /** The canonical response DTO and child READY state commit together; neither is a business Artifact. */
+    void publishModelResponse(CampaignStepStore.StepPermit step, DispatchPermit permit,
+                              ModelInvocationRegistry.Approval approval, ModelInvocationRegistry.Response response,
+                              ArtifactAuthorizer authorizer);
+
+    ModelInvocationRegistry.Response readModelResponse(RunToken token, String childId,
+                                                       ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer);
 
     /** Service-side records include frozen requests; Graph callers should project short refs only. */
     List<ChildRecord> children(RunToken token);

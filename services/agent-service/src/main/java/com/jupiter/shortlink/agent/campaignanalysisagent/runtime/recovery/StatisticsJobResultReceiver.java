@@ -57,10 +57,12 @@ public final class StatisticsJobResultReceiver {
         if (!authorized.getAsBoolean()) return result(childId, null, Outcome.STOPPED, "RUN_ACCESS_DENIED", null);
         ChildRecord child = runs.child(token, childId).orElseThrow(() -> new IllegalArgumentException("CHILD_NOT_FOUND"));
         String jobId = child.jobId();
+        if (child.spec().mode() != ChildMode.ASYNC)
+            return result(childId, jobId, Outcome.NOT_APPLICABLE, "KNOWN_ASYNC_JOB_REQUIRED", null);
         if (child.state() == ChildState.READY)
             return new Result(childId, jobId, target.artifactId().equals(child.artifactId()) ? Outcome.ALREADY_READY : Outcome.BLOCKED,
                     target.artifactId().equals(child.artifactId()) ? null : "RESULT_TARGET_CHANGED", 0, 0, child.artifactId());
-        if (child.spec().mode() != ChildMode.ASYNC || jobId == null)
+        if (jobId == null)
             return result(childId, jobId, Outcome.NOT_APPLICABLE, "KNOWN_ASYNC_JOB_REQUIRED", null);
         if (child.callbackActive() || child.state() == ChildState.DISPATCHING)
             return result(childId, jobId, Outcome.BLOCKED, "EXECUTION_UNRESOLVED", null);
