@@ -104,7 +104,10 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
     /** Coordinator calls after result ingestion; this does not poll or interpret a remote job status. */
     public void refreshWaiting() {
         if (!mayAdvance()) return;
-        for (StepRecord record : steps.steps(token)) steps.refreshWaiting(token, record.spec().stepId());
+        for (StepRecord record : steps.steps(token)) {
+            steps.refreshWaiting(token, record.spec().stepId());
+            steps.refreshCapacityDeferred(token, record.spec().stepId());
+        }
     }
 
     @Override public boolean mayAdvance() { return authorized() && steps.mayAdvance(token); }

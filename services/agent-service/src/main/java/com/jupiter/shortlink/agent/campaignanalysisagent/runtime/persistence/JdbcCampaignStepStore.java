@@ -258,6 +258,41 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
         });
     }
 
+    @Override
+    public StepRecord refreshCapacityDeferred(RunToken token, String stepId) {
+        id(stepId, 96);
+        return transaction(() -> {
+            requireRun(token, true);
+            StepRecord step = requireStep(token, stepId).record();
+            if (step.status() != StepStatus.WAITING && !(step.status() == StepStatus.BLOCKED
+                    && ("REMOTE_CAPACITY".equals(step.reason()) || "STEP_RESULT_UNKNOWN".equals(step.reason()))))
+                return step;
+            if (hasCallbacks(token.definition().runId())) return step;
+            List<ChildReceipt> children = childReceipts(token, stepId);
+            boolean provenRejection = false;
+            for (ChildReceipt child : children) {
+                if (child.state().equals("READY")) continue;
+                if (!child.state().equals("PREPARED")) return step;
+                if ("QUERY_CAPACITY_EXHAUSTED".equals(child.reason())) {
+                    var proof = runs.submissionDeferral(token, child.childId())
+                            .orElseThrow(() -> new IllegalStateException("SUBMISSION_DEFERRAL_MISSING"));
+                    if (proof.retryNotBeforeMillis() > now()) return step;
+                    provenRejection = true;
+                } else if (child.reason() != null) {
+                    return step;
+                }
+            }
+            if (!provenRejection) return step;
+            for (String dependency : step.spec().dependsOn()) {
+                if (requireStep(token, dependency).record().status() != StepStatus.SUCCEEDED) return step;
+            }
+            jdbc.update("UPDATE campaign_step_ledger SET step_status='READY',reason=NULL,row_version=row_version+1,updated_at=? "
+                            + "WHERE run_id=? AND revision=? AND step_id=?",
+                    now(), token.definition().runId(), token.definition().revision(), stepId);
+            return requireStep(token, stepId).record();
+        });
+    }
+
     private void requireRun(RunToken token, boolean current) {
         Objects.requireNonNull(token);
         var definition = Objects.requireNonNull(token.definition());
@@ -301,10 +336,11 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
     }
 
     private List<ChildReceipt> childReceipts(RunToken token, String stepId) {
-        return jdbc.query("SELECT c.child_state,c.job_id FROM campaign_child_ledger c JOIN campaign_action_ledger a "
+        return jdbc.query("SELECT c.child_id,c.child_state,c.job_id,c.unresolved_reason FROM campaign_child_ledger c JOIN campaign_action_ledger a "
                         + "ON a.run_id=c.run_id AND a.revision=c.revision AND a.action_id=c.action_id "
-                        + "WHERE c.run_id=? AND c.revision=? AND a.step_id=?",
-                (rs, row) -> new ChildReceipt(rs.getString("child_state"), rs.getString("job_id")),
+                        + "WHERE c.run_id=? AND c.revision=? AND a.step_id=? ORDER BY c.child_id FOR UPDATE",
+                (rs, row) -> new ChildReceipt(rs.getString("child_id"), rs.getString("child_state"),
+                        rs.getString("job_id"), rs.getString("unresolved_reason")),
                 token.definition().runId(), token.definition().revision(), stepId);
     }
 
@@ -432,6 +468,6 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
     private record LockedRun(String tenant, String subject, long authVersion, String session, String plan,
                              String definitionHash, String status, long version, String advanceToken) {}
     private record StoredStep(StepRecord record, long attemptVersion, long dispatchRunVersion, String dispatchRunToken) {}
-    private record ChildReceipt(String state, String jobId) {}
+    private record ChildReceipt(String childId, String state, String jobId, String reason) {}
     private record SnapshotRun(int revision, String status, long version, String advanceToken) {}
 }

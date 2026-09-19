@@ -17,7 +17,26 @@ public interface CampaignRunStore {
     enum ChildMode { SYNC, ASYNC }
     enum ChildState { PREPARED, DISPATCHING, WAITING, READY, UNRESOLVED }
     enum DispatchPurpose { FRESH, RECONCILE, RELEASE }
-    enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN }
+    /** QUERY_CAPACITY_EXHAUSTED is a proven non-admission marker, not an unknown submission. */
+    enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN, QUERY_CAPACITY_EXHAUSTED }
+    enum CapacityKind { ACTIVE_EXECUTION, RESULT_STORAGE, RECOVERY_IDENTITY }
+
+    record SubmissionBackoff(long initialDelayMillis, long maxDelayMillis) {
+        public SubmissionBackoff {
+            if (initialDelayMillis < 1 || maxDelayMillis < initialDelayMillis)
+                throw new IllegalArgumentException("Positive ordered submission backoff delays are required");
+        }
+        public static SubmissionBackoff defaults() { return new SubmissionBackoff(1_000, 30_000); }
+    }
+
+    record SubmissionDeferral(CapacityKind kind, int rejectedAttempts, long retryNotBeforeMillis,
+                              String lastAttemptId, long lastAttemptVersion) {
+        public SubmissionDeferral {
+            if (kind == null || rejectedAttempts < 1 || retryNotBeforeMillis < 1
+                    || lastAttemptId == null || lastAttemptId.isBlank() || lastAttemptVersion < 1)
+                throw new IllegalArgumentException("Invalid durable submission deferral");
+        }
+    }
 
     record Caller(String tenantId, String subject, long authVersion) {}
 
@@ -103,6 +122,19 @@ public interface CampaignRunStore {
     Optional<ChildRecord> child(RunToken token, String childId);
 
     DispatchPermit beginDispatch(RunToken token, String childId);
+
+    /**
+     * Trusted protocol adapter only: persist an explicit admitted=false capacity receipt for the
+     * exact fresh ASYNC attempt. A timeout, missing receipt or failed recovery is never this proof.
+     * Preserves the original request identity and the live callback until its actual exit.
+     */
+    void deferUnadmitted(DispatchPermit permit, CapacityKind kind);
+
+    /** Returns the validated receipt only while the child is PREPARED because of non-admission. */
+    Optional<SubmissionDeferral> submissionDeferral(RunToken token, String childId);
+
+    /** Advisory due check; beginDispatch also enforces the persisted deadline under the run lock. */
+    boolean submissionDue(RunToken token, String childId);
 
     /** ASYNC only; permits recovery/status/page reads, never a fresh submission. */
     DispatchPermit beginReconciliation(RunToken token, String childId);

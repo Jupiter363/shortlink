@@ -14,6 +14,7 @@ import java.util.function.Supplier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -27,19 +28,28 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final Limits limits;
+    private final SubmissionBackoff submissionBackoff;
 
     public JdbcCampaignRunStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock) {
         this(jdbc, transactions, clock, Limits.defaults());
     }
 
     public JdbcCampaignRunStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock, Limits limits) {
+        this(jdbc, transactions, clock, limits, SubmissionBackoff.defaults());
+    }
+
+    public JdbcCampaignRunStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock, Limits limits,
+                                SubmissionBackoff submissionBackoff) {
         this.jdbc = Objects.requireNonNull(jdbc);
         this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock);
         this.limits = Objects.requireNonNull(limits);
+        this.submissionBackoff = Objects.requireNonNull(submissionBackoff);
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
-                || manager.getDataSource() != jdbc.getDataSource())
-            throw new IllegalArgumentException("Ledger JDBC and transaction manager must share one DataSource");
+                || manager.getDataSource() != jdbc.getDataSource()
+                || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
+                || transactions.isReadOnly())
+            throw new IllegalArgumentException("Ledger requires one writable REQUIRED DataSource transaction");
     }
 
     @Override
@@ -173,6 +183,67 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return begin(token, childId, DispatchPurpose.FRESH);
     }
 
+    @Override
+    public void deferUnadmitted(DispatchPermit permit, CapacityKind kind) {
+        Objects.requireNonNull(permit, "Dispatch permit is required");
+        Objects.requireNonNull(kind, "Validated capacity kind is required");
+        if (permit.purpose() != DispatchPurpose.FRESH) conflict("DEFERRAL_REQUIRES_FRESH_ASYNC_ATTEMPT");
+        transaction(() -> {
+            RunToken token = permit.token();
+            lockRun(token, true);
+            ChildRecord child = requireAttempt(permit);
+            if (child.spec().mode() != ChildMode.ASYNC || child.jobId() != null || child.artifactId() != null)
+                conflict("DEFERRAL_REQUIRES_FRESH_ASYNC_ATTEMPT");
+            if (isDeferred(child)) {
+                SubmissionDeferral existing = requireDeferral(token, child);
+                if (existing.kind() != kind) conflict("SUBMISSION_DEFERRAL_CHANGED");
+                return null;
+            }
+            if (child.state() != ChildState.DISPATCHING || !child.callbackActive())
+                conflict("ATTEMPT_NOT_DISPATCHING");
+            Optional<SubmissionDeferral> previous = findDeferral(token, child);
+            if (previous.isPresent() && previous.get().lastAttemptVersion() >= permit.attemptVersion())
+                conflict("SUBMISSION_DEFERRAL_CORRUPTED");
+            int rejected = previous.map(value -> Math.addExact(value.rejectedAttempts(), 1)).orElse(1);
+            long rejectedAt = now();
+            long retryAt = Math.addExact(rejectedAt, retryDelay(rejected));
+            new SubmissionDeferral(kind, rejected, retryAt, permit.attemptId(), permit.attemptVersion());
+            if (previous.isEmpty()) {
+                jdbc.update("INSERT INTO campaign_submission_deferral (run_id,revision,child_id,request_id,wire_hash,"
+                                + "capacity_kind,rejected_attempts,retry_not_before,last_attempt_id,last_attempt_version,updated_at) "
+                                + "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        token.definition().runId(), token.definition().revision(), permit.childId(), child.spec().requestId(),
+                        child.spec().wire().hash(), kind.name(), rejected, retryAt, permit.attemptId(), permit.attemptVersion(), rejectedAt);
+            } else {
+                jdbc.update("UPDATE campaign_submission_deferral SET capacity_kind=?,rejected_attempts=?,retry_not_before=?,"
+                                + "last_attempt_id=?,last_attempt_version=?,updated_at=? WHERE run_id=? AND revision=? AND child_id=?",
+                        kind.name(), rejected, retryAt, permit.attemptId(), permit.attemptVersion(), rejectedAt,
+                        token.definition().runId(), token.definition().revision(), permit.childId());
+            }
+            jdbc.update("UPDATE campaign_child_ledger SET child_state='PREPARED',unresolved_reason=?,updated_at=? "
+                            + "WHERE run_id=? AND revision=? AND child_id=?",
+                    UnresolvedReason.QUERY_CAPACITY_EXHAUSTED.name(), rejectedAt, token.definition().runId(),
+                    token.definition().revision(), permit.childId());
+            return null;
+        });
+    }
+
+    @Override
+    public Optional<SubmissionDeferral> submissionDeferral(RunToken token, String childId) {
+        id(childId, "childId", 96);
+        return transaction(() -> {
+            lockRun(token, true);
+            ChildRecord child = findChild(token.definition(), childId, true)
+                    .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            return isDeferred(child) ? Optional.of(requireDeferral(token, child)) : Optional.empty();
+        });
+    }
+
+    @Override
+    public boolean submissionDue(RunToken token, String childId) {
+        return submissionDeferral(token, childId).map(value -> value.retryNotBeforeMillis() <= now()).orElse(true);
+    }
+
     @Override public DispatchPermit beginReconciliation(RunToken token, String childId) {
         return begin(token, childId, DispatchPurpose.RECONCILE);
     }
@@ -190,6 +261,9 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                     .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
             if (purpose == DispatchPurpose.FRESH && child.state() != ChildState.PREPARED)
                 conflict("FRESH_DISPATCH_REQUIRES_PREPARED");
+            if (purpose == DispatchPurpose.FRESH && isDeferred(child)
+                    && requireDeferral(token, child).retryNotBeforeMillis() > now())
+                conflict("SUBMISSION_BACKOFF_ACTIVE");
             if (purpose == DispatchPurpose.RECONCILE && (child.spec().mode() != ChildMode.ASYNC
                     || (child.state() != ChildState.WAITING && child.state() != ChildState.UNRESOLVED)))
                 conflict("RECONCILIATION_REQUIRES_ASYNC_WAITING_OR_UNRESOLVED");
@@ -395,6 +469,49 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                 permit.token().version(), permit.token().advanceToken());
         if (matching == null || matching != 1) conflict("ATTEMPT_RUN_TOKEN_MISMATCH");
         return child;
+    }
+
+    private static boolean isDeferred(ChildRecord child) {
+        return child.state() == ChildState.PREPARED && child.reason() == UnresolvedReason.QUERY_CAPACITY_EXHAUSTED;
+    }
+
+    private SubmissionDeferral requireDeferral(RunToken token, ChildRecord child) {
+        if (child.spec().mode() != ChildMode.ASYNC || child.purpose() != DispatchPurpose.FRESH
+                || child.jobId() != null || child.artifactId() != null)
+            conflict("SUBMISSION_DEFERRAL_CORRUPTED");
+        SubmissionDeferral proof = findDeferral(token, child)
+                .orElseThrow(() -> new IllegalStateException("SUBMISSION_DEFERRAL_MISSING"));
+        if (!proof.lastAttemptId().equals(child.attemptId()) || proof.lastAttemptVersion() != child.attemptVersion())
+            conflict("SUBMISSION_DEFERRAL_CORRUPTED");
+        return proof;
+    }
+
+    private Optional<SubmissionDeferral> findDeferral(RunToken token, ChildRecord child) {
+        return jdbc.query("SELECT request_id,wire_hash,capacity_kind,rejected_attempts,retry_not_before,"
+                        + "last_attempt_id,last_attempt_version FROM campaign_submission_deferral "
+                        + "WHERE run_id=? AND revision=? AND child_id=? FOR UPDATE", (rs, row) -> {
+            if (!child.spec().requestId().equals(rs.getString("request_id"))
+                    || !child.spec().wire().hash().equals(rs.getString("wire_hash")))
+                conflict("SUBMISSION_DEFERRAL_CORRUPTED");
+            try {
+                var proof = new SubmissionDeferral(CapacityKind.valueOf(rs.getString("capacity_kind")),
+                        rs.getInt("rejected_attempts"), rs.getLong("retry_not_before"),
+                        rs.getString("last_attempt_id"), rs.getLong("last_attempt_version"));
+                if (proof.rejectedAttempts() > proof.lastAttemptVersion()) conflict("SUBMISSION_DEFERRAL_CORRUPTED");
+                return proof;
+            } catch (IllegalArgumentException invalid) {
+                throw new IllegalStateException("SUBMISSION_DEFERRAL_CORRUPTED");
+            }
+        }, token.definition().runId(), token.definition().revision(), child.spec().childId()).stream().findFirst();
+    }
+
+    private long retryDelay(int rejectedAttempts) {
+        long delay = submissionBackoff.initialDelayMillis();
+        for (int i = 1; i < rejectedAttempts && delay < submissionBackoff.maxDelayMillis(); i++) {
+            delay = delay > submissionBackoff.maxDelayMillis() / 2
+                    ? submissionBackoff.maxDelayMillis() : delay * 2;
+        }
+        return delay;
     }
 
     private void requireNoCallbacks(String runId) {

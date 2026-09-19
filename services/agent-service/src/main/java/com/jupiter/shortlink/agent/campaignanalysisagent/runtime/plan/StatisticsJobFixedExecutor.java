@@ -119,6 +119,8 @@ public final class StatisticsJobFixedExecutor {
                 } catch (RuntimeException uncertain) {
                     throw new SubmissionUnresolved();
                 }
+                CapacityKind notAdmitted = capacityRejection(response);
+                if (notAdmitted != null) return CampaignStepExecution.ChildResult.notAdmitted(notAdmitted);
                 if (response == null || !response.success() || !(response.data() instanceof Map<?, ?> data)
                         || !(data.get("jobId") instanceof String jobId) || !jobReference(jobId)
                         || !(data.get("state") instanceof String state) || !JOB_STATES.contains(state))
@@ -144,8 +146,19 @@ public final class StatisticsJobFixedExecutor {
             }
             // The child ledger retains READ_RESULT_UNKNOWN / SUBMISSION_UNRESOLVED /
             // JOB_RESULT_UNKNOWN. This step reason lets the existing recovery driver refresh it.
-            case PREPARED, DISPATCHING, UNRESOLVED -> PersistentPlanDriver.Result.blocked("STEP_RESULT_UNKNOWN");
+            case PREPARED -> PersistentPlanDriver.Result.blocked(child.reason() == UnresolvedReason.QUERY_CAPACITY_EXHAUSTED
+                    ? "REMOTE_CAPACITY" : "STEP_RESULT_UNKNOWN");
+            case DISPATCHING, UNRESOLVED -> PersistentPlanDriver.Result.blocked("STEP_RESULT_UNKNOWN");
         };
+    }
+
+    private static CapacityKind capacityRejection(ToolResult response) {
+        if (response == null || response.success() || !(response.data() instanceof Map<?, ?> data)
+                || !Set.of("code", "admitted", "capacityKind").equals(data.keySet())
+                || !"QUERY_CAPACITY_EXHAUSTED".equals(data.get("code")) || !Boolean.FALSE.equals(data.get("admitted"))
+                || !(data.get("capacityKind") instanceof String kind)) return null;
+        try { return CapacityKind.valueOf(kind); }
+        catch (IllegalArgumentException invalid) { return null; }
     }
 
     private Bound bound(PlanSpec.Step step) {
