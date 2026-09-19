@@ -2,6 +2,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignScope;
@@ -80,6 +81,22 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
             requireRun(token);
             Stored stored = required(collectionId, true);
             owned(token, stored);
+            return stored.value();
+        });
+    }
+
+    @Override public Collection verifyContinuation(RunToken token, Definition expected, ArtifactAuthorizer authorizer) {
+        Definition definition = normalize(expected);
+        Objects.requireNonNull(authorizer, "Current artifact authorization is required");
+        return transaction(() -> {
+            requireRun(token);
+            Stored stored = required(definition.collectionId(), true);
+            owned(token, stored);
+            if (!stored.value().definition().equals(definition)) fail("SCOPE_DEFINITION_CHANGED");
+            verifyCollection(stored, authorizer, true, null);
+            // Authorization callbacks must not turn a cancelled/revised writer into a continuation.
+            requireRun(token);
+            requireUnexpired(stored);
             return stored.value();
         });
     }
@@ -171,46 +188,156 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
         });
     }
 
+    @Override public FrozenCampaignScope.Summary inspectPublished(Caller current, String artifactId,
+                                                                 ArtifactAuthorizer authorizer) {
+        Artifact artifact = runs.readArtifact(current, artifactId, authorizer);
+        return transaction(() -> {
+            Published verified = verifyPublished(current, artifact, authorizer);
+            recheckPublished(current, artifact, verified.stored(), authorizer);
+            return verified.summary();
+        });
+    }
+
     @Override public FrozenQueryScope shard(Caller current, String artifactId, int shardIndex, ArtifactAuthorizer authorizer) {
         if (shardIndex < 0) throw new IllegalArgumentException("SCOPE_SHARD_UNAVAILABLE");
         Artifact artifact = runs.readArtifact(current, artifactId, authorizer);
-        if (!TYPE.equals(artifact.metadata().ref().type()) || !SCHEMA.equals(artifact.metadata().ref().schemaVersion()))
-            fail("SCOPE_ARTIFACT_CONTRACT_MISMATCH");
-        FrozenQueryScope result = transaction(() -> {
-            // Match mutation lock order even when reading an artifact from a completed/cancelled run.
-            List<String> lockedRun = jdbc.queryForList("SELECT run_id FROM campaign_run_ledger WHERE run_id=? AND revision=? FOR UPDATE",
-                    String.class, artifact.metadata().runId(), artifact.metadata().revision());
-            if (lockedRun.size() != 1) fail("RUN_NOT_FOUND");
-            List<String> ids = jdbc.queryForList("SELECT collection_id FROM campaign_scope_collection WHERE artifact_id=?",
-                    String.class, artifactId);
-            if (ids.size() != 1) fail("SCOPE_ARTIFACT_NOT_PUBLISHED");
-            Stored stored = required(ids.get(0), true);
-            Collection collection = stored.value();
-            ArtifactMetadata metadata = artifact.metadata();
-            if (collection.state() != State.PUBLISHED || !current.equals(stored.owner())
-                    || !metadata.runId().equals(stored.runId()) || metadata.revision() != stored.revision()
-                    || !metadata.actionId().equals(collection.definition().action().actionId())
-                    || !metadata.executorVersion().equals(collection.definition().action().executorVersion())
-                    || !scopeArtifact(collection.definition().collectionId()).equals(artifactId)
-                    || !metadata.ref().expiresAt().equals(collection.definition().expiresAt())
-                    || !PERIODS.equals(metadata.ref().periodsRef())) fail("SCOPE_ARTIFACT_BINDING_INVALID");
-            if (!clock.instant().isBefore(collection.definition().expiresAt())) fail("SCOPE_COLLECTION_EXPIRED");
-            FrozenCampaignScope.Summary summary = summarize(stored, true);
-            if (!manifest(stored, summary).equals(artifact.payloadJson())
-                    || !summary.scopeRef().equals(metadata.ref().scopeRef())) fail("SCOPE_ARTIFACT_CORRUPTED");
-            if (!metadata.childId().equals(readPage(stored, collection.pageCount() - 1, true).childId()))
-                fail("SCOPE_ARTIFACT_BINDING_INVALID");
+        return transaction(() -> {
+            Published verified = verifyPublished(current, artifact, authorizer);
+            Stored stored = verified.stored();
+            FrozenCampaignScope.Summary summary = verified.summary();
             if (summary.memberCount() == 0 || shardIndex >= summary.shardCount())
                 throw new IllegalArgumentException("SCOPE_SHARD_UNAVAILABLE");
             List<Long> members = readPage(stored, shardIndex, true).page().linkIds();
             String memberHash = FrozenQueryScope.memberHash(members);
+            recheckPublished(current, artifact, stored, authorizer);
             return new FrozenQueryScope(FrozenQueryScope.SCHEMA, "FROZEN_SET", summary.scopeRef(), summary.memberHash(),
                     summary.memberCount(), summary.enumerationVersion(),
                     FrozenQueryScope.shardIdFor(summary.scopeRef(), shardIndex, memberHash), shardIndex,
                     summary.shardCount(), memberHash, members);
         });
-        runs.inspectArtifact(current, artifactId, authorizer);
-        return result;
+    }
+
+    /** Caller holds the source run before collection locks, even for artifacts from a completed run. */
+    private Published verifyPublished(Caller current, Artifact artifact, ArtifactAuthorizer authorizer) {
+        ArtifactMetadata metadata = artifact.metadata();
+        String artifactId = metadata.ref().artifactId();
+        if (!TYPE.equals(metadata.ref().type()) || !SCHEMA.equals(metadata.ref().schemaVersion()))
+            fail("SCOPE_ARTIFACT_CONTRACT_MISMATCH");
+        List<String> lockedRun = jdbc.queryForList("SELECT run_id FROM campaign_run_ledger WHERE run_id=? AND revision=? FOR UPDATE",
+                String.class, metadata.runId(), metadata.revision());
+        if (lockedRun.size() != 1) fail("RUN_NOT_FOUND");
+        List<String> ids = jdbc.queryForList("SELECT collection_id FROM campaign_scope_collection WHERE artifact_id=?",
+                String.class, artifactId);
+        if (ids.size() != 1) fail("SCOPE_ARTIFACT_NOT_PUBLISHED");
+        Stored stored = required(ids.get(0), true);
+        if (stored.value().state() != State.PUBLISHED || !current.equals(stored.owner())
+                || !scopeArtifact(stored.value().definition().collectionId()).equals(artifactId))
+            fail("SCOPE_ARTIFACT_BINDING_INVALID");
+        FrozenCampaignScope.Summary summary = verifyCollection(stored, authorizer, false, metadata);
+        if (!sameJson(manifest(stored, summary), artifact.payloadJson())
+                || !summary.scopeRef().equals(metadata.ref().scopeRef())) fail("SCOPE_ARTIFACT_CORRUPTED");
+        return new Published(stored, summary);
+    }
+
+    private void recheckPublished(Caller current, Artifact artifact, Stored stored, ArtifactAuthorizer authorizer) {
+        if (!artifact.metadata().equals(runs.inspectArtifact(current, artifact.metadata().ref().artifactId(), authorizer)))
+            fail("SCOPE_ARTIFACT_BINDING_INVALID");
+        requireUnexpired(stored); // inspectArtifact checks expiry before invoking the authorization callback.
+    }
+
+    /** Read one page at a time; neither a partial prefix nor a header alone proves its durable receipts. */
+    private FrozenCampaignScope.Summary verifyCollection(Stored stored, ArtifactAuthorizer authorizer, boolean requireIdle,
+                                                          ArtifactMetadata publishedGrant) {
+        Collection collection = stored.value();
+        if (collection.state() == State.INVALID || collection.pageCount() < 1 || collection.failureCode() != null
+                || (collection.state() == State.COLLECTING && collection.artifactId() != null))
+            fail("SCOPE_COLLECTION_NOT_CONTINUABLE");
+        requireUnexpired(stored);
+        Long count = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_scope_page WHERE collection_id=?",
+                Long.class, collection.definition().collectionId());
+        if (count == null || count != collection.pageCount()) fail("SCOPE_PAGE_COUNT_MISMATCH");
+        Long after = null;
+        long members = 0, previousId = 0;
+        Page last = null;
+        for (int ordinal = 0; ordinal < collection.pageCount(); ordinal++) {
+            Page saved = readPage(stored, ordinal, true);
+            GroupMembersPage page = saved.page();
+            GroupMembersPage.Request request = saved.request();
+            if (requireIdle && saved.callbackActive()) fail("CALLBACK_STILL_ACTIVE");
+            if (!Objects.equals(after, request.afterLinkId())
+                    || !Objects.equals(ordinal == 0 ? null : collection.enumerationVersion(), request.ownershipVersion())
+                    || !collection.enumerationVersion().equals(page.ownershipVersion())) fail("SCOPE_PAGE_NOT_CONTIGUOUS");
+            page.requireMatches(request, stored.owner().tenantId(), stored.owner().subject(), stored.owner().authVersion());
+            for (long member : page.linkIds()) {
+                if (member <= previousId) fail("SCOPE_PAGE_NOT_CONTIGUOUS");
+                previousId = member;
+            }
+            members = Math.addExact(members, page.linkIds().size());
+            boolean terminal = page.nextCursor() == null;
+            if (terminal != (collection.state() == State.PUBLISHED && ordinal == collection.pageCount() - 1))
+                fail("SCOPE_PAGE_NOT_CONTIGUOUS");
+            if (!terminal) verifyPageArtifact(stored, ordinal, saved, null, authorizer, publishedGrant);
+            after = page.nextCursor();
+            last = saved;
+        }
+        if (members != collection.memberCount() || !Objects.equals(after, collection.nextCursor()))
+            fail("SCOPE_SUMMARY_MISMATCH");
+        FrozenCampaignScope.Summary summary = null;
+        if (collection.state() == State.PUBLISHED) {
+            summary = summarize(stored, true);
+            verifyPageArtifact(stored, collection.pageCount() - 1, Objects.requireNonNull(last), summary, authorizer, publishedGrant);
+        }
+        requireUnexpired(stored);
+        return summary;
+    }
+
+    private void verifyPageArtifact(Stored stored, int ordinal, Page page, FrozenCampaignScope.Summary summary,
+                                    ArtifactAuthorizer authorizer, ArtifactMetadata publishedGrant) {
+        String collectionId = stored.value().definition().collectionId();
+        boolean terminal = page.page().nextCursor() == null;
+        String artifactId = terminal ? scopeArtifact(collectionId) : pageArtifact(collectionId, ordinal);
+        ArtifactAuthorizer pageAuthorizer = authorizer;
+        if (publishedGrant != null && !terminal) {
+            // The published final grant covers its bounded source pages. It never grants access to
+            // a different collection, source child or owner, and is reauthorized for every page.
+            pageAuthorizer = (caller, candidate) -> {
+                if (!stored.owner().equals(caller)) return false;
+                verifyPageMetadata(stored, ordinal, page, summary, candidate);
+                if (!publishedGrant.equals(runs.inspectArtifact(caller, publishedGrant.ref().artifactId(), authorizer)))
+                    fail("SCOPE_ARTIFACT_BINDING_INVALID");
+                requireUnexpired(stored);
+                return true;
+            };
+        }
+        Artifact artifact = runs.readArtifact(stored.owner(), artifactId, pageAuthorizer);
+        verifyPageMetadata(stored, ordinal, page, summary, artifact.metadata());
+        String expected = terminal ? manifest(stored, summary) : encode(Map.of("schemaVersion", "campaign-scope-page-ref/v1",
+                "collectionId", collectionId, "pageIndex", ordinal, "payloadHash", page.hash()), PAGE_BYTES);
+        if (!sameJson(expected, artifact.payloadJson())) fail("SCOPE_ARTIFACT_CORRUPTED");
+        requireUnexpired(stored);
+    }
+
+    private void verifyPageMetadata(Stored stored, int ordinal, Page page, FrozenCampaignScope.Summary summary,
+                                    ArtifactMetadata metadata) {
+        String collectionId = stored.value().definition().collectionId();
+        boolean terminal = page.page().nextCursor() == null;
+        String artifactId = terminal ? scopeArtifact(collectionId) : pageArtifact(collectionId, ordinal);
+        ArtifactRef ref = metadata.ref();
+        if (!stored.owner().equals(metadata.owner()) || !stored.runId().equals(metadata.runId())
+                || !stored.planId().equals(metadata.planId()) || stored.revision() != metadata.revision()
+                || !stored.value().definition().action().actionId().equals(metadata.actionId())
+                || !stored.value().definition().action().executorVersion().equals(metadata.executorVersion())
+                || !page.childId().equals(metadata.childId()) || !artifactId.equals(ref.artifactId())
+                || !(terminal ? TYPE : "ScopePageRef").equals(ref.type())
+                || !(terminal ? SCHEMA : "campaign-scope-page-ref/v1").equals(ref.schemaVersion())
+                || !(terminal ? Objects.requireNonNull(summary).scopeRef() : collectionRef(collectionId)).equals(ref.scopeRef())
+                || !PERIODS.equals(ref.periodsRef()) || !stored.value().definition().expiresAt().equals(ref.expiresAt())
+                || !sameJson(quality(terminal), metadata.qualityJson())
+                || !sameJson(provenance(stored), metadata.provenanceJson())) fail("SCOPE_ARTIFACT_BINDING_INVALID");
+    }
+
+    private void requireUnexpired(Stored stored) {
+        if (!clock.instant().isBefore(stored.value().definition().expiresAt())) fail("SCOPE_COLLECTION_EXPIRED");
     }
 
     private Collection invalidateStored(Stored stored, String code) {
@@ -244,7 +371,8 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
 
     private Page readPage(Stored stored, int ordinal, boolean published) {
         var rows = jdbc.query("SELECT p.payload_json,p.payload_hash,p.wire_hash,p.row_count,p.child_id,c.action_id,"
-                        + "c.wire_hash AS child_wire_hash,c.child_state,c.artifact_id FROM campaign_scope_page p "
+                        + "c.wire_hash AS child_wire_hash,c.wire_method,c.wire_path,c.wire_body,c.child_mode,c.tenant_id,"
+                        + "c.job_id,c.callback_active,c.child_state,c.artifact_id FROM campaign_scope_page p "
                         + "JOIN campaign_child_ledger c ON c.run_id=p.run_id AND c.revision=p.revision AND c.child_id=p.child_id "
                         + "WHERE p.collection_id=? AND p.run_id=? AND p.revision=? AND p.page_index=?", (rs, row) -> {
             String body = rs.getString("payload_json");
@@ -252,17 +380,28 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
             String hash = CampaignRunStore.sha256(body);
             if (!hash.equals(rs.getString("payload_hash")) || !rs.getString("wire_hash").equals(rs.getString("child_wire_hash"))
                     || !stored.value().definition().action().actionId().equals(rs.getString("action_id"))) fail("SCOPE_PAGE_CORRUPTED");
+            if (!"SYNC".equals(rs.getString("child_mode")) || rs.getString("job_id") != null
+                    || !stored.owner().tenantId().equals(rs.getString("tenant_id"))) fail("SCOPE_CHILD_BINDING_INVALID");
+            String method = rs.getString("wire_method"), path = rs.getString("wire_path"), bodyJson = rs.getString("wire_body");
+            if (method == null || path == null || bodyJson == null) fail("SCOPE_CHILD_BINDING_INVALID");
+            bytes(bodyJson, Limits.defaults().requestBytes());
+            WireRequest wire = new WireRequest(method, path, bodyJson);
+            if (!wire.hash().equals(rs.getString("child_wire_hash"))) fail("SCOPE_PAGE_CORRUPTED");
+            GroupMembersPage.Request original = request(wire);
             GroupMembersPage page = decode(body, GroupMembersPage.class, PAGE_BYTES);
             if (page.linkIds().size() != rs.getInt("row_count") || !stored.owner().tenantId().equals(page.tenantId())
                     || !stored.owner().subject().equals(page.subjectId()) || stored.owner().authVersion() != page.authVersion()
                     || !stored.value().definition().gid().equals(page.gid())) fail("SCOPE_PAGE_CORRUPTED");
+            if (!stored.value().definition().gid().equals(original.gid())) fail("SCOPE_CHILD_BINDING_INVALID");
+            page.requireMatches(original, stored.owner().tenantId(), stored.owner().subject(), stored.owner().authVersion());
             if (published || ordinal < stored.value().pageCount() - 1) {
                 String artifactId = page.nextCursor() == null ? stored.value().artifactId()
                         : pageArtifact(stored.value().definition().collectionId(), ordinal);
                 if (!"READY".equals(rs.getString("child_state")) || !Objects.equals(artifactId, rs.getString("artifact_id")))
                     fail("SCOPE_PAGE_RECEIPT_MISSING");
             }
-            return new Page(page, hash, rs.getString("wire_hash"), rs.getString("child_id"));
+            return new Page(page, hash, rs.getString("wire_hash"), rs.getString("child_id"), original,
+                    rs.getBoolean("callback_active"));
         }, stored.value().definition().collectionId(), stored.runId(), stored.revision(), ordinal);
         if (rows.size() != 1) fail("SCOPE_PAGE_MISSING");
         return rows.get(0);
@@ -304,7 +443,7 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
 
     private Optional<Stored> find(String collectionId, boolean lock) {
         return jdbc.query("SELECT s.*,a.step_id,a.executor_kind,a.executor_name,a.executor_version,a.definition_json AS action_json,"
-                        + "a.definition_hash AS action_hash,r.tenant_id,r.subject_name,r.auth_version FROM campaign_scope_collection s "
+                        + "a.definition_hash AS action_hash,r.tenant_id,r.subject_name,r.auth_version,r.plan_id AS run_plan_id FROM campaign_scope_collection s "
                         + "JOIN campaign_action_ledger a ON a.run_id=s.run_id AND a.revision=s.revision AND a.action_id=s.action_id "
                         + "JOIN campaign_run_ledger r ON r.run_id=s.run_id AND r.revision=s.revision WHERE s.collection_id=?"
                         + (lock ? " FOR UPDATE" : ""), (rs, row) -> {
@@ -321,7 +460,7 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
                     rs.getString("enumeration_version"), cursor, rs.getInt("page_count"), rs.getLong("member_count"),
                     rs.getString("artifact_id"), rs.getString("failure_code"));
             validateHeader(value);
-            return new Stored(value, rs.getString("run_id"), rs.getInt("revision"),
+            return new Stored(value, rs.getString("run_id"), rs.getInt("revision"), rs.getString("run_plan_id"),
                     new Caller(rs.getString("tenant_id"), rs.getString("subject_name"), rs.getLong("auth_version")));
         }, collectionId).stream().findFirst();
     }
@@ -399,6 +538,9 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
         try { return JSON.readValue(value, type); }
         catch (java.io.IOException invalid) { throw new IllegalStateException("SCOPE_JSON_INVALID"); }
     }
+    private static boolean sameJson(String expected, String actual) {
+        return decode(expected, JsonNode.class, PAGE_BYTES).equals(decode(actual, JsonNode.class, PAGE_BYTES));
+    }
     private static void bytes(String value, int limit) {
         if (value == null) fail("SCOPE_JSON_MISSING");
         long bytes = 0;
@@ -413,6 +555,8 @@ public final class JdbcCampaignScopeStore implements CampaignScopeStore {
     }
     private <T> T transaction(Supplier<T> work) { return transactions.execute(status -> work.get()); }
     private static void fail(String code) { throw new IllegalStateException(code); }
-    private record Stored(Collection value, String runId, int revision, Caller owner) {}
-    private record Page(GroupMembersPage page, String hash, String wireHash, String childId) {}
+    private record Stored(Collection value, String runId, int revision, String planId, Caller owner) {}
+    private record Page(GroupMembersPage page, String hash, String wireHash, String childId,
+                        GroupMembersPage.Request request, boolean callbackActive) {}
+    private record Published(Stored stored, FrozenCampaignScope.Summary summary) {}
 }

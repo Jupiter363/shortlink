@@ -11,6 +11,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ChildState;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.UnresolvedReason;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.Approval;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenScopeCollection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -328,6 +329,45 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
             for (String dependency : step.spec().dependsOn()) {
                 if (requireStep(token, dependency).record().status() != StepStatus.SUCCEEDED) return step;
             }
+            jdbc.update("UPDATE campaign_step_ledger SET step_status='READY',reason=NULL,row_version=row_version+1,updated_at=? "
+                            + "WHERE run_id=? AND revision=? AND step_id=?",
+                    now(), token.definition().runId(), token.definition().revision(), stepId);
+            return requireStep(token, stepId).record();
+        });
+    }
+
+    @Override
+    public StepRecord refreshScopeCollection(RunToken token, String stepId, CampaignScopeStore.Definition expected,
+                                             ArtifactAuthorizer authorizer) {
+        id(stepId, 96);
+        Objects.requireNonNull(expected);
+        Objects.requireNonNull(authorizer);
+        return transaction(() -> {
+            requireRun(token, true);
+            StepRecord step = requireStep(token, stepId).record();
+            if (step.status() != StepStatus.BLOCKED || !"SCOPE_COLLECTION_PROGRESS".equals(step.reason())) return step;
+            if (hasCallbacks(token.definition().runId())) return step;
+            var bound = FrozenScopeCollection.resolve(token.definition()).get(stepId);
+            if (bound == null || !expected.equals(bound.definition())
+                    || !step.spec().definitionJson().equals(expected.action().definitionJson()))
+                fail("SCOPE_STEP_BINDING_INVALID");
+            List<ChildReceipt> children = childReceipts(token, stepId);
+            if (children.isEmpty()) return step;
+            for (ChildReceipt receipt : children) {
+                var child = runs.child(token, receipt.childId()).orElseThrow();
+                if (child.callbackActive() || child.state() != ChildState.READY) return step;
+                if (child.spec().mode() != ChildMode.SYNC || child.jobId() != null
+                        || !child.spec().actionId().equals(expected.action().actionId()))
+                    fail("SCOPE_CHILD_BINDING_INVALID");
+            }
+            for (String dependency : step.spec().dependsOn()) {
+                if (requireStep(token, dependency).record().status() != StepStatus.SUCCEEDED) return step;
+            }
+            // The verifier is created against this exact transaction/DataSource. No external I/O or
+            // caller-supplied receipt may turn an incomplete prefix into a dispatch permission.
+            var collection = new JdbcCampaignScopeStore(jdbc, transactions, clock, runs)
+                    .verifyContinuation(token, expected, authorizer);
+            if (collection.pageCount() != children.size()) fail("SCOPE_CHILD_COUNT_MISMATCH");
             jdbc.update("UPDATE campaign_step_ledger SET step_status='READY',reason=NULL,row_version=row_version+1,updated_at=? "
                             + "WHERE run_id=? AND revision=? AND step_id=?",
                     now(), token.definition().runId(), token.definition().revision(), stepId);
