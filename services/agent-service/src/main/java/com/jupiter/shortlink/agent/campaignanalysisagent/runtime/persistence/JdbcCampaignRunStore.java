@@ -177,6 +177,10 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return begin(token, childId, DispatchPurpose.RECONCILE);
     }
 
+    @Override public DispatchPermit beginRelease(RunToken token, String childId) {
+        return begin(token, childId, DispatchPurpose.RELEASE);
+    }
+
     private DispatchPermit begin(RunToken token, String childId, DispatchPurpose purpose) {
         id(childId, "childId", 96);
         return transaction(() -> {
@@ -189,10 +193,15 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             if (purpose == DispatchPurpose.RECONCILE && (child.spec().mode() != ChildMode.ASYNC
                     || (child.state() != ChildState.WAITING && child.state() != ChildState.UNRESOLVED)))
                 conflict("RECONCILIATION_REQUIRES_ASYNC_WAITING_OR_UNRESOLVED");
+            if (purpose == DispatchPurpose.RELEASE && (child.spec().mode() != ChildMode.ASYNC
+                    || child.state() != ChildState.READY || child.jobId() == null || child.artifactId() == null))
+                conflict("RELEASE_REQUIRES_ASYNC_READY_RESULT");
             var permit = new DispatchPermit(token, childId, freshId(), Math.addExact(child.attemptVersion(), 1), purpose);
-            jdbc.update("UPDATE campaign_child_ledger SET child_state='DISPATCHING',attempt_id=?,attempt_version=?,"
+            String resultTransition = purpose == DispatchPurpose.RELEASE ? ""
+                    : "child_state='DISPATCHING',unresolved_reason=NULL,";
+            jdbc.update("UPDATE campaign_child_ledger SET " + resultTransition + "attempt_id=?,attempt_version=?,"
                             + "attempt_purpose=?,dispatch_run_version=?,dispatch_run_token=?,callback_active=TRUE,"
-                            + "unresolved_reason=NULL,updated_at=? WHERE run_id=? AND revision=? AND child_id=?",
+                            + "updated_at=? WHERE run_id=? AND revision=? AND child_id=?",
                     permit.attemptId(), permit.attemptVersion(), purpose.name(), token.version(), token.advanceToken(),
                     now(), token.definition().runId(), token.definition().revision(), childId);
             return permit;
@@ -205,7 +214,8 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
             try {
                 lockRun(permit.token(), true);
                 ChildRecord child = requireAttempt(permit);
-                return child.state() == ChildState.DISPATCHING && child.callbackActive();
+                ChildState expected = permit.purpose() == DispatchPurpose.RELEASE ? ChildState.READY : ChildState.DISPATCHING;
+                return child.state() == expected && child.callbackActive();
             } catch (IllegalStateException | SecurityException denied) {
                 return false;
             }
@@ -214,6 +224,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     @Override
     public void recordWaiting(DispatchPermit permit, String jobId) {
+        requireResultMutationPurpose(permit);
         id(jobId, "jobId", 128);
         transaction(() -> {
             lockRun(permit.token(), true);
@@ -231,6 +242,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     @Override
     public void recordLateJob(DispatchPermit permit, String jobId) {
+        requireResultMutationPurpose(permit);
         id(jobId, "jobId", 128);
         transaction(() -> {
             requireFrozenDefinition(permit.token().definition());
@@ -252,6 +264,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     @Override
     public ArtifactRef publishReady(DispatchPermit permit, ArtifactDraft draft) {
+        requireResultMutationPurpose(permit);
         validateArtifact(draft);
         return transaction(() -> {
             lockRun(permit.token(), true);
@@ -286,6 +299,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     @Override
     public void markUnresolved(DispatchPermit permit) {
+        requireResultMutationPurpose(permit);
         transaction(() -> {
             lockRun(permit.token(), true);
             ChildRecord child = requireAttempt(permit);
@@ -391,6 +405,11 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
 
     private static void requireMatchingJob(ChildRecord child, String jobId) {
         if (child.jobId() != null && !child.jobId().equals(jobId)) conflict("JOB_ID_CONFLICT");
+    }
+
+    private static void requireResultMutationPurpose(DispatchPermit permit) {
+        Objects.requireNonNull(permit, "Dispatch permit is required");
+        if (permit.purpose() == DispatchPurpose.RELEASE) conflict("RELEASE_CANNOT_CHANGE_RESULT");
     }
 
     private void insertRun(RunToken token) {

@@ -31,8 +31,13 @@ public final class CampaignRecoveryCoordinator {
     }
 
     public record Runtime(PersistentPlanDriver driver, NativePlanGraph graph,
-                          Map<String, StatisticsJobResultReceiver.Target> resultTargets) {
+                          Map<String, StatisticsJobResultReceiver.Target> resultTargets,
+                          CampaignRunStore.ArtifactAuthorizer releaseAuthorizer) {
         public Runtime(PersistentPlanDriver driver, NativePlanGraph graph) { this(driver, graph, Map.of()); }
+        public Runtime(PersistentPlanDriver driver, NativePlanGraph graph,
+                       Map<String, StatisticsJobResultReceiver.Target> resultTargets) {
+            this(driver, graph, resultTargets, null);
+        }
         public Runtime {
             Objects.requireNonNull(driver); Objects.requireNonNull(graph);
             resultTargets = Map.copyOf(resultTargets);
@@ -43,10 +48,18 @@ public final class CampaignRecoveryCoordinator {
     public record ResumeResult(Outcome outcome, RunToken token, String reason, int recoveredCallbacks,
                                List<StatisticsSubmissionReconciler.Result> reconciliations,
                                NativePlanGraph.ScanResult scan,
-                               List<StatisticsJobResultReceiver.Result> receivedResults) {
+                               List<StatisticsJobResultReceiver.Result> receivedResults,
+                               List<StatisticsJobResultReleaser.Result> releasedResults) {
+        public ResumeResult(Outcome outcome, RunToken token, String reason, int recoveredCallbacks,
+                            List<StatisticsSubmissionReconciler.Result> reconciliations,
+                            NativePlanGraph.ScanResult scan,
+                            List<StatisticsJobResultReceiver.Result> receivedResults) {
+            this(outcome, token, reason, recoveredCallbacks, reconciliations, scan, receivedResults, List.of());
+        }
         public ResumeResult {
             reconciliations = List.copyOf(reconciliations);
             receivedResults = List.copyOf(receivedResults);
+            releasedResults = List.copyOf(releasedResults);
         }
     }
 
@@ -56,6 +69,7 @@ public final class CampaignRecoveryCoordinator {
     private final RuntimeFactory runtimeFactory;
     private final RunAuthorizer authorizer;
     private final StatisticsJobResultReceiver receiver;
+    private final StatisticsJobResultReleaser releaser;
 
     public CampaignRecoveryCoordinator(CampaignRecoveryStore recovery, CampaignRunStore runs,
             StatisticsSubmissionReconciler submissions, RuntimeFactory runtimeFactory, RunAuthorizer authorizer) {
@@ -65,12 +79,19 @@ public final class CampaignRecoveryCoordinator {
     public CampaignRecoveryCoordinator(CampaignRecoveryStore recovery, CampaignRunStore runs,
             StatisticsSubmissionReconciler submissions, RuntimeFactory runtimeFactory, RunAuthorizer authorizer,
             StatisticsJobResultReceiver receiver) {
+        this(recovery, runs, submissions, runtimeFactory, authorizer, receiver, null);
+    }
+
+    public CampaignRecoveryCoordinator(CampaignRecoveryStore recovery, CampaignRunStore runs,
+            StatisticsSubmissionReconciler submissions, RuntimeFactory runtimeFactory, RunAuthorizer authorizer,
+            StatisticsJobResultReceiver receiver, StatisticsJobResultReleaser releaser) {
         this.recovery = Objects.requireNonNull(recovery);
         this.runs = Objects.requireNonNull(runs);
         this.submissions = Objects.requireNonNull(submissions);
         this.runtimeFactory = Objects.requireNonNull(runtimeFactory);
         this.authorizer = Objects.requireNonNull(authorizer);
         this.receiver = receiver;
+        this.releaser = releaser;
     }
 
     public ResumeResult resume(RunToken expected, AgentPrincipal current) throws Exception {
@@ -89,15 +110,18 @@ public final class CampaignRecoveryCoordinator {
             runtime = Objects.requireNonNull(runtimeFactory.create(token, current));
             if (!runtime.resultTargets().isEmpty() && receiver == null)
                 throw new IllegalArgumentException("Statistics result reception is unavailable");
+            if (runtime.releaseAuthorizer() != null && releaser == null)
+                throw new IllegalArgumentException("Statistics result release is unavailable");
         } catch (IllegalArgumentException | SecurityException unavailable) {
             return result(Outcome.BLOCKED, token, "RECOVERY_RUNTIME_UNAVAILABLE", takeover.recoveredCallbacks(), List.of(), null);
         }
         List<StatisticsSubmissionReconciler.Result> reconciled = new ArrayList<>();
         List<StatisticsJobResultReceiver.Result> received = new ArrayList<>();
+        List<StatisticsJobResultReleaser.Result> released = new ArrayList<>();
         try {
             for (var child : runs.children(token)) {
                 if (!mayAdvance(token, current))
-                    return result(Outcome.STOPPED, token, "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, null, received);
+                    return result(Outcome.STOPPED, token, "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, null, received, released);
                 StatisticsSubmissionReconciler.Result receipt;
                 try {
                     receipt = submissions.recover(token, child.spec().childId(), current, () -> mayAdvance(token, current));
@@ -108,26 +132,33 @@ public final class CampaignRecoveryCoordinator {
                 }
                 reconciled.add(receipt);
                 if (receipt.outcome() == StatisticsSubmissionReconciler.Outcome.STOPPED)
-                    return result(Outcome.STOPPED, token, receipt.code(), takeover.recoveredCallbacks(), reconciled, null, received);
+                    return result(Outcome.STOPPED, token, receipt.code(), takeover.recoveredCallbacks(), reconciled, null, received, released);
                 var target = runtime.resultTargets().get(child.spec().childId());
                 if (target != null && (receipt.outcome() == StatisticsSubmissionReconciler.Outcome.KNOWN_JOB
                         || receipt.outcome() == StatisticsSubmissionReconciler.Outcome.RECOVERED)) {
                     var result = receiver.receive(token, child.spec().childId(), current, target, () -> mayAdvance(token, current));
                     received.add(result);
                     if (result.outcome() == StatisticsJobResultReceiver.Outcome.STOPPED)
-                        return result(Outcome.STOPPED, token, result.code(), takeover.recoveredCallbacks(), reconciled, null, received);
+                        return result(Outcome.STOPPED, token, result.code(), takeover.recoveredCallbacks(), reconciled, null, received, released);
+                }
+                if (runtime.releaseAuthorizer() != null) {
+                    var release = releaser.release(token, child.spec().childId(), current,
+                            runtime.releaseAuthorizer(), () -> mayAdvance(token, current));
+                    released.add(release);
+                    if (release.outcome() == StatisticsJobResultReleaser.Outcome.STOPPED)
+                        return result(Outcome.STOPPED, token, release.code(), takeover.recoveredCallbacks(), reconciled, null, received, released);
                 }
             }
             if (!mayAdvance(token, current))
-                return result(Outcome.STOPPED, token, "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, null, received);
+                return result(Outcome.STOPPED, token, "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, null, received, released);
             // Finding a job ID alone is not READY. Only already-ingested durable receipts can wake a step.
             runtime.driver().refreshWaiting();
             NativePlanGraph.ScanResult scan = runtime.graph().advance();
             return result(scan.scanCompleted() ? Outcome.SCANNED : Outcome.STOPPED, token,
-                    scan.scanCompleted() ? null : "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, scan, received);
+                    scan.scanCompleted() ? null : "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, scan, received, released);
         } catch (Exception interrupted) {
             if (!mayAdvance(token, current))
-                return result(Outcome.STOPPED, token, "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, null, received);
+                return result(Outcome.STOPPED, token, "RECOVERY_AUTHORITY_REVOKED", takeover.recoveredCallbacks(), reconciled, null, received, released);
             throw interrupted;
         }
     }
@@ -155,5 +186,11 @@ public final class CampaignRecoveryCoordinator {
             List<StatisticsSubmissionReconciler.Result> reconciliations, NativePlanGraph.ScanResult scan,
             List<StatisticsJobResultReceiver.Result> received) {
         return new ResumeResult(outcome, token, reason, recovered, reconciliations, scan, received);
+    }
+
+    private static ResumeResult result(Outcome outcome, RunToken token, String reason, int recovered,
+            List<StatisticsSubmissionReconciler.Result> reconciliations, NativePlanGraph.ScanResult scan,
+            List<StatisticsJobResultReceiver.Result> received, List<StatisticsJobResultReleaser.Result> released) {
+        return new ResumeResult(outcome, token, reason, recovered, reconciliations, scan, received, released);
     }
 }

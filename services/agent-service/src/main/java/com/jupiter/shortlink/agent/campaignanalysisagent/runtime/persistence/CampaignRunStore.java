@@ -16,7 +16,7 @@ public interface CampaignRunStore {
     enum RunStatus { ACTIVE, CANCELLED, SUPERSEDED }
     enum ChildMode { SYNC, ASYNC }
     enum ChildState { PREPARED, DISPATCHING, WAITING, READY, UNRESOLVED }
-    enum DispatchPurpose { FRESH, RECONCILE }
+    enum DispatchPurpose { FRESH, RECONCILE, RELEASE }
     enum UnresolvedReason { READ_RESULT_UNKNOWN, SUBMISSION_UNRESOLVED, JOB_RESULT_UNKNOWN }
 
     record Caller(String tenantId, String subject, long authVersion) {}
@@ -106,6 +106,14 @@ public interface CampaignRunStore {
 
     /** ASYNC only; permits recovery/status/page reads, never a fresh submission. */
     DispatchPermit beginReconciliation(RunToken token, String childId);
+
+    /**
+     * Acquire a separate callback attempt for an ASYNC READY result without changing its output.
+     * The trusted caller must first prepare a release intent in the release-binding store and must
+     * check that store's mayRelease together with mayDispatch before every actual I/O. This permit
+     * alone is not authorization to release remote pages or proof that all consumers can read them.
+     */
+    DispatchPermit beginRelease(RunToken token, String childId);
 
     /** Recheck immediately before each actual I/O; cannot revoke a request already on the wire. */
     boolean mayDispatch(DispatchPermit permit);

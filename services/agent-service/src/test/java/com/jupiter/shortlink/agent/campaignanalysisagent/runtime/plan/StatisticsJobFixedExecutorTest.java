@@ -40,6 +40,29 @@ class StatisticsJobFixedExecutorTest {
     private static final String SCHEMA = CampaignStatisticsResultStore.SCHEMA_VERSION;
 
     @Test
+    void coordinatorReleasesPublishedFrozenResultThenContinuesUsingLocalEvidence() throws Exception {
+        Fixture f = new Fixture(1, true, true);
+        f.runtime(f.token).graph().advance();
+        var completed = f.coordinator().resume(f.token, PRINCIPAL);
+        assertEquals(StatisticsJobResultReceiver.Outcome.READY, completed.receivedResults().get(0).outcome());
+        assertEquals(StatisticsJobResultReleaser.Outcome.CONFIRMED, completed.releasedResults().get(0).outcome());
+        assertEquals(2, completed.scan().advancedSteps());
+        assertEquals(1, f.downstream.get());
+        assertEquals(1, f.gateway.releases);
+        var child = f.runs.children(completed.token()).get(0);
+        assertEquals(ChildState.READY, child.state());
+        var evidence = f.runs.readArtifact(OWNER, child.artifactId(), f.artifactAuth());
+        assertTrue(f.results.readPage(OWNER, child.artifactId(), 0, f.artifactAuth()).contains("items"));
+        int calls = f.gateway.calls();
+        var repeat = f.coordinator().resume(completed.token(), PRINCIPAL);
+        assertEquals(StatisticsJobResultReleaser.Outcome.ALREADY_CONFIRMED, repeat.releasedResults().get(0).outcome());
+        assertEquals(0, repeat.scan().advancedSteps());
+        assertEquals(calls, f.gateway.calls());
+        assertEquals(evidence, f.runs.readArtifact(OWNER, child.artifactId(), f.artifactAuth()));
+        f.assertExited();
+    }
+
+    @Test
     void frozenMembersRecoverOnDedicatedPathAndPublishProofWithoutClaimingParentCompleteness() throws Exception {
         Fixture f = new Fixture(501, true);
         f.gateway.loseAck = true;
@@ -163,9 +186,12 @@ class StatisticsJobFixedExecutorTest {
         final Gateway gateway = new Gateway(this);
         final int rows;
         final FrozenQueryScope scope;
+        final boolean releaseEnabled;
         Fixture(int rows) { this(rows, false); }
-        Fixture(int rows, boolean fixedMembers) {
+        Fixture(int rows, boolean fixedMembers) { this(rows, fixedMembers, false); }
+        Fixture(int rows, boolean fixedMembers, boolean releaseEnabled) {
             this.rows = rows;
+            this.releaseEnabled = releaseEnabled;
             String memberHash = FrozenQueryScope.memberHash(List.of(1L, 2L));
             scope = fixedMembers ? new FrozenQueryScope(FrozenQueryScope.SCHEMA, "FROZEN_SET", "scope-g1",
                     memberHash, 2, "a".repeat(64), FrozenQueryScope.shardIdFor("scope-g1", 0, memberHash),
@@ -175,7 +201,8 @@ class StatisticsJobFixedExecutorTest {
             new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919__campaign_run_ledger.sql"),
                     new ClassPathResource("sql/migration/V20260919_2__campaign_step_ledger.sql"),
                     new ClassPathResource("sql/migration/V20260919_3__campaign_run_owner.sql"),
-                    new ClassPathResource("sql/migration/V20260920__campaign_statistics_result.sql")).execute(ds);
+                    new ClassPathResource("sql/migration/V20260920__campaign_statistics_result.sql"),
+                    new ClassPathResource("sql/migration/V20260920_2__campaign_statistics_release.sql")).execute(ds);
             jdbc = new JdbcTemplate(ds); tx = new TransactionTemplate(new DataSourceTransactionManager(ds));
             runs = new JdbcCampaignRunStore(jdbc, tx, CLOCK); steps = new JdbcCampaignStepStore(jdbc, tx, CLOCK);
             results = new JdbcCampaignStatisticsResultStore(jdbc, tx, CLOCK);
@@ -210,7 +237,8 @@ class StatisticsJobFixedExecutorTest {
                     List.of(adapter.registration(), consume), (caller, inputs) -> OWNER.equals(caller) && adapter.authorized(),
                     artifactAuth(), (caller, type, value) -> OWNER.equals(caller) && allowed.get()
                     && (type.equals(FrozenStatisticsJobQuery.SCOPE_TYPE) ? "scope-g1".equals(value) : "period-september".equals(value)));
-            return new CampaignRecoveryCoordinator.Runtime(driver, driver.compile(new MemorySaver()), adapter.resultTargets());
+            return new CampaignRecoveryCoordinator.Runtime(driver, driver.compile(new MemorySaver()), adapter.resultTargets(),
+                    releaseEnabled ? artifactAuth() : null);
         }
         CampaignRecoveryCoordinator coordinator() {
             var process = new ProcessIdentity(UUID.randomUUID().toString(), "test-domain", 1, 1);
@@ -219,7 +247,9 @@ class StatisticsJobFixedExecutorTest {
             return new CampaignRecoveryCoordinator(recovery, runs, new StatisticsSubmissionReconciler(runs, gateway),
                     (run, principal) -> runtime(run),
                     (definition, principal) -> new StatisticsJobFixedExecutor(definition, principal, gateway, this::queryAllowed).authorized(),
-                    new StatisticsJobResultReceiver(runs, results, gateway, CLOCK, 1));
+                    new StatisticsJobResultReceiver(runs, results, gateway, CLOCK, 1),
+                    releaseEnabled ? new StatisticsJobResultReleaser(runs,
+                            new JdbcCampaignStatisticsReleaseStore(jdbc, tx, CLOCK), gateway) : null);
         }
         int count(String table) { return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class); }
         void assertExited() {
@@ -229,12 +259,13 @@ class StatisticsJobFixedExecutorTest {
     }
 
     private static final class Gateway implements ShortLinkBusinessGateway {
-        final Fixture f; int submits; int recoveries; int statuses;
+        final Fixture f; int submits; int recoveries; int statuses; int releases;
+        boolean released;
         final List<Integer> pages = new ArrayList<>();
         Map<String, Object> accepted;
         boolean loseAck, recoveryMissing, revokeDuringPage, cancelDuringSubmit;
         Gateway(Fixture f) { this.f = f; }
-        int calls() { return submits + recoveries + statuses + pages.size(); }
+        int calls() { return submits + recoveries + statuses + releases + pages.size(); }
         public ToolResult get(String path, ToolContext context, Map<String, Object> query) { throw new AssertionError("No legacy GET"); }
         public ToolResult post(String path, ToolContext context, Map<String, Object> query) { throw new AssertionError("No legacy POST"); }
         public ToolResult submitStatisticsJob(ToolContext context, Map<String, Object> request) {
@@ -274,8 +305,25 @@ class StatisticsJobFixedExecutorTest {
         }
         public ToolResult readStatisticsJob(ToolContext context, String job) {
             statuses++; assertEquals("job-original", job);
-            return ToolResult.success(Map.of("jobId", job, "state", "SUCCEEDED", "rowCount", f.rows,
+            return ToolResult.success(status());
+        }
+        public ToolResult releaseStatisticsJobResult(ToolContext context, String job, Map<String, Object> original) {
+            releases++; assertTrue(f.releaseEnabled); assertEquals("job-original", job);
+            assertEquals(FrozenCampaignRun.encode(accepted), FrozenCampaignRun.encode(original));
+            assertEquals(1, f.count("campaign_statistics_release"));
+            assertEquals(ChildState.READY, f.runs.children(f.runs.loadRun(OWNER, "run-1").orElseThrow().token()).get(0).state());
+            released = true;
+            return ToolResult.success(status());
+        }
+        private Map<String, Object> status() {
+            var status = new LinkedHashMap<String, Object>(Map.of("jobId", "job-original", "state", "SUCCEEDED", "rowCount", f.rows,
                     "pageCount", (f.rows + 499) / 500, "expiresAt", CLOCK.millis() + 3_600_000));
+            if (f.releaseEnabled) {
+                status.put("resultState", released ? "RELEASED" : "AVAILABLE");
+                status.put("resultReady", !released);
+                if (released) status.put("resultCode", "RESULT_RELEASED");
+            }
+            return status;
         }
         public ToolResult readStatisticsJobPage(ToolContext context, String job, int index, int size) {
             pages.add(index); assertEquals("job-original", job); assertEquals(500, size);
