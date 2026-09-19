@@ -20,12 +20,24 @@ public record CampaignProgressView(String schemaVersion, String runId, String pl
     /** An inaccessible output's artifact ID, scope and metadata are deliberately absent. */
     public record UnavailableOutput(String stepId, String outputName, String reasonCode) {}
 
+    /** One registered receipt, not complete step coverage. Unavailable counts are null, never zero. */
+    public record ResultReception(Integer receivedPages, Integer totalPages, Long receivedRows,
+                                  Long totalRows, String reasonCode) {}
+
     public record StepProgress(String stepId, List<String> goalIds, StepStatus recordedStatus,
                                WorkState workState, String reasonCode, List<String> blockedBy,
-                               List<AvailableOutput> availableOutputs, List<UnavailableOutput> unavailableOutputs) {
+                               List<AvailableOutput> availableOutputs, List<UnavailableOutput> unavailableOutputs,
+                               List<ResultReception> resultReception) {
+        public StepProgress(String stepId, List<String> goalIds, StepStatus recordedStatus,
+                            WorkState workState, String reasonCode, List<String> blockedBy,
+                            List<AvailableOutput> availableOutputs, List<UnavailableOutput> unavailableOutputs) {
+            this(stepId, goalIds, recordedStatus, workState, reasonCode, blockedBy,
+                    availableOutputs, unavailableOutputs, List.of());
+        }
         public StepProgress {
             goalIds = List.copyOf(goalIds); blockedBy = List.copyOf(blockedBy);
             availableOutputs = List.copyOf(availableOutputs); unavailableOutputs = List.copyOf(unavailableOutputs);
+            resultReception = List.copyOf(resultReception);
         }
     }
 

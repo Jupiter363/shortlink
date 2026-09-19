@@ -5,12 +5,16 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningAssess
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ArtifactAuthorizer;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunDefinition;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunStatus;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepRecord;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepStatus;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignProgressView.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResultProgressReader.ReceiptProgress;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResultProgressReader.ScopeAuthorizer;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,19 +34,41 @@ public final class CampaignProgressService {
     private final CampaignStepStore steps;
     private final CampaignRunStore runs;
     private final ArtifactAuthorizer authorizer;
+    private final CampaignResultProgressReader resultReader;
+    private final ScopeAuthorizer scopeAuthorizer;
+    private final Clock clock;
 
     public CampaignProgressService(CampaignStepStore steps, CampaignRunStore runs, ArtifactAuthorizer authorizer) {
         this.steps = Objects.requireNonNull(steps);
         this.runs = Objects.requireNonNull(runs);
         this.authorizer = Objects.requireNonNull(authorizer);
+        this.resultReader = null;
+        this.scopeAuthorizer = null;
+        this.clock = null;
+    }
+
+    public CampaignProgressService(CampaignStepStore steps, CampaignRunStore runs, ArtifactAuthorizer authorizer,
+            CampaignResultProgressReader reader, ScopeAuthorizer scopeAuthorizer, Clock clock) {
+        this.steps = Objects.requireNonNull(steps);
+        this.runs = Objects.requireNonNull(runs);
+        this.authorizer = Objects.requireNonNull(authorizer);
+        this.resultReader = Objects.requireNonNull(reader);
+        this.scopeAuthorizer = Objects.requireNonNull(scopeAuthorizer);
+        this.clock = Objects.requireNonNull(clock);
     }
 
     public CampaignProgressView read(Caller caller, String runId) {
-        var snapshot = steps.snapshot(caller, runId);
+        var received = resultReader == null ? null : Objects.requireNonNull(resultReader.read(caller, runId));
+        var snapshot = received == null ? steps.snapshot(caller, runId) : received.execution();
         var run = snapshot.run();
+        if (received != null && (!Objects.equals(caller, run.definition().caller())
+                || !Objects.equals(runId, run.definition().runId())))
+            throw new SecurityException("PROGRESS_ACCESS_DENIED");
         var frozen = FrozenCampaignRun.read(run.definition());
         PlanSpec plan = frozen.plan();
         Map<String, StepRecord> records = indexRecords(plan, snapshot.steps());
+        Map<String, List<ResultReception>> receptions = received == null ? Map.of()
+                : receptions(caller, run.definition(), records, received.receipts());
         Map<String, List<PlanningAssessment.Gap>> gaps = goalGaps(plan, frozen.assessment());
         Map<String, StepProgress> projected = new LinkedHashMap<>();
         for (PlanSpec.Step step : plan.steps()) {
@@ -69,7 +95,8 @@ public final class CampaignProgressService {
                 }
             }
             projected.put(step.stepId(), new StepProgress(step.stepId(), step.goalIds(), status,
-                    terminal(run.status(), state), reason(record, state, blockedBy), blockedBy, available, unavailable));
+                    terminal(run.status(), state), reason(record, state, blockedBy), blockedBy, available, unavailable,
+                    receptions.getOrDefault(step.stepId(), List.of())));
         }
         List<GoalProgress> goals = new ArrayList<>();
         for (PlanSpec.Goal goal : plan.goals()) {
@@ -84,6 +111,37 @@ public final class CampaignProgressService {
         return new CampaignProgressView(CampaignProgressView.SCHEMA, plan.runId(), plan.planId(), plan.revision(), run.status(),
                 terminal(run.status(), aggregate(goals.stream().map(GoalProgress::workState).toList(), false)),
                 DeliveryState.NOT_ASSESSED, goals, List.copyOf(projected.values()));
+    }
+
+    private Map<String, List<ResultReception>> receptions(Caller caller, RunDefinition run,
+            Map<String, StepRecord> records, List<ReceiptProgress> receipts) {
+        for (ReceiptProgress receipt : receipts) {
+            if (!records.containsKey(receipt.stepId()) || receipt.scopeRef() == null || receipt.scopeRef().isBlank()
+                    || receipt.periodsRef() == null || receipt.periodsRef().isBlank() || receipt.expiresAtMillis() <= 0
+                    || receipt.receivedPages() < 0 || receipt.totalPages() < 1 || receipt.receivedPages() > receipt.totalPages()
+                    || receipt.receivedRows() < 0 || receipt.totalRows() < 0 || receipt.receivedRows() > receipt.totalRows()) invalid();
+        }
+        Map<String, List<ResultReception>> result = new LinkedHashMap<>();
+        for (ReceiptProgress receipt : receipts)
+            result.computeIfAbsent(receipt.stepId(), ignored -> new ArrayList<>()).add(reception(caller, run, receipt));
+        return result;
+    }
+
+    private ResultReception reception(Caller caller, RunDefinition run, ReceiptProgress receipt) {
+        if (clock.millis() >= receipt.expiresAtMillis()) return unavailableReception("RESULT_EXPIRED");
+        try {
+            if (!scopeAuthorizer.mayRead(caller, run, receipt.scopeRef(), receipt.periodsRef()))
+                return unavailableReception("RESULT_ACCESS_DENIED");
+        } catch (SecurityException denied) {
+            return unavailableReception("RESULT_ACCESS_DENIED");
+        }
+        // Authorization can block while the result's reuse deadline passes.
+        if (clock.millis() >= receipt.expiresAtMillis()) return unavailableReception("RESULT_EXPIRED");
+        return new ResultReception(receipt.receivedPages(), receipt.totalPages(), receipt.receivedRows(), receipt.totalRows(), null);
+    }
+
+    private static ResultReception unavailableReception(String reason) {
+        return new ResultReception(null, null, null, null, reason);
     }
 
     private static WorkState stepState(StepStatus status, List<StepProgress> blockers) {
