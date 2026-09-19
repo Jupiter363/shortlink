@@ -2,6 +2,8 @@
 
 状态：**P0 组件验证完成，P1 实施中，P2–P5 待开始**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行检查与边界见 [首批 P0 验证](../../integration/campaign-plan-p0-2026-09-19.md)及[补充验收](../../integration/campaign-plan-p0-recovery-2026-09-19.md)。后续阶段清单不等于已实现；新入口仍关闭。
 
+P1 分批进度：[独立恢复协议](../../integration/campaign-plan-p1-recovery-2026-09-19.md)已合并；[耐久账本与原生计划扫描](../../integration/campaign-plan-p1-ledger-2026-09-19.md)继续推进。整体 P1 与生产运行入口尚未完成。
+
 关联：[架构方案](../campaign-agent-architecture-2026-09-19.md)、[Graph 适配](graph-adaptation.md)、[合同附件](contracts.md)、[固定计划示例](example-plan.json)、[混合计划示例](example-hybrid-plan.json)、[框架复用清单](framework-reuse.md)、[风险审查](risk-review.md)。
 
 R01–R19 的处理顺序与故障出口已经细化为[风险处理协议](risk-controls.md)。实施按其 G0／G1／G2 门槛提供证据，不以“文档写了防护”判定风险关闭。
