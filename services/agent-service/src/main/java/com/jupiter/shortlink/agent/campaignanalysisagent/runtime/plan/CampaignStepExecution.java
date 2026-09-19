@@ -6,13 +6,22 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepPermit;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.Approval;
 import java.util.Objects;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** Invocation-scoped, serial child boundary for trusted adapters. No gateway or credentials in Graph state. */
 public final class CampaignStepExecution implements AutoCloseable {
     @FunctionalInterface public interface ChildCall { ChildResult call(IoBoundary boundary) throws Exception; }
+    @FunctionalInterface public interface LocalCall { Map<String, ArtifactDraft> compute(LocalBoundary boundary) throws Exception; }
+
+    /** A known calculation/contract rejection must not be re-armed as an unknown result. */
+    public static final class LocalResultInvalid extends IllegalArgumentException {
+        private LocalResultInvalid(IllegalArgumentException cause) { super("LOCAL_RESULT_INVALID", cause); }
+    }
 
     public record ChildResult(String jobId, ArtifactDraft artifact, CapacityKind capacityKind) {
         public ChildResult(String jobId, ArtifactDraft artifact) { this(jobId, artifact, null); }
@@ -36,6 +45,29 @@ public final class CampaignStepExecution implements AutoCloseable {
         public void beforeIo() {
             requireCurrent();
             if (!runs.mayDispatch(dispatch)) throw new SecurityException("CHILD_EXECUTION_FENCED");
+        }
+    }
+
+    /** Registered pure calculations can read only their exact frozen local Artifact inputs here. */
+    public final class LocalBoundary {
+        private final DispatchPermit dispatch;
+        private final Approval approval;
+        private final ArtifactAuthorizer authorizer;
+        private LocalBoundary(DispatchPermit dispatch, Approval approval, ArtifactAuthorizer authorizer) {
+            this.dispatch = dispatch; this.approval = approval; this.authorizer = authorizer;
+        }
+        public void requireCurrent() {
+            CampaignStepExecution.this.requireCurrent();
+            if (!runs.mayDispatch(dispatch)) throw new SecurityException("LOCAL_EXECUTION_FENCED");
+        }
+        public Artifact readInput(String name) {
+            requireCurrent();
+            ArtifactMetadata expected = approval.invocation().inputs().get(name);
+            if (expected == null) throw new IllegalArgumentException("LOCAL_INPUT_NOT_DECLARED");
+            Artifact input = runs.readArtifact(permit.runToken().definition().caller(), expected.ref().artifactId(), authorizer);
+            if (!expected.equals(input.metadata())) throw new IllegalArgumentException("LOCAL_INPUT_CHANGED");
+            requireCurrent();
+            return input;
         }
     }
 
@@ -108,6 +140,50 @@ public final class CampaignStepExecution implements AutoCloseable {
             }
         }
         return runs.child(permit.runToken(), spec.childId()).orElseThrow();
+    }
+
+    /** Exact registered invocation; completed output sets are reused without running the calculation again. */
+    public Map<String, ArtifactRef> local(ChildSpec spec, Approval approval, ArtifactAuthorizer authorizer,
+                                          LocalCall calculation) throws Exception {
+        if (TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("LOCAL_COMPUTE_REQUIRES_COMMITTED_PREPARATION");
+        requireCurrent();
+        Objects.requireNonNull(calculation);
+        Objects.requireNonNull(authorizer);
+        var executor = step.executor();
+        runs.prepareAction(permit.runToken(), new ActionSpec(spec.actionId(), step.stepId(), executor.kind().name(),
+                executor.name(), executor.version(), FrozenCampaignRun.encode(step)));
+        ChildRecord existing = runs.prepareLocalChild(permit.runToken(), spec, approval, authorizer);
+        if (existing.state() == ChildState.READY) {
+            var outputs = runs.localOutputs(permit.runToken(), spec.childId(), authorizer);
+            requireCurrent();
+            return outputs;
+        }
+        if (existing.reason() == UnresolvedReason.LOCAL_RESULT_INVALID)
+            throw new LocalResultInvalid(new IllegalArgumentException("LOCAL_RESULT_INVALID"));
+        DispatchPermit dispatch = existing.state() == ChildState.PREPARED
+                ? runs.beginDispatch(permit.runToken(), spec.childId())
+                : runs.beginLocalReplay(permit.runToken(), spec.childId(), approval, authorizer);
+        boolean saved = false;
+        try {
+            LocalBoundary boundary = new LocalBoundary(dispatch, approval, authorizer);
+            boundary.requireCurrent();
+            Map<String, ArtifactDraft> drafts = Map.copyOf(calculation.compute(boundary));
+            boundary.requireCurrent();
+            runs.publishLocalReady(permit, dispatch, approval, drafts, authorizer);
+            saved = true;
+        } catch (IllegalArgumentException rejected) {
+            if (runs.mayDispatch(dispatch)) {
+                runs.markLocalInvalid(dispatch);
+                saved = true;
+            }
+            throw new LocalResultInvalid(rejected);
+        } finally {
+            try { if (!saved && runs.mayDispatch(dispatch)) runs.markUnresolved(dispatch); }
+            finally { runs.callbackExited(dispatch); }
+        }
+        requireCurrent();
+        return runs.localOutputs(permit.runToken(), spec.childId(), authorizer);
     }
 
     @Override public void close() { closed = true; }

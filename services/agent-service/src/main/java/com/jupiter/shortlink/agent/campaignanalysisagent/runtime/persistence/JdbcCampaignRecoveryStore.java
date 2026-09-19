@@ -163,7 +163,8 @@ public final class JdbcCampaignRecoveryStore implements CampaignRecoveryStore {
         if (callback.kind().equals("CHILD")) {
             if (state.equals("DISPATCHING")) {
                 state = "UNRESOLVED";
-                reason = callback.mode().equals("SYNC") ? "READ_RESULT_UNKNOWN"
+                reason = callback.mode().equals("LOCAL") ? "LOCAL_RESULT_UNKNOWN"
+                        : callback.mode().equals("SYNC") ? "READ_RESULT_UNKNOWN"
                         : callback.jobId() == null ? "SUBMISSION_UNRESOLVED" : "JOB_RESULT_UNKNOWN";
             }
             changed = jdbc.update("UPDATE campaign_child_ledger SET callback_active=FALSE,child_state=?,unresolved_reason=?,updated_at=? "

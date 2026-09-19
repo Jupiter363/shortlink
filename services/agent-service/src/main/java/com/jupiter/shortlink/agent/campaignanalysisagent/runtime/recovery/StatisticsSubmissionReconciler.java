@@ -42,6 +42,9 @@ public final class StatisticsSubmissionReconciler {
         if (child.state() == ChildState.PREPARED) return result(childId, Outcome.NOT_DISPATCHED, null, null);
         if (child.spec().mode() == ChildMode.SYNC)
             return result(childId, Outcome.UNRESOLVED, null, "READ_RESULT_UNKNOWN");
+        if (child.spec().mode() == ChildMode.LOCAL)
+            return result(childId, Outcome.UNRESOLVED, null, child.reason() == null
+                    ? "LOCAL_RESULT_UNKNOWN" : child.reason().name());
         if (child.state() != ChildState.UNRESOLVED || child.callbackActive())
             return result(childId, Outcome.UNRESOLVED, null, "EXECUTION_UNRESOLVED");
 

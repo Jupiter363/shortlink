@@ -142,7 +142,9 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
             if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
             // A fenced writer cannot publish even an error; finally still records its actual callback exit.
             if (steps.mayExecute(permit)) steps.settle(permit, CampaignStepStore.StepStatus.BLOCKED, Map.of(),
-                    exception instanceof SecurityException ? "EXECUTION_ACCESS_DENIED" : failure, artifactAuthorizer);
+                    exception instanceof SecurityException ? "EXECUTION_ACCESS_DENIED"
+                            : exception instanceof CampaignStepExecution.LocalResultInvalid ? "LOCAL_RESULT_INVALID" : failure,
+                    artifactAuthorizer);
         } finally {
             steps.callbackExited(permit);
         }

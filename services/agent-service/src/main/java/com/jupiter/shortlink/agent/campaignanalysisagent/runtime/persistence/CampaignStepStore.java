@@ -4,6 +4,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunRecord;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunToken;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.Approval;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,4 +73,8 @@ public interface CampaignStepStore {
      * PREPARED and all callbacks have exited. Never converts an unknown submission into a retry.
      */
     StepRecord refreshCapacityDeferred(RunToken token, String stepId);
+
+    /** Re-arm only unknown deterministic LOCAL work with fresh server registry approvals and readable frozen inputs. */
+    StepRecord refreshLocalReplay(RunToken token, String stepId, Map<String, Approval> approvals,
+                                  ArtifactAuthorizer authorizer);
 }
