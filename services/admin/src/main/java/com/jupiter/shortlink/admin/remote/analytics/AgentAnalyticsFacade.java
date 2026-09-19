@@ -7,6 +7,7 @@ import com.jupiter.shortlink.admin.common.convention.exception.RemoteException;
 import com.jupiter.shortlink.admin.dto.req.analytics.AnalyticsQueryRequest;
 import com.jupiter.shortlink.admin.dto.resp.analytics.StatsEnvelope;
 import com.jupiter.shortlink.contract.FrozenQueryScope;
+import com.jupiter.shortlink.contract.GroupMembersPage;
 
 import org.springframework.stereotype.Service;
 
@@ -25,6 +26,42 @@ public class AgentAnalyticsFacade {
 
     public Map<String, Object> resolve(String gid, String fullShortUrl, List<Long> linkIds) {
         return resolve(gid, fullShortUrl, linkIds, null, null);
+    }
+
+    /** Enumerate only IDs from one current, version-pinned group; display identities stay upstream. */
+    public GroupMembersPage groupMembersPage(GroupMembersPage.Request request) {
+        String tenant = UserContext.getUserId();
+        String subject = UserContext.getUsername();
+        Long authVersion = UserContext.getAuthVersion();
+        if (tenant == null || subject == null || subject.isBlank() || authVersion == null || authVersion < 0)
+            throw AnalyticsJsonClient.authorityPageFailure("FORBIDDEN");
+        if (request == null || request.gid().length() > 64)
+            throw AnalyticsJsonClient.authorityPageFailure("INVALID_QUERY");
+        JSONObject resolved = client.groupMembersPage(request.asMap());
+        try {
+            if (resolved == null || !tenant.equals(resolved.get("tenantId"))
+                    || !(resolved.get("links") instanceof List<?> links) || links.size() > GroupMembersPage.PAGE_SIZE)
+                throw new IllegalArgumentException("Invalid authority identity");
+            List<Object> ids = new ArrayList<>();
+            for (Object value : links) {
+                if (!(value instanceof Map<?, ?> link) || !request.gid().equals(link.get("gid")))
+                    throw new IllegalArgumentException("Invalid authority member group");
+                ids.add(link.get("linkId"));
+            }
+            Map<String, Object> page = new LinkedHashMap<>();
+            page.put("schemaVersion", GroupMembersPage.SCHEMA);
+            page.put("tenantId", tenant); page.put("subjectId", subject); page.put("authVersion", authVersion);
+            page.put("gid", request.gid()); page.put("ownershipVersion", resolved.get("ownershipVersion"));
+            page.put("afterLinkId", request.afterLinkId()); page.put("linkIds", ids);
+            page.put("nextCursor", resolved.get("nextCursor"));
+            // Shared decoding rejects coerced IDs, duplicates, wrong order and incomplete continuation pages.
+            GroupMembersPage result = GroupMembersPage.fromMap(page);
+            result.requireMatches(request, tenant, subject, authVersion);
+            return result;
+        } catch (IllegalArgumentException invalid) {
+            throw AnalyticsJsonClient.authorityPageFailure("QUERY_SCOPE_CHANGED".equals(invalid.getMessage())
+                    ? "QUERY_SCOPE_CHANGED" : "AUTHORITY_PAGE_PROTOCOL_UNAVAILABLE");
+        }
     }
 
     public Map<String, Object> resolve(

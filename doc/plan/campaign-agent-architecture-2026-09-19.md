@@ -2,7 +2,9 @@
 
 状态：**P0 组件验证完成，P1 实施中，P2 范围合同已开始，P3–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`（PR #61 后）。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，实际完成范围见 [首批 P0 验证](../integration/campaign-plan-p0-2026-09-19.md)与[续接补充验收](../integration/campaign-plan-p0-recovery-2026-09-19.md)；下文是目标架构，不代表全部能力已上线。
 
-P2 前置进度：[冻结成员与范围证明](../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员授权、确定性分片和跨服务专用请求；完整枚举、父集合对账与容量释放仍待完成。全量要求见[完成矩阵](../development/campaign-agent-completion-2026-09-20.md)。
+P2 前置进度：[冻结成员与范围证明](../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员授权、确定性分片和跨服务专用请求；完整枚举、父集合对账与业务组合仍待完成。全量要求见[完成矩阵](../development/campaign-agent-completion-2026-09-20.md)。
+
+[权威成员分页合同](../integration/campaign-plan-p2-authority-pages-2026-09-20.md)复用当前Command游标查询，补齐主体、版本、整数成员与分页约束；实际创建提交/回滚已做H2验证。耐久collector和ScopeArtifact仍在继续实施。
 
 [结果释放与配额分账](../integration/campaign-plan-p2-result-release-2026-09-20.md)已完成远端协议及跨服务可读状态合同；[本地结果证明与释放恢复](../integration/campaign-plan-p2-release-coordination-2026-09-20.md)与[可信退避及九任务续接](../integration/campaign-plan-p2-capacity-continuation-2026-09-20.md)接通可选单生产者固定查询链。生产装配及多消费者采用仍待完成。
 

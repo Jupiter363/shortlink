@@ -43,6 +43,7 @@
 | [E12：远端结果释放与配额分账][E12] | 42 项定向测试首次通过；第9任务、原身份/TTL、恢复零INSERT、页/epoch/清理竞争、容量白名单及跨服务状态。 | 远端协议已验；本地消费者与releaseIntent、自动释放及待提交子项退避尚未接入。 |
 | [E13：本地结果证明与释放恢复][E13] | 12 项定向测试首次通过；全页证明、单 producer 绑定、REQUESTED/CONFIRMED、READY 独立释放 attempt、丢 ACK 和取消晚到事实、原生 Graph 下游本地读取。 | 可选单生产者协调已验；持久容量退避、第9子项自动续接、多消费者 adopt/GC 与生产装配仍待完成。 |
 | [E14：可信退避与九任务续接][E14] | 7 项定向测试首次通过；未受理证明幂等／跨重开退避、混合 pending/READY、中断恢复、严格错误分类；九任务 submit10/job9/page9/release9/recover0，前8项原证据不变。 | 固定查询组件链已验；远端为替身，生产装配、多消费者采用及真实MySQL未由此验收。 |
+| [E15：权威成员分页合同][E15] | 7 项定向测试通过；闭字段/整数/游标/主体、501与空组、跨层错误码；真实Command业务创建的成员与revision提交/回滚一致。 | 可复用权威页边界；不是耐久collector或历史快照，真实MySQL RR并发窗口待验。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -97,7 +98,7 @@
 
 | 要求 | 来源 | 证据 | 当前状态 | 剩余动作 |
 | --- | --- | --- | --- | --- |
-| P2-01：CURRENT_GROUP／FROZEN_SET 不混；可信 FrozenScope 保存主体、来源组、完整 members/hash、枚举证明与授权版本；Graph 仅 scopeRef。 | C §3、§5；R §4.1；R14 | E11 三层固定成员、当前重授权和纯冻结器；新增 C 不纳入、撤 B 拒绝。 | 部分已验 | 耐久权威枚举收集器、业务 scope 引用持久化及生产装配。 |
+| P2-01：CURRENT_GROUP／FROZEN_SET 不混；可信 FrozenScope 保存主体、来源组、完整 members/hash、枚举证明与授权版本；Graph 仅 scopeRef。 | C §3、§5；R §4.1；R14 | E11固定成员/纯冻结器、E15严格权威页与实际成员变更版本验证。 | 部分已验 | 耐久权威枚举收集器、业务 scope 引用持久化及生产装配；旧版本不是历史可重读快照。 |
 | P2-02：>500 成员确定性无重叠分片，各期间同片，scopeProof 区分片／冻结全集／当前全组；并集、唯一性、hash、返回 members 对账。 | R §4.1；C §3；V29 | E11 501→500＋1、两期同片、精确 proof 和返回 members 校验。 | 部分已验 | 全部 shard Artifact 的父集合收集覆盖对账；UV/UIP cohort 仍必须独立去重不能求和。 |
 | P2-03：完整候选＋两期间全页＋逐对象可比或明确原因＋计算完成才 selectionComplete；51/16组合/10页之外的下降对象不能遗漏。 | C §4、§6；R09；V22 | E08 解开单任务 10 页障碍；旧 rank/compare 有界。 | 部分已验 | 持久化跨对象／期间／分片收集 coverage、cursor、代次；过期不接新快照后半页；不完整显式 PARTIAL。 |
 | P2-04：periodsRef 冻结自然日期／时区；query signature 各自 snapshot；可比性 VERIFIED/UNVERIFIED/INCOMPATIBLE，有证据才共同底座。 | R §4.2；C §5、§9.3 | E08/E10 同查询范围日期／版本校验。 | 部分已验 | 同期间跨维度／过滤／回填验证；不同期间 manifest 不要求字面相等；分母、指标定义、观测截止和限制入产物。 |
@@ -302,6 +303,7 @@
 [E12]: ../integration/campaign-plan-p2-result-release-2026-09-20.md
 [E13]: ../integration/campaign-plan-p2-release-coordination-2026-09-20.md
 [E14]: ../integration/campaign-plan-p2-capacity-continuation-2026-09-20.md
+[E15]: ../integration/campaign-plan-p2-authority-pages-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
