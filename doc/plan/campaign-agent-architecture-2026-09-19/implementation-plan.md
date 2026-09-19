@@ -2,7 +2,7 @@
 
 状态：**P0 组件验证完成，P1 实施中，P2–P5 待开始**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行检查与边界见 [首批 P0 验证](../../integration/campaign-plan-p0-2026-09-19.md)及[补充验收](../../integration/campaign-plan-p0-recovery-2026-09-19.md)。后续阶段清单不等于已实现；新入口仍关闭。
 
-P1 分批进度：[独立恢复协议](../../integration/campaign-plan-p1-recovery-2026-09-19.md)、[耐久账本与原生计划扫描](../../integration/campaign-plan-p1-ledger-2026-09-19.md)已合并；[步骤输出与持久化 Graph 驱动](../../integration/campaign-plan-p1-steps-2026-09-19.md)接入冻结输入、具名输出和 FIXED 执行器边界。整体 P1 与生产运行入口尚未完成。
+P1 分批进度：[独立恢复协议](../../integration/campaign-plan-p1-recovery-2026-09-19.md)、[耐久账本与原生计划扫描](../../integration/campaign-plan-p1-ledger-2026-09-19.md)、[步骤输出与持久化 Graph 驱动](../../integration/campaign-plan-p1-steps-2026-09-19.md)已合并；[授权进度与可用结果视图](../../integration/campaign-plan-p1-progress-2026-09-19.md)区分执行进度与交付结论。整体 P1 与生产运行入口尚未完成。
 
 关联：[架构方案](../campaign-agent-architecture-2026-09-19.md)、[Graph 适配](graph-adaptation.md)、[合同附件](contracts.md)、[固定计划示例](example-plan.json)、[混合计划示例](example-hybrid-plan.json)、[框架复用清单](framework-reuse.md)、[风险审查](risk-review.md)。
 
@@ -205,6 +205,6 @@ P1 定义查询快照与报告证据的生命周期，P5 发布前耐久保存�
 - P4 的版本切换与接管验证通过后，才能让运行中的模型请求外层重规划。
 - P5 的目标评估和报告校验通过后，才能对外宣称完整图文报告能力；数据缺口和未知原因必须保留。
 
-当前实施入口为 P0／PR 1：先用后端替身完成原生 ReactAgent 的关键适配验证，明确通过与尚未闭合的门槛，再冻结最小合同。验证仅使用后端测试，不启动应用或 Docker；测试与提交记录见上述 P0 验证文档。
+当前继续完成 P1 的恢复协调与生产接线，再进入 P2 的固定范围与结果容量协议。P0 原生组件验证已经完成；新入口仍受客户端兼容和生产恢复门槛约束。验证仅使用必要的定向后端测试，不启动应用或 Docker；各批实际范围与结果见上述验收记录。
 
 阶段交付需附 `风险编号 → 处理协议条款 → 测试名称 → 关键断言 → 实际结果`。设计、实现和验证状态分别记录；没有运行证据的风险保持待验证。P0 必须覆盖忽略取消的原生 callback 与多 Run 准入；P1 覆盖 Admin 全链恢复和同步子调用；P2 覆盖冻结分片、释放和幂等身份；P5 覆盖发布／清理、历史权限撤销和逐目标实际交付。

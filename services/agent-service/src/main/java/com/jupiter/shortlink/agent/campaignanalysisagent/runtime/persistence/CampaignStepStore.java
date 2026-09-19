@@ -1,6 +1,8 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ArtifactAuthorizer;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunRecord;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunToken;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +28,14 @@ public interface CampaignStepStore {
     }
 
     record StepPermit(RunToken runToken, String stepId, String attemptId, long attemptVersion) {}
+
+    /** Internal read model; full definitions must be projected before exposure through an API. */
+    record ProgressSnapshot(RunRecord run, List<StepRecord> steps) {
+        public ProgressSnapshot { steps = List.copyOf(steps); }
+    }
+
+    /** Latest authorized revision including cancellation; never acquires a writer or loads artifact payloads. */
+    ProgressSnapshot snapshot(Caller caller, String runId);
 
     /** Freeze the complete, nonempty set once per run revision; repeated identical initialization is safe. */
     void initialize(RunToken token, List<StepSpec> steps);
