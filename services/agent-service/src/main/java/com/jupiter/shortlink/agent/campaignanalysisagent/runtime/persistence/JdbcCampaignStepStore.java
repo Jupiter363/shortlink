@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ArtifactAuthorizer;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunToken;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -57,6 +58,29 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
                 || transactions.isReadOnly())
             throw new IllegalArgumentException("Step and run ledgers require one writable REQUIRED DataSource transaction");
         this.runs = new JdbcCampaignRunStore(jdbc, transactions, clock, limits);
+    }
+
+    @Override
+    public ProgressSnapshot snapshot(Caller caller, String runId) {
+        Objects.requireNonNull(caller, "Current caller is required");
+        id(runId, 96);
+        return transaction(() -> {
+            SnapshotRun locked = jdbc.query("SELECT revision,run_status,row_version,advance_token FROM campaign_run_ledger "
+                            + "WHERE run_id=? ORDER BY revision DESC LIMIT 1 FOR UPDATE",
+                    (rs, row) -> new SnapshotRun(rs.getInt("revision"), rs.getString("run_status"),
+                            rs.getLong("row_version"), rs.getString("advance_token")), runId)
+                    .stream().findFirst().orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
+            var run = runs.loadRun(caller, runId).orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
+            // A concurrent revision may have committed while the first locking read was waiting.
+            // Refuse a mixed result; do not turn this read into a polling or writer-acquisition loop.
+            if (run.definition().revision() != locked.revision() || run.version() != locked.version()
+                    || !run.status().name().equals(locked.status()) || !run.advanceToken().equals(locked.advanceToken()))
+                fail("PROGRESS_SNAPSHOT_CHANGED");
+            // Current locking reads also avoid an enclosing REPEATABLE_READ transaction's older step view.
+            var steps = jdbc.query("SELECT * FROM campaign_step_ledger WHERE run_id=? AND revision=? "
+                            + "ORDER BY ordinal_index FOR UPDATE", (rs, row) -> stored(rs).record(), runId, locked.revision());
+            return new ProgressSnapshot(run, steps);
+        });
     }
 
     @Override
@@ -409,4 +433,5 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
                              String definitionHash, String status, long version, String advanceToken) {}
     private record StoredStep(StepRecord record, long attemptVersion, long dispatchRunVersion, String dispatchRunToken) {}
     private record ChildReceipt(String state, String jobId) {}
+    private record SnapshotRun(int revision, String status, long version, String advanceToken) {}
 }
