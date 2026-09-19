@@ -24,8 +24,12 @@ import com.alibaba.cloud.ai.graph.agent.tool.CancellationToken;
 import com.alibaba.cloud.ai.graph.agent.tool.ToolCancelledException;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.state.ReplaceAllWith;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
 import com.jupiter.shortlink.agent.infrastructure.persistence.AgentStateSerializerFactory;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +43,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -47,22 +52,30 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.model.tool.DefaultToolCallingChatOptions;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.metadata.ToolMetadata;
 
 /**
- * P0-only native ReactAgent adapter. Deliberately has no Spring annotation or production entry point.
+ * Opt-in native ReactAgent adapter. Deliberately has no Spring annotation or production entry point.
  * It owns admission/projection boundaries; all model/tool looping remains in ReactAgent 1.1.2.3.
+ * The optional model boundary persists one server-bound turn; it does not make the P0 action ledger durable.
  */
 public final class NativeExplorationAdapter {
     public static final String DISPATCH_SCOPE = NativeExplorationAdapter.class.getName() + ".dispatch";
     public static final String INPUT_KEY = "explorationInput";
     public static final String OUTPUT_KEY = "explorationResult";
     static final String READY_OBSERVATION_KEY = "explorationReadyObservationId";
+    private static final ObjectMapper PUBLIC_JSON = JsonMapper.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
 
     public record ExecutionKey(String tenantId, String subject, long authVersion, String sessionId, String runId,
                                String planId, int revision, String stepId, String policyVersion,
@@ -146,15 +159,25 @@ public final class NativeExplorationAdapter {
     private final ExplorationLedger ledger;
     private final Limits limits;
     private final ReactAgent agent;
+    private final ModelCallBoundary modelCallBoundary;
+    private final List<ToolCallback> registeredCallbacks;
+    private final AtomicBoolean modelBoundaryFailed = new AtomicBoolean();
     private final ThreadLocal<String> acceptedToolCall = new ThreadLocal<>();
     private final Set<String> registeredNames;
     private final AtomicReference<CanonicalExplorationResume.Prepared> resumed = new AtomicReference<>();
 
     public NativeExplorationAdapter(ExecutionKey identity, ExplorationLedger ledger, ChatModel model,
             List<RegisteredTool> tools, BaseCheckpointSaver saver, Executor executor, Limits limits) {
+        this(identity, ledger, model, tools, saver, executor, limits, null);
+    }
+
+    public NativeExplorationAdapter(ExecutionKey identity, ExplorationLedger ledger, ChatModel model,
+            List<RegisteredTool> tools, BaseCheckpointSaver saver, Executor executor, Limits limits,
+            ModelCallBoundary modelCallBoundary) {
         this.identity = Objects.requireNonNull(identity);
         this.ledger = Objects.requireNonNull(ledger);
         this.limits = Objects.requireNonNull(limits);
+        this.modelCallBoundary = modelCallBoundary;
         if (!identity.equals(ledger.identity())) throw new IllegalArgumentException("Ledger identity mismatch");
         var names = new HashSet<String>();
         List<ToolCallback> guarded = new ArrayList<>();
@@ -164,6 +187,7 @@ public final class NativeExplorationAdapter {
             guarded.add(new GuardedCallback(tool, executor));
         }
         registeredNames = Set.copyOf(names);
+        registeredCallbacks = List.copyOf(guarded);
         agent = ReactAgent.builder().name("campaign_exploration_p0").model(Objects.requireNonNull(model))
                 .tools(guarded).parallelToolExecution(false).wrapSyncToolsAsAsync(false)
                 .hooks(new AdmissionHook(), new ProtocolHook()).interceptors(new ResponseBoundary(), new DispatchInterceptor())
@@ -246,7 +270,7 @@ public final class NativeExplorationAdapter {
             // AgentCommand(null, ...) does not clear jump_to in native 1.1.2.3. Consume the
             // previous repair jump explicitly before the admission hook's conditional edge.
             var updates = new LinkedHashMap<String, Object>();
-            boolean allowed = ledger.mayCallModel();
+            boolean allowed = !modelBoundaryFailed.get() && ledger.mayCallModel();
             var ready = resumed.get();
             if (allowed && ready != null) {
                 boolean applied = ready.observationId().equals(state.data().get(READY_OBSERVATION_KEY));
@@ -271,6 +295,8 @@ public final class NativeExplorationAdapter {
 
         @Override
         public AgentCommand afterModel(List<Message> messages, RunnableConfig config) {
+            if (modelBoundaryFailed.get())
+                return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
             Message last = messages.isEmpty() ? null : messages.get(messages.size() - 1);
             if (!(last instanceof AssistantMessage assistant)) {
                 ledger.fail("MODEL_PROTOCOL_INVALID");
@@ -313,7 +339,7 @@ public final class NativeExplorationAdapter {
 
         @Override
         public ToolCallResponse interceptToolCall(ToolCallRequest request, ToolCallHandler handler) {
-            if (!ledger.mayCallModel())
+            if (modelBoundaryFailed.get() || !ledger.mayCallModel())
                 return ToolCallResponse.error(request.getToolCallId(), request.getToolName(), "DISPATCH_REVOKED");
             acceptedToolCall.set(request.getToolCallId());
             try {
@@ -331,9 +357,10 @@ public final class NativeExplorationAdapter {
 
         @Override
         public ModelResponse interceptModel(ModelRequest request, ModelCallHandler handler) {
-            if (!ledger.mayCallModel()) {
+            if (modelBoundaryFailed.get() || !ledger.mayCallModel()) {
                 return ModelResponse.of(new AssistantMessage("EXPLORATION_NOT_ACTIVE"));
             }
+            if (modelCallBoundary != null) return persistentModel(request, handler);
             ModelResponse response = handler.call(request);
             if (!(response.getMessage() instanceof AssistantMessage message)) {
                 ledger.fail("MODEL_PROTOCOL_INVALID");
@@ -358,6 +385,162 @@ public final class NativeExplorationAdapter {
                 return ModelResponse.of(new AssistantMessage("MODEL_RESPONSE_REJECTED"));
             }
         }
+
+        private ModelResponse persistentModel(ModelRequest request, ModelCallHandler handler) {
+            try {
+                var projected = projectRequest(request, registeredCallbacks);
+                var response = Objects.requireNonNull(modelCallBoundary.call(projected, () -> {
+                    if (!ledger.mayCallModel()) throw new IllegalStateException("MODEL_EXECUTION_REVOKED");
+                    ModelResponse nativeResponse = handler.call(request);
+                    // Native 1.1.2.3 catches model exceptions and synthesizes text with no ChatResponse.
+                    // That fallback is not a successful model fact and may contain a provider's raw error.
+                    if (nativeResponse == null || nativeResponse.getChatResponse() == null
+                            || nativeResponse.getChatResponse().getResult() == null
+                            || !(nativeResponse.getMessage() instanceof AssistantMessage message)
+                            || nativeResponse.getChatResponse().getResult().getOutput() != message)
+                        throw new IllegalStateException("MODEL_RESPONSE_UNAVAILABLE");
+                    requirePublicAssistant(message);
+                    try {
+                        if (message.getToolCalls().size() > limits.modelToolCalls())
+                            throw new IOException("MODEL_RESPONSE_REJECTED");
+                        var bounded = new LinkedHashMap<String, Object>();
+                        bounded.put("message", message);
+                        bounded.put("usage", nativeResponse.getChatResponse().getMetadata().getUsage());
+                        json.writeValue(new BoundedWriter(limits.modelResponseCharacters()), bounded);
+                    } catch (IOException rejected) {
+                        throw new IllegalStateException("MODEL_RESPONSE_REJECTED");
+                    }
+                    return publicResponse(message);
+                }), "MODEL_RESPONSE_REQUIRED");
+                // Replay receives the same public projection and the same native-size check as a fresh fact.
+                if (response.toolCalls().size() > limits.modelToolCalls())
+                    throw new IllegalStateException("MODEL_RESPONSE_REJECTED");
+                AssistantMessage message = AssistantMessage.builder().content(response.text())
+                        .toolCalls(response.toolCalls().stream().map(call -> new AssistantMessage.ToolCall(
+                                call.id(), "function", call.name(), call.arguments())).toList()).build();
+                json.writeValue(new BoundedWriter(limits.modelResponseCharacters()), Map.of("message", message));
+                return ModelResponse.of(message);
+            } catch (Exception rejected) {
+                modelBoundaryFailed.set(true);
+                try { ledger.fail("MODEL_BOUNDARY_REJECTED"); }
+                catch (RuntimeException ledgerFailure) { throw new IllegalStateException("MODEL_BOUNDARY_REJECTED"); }
+                return ModelResponse.of(new AssistantMessage("MODEL_BOUNDARY_REJECTED"));
+            }
+        }
+    }
+
+    /**
+     * Closed projection of the request that native 1.1.2.3 sends to ChatClient. Runtime generation
+     * options, named resolvers, dynamic callbacks, media and unknown message properties are not
+     * supported by this first durable boundary. ModelRequest.context is native control state and
+     * is not forwarded by AgentLlmNode's ChatClient request builder; it is never serialized here.
+     */
+    public static ModelInvocationRegistry.Request projectRequest(ModelRequest request, List<ToolCallback> registeredTools) {
+        Objects.requireNonNull(request, "MODEL_REQUEST_REQUIRED");
+        Objects.requireNonNull(registeredTools, "MODEL_TOOLS_REQUIRED");
+        if (request.getDynamicToolCallbacks() != null && !request.getDynamicToolCallbacks().isEmpty())
+            throw new IllegalArgumentException("MODEL_DYNAMIC_TOOLS_UNSUPPORTED");
+        Map<String, ToolCallback> registered = new LinkedHashMap<>();
+        for (ToolCallback tool : registeredTools) {
+            if (tool == null || registered.putIfAbsent(tool.getToolDefinition().name(), tool) != null)
+                throw new IllegalArgumentException("MODEL_TOOLS_INVALID");
+        }
+        ToolCallingChatOptions options = request.getOptions();
+        List<ToolCallback> callbacks = List.of();
+        if (options != null) {
+            if (options.getClass() != DefaultToolCallingChatOptions.class || options.getModel() != null
+                    || options.getFrequencyPenalty() != null || options.getMaxTokens() != null
+                    || options.getPresencePenalty() != null || options.getStopSequences() != null
+                    || options.getTemperature() != null || options.getTopK() != null || options.getTopP() != null
+                    || !Boolean.FALSE.equals(options.getInternalToolExecutionEnabled())
+                    || !options.getToolNames().isEmpty() || !options.getToolContext().isEmpty())
+                throw new IllegalArgumentException("MODEL_RUNTIME_OPTIONS_UNSUPPORTED");
+            callbacks = options.getToolCallbacks();
+            Set<String> callbackNames = new HashSet<>();
+            for (ToolCallback callback : callbacks) {
+                if (callback == null || registered.get(callback.getToolDefinition().name()) != callback
+                        || !callbackNames.add(callback.getToolDefinition().name()))
+                    throw new IllegalArgumentException("MODEL_TOOL_CALLBACK_UNAPPROVED");
+            }
+        }
+        List<String> selected = request.getTools();
+        if (selected != null && (!registered.keySet().containsAll(selected)
+                || new HashSet<>(selected).size() != selected.size()))
+            throw new IllegalArgumentException("MODEL_TOOL_SELECTION_INVALID");
+        if (request.getToolDescriptions() != null) request.getToolDescriptions().forEach((name, description) -> {
+            ToolCallback callback = registered.get(name);
+            if (callback == null || !Objects.equals(callback.getToolDefinition().description(), description))
+                throw new IllegalArgumentException("MODEL_TOOL_DESCRIPTION_CHANGED");
+        });
+        List<ModelInvocationRegistry.ToolDefinition> tools = new ArrayList<>();
+        for (ToolCallback callback : callbacks) {
+            var definition = callback.getToolDefinition();
+            if (selected != null && !selected.isEmpty() && !selected.contains(definition.name())) continue;
+            try {
+                tools.add(new ModelInvocationRegistry.ToolDefinition(definition.name(), definition.description(),
+                        PUBLIC_JSON.readTree(definition.inputSchema())));
+            } catch (IOException invalid) { throw new IllegalArgumentException("MODEL_TOOL_SCHEMA_INVALID"); }
+        }
+        List<ModelInvocationRegistry.Message> messages = new ArrayList<>();
+        if (request.getSystemMessage() != null) projectMessage(request.getSystemMessage(), messages);
+        if (request.getMessages() == null) throw new IllegalArgumentException("MODEL_MESSAGES_REQUIRED");
+        for (Message message : request.getMessages()) projectMessage(message, messages);
+        return new ModelInvocationRegistry.Request(ModelInvocationRegistry.REQUEST_SCHEMA, messages, tools);
+    }
+
+    private static void projectMessage(Message message, List<ModelInvocationRegistry.Message> messages) {
+        if (message == null) throw new IllegalArgumentException("MODEL_MESSAGE_REQUIRED");
+        requireMessageProperties(message);
+        if (message.getClass() == SystemMessage.class) {
+            messages.add(new ModelInvocationRegistry.Message("system", message.getText(), null, null, null));
+        } else if (message.getClass() == UserMessage.class) {
+            if (!((UserMessage) message).getMedia().isEmpty()) throw new IllegalArgumentException("MODEL_MEDIA_UNSUPPORTED");
+            messages.add(new ModelInvocationRegistry.Message("user", message.getText(), null, null, null));
+        } else if (message.getClass() == AssistantMessage.class) {
+            AssistantMessage assistant = (AssistantMessage) message;
+            requirePublicAssistant(assistant);
+            var response = publicResponse(assistant);
+            messages.add(new ModelInvocationRegistry.Message("assistant", response.text(), response.toolCalls(), null, null));
+        } else if (message.getClass() == ToolResponseMessage.class) {
+            var responses = ((ToolResponseMessage) message).getResponses();
+            if (responses == null || responses.isEmpty()) throw new IllegalArgumentException("MODEL_TOOL_RESPONSE_EMPTY");
+            for (var response : responses) {
+                if (response == null) throw new IllegalArgumentException("MODEL_TOOL_RESPONSE_INVALID");
+                messages.add(new ModelInvocationRegistry.Message("tool", response.responseData(), null, response.id(), response.name()));
+            }
+        } else throw new IllegalArgumentException("MODEL_MESSAGE_TYPE_UNSUPPORTED");
+    }
+
+    private static void requireMessageProperties(Message message) {
+        for (var property : message.getMetadata().entrySet()) {
+            String name = property.getKey();
+            Object value = property.getValue();
+            if ("messageType".equals(name) && (message.getMessageType().equals(value)
+                    || message.getMessageType().name().equals(value)
+                    || message.getMessageType().name().toLowerCase(java.util.Locale.ROOT).equals(value))) continue;
+            if (message instanceof AssistantMessage && "canonicalAssistantMessageId".equals(name)
+                    && value instanceof String id && id.matches("[A-Za-z0-9_-]{1,128}")) continue;
+            if (message instanceof UserMessage && "trustedReadyObservationId".equals(name)
+                    && value instanceof String id && id.matches("[A-Za-z0-9_-]{1,128}")
+                    && "trusted_ledger".equals(message.getMetadata().get("source"))) continue;
+            if (message instanceof UserMessage && "source".equals(name) && "trusted_ledger".equals(value)
+                    && message.getMetadata().get("trustedReadyObservationId") instanceof String id
+                    && id.matches("[A-Za-z0-9_-]{1,128}")) continue;
+            throw new IllegalArgumentException("MODEL_MESSAGE_PROPERTIES_UNSUPPORTED");
+        }
+    }
+
+    private static void requirePublicAssistant(AssistantMessage message) {
+        if (message.getClass() != AssistantMessage.class || message.getMedia() == null || !message.getMedia().isEmpty()
+                || message.getToolCalls() == null) throw new IllegalArgumentException("MODEL_RESPONSE_CONTENT_UNSUPPORTED");
+        for (var call : message.getToolCalls())
+            if (call == null || !"function".equals(call.type())) throw new IllegalArgumentException("MODEL_TOOL_TYPE_UNSUPPORTED");
+    }
+
+    private static ModelInvocationRegistry.Response publicResponse(AssistantMessage message) {
+        return new ModelInvocationRegistry.Response(message.getText() == null ? "" : message.getText(),
+                message.getToolCalls().stream().map(call -> new ModelInvocationRegistry.ToolCall(
+                        call.id(), call.name(), call.arguments())).toList());
     }
 
     private static final class BoundedWriter extends Writer {
