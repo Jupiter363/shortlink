@@ -97,6 +97,22 @@ public final class CampaignSelectedScope {
         });
     }
 
+    /** Authorized descriptor read, including genuine empty sets that cannot create a query shard. */
+    public Artifact inspect(Caller caller, String selectedScopeArtifactId) {
+        Artifact artifact = runs.readArtifact(caller, selectedScopeArtifactId, authorizer);
+        require(TYPE.equals(artifact.metadata().ref().type()) && SCHEMA.equals(artifact.metadata().ref().schemaVersion()),
+                "SELECTED_SCOPE_TYPE_INVALID");
+        JsonNode manifest = tree(artifact.payloadJson());
+        Snapshot snapshot = snapshot(caller, text(manifest, "selectedArtifactId"), text(manifest, "evidenceArtifactId"), null, null);
+        require(manifest.equals(tree(json(snapshot.manifest())))
+                && artifact.metadata().ref().scopeRef().equals(snapshot.manifest().get("scopeRef"))
+                && artifact.metadata().ref().periodsRef().equals(snapshot.pair().definition().periodsRef())
+                && !artifact.metadata().ref().expiresAt().isAfter(sourceExpiry(snapshot.pair()))
+                && artifact.metadata().equals(runs.inspectArtifact(caller, selectedScopeArtifactId, authorizer)),
+                "SELECTED_SCOPE_MANIFEST_CHANGED");
+        return artifact;
+    }
+
     /** Revalidates the sealed source and streams at most one selected page plus one requested shard. */
     public FrozenQueryScope shard(Caller caller, String selectedScopeArtifactId, int shardIndex) {
         require(shardIndex >= 0, "SELECTED_SCOPE_SHARD_UNAVAILABLE");

@@ -71,6 +71,14 @@ public final class CampaignLinkComparability {
         }
     }
 
+    /** Query-level assessment also applies to real cohort summaries without inventing a link row. */
+    public record QueryAssessment(Comparability comparability, List<String> reasonCodes) {
+        public QueryAssessment {
+            Objects.requireNonNull(comparability);
+            reasonCodes = List.copyOf(reasonCodes);
+        }
+    }
+
     public static Result assess(Row baseline, Row target, Period baselinePeriod, Period targetPeriod,
                                 QueryObservation baselineObservation, QueryObservation targetObservation,
                                 Metric metric) {
@@ -83,6 +91,28 @@ public final class CampaignLinkComparability {
         Objects.requireNonNull(metric);
         require(baseline.linkId() == target.linkId(), "LINK_ID_MISMATCH");
 
+        QueryAssessment assessment = assessQuery(baselinePeriod, targetPeriod, baselineObservation, targetObservation, metric);
+        List<String> reasons = new ArrayList<>(assessment.reasonCodes());
+        long previous = value(baseline, metric);
+        long current = value(target, metric);
+        BigInteger delta = BigInteger.valueOf(current).subtract(BigInteger.valueOf(previous));
+        if (previous == 0) reasons.add("BASELINE_ZERO");
+        BigDecimal rate = previous > 0 && assessment.comparability() == Comparability.VERIFIED
+                ? new BigDecimal(delta).divide(BigDecimal.valueOf(previous), MathContext.DECIMAL128)
+                : null;
+        return new Result(baseline.linkId(), metric, previous, current, delta, rate,
+                assessment.comparability(), Explanation.OBSERVED_ONLY, reasons,
+                List.of(baselineObservation.artifactRef(), targetObservation.artifactRef()));
+    }
+
+    public static QueryAssessment assessQuery(Period baselinePeriod, Period targetPeriod,
+                                              QueryObservation baselineObservation, QueryObservation targetObservation,
+                                              Metric metric) {
+        Objects.requireNonNull(baselinePeriod);
+        Objects.requireNonNull(targetPeriod);
+        Objects.requireNonNull(baselineObservation);
+        Objects.requireNonNull(targetObservation);
+        Objects.requireNonNull(metric);
         Assessment assessment = new Assessment();
         if (!baselinePeriod.timezone().equals(targetPeriod.timezone())) {
             assessment.incompatible("PERIOD_TIMEZONE_MISMATCH");
@@ -110,18 +140,7 @@ public final class CampaignLinkComparability {
         // a dense zero row, or the passage of wall-clock time.
         assessment.reasons.add("COMMON_DATA_BASE_NOT_VERIFIED");
         assessment.reasons.add("OBJECT_LIFETIME_UNKNOWN");
-
-        long previous = value(baseline, metric);
-        long current = value(target, metric);
-        BigInteger delta = BigInteger.valueOf(current).subtract(BigInteger.valueOf(previous));
-        if (previous == 0) assessment.reasons.add("BASELINE_ZERO");
-        BigDecimal rate = previous > 0 && assessment.comparability == Comparability.VERIFIED
-                ? new BigDecimal(delta).divide(BigDecimal.valueOf(previous), MathContext.DECIMAL128)
-                : null;
-        return new Result(baseline.linkId(), metric, previous, current, delta, rate,
-                assessment.comparability, Explanation.OBSERVED_ONLY,
-                new ArrayList<>(assessment.reasons),
-                List.of(baselineObservation.artifactRef(), targetObservation.artifactRef()));
+        return new QueryAssessment(assessment.comparability, new ArrayList<>(assessment.reasons));
     }
 
     private static void inspect(String side, Period period, QueryObservation observation,
