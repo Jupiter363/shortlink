@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignLinkComparability.Result;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Period;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage;
@@ -51,11 +52,13 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final CampaignRunStore runs;
+    private final JdbcExplorationCallbackGate callbacks;
 
     public JdbcCampaignDeclineSelectionStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
                                              CampaignRunStore runs) {
         this.jdbc = Objects.requireNonNull(jdbc); this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock); this.runs = Objects.requireNonNull(runs);
+        this.callbacks = new JdbcExplorationCallbackGate(jdbc);
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
                 || manager.getDataSource() != jdbc.getDataSource()
                 || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
@@ -65,9 +68,19 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     }
 
     @Override public Receipt append(RunToken token, String childId, ArtifactAuthorizer authorizer) {
+        return append(token, null, childId, authorizer);
+    }
+
+    @Override public Receipt append(CallPermit permit, String childId, ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(permit); Objects.requireNonNull(permit.step());
+        return append(permit.step().runToken(), permit, childId, authorizer);
+    }
+
+    private Receipt append(RunToken token, CallPermit permit, String childId, ArtifactAuthorizer authorizer) {
         id(childId);
         return transaction(() -> {
             requireRun(token, true);
+            requirePublicationParent(token, permit, childId);
             Pair incoming = pair(token, childId, authorizer);
             Definition definition = incoming.page().definition();
             validateDefinition(definition);
@@ -85,7 +98,9 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
                         CampaignRunStore.sha256(encoded), clock.millis(), clock.millis());
             }
             Stored stored = required(definition.collectionId(), true);
-            matchOwner(token, stored); matchPair(stored, incoming);
+            matchOwner(token, stored);
+            requireCollectionParent(token, permit, definition.collectionId());
+            matchPair(stored, incoming);
             int ordinal = incoming.page().shardIndex();
             Artifact previous = previous(token, stored, ordinal, authorizer);
             verifyAdvance(incoming, previous);
@@ -137,10 +152,21 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     }
 
     @Override public Receipt seal(RunToken token, String collectionId, String finalChildId, ArtifactAuthorizer authorizer) {
+        return seal(token, null, collectionId, finalChildId, authorizer);
+    }
+
+    @Override public Receipt seal(CallPermit permit, String collectionId, String finalChildId, ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(permit); Objects.requireNonNull(permit.step());
+        return seal(permit.step().runToken(), permit, collectionId, finalChildId, authorizer);
+    }
+
+    private Receipt seal(RunToken token, CallPermit permit, String collectionId, String finalChildId, ArtifactAuthorizer authorizer) {
         id(collectionId); id(finalChildId);
         return transaction(() -> {
             requireRun(token, true);
+            requirePublicationParent(token, permit, finalChildId);
             Stored stored = required(collectionId, true); matchOwner(token, stored);
+            requireCollectionParent(token, permit, collectionId);
             Chain head = verifyAll(token, stored, authorizer);
             FinalPair outputs = finalPair(token, stored, finalChildId, head, authorizer);
             if (stored.receipt().sealed()) {
@@ -452,6 +478,36 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
         List<String> found = jdbc.queryForList("SELECT step_id FROM campaign_action_ledger WHERE run_id=? AND revision=? AND action_id=?",
                 String.class, token.definition().runId(), token.definition().revision(), child.spec().actionId());
         require(found.size() == 1, "SELECTION_ACTION_MISSING"); return found.get(0);
+    }
+
+    private void requirePublicationParent(RunToken token, CallPermit permit, String childId) {
+        if (permit != null) callbacks.requireParent(permit, permit.actionId());
+        List<String> actions = jdbc.query("SELECT action_id,child_mode,child_state,callback_active FROM campaign_child_ledger "
+                        + "WHERE run_id=? AND revision=? AND child_id=? FOR UPDATE", (rs, index) -> {
+                    if (permit != null) require("LOCAL".equals(rs.getString("child_mode"))
+                                    && "READY".equals(rs.getString("child_state")) && !rs.getBoolean("callback_active"),
+                            "SELECTION_CHILD_NOT_READY");
+                    return rs.getString("action_id");
+                }, token.definition().runId(), token.definition().revision(), childId);
+        require(actions.size() == 1, "SELECTION_CHILD_MISSING");
+        if (permit == null) require(!callbacks.isCallAction(token, actions.get(0)), "SELECTION_CALL_PERMIT_REQUIRED");
+        else require(permit.actionId().equals(actions.get(0)), "SELECTION_CALL_ACTION_MISMATCH");
+    }
+
+    private void requireCollectionParent(RunToken token, CallPermit permit, String collectionId) {
+        // A collection cannot splice a different model call's pages, even within the same Step/version.
+        // Only seek a conflicting short identity; do not materialize every earlier page on each append.
+        if (permit == null && !callbacks.schemaAvailable()) return;
+        String callJoin = permit == null ? " JOIN campaign_exploration_call x ON x.run_id=c.run_id "
+                + "AND x.revision=c.revision AND x.action_id=c.action_id " : " ";
+        String condition = permit == null ? "" : " AND c.action_id<>?";
+        List<Object> arguments = new ArrayList<>(List.of(collectionId, token.definition().runId(), token.definition().revision()));
+        if (permit != null) arguments.add(permit.actionId());
+        var conflicting = jdbc.query("SELECT c.child_id FROM campaign_decline_page p JOIN campaign_child_ledger c "
+                        + "ON c.run_id=p.run_id AND c.revision=p.revision AND c.child_id=p.child_id "
+                        + callJoin + "WHERE p.collection_id=? AND p.run_id=? AND p.revision=?" + condition + " LIMIT 1 FOR UPDATE",
+                (rs, index) -> rs.getString(1), arguments.toArray());
+        require(conflicting.isEmpty(), permit == null ? "SELECTION_CALL_PERMIT_REQUIRED" : "SELECTION_CALL_ACTION_MISMATCH");
     }
 
     private static void matchPair(Stored stored, Pair pair) {

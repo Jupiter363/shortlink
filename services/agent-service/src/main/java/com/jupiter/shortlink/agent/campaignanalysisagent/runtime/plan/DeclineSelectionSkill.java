@@ -191,17 +191,36 @@ public final class DeclineSelectionSkill {
         Bound bound = bound(context.step());
         var definition = definition(bound);
         Receipt receipt = selections.loadReceipt(token, bound.collectionId(), artifactAuthorizer).orElse(null);
+        return executeSelection(context, definition, receipt, shard -> queries(bound, definition, shard),
+                (query, boundary) -> StatisticsJobFixedExecutor.submit(boundary, token.definition(), current,
+                        gateway, query.request(), () -> authorized(bound, query)),
+                (shard, queries, previous) -> publisher.publishShard(context, token, definition, bound.periods(),
+                        (period, ignored) -> slot(queries.get(period)), shard, previous),
+                head -> publisher.finish(context, token, head), this::requireCurrent);
+    }
+
+    @FunctionalInterface interface SubmitQuery {
+        CampaignStepExecution.ChildResult submit(BoundQuery query, CampaignStepExecution.IoBoundary boundary) throws Exception;
+    }
+    @FunctionalInterface interface PublishShard {
+        Receipt publish(int shard, List<BoundQuery> queries, String previous) throws Exception;
+    }
+    @FunctionalInterface interface FinishSelection { Receipt finish(String head) throws Exception; }
+
+    /** One registered algorithm for fixed Steps and actual CALLs; does not schedule or settle either owner. */
+    static PersistentPlanDriver.Result executeSelection(CapabilityExecution context, DeclineSelectionPage.Definition definition,
+            Receipt receipt, java.util.function.IntFunction<List<BoundQuery>> queriesForShard, SubmitQuery submit,
+            PublishShard publish, FinishSelection finish, Runnable current) throws Exception {
         if (receipt != null && receipt.sealed()) return succeeded(receipt);
         int next = receipt == null ? 0 : receipt.committedPages();
         for (int shard = next; shard < Math.max(1, definition.shardCount()); shard++) {
-            context.requireCurrent(); requireCurrent();
-            List<BoundQuery> queries = queries(bound, definition, shard);
+            context.requireCurrent(); current.run();
+            List<BoundQuery> queries = queriesForShard.apply(shard);
             boolean pending = false, waiting = false, capacity = false;
             for (BoundQuery query : queries) {
                 ChildRecord child;
                 try {
-                    child = context.child(query.child(), boundary -> StatisticsJobFixedExecutor.submit(boundary,
-                            token.definition(), current, gateway, query.request(), () -> authorized(bound, query)));
+                    child = context.child(query.child(), boundary -> submit.submit(query, boundary));
                 } catch (StatisticsJobFixedExecutor.SubmissionUnresolved unknown) {
                     pending = true; continue;
                 }
@@ -215,10 +234,9 @@ public final class DeclineSelectionSkill {
             }
             if (pending) return waiting ? PersistentPlanDriver.Result.waiting()
                     : PersistentPlanDriver.Result.blocked(capacity ? "REMOTE_CAPACITY" : "STEP_RESULT_UNKNOWN");
-            receipt = publisher.publishShard(context, token, definition, bound.periods(),
-                    (period, ignored) -> slot(queries.get(period)), shard, receipt == null ? null : receipt.chainArtifactId());
+            receipt = publish.publish(shard, queries, receipt == null ? null : receipt.chainArtifactId());
         }
-        return succeeded(publisher.finish(context, token, Objects.requireNonNull(receipt).chainArtifactId()));
+        return succeeded(finish.finish(Objects.requireNonNull(receipt).chainArtifactId()));
     }
 
     private List<BoundQuery> queries(Bound bound, DeclineSelectionPage.Definition definition, int shardIndex) {

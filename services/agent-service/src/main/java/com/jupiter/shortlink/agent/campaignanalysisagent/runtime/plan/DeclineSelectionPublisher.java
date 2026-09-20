@@ -8,6 +8,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalc
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignDeclineSelectionStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignSkillInvocationStore.CompletionSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage.*;
 import java.time.Instant;
@@ -51,6 +53,31 @@ public final class DeclineSelectionPublisher {
 
     public Prepared prepareShard(RunToken token, String stepId, Definition definition, List<Period> supplied,
                                   SlotResolver resolver, int shardIndex, String previousChainArtifactId) {
+        String identity = identity(token, stepId, definition.collectionId(), Integer.toString(shardIndex));
+        return prepareShard(token, definition, supplied, resolver, shardIndex, previousChainArtifactId, identity,
+                "decline-action-" + identity);
+    }
+
+    /** Reconstructs a stable publication, without granting dispatch or callback admission. */
+    public Prepared prepareShard(CallPermit permit, Definition definition, List<Period> supplied,
+                                  SlotResolver resolver, int shardIndex, String previousChainArtifactId) {
+        return prepareShard(permit.step().runToken(), definition, supplied, resolver, shardIndex, previousChainArtifactId,
+                identity(permit, definition.collectionId(), Integer.toString(shardIndex)), permit.actionId());
+    }
+
+    public CampaignDeclineSelectionStore.Receipt publishShard(CapabilityExecution context, CallPermit permit,
+            Definition definition, List<Period> supplied, SlotResolver resolver, int shardIndex,
+            String previousChainArtifactId) throws Exception {
+        context.requireCurrent();
+        Prepared prepared = prepareShard(permit, definition, supplied, resolver, shardIndex, previousChainArtifactId);
+        context.local(prepared.child(), prepared.approval(), authorizer, prepared.calculation());
+        context.requireCurrent();
+        return selections.append(permit, prepared.child().childId(), authorizer);
+    }
+
+    private Prepared prepareShard(RunToken token, Definition definition, List<Period> supplied,
+                                  SlotResolver resolver, int shardIndex, String previousChainArtifactId,
+                                  String identity, String actionId) {
         List<Period> periods = List.copyOf(supplied);
         if (periods.size() != 2 || shardIndex < 0 || shardIndex >= Math.max(1, definition.shardCount()))
             throw new IllegalArgumentException("SELECTION_SHARD_INVALID");
@@ -69,7 +96,6 @@ public final class DeclineSelectionPublisher {
             }
         }
         Instant expiry = expiry(inputs);
-        String identity = identity(token, stepId, definition.collectionId(), Integer.toString(shardIndex));
         String pageId = "decline-page-" + identity, chainId = "decline-chain-" + identity;
         Map<String, OutputBinding> outputs = Map.of(
                 "comparisonPage", new OutputBinding(pageId, DeclineSelectionPage.PAGE_TYPE, DeclineSelectionPage.PAGE_SCHEMA,
@@ -88,7 +114,7 @@ public final class DeclineSelectionPublisher {
             return definition.equals(page.definition()) && page.shardIndex() == shardIndex
                     && chain.equals(DeclineSelectionPage.advance(page, pageId, previous));
         });
-        ChildSpec child = localChild(identity, invocation);
+        ChildSpec child = localChild(identity, actionId, invocation);
         return new Prepared(child, approved, boundary -> {
             for (String name : inputs.keySet()) boundary.readInput(name);
             List<CampaignLinkComparability.Result> rows = new ArrayList<>(500);
@@ -118,6 +144,31 @@ public final class DeclineSelectionPublisher {
     }
 
     public Prepared prepareFinal(RunToken token, String stepId, String headArtifactId) {
+        return prepareFinal(token, stepId, null, headArtifactId);
+    }
+
+    public Prepared prepareFinal(CallPermit permit, String headArtifactId) {
+        return prepareFinal(permit.step().runToken(), permit.step().stepId(), permit, headArtifactId);
+    }
+
+    /** Freezes completion slots before statistics or the final chain head exist. */
+    public CompletionSpec completionSpec(CallPermit permit, Definition definition) {
+        String identity = identity(permit, definition.collectionId(), "final");
+        return new CompletionSpec("decline-child-" + identity, FrozenDeclineSelection.OUTPUT_CONTRACT,
+                finalOutputs(identity, definition));
+    }
+
+    public CampaignDeclineSelectionStore.Receipt finish(CapabilityExecution context, CallPermit permit,
+                                                         String headArtifactId) throws Exception {
+        context.requireCurrent();
+        Prepared prepared = prepareFinal(permit, headArtifactId);
+        context.local(prepared.child(), prepared.approval(), authorizer, prepared.calculation());
+        context.requireCurrent();
+        Chain chain = DeclineSelectionPage.decodeChain(read(permit.step().runToken(), headArtifactId).payloadJson());
+        return selections.seal(permit, chain.definition().collectionId(), prepared.child().childId(), authorizer);
+    }
+
+    private Prepared prepareFinal(RunToken token, String stepId, CallPermit permit, String headArtifactId) {
         Artifact head = read(token, headArtifactId);
         Chain chain = DeclineSelectionPage.decodeChain(head.payloadJson());
         Definition definition = chain.definition();
@@ -126,19 +177,16 @@ public final class DeclineSelectionPublisher {
         Artifact scope = read(token, definition.scopeArtifactId());
         Map<String, ArtifactMetadata> inputs = Map.of("head", head.metadata(), "scope", scope.metadata());
         Instant expiry = expiry(inputs);
-        String identity = identity(token, stepId, definition.collectionId(), "final");
-        Map<String, OutputBinding> outputs = Map.of(
-                "selectedEntities", new OutputBinding("selected-" + identity, SELECTED_TYPE, SELECTED_SCHEMA,
-                        definition.scopeRef(), definition.periodsRef()),
-                "selectionEvidence", new OutputBinding("decline-evidence-" + identity, EVIDENCE_TYPE, EVIDENCE_SCHEMA,
-                        definition.scopeRef(), definition.periodsRef()));
+        String identity = permit == null ? identity(token, stepId, definition.collectionId(), "final")
+                : identity(permit, definition.collectionId(), "final");
+        Map<String, OutputBinding> outputs = finalOutputs(identity, definition);
         Map<String, String> payloads = Map.of("selectedEntities", manifest(chain, head.metadata().ref(), SELECTED_SCHEMA),
                 "selectionEvidence", manifest(chain, head.metadata().ref(), EVIDENCE_SCHEMA));
         InvocationSpec invocation = new InvocationSpec("decline-selection-final", "1", IMPLEMENTATION,
                 json(Map.of("definition", definition)), inputs, outputs, expiry);
         Approval approved = approve(invocation, values -> values.entrySet().stream()
                 .allMatch(entry -> entry.getValue().equals(tree(payloads.get(entry.getKey())))));
-        ChildSpec child = localChild(identity, invocation);
+        ChildSpec child = localChild(identity, permit == null ? "decline-action-" + identity : permit.actionId(), invocation);
         return new Prepared(child, approved, boundary -> {
             boundary.readInput("head"); boundary.readInput("scope");
             return Map.of("selectedEntities", draft(outputs.get("selectedEntities"), expiry, payloads.get("selectedEntities")),
@@ -160,8 +208,15 @@ public final class DeclineSelectionPublisher {
 
     private Artifact read(RunToken token, String id) { return runs.readArtifact(token.definition().caller(), id, authorizer); }
 
-    private static ChildSpec localChild(String id, InvocationSpec invocation) {
-        return new ChildSpec("decline-child-" + id, "decline-action-" + id, ChildMode.LOCAL, "decline-request-" + id, null, invocation);
+    private static ChildSpec localChild(String id, String actionId, InvocationSpec invocation) {
+        return new ChildSpec("decline-child-" + id, actionId, ChildMode.LOCAL, "decline-request-" + id, null, invocation);
+    }
+
+    private static Map<String, OutputBinding> finalOutputs(String identity, Definition definition) {
+        return Map.of("selectedEntities", new OutputBinding("selected-" + identity, SELECTED_TYPE, SELECTED_SCHEMA,
+                        definition.scopeRef(), definition.periodsRef()),
+                "selectionEvidence", new OutputBinding("decline-evidence-" + identity, EVIDENCE_TYPE, EVIDENCE_SCHEMA,
+                        definition.scopeRef(), definition.periodsRef()));
     }
 
     private static Approval approve(InvocationSpec invocation, java.util.function.Predicate<Map<String, JsonNode>> validate) {
@@ -186,6 +241,14 @@ public final class DeclineSelectionPublisher {
     private static String identity(RunToken token, String stepId, String collection, String part) {
         return CampaignRunStore.sha256(json(List.of(token.definition().caller(), token.definition().runId(),
                 token.definition().revision(), stepId, collection, part)));
+    }
+
+    private static String identity(CallPermit permit, String collection, String part) {
+        Objects.requireNonNull(permit); Objects.requireNonNull(permit.step());
+        RunToken token = permit.step().runToken();
+        // The original model call owns the slot. Re-entry changes no publication identity.
+        return CampaignRunStore.sha256(json(List.of(token.definition().caller(), token.definition().runId(),
+                token.definition().revision(), permit.step().stepId(), permit.callId(), collection, part)));
     }
 
     private static String json(Object value) {
