@@ -69,6 +69,11 @@ public final class ArtifactContractRegistry {
         return contract(metadata).type();
     }
 
+    /** Registered output declaration only; this does not prove an Artifact exists or grant access. */
+    public TypeRef typeOf(String artifactType, String schemaVersion) {
+        return contract(artifactType, schemaVersion).type();
+    }
+
     /**
      * Every call reads through the store's owner, current authorization, expiry and integrity gate.
      * Metadata alone never certifies the actual payload or its quality.
@@ -95,7 +100,11 @@ public final class ArtifactContractRegistry {
 
     private Contract contract(ArtifactMetadata metadata) {
         if (metadata == null || metadata.ref() == null) throw new BindingException(ARTIFACT_CONTRACT_MISMATCH);
-        Contract contract = byMetadata.get(new Key(metadata.ref().type(), metadata.ref().schemaVersion()));
+        return contract(metadata.ref().type(), metadata.ref().schemaVersion());
+    }
+
+    private Contract contract(String artifactType, String schemaVersion) {
+        Contract contract = byMetadata.get(new Key(artifactType, schemaVersion));
         if (contract == null) throw new BindingException(ARTIFACT_CONTRACT_MISMATCH);
         return contract;
     }

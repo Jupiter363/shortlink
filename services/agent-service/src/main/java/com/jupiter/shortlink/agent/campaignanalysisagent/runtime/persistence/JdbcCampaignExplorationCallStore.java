@@ -143,7 +143,8 @@ public final class JdbcCampaignExplorationCallStore implements CampaignExplorati
         });
     }
 
-    private void validateSource(StepPermit step, CallSpec spec, ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer) {
+    // Package-local read gates shared by the Skill invocation transaction; none admits an attempt.
+    void validateSource(StepPermit step, CallSpec spec, ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer) {
         RunToken token = step.runToken();
         Identity expected = CampaignExplorationCallStore.identity(token.definition(), step.stepId(), spec.modelChildId(), spec.toolCallId());
         if (!step.stepId().equals(spec.stepId()) || !expected.callId().equals(spec.callId()) || !expected.actionId().equals(spec.actionId()))
@@ -166,7 +167,7 @@ public final class JdbcCampaignExplorationCallStore implements CampaignExplorati
             fail("EXPLORATION_STEP_CHANGED");
     }
 
-    private void requireStep(StepPermit step) {
+    void requireStep(StepPermit step) {
         var token = step.runToken();
         var matches = jdbc.query("SELECT step_status,callback_active,attempt_id,attempt_version,dispatch_run_version,dispatch_run_token "
                         + "FROM campaign_step_ledger WHERE run_id=? AND revision=? AND step_id=? FOR UPDATE",
@@ -177,7 +178,7 @@ public final class JdbcCampaignExplorationCallStore implements CampaignExplorati
         if (matches.size() != 1 || !matches.get(0)) fail("EXPLORATION_STEP_FENCED");
     }
 
-    private void requireNoOtherCallbacks(StepPermit step) {
+    void requireNoOtherCallbacks(StepPermit step) {
         var definition = step.runToken().definition();
         Integer childCount = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger WHERE run_id=? AND callback_active=TRUE",
                 Integer.class, definition.runId());
@@ -186,7 +187,7 @@ public final class JdbcCampaignExplorationCallStore implements CampaignExplorati
         if ((childCount != null && childCount > 0) || (stepCount != null && stepCount > 0)) fail("CALLBACK_STILL_ACTIVE");
     }
 
-    private CallRecord requireAttempt(CallPermit permit) {
+    CallRecord requireAttempt(CallPermit permit) {
         Objects.requireNonNull(permit); Objects.requireNonNull(permit.step());
         var token = permit.step().runToken();
         CallRecord record = find(token, permit.callId(), true).orElseThrow(() -> new IllegalStateException("EXPLORATION_CALL_NOT_FOUND"));
@@ -202,7 +203,7 @@ public final class JdbcCampaignExplorationCallStore implements CampaignExplorati
         return record;
     }
 
-    private Optional<CallRecord> find(RunToken token, String callId, boolean lock) {
+    Optional<CallRecord> find(RunToken token, String callId, boolean lock) {
         return jdbc.query("SELECT * FROM campaign_exploration_call WHERE run_id=? AND revision=? AND call_id=?" + (lock ? " FOR UPDATE" : ""),
                 (rs, row) -> decode(rs), token.definition().runId(), token.definition().revision(), callId).stream().findFirst();
     }
@@ -223,7 +224,7 @@ public final class JdbcCampaignExplorationCallStore implements CampaignExplorati
                 rs.getString("reason"), returnedAt);
     }
 
-    private void lockRun(RunToken token, boolean current) {
+    void lockRun(RunToken token, boolean current) {
         requireSchema();
         Objects.requireNonNull(token); var definition = token.definition(); var owner = definition.caller();
         var matches = jdbc.query("SELECT tenant_id,subject_name,auth_version,session_id,plan_id,definition_hash,run_status,row_version,advance_token "
