@@ -5,6 +5,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Jdb
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignJdbcDurableRunResponseBridgeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignProgressService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseCapabilityGate;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -37,5 +39,16 @@ public class CampaignJdbcDurableResponseConfiguration {
             @Qualifier("campaignJdbcDurableRunResultProjection") CampaignRunReportReadProjection result) {
         return new CampaignJdbcDurableRunResponseBridgeFactory(
                 jdbc, transactions, clock, progressReader, reports, progress, report, result);
+    }
+
+    /**
+     * Opt-in route selector. It does not register an HTTP or Graph entry point; a later transport
+     * can supply the server-owned durable request after resolving and authorizing its run handle.
+     */
+    @Bean
+    public CampaignResponseRouteAdapter campaignResponseRouteAdapter(
+            CampaignResponseCapabilityGate gate,
+            CampaignJdbcDurableRunResponseBridgeFactory factory) {
+        return new CampaignResponseRouteAdapter(gate, factory);
     }
 }

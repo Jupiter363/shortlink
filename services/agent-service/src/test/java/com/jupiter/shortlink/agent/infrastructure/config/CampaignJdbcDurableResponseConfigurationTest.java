@@ -11,6 +11,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Jdb
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignJdbcDurableRunResponseBridgeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignProgressService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResultProgressReader;
 import java.time.Clock;
 import java.util.UUID;
@@ -40,8 +41,10 @@ class CampaignJdbcDurableResponseConfigurationTest {
 
     @Test
     void profileOffDoesNotCreateJdbcFactory() {
-        runner().run(context -> assertThat(context).doesNotHaveBean(
-                CampaignJdbcDurableRunResponseBridgeFactory.class));
+        runner().run(context -> {
+            assertThat(context).doesNotHaveBean(CampaignJdbcDurableRunResponseBridgeFactory.class);
+            assertThat(context).doesNotHaveBean(CampaignResponseRouteAdapter.class);
+        });
     }
 
     @Test
@@ -61,6 +64,7 @@ class CampaignJdbcDurableResponseConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(CampaignJdbcDurableRunResponseBridgeFactory.class);
+                    assertThat(context).hasSingleBean(CampaignResponseRouteAdapter.class);
                     assertThat(context).hasSingleBean(JdbcCampaignResultProgressReader.class);
                     assertThat(context).hasBean("campaignJdbcDurableRunResultProjection");
                     assertThat(context).getBean("campaignJdbcDurableRunResultProjection")
