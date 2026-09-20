@@ -27,6 +27,11 @@ public final class JdbcReportLifecycleStore implements ReportLifecycleStore {
             throw new IllegalArgumentException("Report lifecycle requires one writable REQUIRED DataSource transaction");
     }
 
+    /** Composition guard for a trusted outer transaction; no Spring registration is implied. */
+    public boolean sharesDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
     @Override
     public Published publish(Draft draft) {
         Objects.requireNonNull(draft);

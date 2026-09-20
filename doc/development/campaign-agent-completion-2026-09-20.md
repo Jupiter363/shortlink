@@ -4,6 +4,8 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
+截至 2026-09-21，E65–E72 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
 **基线结论：P0 原生机制组件门槛已有验收；P1 多个耐久运行、恢复、分页接收及固定统计执行组件已有后端验收，但完整接线和用户入口未交付；P2–P5 与客户端正式交付仍待完成。新入口应继续关闭。** 本文的“待完成”是任务，不是删除或降低原验收条件。
@@ -100,6 +102,7 @@
 | [E69：授权 run→report 读取组合][E69] | 11 个纯后端用例通过；复用授权 progress/report reader，要求调用方显式提供固定 reportRef 与报告凭证，不扫描历史；完整/部分/缺失报告、HISTORY/EXPORT、planning gap、失败动作、模式与身份错配均按 typed 规则处理，最终仍由 E68 脱敏。 | 尚未把 reportRef/status/nextAction 写入或反查 durable run ledger，未接 Graph/HTTP/AgentRunHarness/客户端；真实 MySQL、跨服务和前端验收仍待完成。 |
 | [E70：耐久 run-result 绑定][E70] | 5 个 H2/JDBC 定向用例通过；新增 `CampaignRunResultStore` 与 `JdbcCampaignRunResultStore`，按精确 run revision 锁定并校验 caller、definition hash、row version、advance token；支持报告引用授权、等待态部分报告、精确重放、冲突拒绝、终态匹配和并发收敛，输出不携带报告正文或能力凭证。 | 尚未把 verifier 接入 report lifecycle 的 retain/release、清理竞态、Graph/HTTP/AgentRunHarness 或客户端；真实 MySQL 与跨服务验收仍待完成。 |
 | [E71：durable binding 到授权结果读取组合][E71] | 17 个直接受影响后端用例通过；按 caller、runId、显式 revision 读取 E70 binding，复用 E69 固定报告读取并校验当前 progress、reportRef、状态、动作和限制说明完全一致；无报告引用不要求报告凭证，有引用缺凭证 fail closed，输出继续由 E68 脱敏。 | 尚未把 binding、report lifecycle retain/release 和生产 Graph/Run response 放进同一事务或入口；客户端历史/导出、真实 MySQL、跨服务验收仍待完成。 |
+| [E72：run-result 绑定原子生命周期协调][E72] | 4 个 H2/JDBC 定向用例通过；`JdbcCampaignRunResultBindingCoordinator` 强制共享数据源与可写 `REQUIRED` 事务，绑定前锁定当前 token，retain 与 durable binding 同事务提交或回滚；释放要求当前 token 且 reportRef 与绑定一致。 | 仍是显式 typed 组合件，尚未接 Graph/AgentRunHarness/HTTP/Spring 生产入口、客户端历史/导出或真实 MySQL；清理与跨服务验收仍待完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -205,7 +208,7 @@
 | P5-06：reportId/revision 预分配，实际固定载荷和 EvidenceManifest READY/hash/auth/read-contract/clientcapability 校验，同事务发布报告与保留引用。 | R §4.3、§5.1；C §5 | E03/E08 只提供 Artifact／分页事务前置。 | 待实现／验收 | ReportStore／公共发布器，正式读取路由；草稿不预公开、不靠 locationRef 或无法访问的 artifactId算交付。 |
 | P5-07：reuseExpiresAt 与 retainedUntil 分开，旧 expiresAt兼容一致；清理与新引用同载荷锁/CAS，不可引用 STAGING/清理中载荷。 | R §4.3；C §5、§9.1 | 当前 Artifact 单 expiresAt，不能证明报告留存。 | 待实现／验收 | 增量生命周期／保留保护；失败仅本次无引用新增载荷待清理，不删除共享 READY，不暴露半报告。 |
 | P5-08：HISTORY_VIEW/EXPORT 固定报告manifest、checksum、留存与当前对象权限；源job过期可读本地；不要求旧authVersion字面等当前；撤权仍拒绝。 | R §4.3；C §5 | 当前 Artifact严格授权不等于历史用途合同。 | 待实现／验收 | 正式历史／导出授权读、ANALYSIS_REUSE分离；清理后 REPORT_DATA_EXPIRED，不能静默重查当前数据；不新增远端 pin。 |
-| P5-09：后端 executionStatus／goalAssessments／reportRef／nextAction 分开；旧 answer 从同一报告／状态适配，WAITING可与部分已答并存。 | R §5.2；C §4 | E05/E09 内部进度视图；E66 typed legacy answer adapter；E67 sanitized AgentRunResult bridge；E68 typed run-result projection；E69 authorized run/report read composition；E70 durable run-result binding；E71 durable authorized read composition。 | 部分已验 | 将 binding、report lifecycle retain/release、授权读取和生产 Graph/Run response 原子接线；上次历史完成报告不可冒充本轮等待结果。 |
+| P5-09：后端 executionStatus／goalAssessments／reportRef／nextAction 分开；旧 answer 从同一报告／状态适配，WAITING可与部分已答并存。 | R §5.2；C §4 | E05/E09 内部进度视图；E66 typed legacy answer adapter；E67 sanitized AgentRunResult bridge；E68 typed run-result projection；E69 authorized run/report read composition；E70 durable run-result binding；E71 durable authorized read composition；E72 atomic retain/bind/release coordinator。 | 部分已验 | 接入生产 Graph/Run response 与正式路由，补清理竞态、客户端历史/导出和真实 MySQL；上次历史完成报告不可冒充本轮等待结果。 |
 | UI-01：开放前最低客户端状态协议；老客户端新请求旧路径，续接新Run明确升级；客户端能力不是授权。 | I §2、§7；R §5.2；R11 | 新入口关闭，尚无最小状态消费验收。 | 待实现／验收 | API后端能力门与前端状态标签／导出修正；缺客户端验收不得开放新运行器。 |
 | UI-02：通用章节／图表／文本／表格渲染、业务进度与局部恢复、证据入口、长表分页；不每Skill／prompt一页。 | I §5；后续前端阶段 | 旧页面功能不可视为新协议验收。 | 待实现／验收 | 消费正式 Report schema 与授权读取／nextAction；Plan/Action详细诊断独立入口，产品不暴露编排术语。 |
 | UI-03：页面、历史、复制、导出同 reportId/revision 与固定证据；完整结果入口发布后可读，撤权／过期状态准确。 | I §5；R §4.3、§5.1 | 后端报告／客户端均无该验收。 | 待实现／验收 | 后端正式路由用fixture验收，允许前端验证后再做视觉／交互；不得把后台有 Artifact 等同用户已拿到结果。 |
@@ -416,6 +419,7 @@
 [E69]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E70]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E71]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E72]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
