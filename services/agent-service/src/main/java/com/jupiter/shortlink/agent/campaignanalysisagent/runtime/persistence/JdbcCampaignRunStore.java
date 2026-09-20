@@ -141,6 +141,11 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return Optional.of(rows.get(0));
     }
 
+    /** Exact read boundary for server-owned response handles; never falls back to latest revision. */
+    Optional<RunRecord> readRunAtRevision(Caller caller, String runId, int revision) {
+        return transaction(() -> loadRunAtRevision(caller, runId, revision));
+    }
+
     @Override
     public RunToken advance(RunToken token) {
         return transaction(() -> {
