@@ -50,10 +50,16 @@ public final class CampaignReportReadProjection {
      */
     public Optional<Snapshot> read(CampaignReportApplicationService.ReadRequest request) {
         Objects.requireNonNull(request, "REPORT_READ_REQUEST_REQUIRED");
-        return reports.read(request).map(stored -> project(stored, request.mode()));
+        return reports.read(request).map(stored -> projectAuthorized(stored, request.mode()));
     }
 
-    private Snapshot project(ReportLifecycleStore.Published stored, ReportLifecycleStore.Mode mode) {
+    /**
+     * Projects an already authorized lifecycle row without opening another transaction.  Trusted
+     * coordinators call this only after locking the row and applying owner/capability/mode/expiry
+     * checks in the lifecycle store; this method performs payload and report identity validation
+     * and returns a sanitized snapshot.
+     */
+    public Snapshot projectAuthorized(ReportLifecycleStore.Published stored, ReportLifecycleStore.Mode mode) {
         try {
             if (stored == null || stored.key() == null || mode == null
                     || stored.payloadJson() == null || stored.payloadJson().isBlank()) {
