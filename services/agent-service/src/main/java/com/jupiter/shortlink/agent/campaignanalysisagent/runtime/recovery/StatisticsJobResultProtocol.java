@@ -139,7 +139,13 @@ public final class StatisticsJobResultProtocol {
             require(status.get("errorCode") instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}"), PROTOCOL);
             error = (String) status.get("errorCode");
         }
-        if (!"SUCCEEDED".equals(state)) return new Status(jobId, state, 0, 0, 0, error);
+        if (!"SUCCEEDED".equals(state)) {
+            // Legacy status responses may omit TTL. Such a response remains readable, but cannot
+            // prove a durable cross-revision consumer binding. Never synthesize a retention time.
+            long expires = status.containsKey("expiresAt") ? integer(status.get("expiresAt")) : 0;
+            require(!status.containsKey("expiresAt") || expires > 0, PROTOCOL);
+            return new Status(jobId, state, 0, 0, expires, error);
+        }
         long total = integer(status.get("rowCount"));
         long pageCount = integer(status.get("pageCount"));
         long expires = integer(status.get("expiresAt"));

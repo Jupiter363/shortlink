@@ -92,11 +92,19 @@ public interface CampaignRunStore {
                        String attemptId, long attemptVersion, DispatchPurpose purpose,
                        boolean callbackActive, UnresolvedReason reason) {}
 
+    /** An existing producer remains immutable; only this current consumer may receive its original job. */
+    record AdoptionLease(String bindingId, String consumerId, RunToken consumerToken, long bindingVersion) {}
+
     record DispatchPermit(RunToken token, String childId, String attemptId, long attemptVersion,
-                          DispatchPurpose purpose, CampaignExplorationCallStore.CallPermit parentCall) {
+                          DispatchPurpose purpose, CampaignExplorationCallStore.CallPermit parentCall,
+                          AdoptionLease adoptionLease) {
         public DispatchPermit(RunToken token, String childId, String attemptId, long attemptVersion,
                               DispatchPurpose purpose) {
-            this(token, childId, attemptId, attemptVersion, purpose, null);
+            this(token, childId, attemptId, attemptVersion, purpose, null, null);
+        }
+        public DispatchPermit(RunToken token, String childId, String attemptId, long attemptVersion,
+                              DispatchPurpose purpose, CampaignExplorationCallStore.CallPermit parentCall) {
+            this(token, childId, attemptId, attemptVersion, purpose, parentCall, null);
         }
     }
 
@@ -181,6 +189,11 @@ public interface CampaignRunStore {
     DispatchPermit beginReconciliation(RunToken token, String childId);
 
     DispatchPermit beginReconciliation(RunToken token, String childId, CampaignExplorationCallStore.CallPermit parentCall);
+
+    /** Adopted statistics reads only; never grants a fresh submission or changes original producer identity. */
+    default DispatchPermit beginAdoptedReconciliation(RunToken consumer, String consumerId) {
+        throw new UnsupportedOperationException("STATISTICS_CONSUMERS_UNAVAILABLE");
+    }
 
     /**
      * Re-read only an unresolved SYNC authority page whose original POST body pins a positive

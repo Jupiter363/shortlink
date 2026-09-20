@@ -74,6 +74,7 @@
 | [E43：原生推进进程准入][E43] | 四项后端方法首次通过；三Run共用许可，真实工具timeout/cancel仍占用，排队零加载／零MODEL，满队列未接纳；实际退出后放行，WAIT归零，原job恢复不重提。另验真实scoped Driver／Graph等待及旧queued-timeout／reject路径。 | 显式准入接线已验；生产入口／风险Agent共用、真实多Run内存峰值和容量配置实测仍待完成。 |
 | [E44：请求幂等与可信装配][E44] | 两项后端方法首次通过；并发同键登记／冻结仅一Run，typed proposal获准后验证；真实Coordinator／scoped Graph首次WAIT及原job恢复，取消／改版重放停止；排队撤权先于解析，跨主体／错引用／环境事务拒绝。 | 内部typed入口已验，保留原权限门和稳定身份；自由文本规划、生产身份resolver／路由、真实MySQL和客户端仍待完成。 |
 | [E45：原生规划候选与首次执行][E45] | 两项后端方法首次通过；真实Native按typed需求产出候选，接纳事务失败后复用READY响应，Tool→固定Skill按依赖WAIT／接原job，规划自然过期后续扫不重调；四类非法候选拒绝、provider未知不盲重试，原目标及因果缺口完整保留。 | 初次候选到内部执行链已验；Tool→REACT仅本批结构验真；自然语言需求拆解、真实业务菜单、运行中重规划／adopt及生产入口未完成。 |
+| [E46：原任务跨版本消费关系][E46] | 四项后端方法首次通过；真实revise＋adopt错范围事务回滚，合法新rev续收原页／原Artifact、submit一次；RUNNING真实TTL绑定、撤权／恢复、采用取消两个顺序及并发竞争、REQUESTED不重开、共享release许可和旧schema兼容。 | 同Run原producer消费协议已验；非完整Graph重规划，远端取消适配、跨rev主动释放、释放后新本地消费及跨Run复用仍待完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -162,9 +163,9 @@
 | P4-02：完整／部分／无 Skill 均能选择合法组合；单目标多步骤，required 由合法输出覆盖或显式 gap；静态可执行不证明语义理解正确。 | C §2.1；I §1 | E45真实Native规划Tool→Skill并按依赖执行；同菜单Tool→REACT仅结构校验；未知能力／隐藏范围／缺覆盖实际零调用。 | 部分已验 | 真实业务三菜单配置与规划质量、按观察改变后续查询；不把fixture或静态合法当完整语义覆盖。 |
 | P4-03：缺输入 NEEDS_INPUT、真实能力缺 UNSUPPORTED、数据不可用 UNAVAILABLE；规划未找到但未证实缺能力 PLANNING_UNRESOLVED，有部分答案 PARTIAL。 | C §2.1；I §4.4 | E45候选拒绝／模型UNKNOWN分离，原required因果缺口随执行保留；无可信缺能力证明禁止UNSUPPORTED。 | 部分已验 | 真实能力缺失证明、澄清恢复与逐目标PARTIAL交付继续实现；未因规划失败缩小原需求。 |
 | P4-04：仅新证据、输入／能力变化可 replan；局部顺序／允许能力／普通重试／等待不变 revision；等价计划无新信息不循环。 | I §4.4；C §2.1；G §7 | RunStore 有 revise/fencing，不是业务重规划。 | 待实现／验收 | REQUEST_REPLAN 证据／未满足项校验、累计无进展；允许变化前先 P4 验收。 |
-| P4-05：新定义先持久化／校验／编译，再 CAS 切 revision；失败不半覆盖，旧回调不更新新图／报告，消费者与 producer 分开。 | G §7 五步；C §7 | E03 的版本底座。 | 部分已验 | 原子发布新图及消费关系；输入改变新 inputSet，完成 Artifact 保留原 producer。 |
-| P4-06：adopt 仅 Agent 本地，同原冻结请求/hash/scope/filter/period/snapshot/contract/currentauth/期限；兼容原 job 不 submit，不修改 Analytics lease。 | R §3；C §5、§9.6 | 未有 adopt binding 实现／验收。 | 待实现／验收 | job binding＋consumer 精确校验；取消冲突、释放后只许经授权本地消费，不能只靠 jobId。 |
-| P4-07：adopt/cancel 同 binding CAS：NONE 才接管；退休只停自己consumer；无消费者才 REQUESTED，事务外远端 cancel，丢 ACK 对账后 CONFIRMED不重开。 | R §3 五项；V11–V13 | E03/E06 Run 取消不等于共享 job 消费取消。 | 待实现／验收 | 双向竞争、迟到 READY、外部直接取消、释放交叉用例；新旧有效 consumer 不误取消。 |
+| P4-05：新定义先持久化／校验／编译，再 CAS 切 revision；失败不半覆盖，旧回调不更新新图／报告，消费者与 producer 分开。 | G §7 五步；C §7 | E03版本底座；E46真实revise＋consumer登记同事务，错误范围全回滚，新rev续收原producer页／Artifact。 | 部分已验 | 实际候选重规划／新图预编译与原子发布仍需接线，不能把store事务当完整Graph切版。 |
+| P4-06：adopt 仅 Agent 本地，同原冻结请求/hash/scope/filter/period/snapshot/contract/currentauth/期限；兼容原 job 不 submit，不修改 Analytics lease。 | R §3；C §5、§9.6 | E46同Run实际consumer binding，冻结请求／scope／period／执行器／输出合同／真实TTL校验，实际Receiver接原job页且保留producer。 | 部分已验 | 跨Run、动态Skill派生输入联合装配、自动候选到期望映射和释放后新本地消费者；新rev主动release仍未接。 |
+| P4-07：adopt/cancel 同 binding CAS：NONE 才接管；退休只停自己consumer；无消费者才 REQUESTED，事务外远端 cancel，丢 ACK 对账后 CONFIRMED不重开。 | R §3 五项；V11–V13 | E46两个顺序／双线程竞争，活consumer阻止cancel intent；REQUESTED丢回执不重开，真实状态形状CANCELLED确认，shared release同门。 | 部分已验 | 远端cancel适配及实际丢ACK对账待接，已终态SUCCEEDED/FAILED须保存真实结局；旧rev经SUPERSEDED不计有效consumer，不冒充全部清理完成。 |
 | P4-08：跨 Run Artifact 复用当前权限／成员／schema/period/snapshot/epoch/quality/expiry，显式消费关系；重新分析默认新数据。 | C §5；R §4.2–4.3 | E04 同版本绑定与 Artifact 授权。 | 部分已验 | ANALYSIS_REUSE 兼容策略；与历史读分离，不能同session／queryhash永久复用。 |
 
 ### 2.6 P5 与客户端：完整、可复现、真实交付的输出
@@ -201,9 +202,9 @@
 | V08：request映射清理、同键不同正文，原action不新建、冲突失败。 | I §6 #8；P1-04 | E02/E10 | 组件已验 | 固定成员恢复及真实MySQL不在既有证据内。 |
 | V09：一个Tool多个任务，稳定child且仅恢复未完。 | I §6 #9；P1-06 | E03/E04通用child底座 | 部分已验 | 实际复合Tool多任务适配与独立失败／等待。 |
 | V10：局部多查询与等待同外层revision，action独立审计。 | I §6 #10；P3-01/04 | E01内存恢复／E03持久化组件分离 | 待实现／验收 | 耐久探索多action完整集成。 |
-| V11：兼容新revision adopt不submit，不兼容拒绝。 | I §6 #11；P4-06 | 无adopt实测 | 待实现／验收 | 原request/hash/范围/版本/期限验证与consumer事务。 |
-| V12：旧revision退休清理不取消活consumer job，不改workerlease。 | I §6 #12；P4-07 | Run取消不覆盖该场景 | 待实现／验收 | 多consumer共享job与退休测试。 |
-| V13：adopt/cancel双向竞争、cancel丢ACK，同binding CAS且REQUESTED不重开。 | I §6 #13；P4-07 | 无完整binding | 待实现／验收 | 两个竞争顺序及丢回执对账。 |
+| V11：兼容新revision adopt不submit，不兼容拒绝。 | I §6 #11；P4-06 | E46同Run错scope全事务回滚、合法新rev续页、实际submit1 | 部分已验 | 自动重规划与真实业务期望映射、跨Run仍需接线。 |
+| V12：旧revision退休清理不取消活consumer job，不改workerlease。 | I §6 #12；P4-07 | E46原producer历史归属保留，同rev其他consumer仍有效时退休不获取取消资格；SUPERSEDED排除旧有效消费 | 部分已验 | 后续完整退休／GC与远端cancel适配；未改远端lease。 |
+| V13：adopt/cancel双向竞争、cancel丢ACK，同binding CAS且REQUESTED不重开。 | I §6 #13；P4-07 | E46本地两顺序、双线程争用及REQUESTED重开拒绝 | 部分已验 | 真实cancel适配、POST丢ACK后的原job GET对账与已终态真实状态处理。 |
 | V14：旧callback、取消响应、checkpoint落后，不覆盖当前，不重做输出。 | I §6 #14；P1-07/11/P3-05 | E00/E04/E06/E08/E10 | 部分已验 | REACT和报告发布同样受当前资格保护。 |
 | V15：无进展／策略边界明确原因、保留证据，恢复不清累计。 | I §6 #15；P3-06 | E00修复计数跨内存invoke | 部分已验 | 持久化budget/no-progress跨重启、改版。 |
 | V16：直接／间接嵌套探索编译或调用前拒绝。 | I §6 #16；P3-02 | E00静态校验基础 | 部分已验 | 实际Skill依赖闭包和运行时额外能力拒绝。 |
@@ -274,7 +275,7 @@
 | R03/P1：业务身份与消息唯一恢复，不能重复PENDING/READY或丢观察。 | R1/R §1.3 | E01 Resume9；G14 | 实现部分；组件已验 | P3 durable mapping/projection/ack，各崩溃点重建。 |
 | R04/P1：首次checkpoint前及HTTP前的大载荷内存边界。 | R1/R §1.4 | E00/E01/E08；V17/V20 | 实现部分；组件已验 | 全新路径每页／每saver／缓存／报告投影；组合峰值另R19。 |
 | R05/P1：未知提交原身份、requestTTL/gate竞争不能重建。 | R1/R §2 | E02/E03/E06/E10；V08/V28 | 窄协议已实现／已验，接线部分 | 全Tool冻结原请求／期限；生产入口接recover-existing，不用默认submit兜底。 |
-| R06/P2：共享job consumer接管／取消，非远端worker迁移。 | R1/R §3 | Run token基础E03，不是adopt | 待实现／验收 | P4binding CAS、consumer、cancel intent及release交叉。 |
+| R06/P2：共享job consumer接管／取消，非远端worker迁移。 | R1/R §3 | E46实际consumer/原producer接收、binding CAS双向竞争、cancel intent和shared release保护 | 部分已验 | 远端cancel接线／丢ACK、新consumer主动释放旧producer及完整Graph切版仍待完成。 |
 | R07/P2：短snapshot不足历史复现，报告本地耐久留存。 | R1/R §4.3 | E03/E08只存结果 | 待实现／验收 | P5保留引用/清理事务、HISTORY_VIEW/EXPORT与ANALYSIS_REUSE区分。 |
 | R08/P2：同期间不同query不保证共同数据版本。 | R1/R §4.2 | E08/E10同query验证 | 实现部分；跨查询待验 | P2 querySnapshot/comparability，未知披露，不要求两期间manifest相同。 |
 | R09/P1：TopN／有界组合不能证明全部下降。 | R1/R §4.1 | E08完整单job分页 | 实现部分；全集待验 | P2固定候选/两期全量/selectionComplete/覆盖与可比性。 |
@@ -364,6 +365,7 @@
 [E43]: ../integration/campaign-plan-p3-process-admission-2026-09-20.md
 [E44]: ../integration/campaign-plan-p1-trusted-intake-2026-09-20.md
 [E45]: ../integration/campaign-plan-p4-planning-intake-2026-09-20.md
+[E46]: ../integration/campaign-plan-p4-statistics-consumers-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

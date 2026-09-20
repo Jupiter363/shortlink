@@ -7,8 +7,9 @@ import java.util.Optional;
 
 /**
  * Single-producer release intent, never a remote job engine. A REQUESTED binding promises only
- * its verified local artifact; any future adopt/consumer/cleanup operation must lock this same
- * physical binding before changing that promise. No HTTP, remote cancellation or GC runs here.
+ * its verified local artifact; shared consumers use the same physical job gate and can no longer
+ * depend on remote pages once that promise commits. Legacy schemas do not enable shared consumers.
+ * No HTTP, remote cancellation or GC runs here.
  */
 public interface CampaignStatisticsReleaseStore {
     enum State { REQUESTED, CONFIRMED }
