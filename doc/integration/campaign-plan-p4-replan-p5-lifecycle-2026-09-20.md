@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62）
 
 记录日期：2026-09-20。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -56,6 +56,18 @@
 ### E59：类型化耐久报告边界
 
 `CampaignReportApplicationService` 将报告发布与读取固定为 typed `PublishRequest`/`ReadRequest`，在任何 durable I/O 前校验 owner、能力、revision、留存期限和复用期限；构造阶段拒绝没有 durable store 的 publisher。`HISTORY_VIEW` 与 `EXPORT` 模式原样交给生命周期 store，发布幂等和冲突语义继续由 `ReportLifecycleStore` 负责，不注册自然语言、HTTP 或前端入口。
+
+### E60：报告授权操作审计覆盖
+
+补充应用边界测试，明确发布、幂等重发布、历史查看和导出分别向 `AccessAuthorizer` 传递 `PUBLISH`、`PUBLISH`、`HISTORY_VIEW`、`EXPORT`；这把“先鉴权再 durable I/O”从结果断言扩展到操作类型断言。
+
+### E61：非活动重规划基准拒绝
+
+补充运行时工厂测试，持久化 base run 处于 `CANCELLED` 或 `SUPERSEDED` 时，`open` 在构造协调器前统一返回 `REPLAN_BASE_RUN_NOT_ACTIVE`，不允许用旧 token 继续进入重规划边界。
+
+### E62：不同候选并发冲突
+
+补充 JDBC 并发测试：两个不同 candidate/request 同时竞争同一 base revision 时，只有一个请求成功，另一请求返回 `REPLAN_RECEIPT_CONFLICT`；最终 ledger 保持一个新 revision、一个 receipt 和两条 consumer 记录，避免把 E58 的同请求 replay 误当成任意冲突可合并。
 
 ## 定向验证
 
@@ -116,6 +128,8 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=JdbcCampaignRevisionApplierTest
 ```
 
 结果：19 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖可信运行时 owner/token/frozen 输入校验、并发相同请求精确回放、typed durable 报告授权与历史/导出模式传递，并回归本批次此前的预编译、协调和原子发布边界。
+
+E60/E61/E62 增量验证仍使用同一条定向命令；在补充授权操作断言及两个并发/状态测试后结果为：21 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。新增断言覆盖授权操作类型、CANCELLED/SUPERSEDED 基准拒绝和不同候选并发冲突，未改变生产接线。
 
 ## 未覆盖边界
 

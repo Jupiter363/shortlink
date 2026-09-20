@@ -61,6 +61,28 @@ class CampaignReplanRuntimeFactoryTest {
     }
 
     @Test
+    void rejectsCancelledAndSupersededPersistedBaseRuns() {
+        Fixture cancelled = new Fixture();
+        cancelled.runs.cancel(cancelled.base);
+
+        assertThatThrownBy(() -> cancelled.factory.open(OWNER, cancelled.base))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("REPLAN_BASE_RUN_NOT_ACTIVE");
+
+        Fixture superseded = new Fixture();
+        // A normal revision supersedes the old row as part of a larger write.  Marking the
+        // persisted row directly keeps this test focused on the factory's status gate and avoids
+        // constructing an unrelated candidate plan.
+        superseded.jdbc.update("UPDATE campaign_run_ledger SET run_status='SUPERSEDED' "
+                        + "WHERE run_id=? AND revision=?",
+                superseded.base.definition().runId(), superseded.base.definition().revision());
+
+        assertThatThrownBy(() -> superseded.factory.open(OWNER, superseded.base))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("REPLAN_BASE_RUN_NOT_ACTIVE");
+    }
+
+    @Test
     void requiresExplicitTrustedDependencies() {
         Fixture fixture = new Fixture();
 

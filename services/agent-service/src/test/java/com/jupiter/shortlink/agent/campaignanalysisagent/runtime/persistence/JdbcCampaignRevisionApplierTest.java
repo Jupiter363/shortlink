@@ -157,6 +157,55 @@ class JdbcCampaignRevisionApplierTest {
         }
     }
 
+    @Test
+    void concurrentDifferentRequestsKeepOneWinnerAndRejectTheConflictingRequest() throws Exception {
+        Fixture fixture = new Fixture(true);
+        ReplanCoordinator.ApplyRequest firstRequest = fixture.request(CONTRACT, "candidate-a",
+                "Use evidence A for the next revision");
+        ReplanCoordinator.ApplyRequest secondRequest = fixture.request(CONTRACT, "candidate-b",
+                "Use evidence B for the next revision");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<ReplanCoordinator.AppliedRevision> firstCall = concurrentCall(fixture, firstRequest, ready, start);
+        Callable<ReplanCoordinator.AppliedRevision> secondCall = concurrentCall(fixture, secondRequest, ready, start);
+        Future<ReplanCoordinator.AppliedRevision> first = pool.submit(firstCall);
+        Future<ReplanCoordinator.AppliedRevision> second = pool.submit(secondCall);
+        assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+        start.countDown();
+        int successes = 0;
+        Throwable failure = null;
+        try {
+            for (Future<ReplanCoordinator.AppliedRevision> result : List.of(first, second)) {
+                try {
+                    assertThat(result.get(10, TimeUnit.SECONDS).run().definition().revision()).isEqualTo(2);
+                    successes++;
+                } catch (Exception error) {
+                    failure = error instanceof java.util.concurrent.ExecutionException execution
+                            ? execution.getCause() : error;
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(successes).isEqualTo(1);
+        assertThat(failure).isInstanceOf(IllegalStateException.class)
+                .hasMessage("REPLAN_RECEIPT_CONFLICT");
+        assertThat(fixture.count("campaign_run_ledger")).isEqualTo(2);
+        assertThat(fixture.count("campaign_replan_receipt")).isEqualTo(1);
+        assertThat(fixture.count("campaign_statistics_consumer")).isEqualTo(2);
+    }
+
+    private static Callable<ReplanCoordinator.AppliedRevision> concurrentCall(
+            Fixture fixture, ReplanCoordinator.ApplyRequest request,
+            CountDownLatch ready, CountDownLatch start) {
+        return () -> {
+            ready.countDown();
+            if (!start.await(5, TimeUnit.SECONDS)) throw new AssertionError("race did not start");
+            return fixture.applier.apply(request);
+        };
+    }
+
     private static final class Fixture {
         final JdbcTemplate jdbc;
         final TransactionTemplate transactions;
@@ -226,12 +275,16 @@ class JdbcCampaignRevisionApplierTest {
         }
 
         ReplanCoordinator.ApplyRequest request(String outputContract) throws Exception {
-            PlanSpec candidate = plan(2, outputContract, "candidate");
+            return request(outputContract, "candidate", "Use newly available evidence for the next revision");
+        }
+
+        ReplanCoordinator.ApplyRequest request(String outputContract, String variant, String rationale) throws Exception {
+            PlanSpec candidate = plan(2, outputContract, variant);
             PlanningAssessment candidateAssessment = assessment(2);
             ReplanRequest replan = ReplanRequest.create(basePlan, baseAssessment, Set.of("evidence-old"),
                     List.of(new ReplanRequest.Evidence("evidence-new", "artifact-new",
                             "statistics-pages-v1", "b".repeat(64))), List.of(),
-                    "Use newly available evidence for the next revision");
+                    rationale);
             String hash = ReplanRequest.planHash(candidate);
             return new ReplanCoordinator.ApplyRequest(base, candidate, candidateAssessment,
                     new ReplanCoordinator.PreparedGraph(candidate.planId(), candidate.revision(), hash),
