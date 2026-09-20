@@ -82,6 +82,9 @@
 | [E51：报告生命周期持久化][E51] | 五个 H2/JDBC 定向用例通过；manifest 可回读，HISTORY/EXPORT 期限分离，引用版本和留存期清理 CAS 生效，正文冲突拒绝。 | 尚未接 `CampaignReportPublisher`、HTTP/客户端历史导出或真实 MySQL；无前端/Docker 验收。 |
 | [E53：报告发布器持久化接线][E53] | 两个直接受影响后端用例通过；durable publisher 复用证据/逐目标评估，稳定生成 manifest/payload，显式 owner/capability/期限并固定 key 读取；合法 null 值可序列化，旧内存 API 保持兼容。 | 尚未注册到 chat/HTTP 或生产运行装配；真实 MySQL、客户端历史/导出和前端仍待验。 |
 | [E52：重规划原子应用边界][E52] | 两个直接受影响后端用例通过；同一 writable REQUIRED 事务按 lock→consumer adoption→revision→receipt 顺序执行，任一回调失败或重复键都全量回滚，并检测回调未离开事务。 | 仍是可信回调适配器，尚未接入真实 `JdbcCampaignRunStore`／`JdbcCampaignStatisticsConsumerStore`、候选校验或生产入口；不能宣称运行中 replan 已开放。 |
+| [E54：typed 重规划应用边界][E54] | 三个直接受影响后端用例通过；owner/run token/capability 在协调前重检，结果保留 APPLIED/IDEMPOTENT/REJECTED，不把 chat/tool 参数当写权限。 | 尚无 token resolver、Spring/chat/HTTP 入口或生产 profile。 |
+| [E55：无副作用 Native Graph 预编译][E55] | 两个直接受影响后端用例通过；绑定 base frozen inputs/identity，使用 SAA 原生 compile 与 inert driver，不创建 PersistentPlanDriver、不 advance、不写 checkpoint。 | 仍需每次按可信 base run 装配；MemorySaver 只用于前置编译，真实运行图和生产 executor 尚未接线。 |
+| [E56：JDBC 重规划原子应用][E56] | 四个 H2/JDBC 直接受影响用例通过；无 callback 时锁定 base，校验并接管全部兼容 consumer，receipt→revise→adopt 同一 REQUIRED 事务，失败全回滚，精确重放不重复写入，允许历史 producer revision。 | 尚无 Spring/HTTP 生产入口；并发协调器 loser 的 replay 重试、真实 MySQL、分布式 fencing 和远端 cancel 未验。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -380,6 +383,9 @@
 [E51]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E53]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E52]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E54]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E55]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E56]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

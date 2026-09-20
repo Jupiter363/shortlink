@@ -7,6 +7,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** JDBC implementation; recording is idempotent for a run revision. */
@@ -19,6 +21,16 @@ public final class JdbcReplanReceiptStore implements ReplanReceiptStore {
         this.jdbc = Objects.requireNonNull(jdbc);
         this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock);
+        if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
+                || manager.getDataSource() != jdbc.getDataSource()
+                || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
+                || transactions.isReadOnly())
+            throw new IllegalArgumentException("Receipt store requires one writable REQUIRED DataSource transaction");
+    }
+
+    /** Package-private composition proof for an atomic replan application. */
+    boolean sharesTransactionDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
     }
 
     @Override
