@@ -1,6 +1,8 @@
 # 投放分析 Agent：外层 Plan 与局部 ReAct 实施计划
 
-状态：**P0 组件验证完成，P1 实施中，P2 范围合同已开始，P3–P5 待实现**。日期：2026-09-19。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，已执行检查与边界见 [首批 P0 验证](../../integration/campaign-plan-p0-2026-09-19.md)及[补充验收](../../integration/campaign-plan-p0-recovery-2026-09-19.md)。后续阶段清单不等于已实现；新入口仍关闭。
+状态：**P0 组件验证完成，P1–P3 部分实现并经定向后端验收，P4 初次 typed 需求规划已接通，P5 待实现**。更新日期：2026-09-20。设计审查基线：`6c93bd9`。实施跟踪 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62)，具体实现与证据以[逐项完成矩阵](../../development/campaign-agent-completion-2026-09-20.md)为准。后续阶段清单不等于已实现；新入口仍关闭。
+
+[原生规划候选与首次执行](../../integration/campaign-plan-p4-planning-intake-2026-09-20.md)已将完整 typed goals／requirements、能力菜单、一次原生模型候选、严格校验和 E44 可信入口接通；接纳失败复用原模型响应，等待接续原 job。任意自然语言需求拆解、运行中重规划／adopt 和报告交付继续实现，不能将该组件验收当作生产开放。
 
 P2 前置进度：[冻结成员与范围证明](../../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员当前授权、501 成员确定性分片、跨服务专用查询／恢复及 Artifact proof；耐久枚举收集、父集合对账、业务组合和生产装配仍待完成。全部完成条件见[逐项完成矩阵](../../development/campaign-agent-completion-2026-09-20.md)。
 

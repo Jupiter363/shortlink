@@ -73,6 +73,7 @@
 | [E42：原生维度Skill与派生范围验收][E42] | 四项后端方法首次通过；同一REACT Step真实下降pair→dimension/3→原任务恢复→实际联合桶观察→后端typed输出。保留UNKNOWN、独立UV和来源关系；空选集零维度查询，撤权零派发，旧FIXED分片／恢复及候选exact路径兼容。 | 实际Skill结果复用和派生范围完成门已验；非任意维度引擎或因果解释，生产统一装配、Goal／报告和客户端继续推进。 |
 | [E43：原生推进进程准入][E43] | 四项后端方法首次通过；三Run共用许可，真实工具timeout/cancel仍占用，排队零加载／零MODEL，满队列未接纳；实际退出后放行，WAIT归零，原job恢复不重提。另验真实scoped Driver／Graph等待及旧queued-timeout／reject路径。 | 显式准入接线已验；生产入口／风险Agent共用、真实多Run内存峰值和容量配置实测仍待完成。 |
 | [E44：请求幂等与可信装配][E44] | 两项后端方法首次通过；并发同键登记／冻结仅一Run，typed proposal获准后验证；真实Coordinator／scoped Graph首次WAIT及原job恢复，取消／改版重放停止；排队撤权先于解析，跨主体／错引用／环境事务拒绝。 | 内部typed入口已验，保留原权限门和稳定身份；自由文本规划、生产身份resolver／路由、真实MySQL和客户端仍待完成。 |
+| [E45：原生规划候选与首次执行][E45] | 两项后端方法首次通过；真实Native按typed需求产出候选，接纳事务失败后复用READY响应，Tool→固定Skill按依赖WAIT／接原job，规划自然过期后续扫不重调；四类非法候选拒绝、provider未知不盲重试，原目标及因果缺口完整保留。 | 初次候选到内部执行链已验；Tool→REACT仅本批结构验真；自然语言需求拆解、真实业务菜单、运行中重规划／adopt及生产入口未完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -157,9 +158,9 @@
 
 | 要求 | 来源 | 证据 | 当前状态 | 剩余动作 |
 | --- | --- | --- | --- | --- |
-| P4-01：拆 goal→具名 requirements，DATA/CALCULATION/DELIVERY/CAUSAL_EVIDENCE；固定 criterion/version/typed参数/证据端口、目录版本。 | C §2.1；R §5.1 | E00 静态 PlanningAssessment。 | 部分已验 | 真实需求与能力评估器；任意自然语言 acceptance 不是可执行检查器，未知规则保留 gap。 |
-| P4-02：完整／部分／无 Skill 均能选择合法组合；单目标多步骤，required 由合法输出覆盖或显式 gap；静态可执行不证明语义理解正确。 | C §2.1；I §1 | E00 校验目录；业务生成未有验收。 | 待实现／验收 | 候选规划和搜索／组合；真实证据决定后续查询，而非固定 prompt 路由或名称相似匹配。 |
-| P4-03：缺输入 NEEDS_INPUT、真实能力缺 UNSUPPORTED、数据不可用 UNAVAILABLE；规划未找到但未证实缺能力 PLANNING_UNRESOLVED，有部分答案 PARTIAL。 | C §2.1；I §4.4 | 合同与进度 NOT_ASSESSED。 | 待实现／验收 | 保留全部原目标／缺口；不因一次模型失败删目标，不放松过滤／指标／成员。 |
+| P4-01：拆 goal→具名 requirements，DATA/CALCULATION/DELIVERY/CAUSAL_EVIDENCE；固定 criterion/version/typed参数/证据端口、目录版本。 | C §2.1；R §5.1 | E00静态合同；E45可信typed requirements完整传入真实Native候选／冻结，模型不能替换goals或删除required。 | 部分已验 | 自然语言需求拆解／语义评估器；任意acceptance文本不是可执行检查器，未知规则保留gap。 |
+| P4-02：完整／部分／无 Skill 均能选择合法组合；单目标多步骤，required 由合法输出覆盖或显式 gap；静态可执行不证明语义理解正确。 | C §2.1；I §1 | E45真实Native规划Tool→Skill并按依赖执行；同菜单Tool→REACT仅结构校验；未知能力／隐藏范围／缺覆盖实际零调用。 | 部分已验 | 真实业务三菜单配置与规划质量、按观察改变后续查询；不把fixture或静态合法当完整语义覆盖。 |
+| P4-03：缺输入 NEEDS_INPUT、真实能力缺 UNSUPPORTED、数据不可用 UNAVAILABLE；规划未找到但未证实缺能力 PLANNING_UNRESOLVED，有部分答案 PARTIAL。 | C §2.1；I §4.4 | E45候选拒绝／模型UNKNOWN分离，原required因果缺口随执行保留；无可信缺能力证明禁止UNSUPPORTED。 | 部分已验 | 真实能力缺失证明、澄清恢复与逐目标PARTIAL交付继续实现；未因规划失败缩小原需求。 |
 | P4-04：仅新证据、输入／能力变化可 replan；局部顺序／允许能力／普通重试／等待不变 revision；等价计划无新信息不循环。 | I §4.4；C §2.1；G §7 | RunStore 有 revise/fencing，不是业务重规划。 | 待实现／验收 | REQUEST_REPLAN 证据／未满足项校验、累计无进展；允许变化前先 P4 验收。 |
 | P4-05：新定义先持久化／校验／编译，再 CAS 切 revision；失败不半覆盖，旧回调不更新新图／报告，消费者与 producer 分开。 | G §7 五步；C §7 | E03 的版本底座。 | 部分已验 | 原子发布新图及消费关系；输入改变新 inputSet，完成 Artifact 保留原 producer。 |
 | P4-06：adopt 仅 Agent 本地，同原冻结请求/hash/scope/filter/period/snapshot/contract/currentauth/期限；兼容原 job 不 submit，不修改 Analytics lease。 | R §3；C §5、§9.6 | 未有 adopt binding 实现／验收。 | 待实现／验收 | job binding＋consumer 精确校验；取消冲突、释放后只许经授权本地消费，不能只靠 jobId。 |
@@ -362,6 +363,7 @@
 [E42]: ../integration/campaign-plan-p3-native-dimension-2026-09-20.md
 [E43]: ../integration/campaign-plan-p3-process-admission-2026-09-20.md
 [E44]: ../integration/campaign-plan-p1-trusted-intake-2026-09-20.md
+[E45]: ../integration/campaign-plan-p4-planning-intake-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
