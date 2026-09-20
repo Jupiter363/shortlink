@@ -34,10 +34,10 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 /** Actual authorized scope, MODEL/CALL, job reception and shared LOCAL publication; no native runner. */
 @Timeout(30)
 class DeclineSelectionCallTest {
-    private static final String RUN = "decline-call-run", STEP = "explore", PAIR = "comparison-periods";
-    private static final String CONFIGURATION = "c".repeat(64);
-    private static final AgentPrincipal PRINCIPAL = new AgentPrincipal(OWNER.tenantId(), OWNER.subject(), OWNER.authVersion(), false);
-    private static final Set<String> OUTPUTS = Set.of("selectedEntities", "selectionEvidence");
+    static final String RUN = "decline-call-run", STEP = "explore", PAIR = "comparison-periods";
+    static final String CONFIGURATION = "c".repeat(64);
+    static final AgentPrincipal PRINCIPAL = new AgentPrincipal(OWNER.tenantId(), OWNER.subject(), OWNER.authVersion(), false);
+    static final Set<String> OUTPUTS = Set.of("selectedEntities", "selectionEvidence");
 
     @Test
     void actualSkillCallWaitsForBothOriginalJobsThenPublishesReadableDeclinesWithoutResubmission() throws Exception {
@@ -160,7 +160,7 @@ class DeclineSelectionCallTest {
             assertEquals(0, f.base.jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE callback_active=TRUE", Integer.class));
     }
 
-    private static final class CallFixture {
+    static final class CallFixture {
         final CampaignParentCoverageTest.Fixture base = new CampaignParentCoverageTest.Fixture();
         final CampaignRunStore runs = base.runs;
         final CampaignStepStore steps;
@@ -176,12 +176,15 @@ class DeclineSelectionCallTest {
         final StepPermit step;
         final CallSpec callSpec;
         final CallPermit initialCall;
+        final String arguments;
         final CapabilityCatalog catalog;
         final ArtifactContractRegistry contracts = new ArtifactContractRegistry(DeclineSelectionSkill.artifactContracts());
         final ModelInvocationRegistry models = new ModelInvocationRegistry(List.of(
                 new ModelInvocationRegistry.Contract("scripted-model", "1", CONFIGURATION, ignored -> true)));
 
-        CallFixture() throws Exception {
+        CallFixture() throws Exception { this(true); }
+
+        CallFixture(boolean prepareInitialModelCall) throws Exception {
             new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919_3__campaign_run_owner.sql"),
                     new ClassPathResource("sql/migration/V20260920_3__campaign_submission_deferral.sql"),
                     new ClassPathResource("sql/migration/V20260920_8__campaign_model_invocation.sql"),
@@ -236,9 +239,13 @@ class DeclineSelectionCallTest {
             invocations = new JdbcCampaignSkillInvocationStore(base.jdbc, base.transactions, CLOCK, catalog, contracts);
             steps.initialize(token, List.of(new StepSpec(STEP, FrozenCampaignRun.encode(planStep), List.of(), OUTPUTS, OUTPUTS)));
             step = steps.beginStep(token, STEP);
-            String arguments = FrozenCampaignRun.encode(Map.of("inputBindings", Map.of(
+            arguments = FrozenCampaignRun.encode(Map.of("inputBindings", Map.of(
                     "scope", PlanBinding.input("scope"), "scopeArtifact", PlanBinding.artifact(scopeArtifact),
                     "periods", PlanBinding.input("periods"), "definition", PlanBinding.input("definition")), "parameters", Map.of("metric", "PV")));
+            if (!prepareInitialModelCall) {
+                callSpec = null; initialCall = null;
+                return; // Native test owns the actual model response and CALL admission.
+            }
             var identity = ModelInvocationRegistry.identity(token.definition(), STEP, 1);
             String request = "{\"schemaVersion\":\"campaign-model-request/v1\",\"messages\":[{\"role\":\"user\",\"text\":\"Find observed declines\"}],"
                     + "\"tools\":[{\"name\":\"decline_selection\",\"description\":\"Apply approved comparison method\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}]}";
@@ -295,7 +302,7 @@ class DeclineSelectionCallTest {
                 Integer.class, RUN, DeclineSelectionPublisher.SELECTED_TYPE, DeclineSelectionPublisher.EVIDENCE_TYPE); }
     }
 
-    private static final class Gateway implements ShortLinkBusinessGateway {
+    static final class Gateway implements ShortLinkBusinessGateway {
         final CallFixture f;
         final Map<String, Map<String, Object>> accepted = new LinkedHashMap<>();
         int submits, recoveries, statuses, pageReads;
@@ -310,7 +317,10 @@ class DeclineSelectionCallTest {
             RunToken current = f.runs.loadRun(OWNER, RUN).orElseThrow().token();
             ChildRecord child = f.children(current).stream().filter(c -> c.spec().requestId().equals(request.get("requestId"))).findFirst().orElseThrow();
             assertEquals(ChildState.DISPATCHING, child.state()); assertTrue(child.callbackActive());
-            assertEquals(f.callSpec.actionId(), child.spec().actionId());
+            if (f.callSpec != null) assertEquals(f.callSpec.actionId(), child.spec().actionId());
+            else assertEquals(1, f.base.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_exploration_call "
+                    + "WHERE run_id=? AND revision=? AND step_id=? AND action_id=? AND callback_active=TRUE",
+                    Integer.class, RUN, current.definition().revision(), STEP, child.spec().actionId()));
             assertEquals(StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH, child.spec().wire().path());
             assertEquals(FrozenCampaignRun.encode(request), child.spec().wire().bodyJson());
             assertTrue(accepted.values().stream().noneMatch(value -> value.get("requestId").equals(request.get("requestId"))));

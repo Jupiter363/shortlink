@@ -112,19 +112,25 @@ public final class NativeExplorationAdapter {
     }
 
     /** Projection is supplied by a trusted Artifact writer, never by model output. */
-    public record Observation(String artifactId, String jobId) {
+    public record Observation(String artifactId, String jobId, String skillCallId, boolean skillPending) {
         public Observation {
-            if ((artifactId == null) == (jobId == null))
-                throw new IllegalArgumentException("Exactly one ready artifact or pending job is required");
-            String reference = artifactId != null ? artifactId : jobId;
+            if ((artifactId == null ? 0 : 1) + (jobId == null ? 0 : 1) + (skillCallId == null ? 0 : 1) != 1
+                    || (skillCallId == null && skillPending))
+                throw new IllegalArgumentException("Exactly one artifact, job or Skill invocation reference is required");
+            String reference = artifactId != null ? artifactId : jobId != null ? jobId : skillCallId;
             if (!reference.matches("[A-Za-z0-9_-]{1,128}"))
                 throw new IllegalArgumentException("An opaque backend reference is required");
         }
 
+        public Observation(String artifactId, String jobId) { this(artifactId, jobId, null, false); }
         public static Observation ready(String artifactId) { return new Observation(artifactId, null); }
         public static Observation pending(String jobId) { return new Observation(null, jobId); }
+        public static Observation skillPending(String callId) { return new Observation(null, null, callId, true); }
+        public static Observation skillReady(String callId) { return new Observation(null, null, callId, false); }
 
         String json() {
+            if (skillCallId != null) return "{\"status\":\"" + (skillPending ? "PENDING" : "READY")
+                    + "\",\"skillCallId\":\"" + skillCallId + "\"}";
             return artifactId != null ? "{\"status\":\"READY\",\"artifactId\":\"" + artifactId + "\"}"
                     : "{\"status\":\"PENDING\",\"jobId\":\"" + jobId + "\"}";
         }

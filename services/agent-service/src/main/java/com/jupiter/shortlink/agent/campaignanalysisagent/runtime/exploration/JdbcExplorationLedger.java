@@ -13,6 +13,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignSkillInvocationStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignSkillInvocationStore.InvocationRecord;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepPermit;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcExplorationCallbackGate;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
@@ -65,7 +67,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private record Header(Status status, String reason, String input, long turn) {}
     private record Turn(long index, String modelChildId, String invocationHash, String decision,
                         String responseHash, String callId, String receiptChild, String artifactId,
-                        String jobId, String observationId, boolean pendingProjected, boolean consumed, boolean repairCounted) {}
+                        String jobId, String observationId, boolean pendingProjected, boolean consumed, boolean repairCounted,
+                        String receiptKind, String skillCompletionId, String skillOutputsHash) {}
     private record Binding(Turn turn, ModelActionSpec action, ChildSpec child, Approval approval) {}
 
     private final JdbcTemplate jdbc;
@@ -90,6 +93,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private final JdbcExplorationBudgetStore budgets;
     private final ExplorationArtifactProjection artifactProjection;
     private final String projectionConfigurationId;
+    private final CampaignSkillInvocationStore skills;
 
     public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
@@ -113,6 +117,16 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
             Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
             ExplorationBudgetPolicy budgetPolicy, ExplorationArtifactProjection artifactProjection) {
+        this(jdbc, transactions, clock, runs, steps, calls, step, registry, configuration, executors, authorizer,
+                budgetPolicy, artifactProjection, null);
+    }
+
+    public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
+            StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
+            Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
+            ExplorationBudgetPolicy budgetPolicy, ExplorationArtifactProjection artifactProjection,
+            CampaignSkillInvocationStore skills) {
         this.jdbc = Objects.requireNonNull(jdbc); this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock); this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps); this.calls = Objects.requireNonNull(calls);
@@ -121,6 +135,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         this.executors = Map.copyOf(executors); this.authorizer = Objects.requireNonNull(authorizer);
         this.budgetPolicy = Objects.requireNonNull(budgetPolicy);
         this.artifactProjection = Objects.requireNonNull(artifactProjection);
+        this.skills = skills;
         this.projectionConfigurationId = Objects.requireNonNull(artifactProjection.configurationId());
         if (projectionConfigurationId.isBlank() || projectionConfigurationId.length() > 512)
             throw failure("EXPLORATION_PROJECTION_CONFIGURATION_INVALID");
@@ -144,9 +159,13 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         });
         // Reference-only sessions keep their original identity across this additive deployment.
         // Opt-in projections are pinned so a resume cannot silently replace already observed facts.
-        this.configurationHash = artifactProjection == ExplorationArtifactProjection.references()
+        String previousConfigurationHash = artifactProjection == ExplorationArtifactProjection.references()
                 ? hash(List.of(configuration, new TreeMap<>(executors), stepJson))
                 : hash(List.of(configuration, new TreeMap<>(executors), stepJson, projectionConfigurationId));
+        this.configurationHash = skills == null ? previousConfigurationHash
+                : hash(List.of("skill-observations/v1", previousConfigurationHash));
+        if (skills != null) jdbc.query("SELECT receipt_kind,skill_completion_id,skill_outputs_hash FROM campaign_exploration_turn WHERE 1=0",
+                (rs, row) -> rs.getString(1));
         var definition = token.definition(); var owner = definition.caller();
         this.identity = new NativeExplorationAdapter.ExecutionKey(owner.tenantId(), owner.subject(), owner.authVersion(),
                 definition.sessionId(), definition.runId(), definition.planId(), definition.revision(), step.stepId(),
@@ -186,14 +205,16 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     @Override public View view() {
         return tx(() -> {
             requireCurrent(); refresh(); Header header = header();
-            List<String> artifacts = jdbc.query("SELECT artifact_id FROM campaign_exploration_turn WHERE run_id=? AND revision=? "
+            List<String> artifacts = new ArrayList<>(jdbc.query("SELECT artifact_id FROM campaign_exploration_turn WHERE run_id=? AND revision=? "
                             + "AND step_id=? AND artifact_id IS NOT NULL ORDER BY turn_index FOR UPDATE",
-                    (rs, row) -> rs.getString(1), runId(), revision(), step.stepId()).stream().distinct().toList();
+                    (rs, row) -> rs.getString(1), runId(), revision(), step.stepId()).stream().distinct().toList());
+            if (skills != null) for (Turn turn : turns()) if ("SKILL".equals(turn.receiptKind()) && "OBSERVED".equals(turn.decision()))
+                requireSkillReceipt(turn).outputs().values().forEach(output -> artifacts.add(output.artifactId()));
             List<String> jobs = header.status() == Status.WAITING
                     ? jdbc.query("SELECT job_id FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? AND turn_index=? FOR UPDATE",
                             (rs, row) -> rs.getString(1), runId(), revision(), step.stepId(), header.turn()) : List.of();
             String job = jobs.isEmpty() ? null : jobs.get(0);
-            return new View(header.status(), header.reason(), artifacts, job, gate.hasActive(runId()) ? 1 : 0);
+            return new View(header.status(), header.reason(), artifacts.stream().distinct().toList(), job, gate.hasActive(runId()) ? 1 : 0);
         });
     }
 
@@ -333,8 +354,14 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     @Override public void recordObservation(long attempt, NativeExplorationAdapter.Observation observation) {
         tx(() -> {
             requireCurrent(); CallPermit permit = permit(attempt);
-            if (!calls.mayExecute(permit)) throw failure("EXPLORATION_CALL_FENCED");
             Turn turn = turn(attempt).orElseThrow();
+            if (observation.skillCallId() != null) {
+                recordSkillObservation(turn, permit, observation);
+                return null;
+            }
+            if (skills != null && calls.call(token, permit.callId()).orElseThrow().spec().executor().kind() == PlanSpec.ExecutorKind.SKILL)
+                throw failure("EXPLORATION_SKILL_RECEIPT_REQUIRED");
+            if (!calls.mayExecute(permit)) throw failure("EXPLORATION_CALL_FENCED");
             List<ChildRecord> matches = capabilityChildren(permit.actionId()).stream().filter(child -> observation.artifactId() != null
                     ? child.state() == ChildState.READY && observation.artifactId().equals(child.artifactId())
                     : child.state() == ChildState.WAITING && observation.jobId().equals(child.jobId())).toList();
@@ -471,6 +498,10 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             if ("REPAIR".equals(turn.decision())) {
                 for (ToolCall call : response.toolCalls()) messages.add(new Message("tool", "{\"executed\":false,\"code\":\"BATCH_REJECTED\"}", null, call.id(), call.name()));
             } else {
+                if ("SKILL".equals(turn.receiptKind())) {
+                    skillHistory(messages, turn, response);
+                    continue;
+                }
                 if (response.toolCalls().size() != 1 || turn.artifactId() == null) throw failure("EXPLORATION_HISTORY_INVALID");
                 ArtifactMetadata receipt = requireReceipt(turn);
                 Map<String, Object> evidence = projectEvidence(receipt);
@@ -591,6 +622,14 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             ArtifactMetadata metadata = requireReceipt(turn);
             String key = "observation-" + turn.index();
             if (inputs.putIfAbsent(key, metadata) != null) throw failure("EXPLORATION_INPUT_NAME_COLLISION");
+        } else if ("SKILL".equals(turn.receiptKind()) && "OBSERVED".equals(turn.decision())) {
+            InvocationRecord receipt = requireSkillReceipt(turn);
+            for (var entry : receipt.outputs().entrySet()) {
+                ArtifactMetadata metadata = runs.readArtifact(token.definition().caller(), entry.getValue().artifactId(), authorizer).metadata();
+                if (!metadata.ref().equals(entry.getValue())) throw failure("EXPLORATION_SKILL_OUTPUT_CHANGED");
+                String key = "observation-" + turn.index() + "-" + entry.getKey();
+                if (inputs.putIfAbsent(key, metadata) != null) throw failure("EXPLORATION_INPUT_NAME_COLLISION");
+            }
         }
         return inputs;
     }
@@ -613,6 +652,120 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         return metadata;
     }
 
+    private void recordSkillObservation(Turn turn, CallPermit permit, NativeExplorationAdapter.Observation observation) {
+        if (skills == null || !permit.step().equals(step) || !permit.callId().equals(observation.skillCallId())
+                || !permit.callId().equals(turn.callId()) || observation.artifactId() != null || observation.jobId() != null)
+            throw failure("EXPLORATION_SKILL_RECEIPT_INVALID");
+        CallRecord call = calls.call(token, permit.callId()).orElseThrow();
+        requireSkillCall(turn, call);
+        // await/complete already record RETURNED in the invocation transaction. This is only
+        // observation admission for that same still-active callback, never dispatch admission.
+        var exact = jdbc.query("SELECT call_state,callback_active,revoked,action_id,attempt_id,attempt_version,"
+                        + "step_attempt_id,step_attempt_version,dispatch_run_version,dispatch_run_token "
+                        + "FROM campaign_exploration_call WHERE run_id=? AND revision=? AND call_id=? FOR UPDATE",
+                (rs, row) -> "RETURNED".equals(rs.getString("call_state")) && rs.getBoolean("callback_active") && !rs.getBoolean("revoked")
+                        && permit.actionId().equals(rs.getString("action_id")) && permit.attemptId().equals(rs.getString("attempt_id"))
+                        && permit.attemptVersion() == rs.getLong("attempt_version")
+                        && step.attemptId().equals(rs.getString("step_attempt_id")) && step.attemptVersion() == rs.getLong("step_attempt_version")
+                        && token.version() == rs.getLong("dispatch_run_version") && token.advanceToken().equals(rs.getString("dispatch_run_token")),
+                runId(), revision(), permit.callId());
+        if (exact.size() != 1 || !exact.get(0)) throw failure("EXPLORATION_CALL_FENCED");
+        InvocationRecord invocation = skills.invocation(token, turn.callId()).orElseThrow(() -> failure("EXPLORATION_SKILL_INVOCATION_REQUIRED"));
+        if (observation.skillPending()) {
+            if (invocation.state() != CampaignSkillInvocationStore.State.WAITING || "OBSERVED".equals(turn.decision()))
+                throw failure("EXPLORATION_SKILL_NOT_WAITING");
+            saveSkillWaiting(turn, true);
+        } else {
+            if (invocation.state() != CampaignSkillInvocationStore.State.COMPLETED) throw failure("EXPLORATION_SKILL_NOT_COMPLETE");
+            saveSkillReady(turn, skills.readCompletion(token, turn.callId(), authorizer));
+        }
+    }
+
+    private void requireSkillCall(Turn turn, CallRecord call) {
+        if (skills == null || call.spec().executor().kind() != PlanSpec.ExecutorKind.SKILL
+                || !call.spec().callId().equals(turn.callId()) || !call.spec().modelChildId().equals(turn.modelChildId())
+                || !call.spec().stepId().equals(step.stepId()) || !call.spec().responseHash().equals(turn.responseHash()))
+            throw failure("EXPLORATION_SKILL_CALL_CHANGED");
+    }
+
+    private InvocationRecord requireSkillReceipt(Turn turn) {
+        if (skills == null || !"SKILL".equals(turn.receiptKind()) || !"OBSERVED".equals(turn.decision())
+                || turn.skillCompletionId() == null || turn.skillOutputsHash() == null || turn.callId() == null
+                || turn.receiptChild() != null || turn.artifactId() != null || turn.jobId() != null)
+            throw failure("EXPLORATION_SKILL_RECEIPT_REQUIRED");
+        requireSkillCall(turn, calls.call(token, turn.callId()).orElseThrow());
+        InvocationRecord actual = skills.readCompletion(token, turn.callId(), authorizer);
+        if (!turn.skillCompletionId().equals(actual.completionId()) || !turn.skillOutputsHash().equals(hash(actual.outputs())))
+            throw failure("EXPLORATION_SKILL_RECEIPT_CHANGED");
+        return actual;
+    }
+
+    private void refreshSkill(Turn turn, CallRecord call) {
+        requireSkillCall(turn, call);
+        if (call.state() == CallState.PREPARED) return;
+        if (call.revoked() || call.state() != CallState.RETURNED) {
+            setStatus(Status.BLOCKED, "EXPLORATION_SKILL_RESULT_UNRESOLVED");
+            return;
+        }
+        if ("OBSERVED".equals(turn.decision())) { requireSkillReceipt(turn); return; }
+        InvocationRecord invocation = skills.invocation(token, turn.callId()).orElse(null);
+        if (invocation == null) { setStatus(Status.BLOCKED, "EXPLORATION_SKILL_INVOCATION_REQUIRED"); return; }
+        if (invocation.state() == CampaignSkillInvocationStore.State.WAITING) {
+            // READY remote dependencies authorize the server's continuation, not another model turn.
+            saveSkillWaiting(turn, false);
+        } else if (invocation.state() == CampaignSkillInvocationStore.State.COMPLETED) {
+            saveSkillReady(turn, skills.readCompletion(token, turn.callId(), authorizer));
+        } else setStatus(Status.BLOCKED, "EXPLORATION_SKILL_RESULT_UNRESOLVED");
+    }
+
+    private void saveSkillWaiting(Turn turn, boolean projected) {
+        if (turn.receiptChild() != null || turn.artifactId() != null || turn.jobId() != null
+                || turn.skillCompletionId() != null || turn.skillOutputsHash() != null)
+            throw failure("EXPLORATION_SKILL_RECEIPT_CHANGED");
+        if (!"SKILL".equals(turn.receiptKind()) || (projected && !turn.pendingProjected()))
+            updateTurn(turn.index(), "receipt_kind='SKILL',pending_projected=?", projected || turn.pendingProjected());
+        if (header().status() != Status.WAITING) setStatus(Status.WAITING, "");
+    }
+
+    private void saveSkillReady(Turn turn, InvocationRecord invocation) {
+        if (turn.receiptChild() != null || turn.artifactId() != null || turn.jobId() != null)
+            throw failure("EXPLORATION_SKILL_RECEIPT_CHANGED");
+        String outputsHash = hash(invocation.outputs());
+        if ((turn.skillCompletionId() != null && !turn.skillCompletionId().equals(invocation.completionId()))
+                || (turn.skillOutputsHash() != null && !turn.skillOutputsHash().equals(outputsHash)))
+            throw failure("EXPLORATION_SKILL_RECEIPT_CHANGED");
+        String observationId = "observation-" + hash(List.of(runId(), revision(), step.stepId(), turn.index(), turn.callId(), invocation.completionId()));
+        updateTurn(turn.index(), "decision='OBSERVED',receipt_kind='SKILL',skill_completion_id=?,skill_outputs_hash=?,observation_id=?",
+                invocation.completionId(), outputsHash, observationId);
+        setStatus(Status.ACTIVE, "");
+    }
+
+    private void skillHistory(ContextMessages messages, Turn turn, Response response) {
+        if (response.toolCalls().size() != 1 || turn.observationId() == null) throw failure("EXPLORATION_HISTORY_INVALID");
+        InvocationRecord receipt = requireSkillReceipt(turn);
+        CallRecord savedCall = calls.call(token, turn.callId()).orElseThrow();
+        ToolCall tool = response.toolCalls().get(0);
+        if (!tool.id().equals(savedCall.spec().toolCallId()) || !tool.name().equals(savedCall.spec().executor().name()))
+            throw failure("EXPLORATION_SKILL_CALL_CHANGED");
+        Map<String, Object> ready = new LinkedHashMap<>(Map.of("status", "READY", "skillCallId", turn.callId(),
+                "completionId", receipt.completionId(), "outputs", receipt.outputs()));
+        Map<String, Object> evidence = new TreeMap<>();
+        for (var entry : receipt.outputs().entrySet()) {
+            ArtifactMetadata metadata = runs.readArtifact(token.definition().caller(), entry.getValue().artifactId(), authorizer).metadata();
+            if (!entry.getValue().equals(metadata.ref())) throw failure("EXPLORATION_SKILL_OUTPUT_CHANGED");
+            Map<String, Object> projected = projectEvidence(metadata);
+            if (!projected.isEmpty()) evidence.put(entry.getKey(), projected);
+        }
+        if (!evidence.isEmpty()) ready.put("evidence", evidence);
+        if (turn.pendingProjected()) {
+            messages.add(new Message("tool", NativeExplorationAdapter.Observation.skillPending(turn.callId()).json(), null, tool.id(), tool.name()));
+            ready.put("type", "trusted_action_observation");
+            ready.put("observationId", turn.observationId());
+            ready.put("actionId", savedCall.spec().actionId());
+            messages.add(new Message("user", write(ready), null, null, null));
+        } else messages.add(new Message("tool", write(ready), null, tool.id(), tool.name()));
+    }
+
     private void refresh() {
         Header header = header();
         if (header.status() == Status.FAILED || header.status() == Status.CANDIDATE || budgetBlocked(header)) return;
@@ -620,6 +773,10 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         if (turn == null || turn.callId() == null) return;
         CallRecord call = calls.call(token, turn.callId()).orElseThrow();
         if (call.callbackActive()) return;
+        if (skills != null && call.spec().executor().kind() == PlanSpec.ExecutorKind.SKILL) {
+            refreshSkill(turn, call);
+            return;
+        }
         if ("OBSERVED".equals(turn.decision())) { requireReceipt(turn); return; }
         if (call.state() == CallState.PREPARED) return;
         if (turn.receiptChild() != null) {
@@ -648,7 +805,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             if (turn.artifactId() != null && !turn.artifactId().equals(child.artifactId())) throw failure("EXPLORATION_RECEIPT_CHANGED");
             String observationId = "observation-" + CampaignRunStore.sha256(write(List.of(runId(), revision(), step.stepId(), turn.index(), child.spec().childId(), child.artifactId())));
             Turn checked = new Turn(turn.index(), turn.modelChildId(), turn.invocationHash(), "OBSERVED", turn.responseHash(), turn.callId(),
-                    child.spec().childId(), child.artifactId(), child.jobId(), observationId, turn.pendingProjected(), turn.consumed(), turn.repairCounted());
+                    child.spec().childId(), child.artifactId(), child.jobId(), observationId, turn.pendingProjected(), turn.consumed(), turn.repairCounted(),
+                    "ARTIFACT", null, null);
             requireReceipt(checked);
             updateTurn(turn.index(), "decision='OBSERVED',receipt_child_id=?,artifact_id=?,job_id=?,observation_id=?",
                     child.spec().childId(), child.artifactId(), child.jobId(), observationId);
@@ -699,11 +857,11 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
     private Header header() { var rows = headers(); if (rows.size() != 1) throw failure("EXPLORATION_SESSION_NOT_FOUND"); return rows.get(0); }
     private List<Turn> turns() {
-        return jdbc.query("SELECT " + TURN_COLUMNS + " FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? ORDER BY turn_index FOR UPDATE",
+        return jdbc.query("SELECT " + turnColumns() + " FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? ORDER BY turn_index FOR UPDATE",
                 (rs, row) -> readTurn(rs), runId(), revision(), step.stepId());
     }
     private Optional<Turn> turn(long index) {
-        return jdbc.query("SELECT " + TURN_COLUMNS + " FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? AND turn_index=? FOR UPDATE",
+        return jdbc.query("SELECT " + turnColumns() + " FROM campaign_exploration_turn WHERE run_id=? AND revision=? AND step_id=? AND turn_index=? FOR UPDATE",
                 (rs, row) -> readTurn(rs), runId(), revision(), step.stepId(), index).stream().findFirst();
     }
     private Turn readTurn(ResultSet rs) throws SQLException {
@@ -714,7 +872,12 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             throw failure("EXPLORATION_INVOCATION_CORRUPTED");
         return new Turn(index, rs.getString("model_child_id"), hash, rs.getString("decision"), rs.getString("response_hash"),
                 rs.getString("call_id"), rs.getString("receipt_child_id"), rs.getString("artifact_id"), rs.getString("job_id"),
-                rs.getString("observation_id"), rs.getBoolean("pending_projected"), rs.getBoolean("consumed"), rs.getBoolean("repair_counted"));
+                rs.getString("observation_id"), rs.getBoolean("pending_projected"), rs.getBoolean("consumed"), rs.getBoolean("repair_counted"),
+                skills == null ? "ARTIFACT" : rs.getString("receipt_kind"),
+                skills == null ? null : rs.getString("skill_completion_id"), skills == null ? null : rs.getString("skill_outputs_hash"));
+    }
+    private String turnColumns() {
+        return skills == null ? TURN_COLUMNS : TURN_COLUMNS + ",receipt_kind,skill_completion_id,skill_outputs_hash";
     }
     private void updateTurn(long index, String changes, Object... values) {
         List<Object> arguments = new ArrayList<>(java.util.Arrays.asList(values));

@@ -87,14 +87,24 @@ public final class DeclineSelectionCall {
 
     /** The real callback owner must call calls.callbackExited in its actual finally block. */
     public InvocationRecord execute(CallPermit permit) throws Exception {
+        return execute(permit, null, () -> {});
+    }
+
+    /** Native cancellation adds a transient per-operation guard; persisted CALL authority is still mandatory. */
+    public InvocationRecord execute(CallPermit permit, String suppliedArguments, Runnable nativeGuard) throws Exception {
+        Objects.requireNonNull(nativeGuard).run();
         require(!TransactionSynchronizationManager.isActualTransactionActive(), "DECLINE_CALL_REQUIRES_COMMITTED_PREPARATION");
         requireLive(permit);
         RunToken token = permit.step().runToken();
         try (Source source = resolve(token, permit.callId())) {
+            if (suppliedArguments != null) require(source.call().spec().arguments().equals(new ModelInvocationRegistry.ToolCall(
+                    source.call().spec().toolCallId(), REF.name(), suppliedArguments).arguments()), "DECLINE_CALL_ARGUMENTS_CHANGED");
             var selection = selectionDefinition(token, source);
             skills.prepare(permit, publisher.completionSpec(permit, selection), source.model(), authorizer);
             var receipt = selections.loadReceipt(token, selection.collectionId(), authorizer).orElse(null);
-            try (var context = new CampaignCallExecution(permit, runs, steps, calls, () -> authorized(token, source, permit))) {
+            try (var context = new CampaignCallExecution(permit, runs, steps, calls, () -> {
+                nativeGuard.run(); return authorized(token, source, permit);
+            })) {
                 var result = DeclineSelectionSkill.executeSelection(context, selection, receipt,
                         shard -> queries(token, source, selection, shard),
                         (query, boundary) -> StatisticsJobFixedExecutor.submit(boundary, definition, current,
