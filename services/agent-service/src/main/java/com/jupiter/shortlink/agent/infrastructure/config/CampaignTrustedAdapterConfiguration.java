@@ -8,6 +8,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.Proces
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanApplicationService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanRuntimeFactory;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanTrustedAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.ReportLifecycleStore;
 import java.time.Clock;
@@ -15,6 +16,7 @@ import java.util.Objects;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -67,6 +69,18 @@ public class CampaignTrustedAdapterConfiguration {
             CampaignStatisticsConsumerStore.Authorizer consumerAuthorizer) {
         return new CampaignReplanRuntimeFactory(jdbc, transactions, clock, planValidator,
                 processScope.getIfAvailable(), capabilityAuthorizer, consumerAuthorizer);
+    }
+
+    /**
+     * The adapter is created only when a trusted transport explicitly supplies a resolver.  No
+     * default resolver can turn a free-text run id or model argument into a durable write.
+     */
+    @Bean
+    @ConditionalOnBean(CampaignReplanTrustedAdapter.RunTokenResolver.class)
+    public CampaignReplanTrustedAdapter campaignReplanTrustedAdapter(
+            CampaignReplanRuntimeFactory runtimeFactory,
+            CampaignReplanTrustedAdapter.RunTokenResolver tokenResolver) {
+        return new CampaignReplanTrustedAdapter(runtimeFactory, tokenResolver);
     }
 
     /** Explicitly binds the transaction manager used by both trusted seams to the primary data source. */
