@@ -61,6 +61,7 @@
 | [E30：探索预算与上下文加载][E30] | 三项后端用例首次通过；模型预算跨重开/升级/新revision保留，UTF8完整请求超限零模型/工具/checkpoint；三轮恢复完整配对不重做。 | 模型预算/历史引用加载组件已验；修复耗尽、无进展、精确投影确认、typed能力和生产组合仍待完成。 |
 | [E31：协议事务故障与修复额度][E31] | 三项后端用例首次通过；真实接纳tx失败不重调模型，PENDING tx回滚后原job唯一READY配对，违规批次修复耗尽后重开不重置。 | 相应故障窗口已验；无进展、精确投影确认、typed Tool/Skill及生产组合仍待完成。 |
 | [E32：真实统计探索工具][E32] | 四项后端方法首次通过；原生typed CALL提交一次、500＋1全页接收、新writer/空saver恢复；五类非法binding/权限/可见性网关零调用，受影响固定统计两路径兼容。 | 新原生主例为CURRENT_GROUP，FROZEN_SET只回归旧固定路径；模型仍读引用，统计事实投影、非探索Skill及Driver仍待接线。 |
+| [E33：统计事实模型投影][E33] | 两项后端方法首次通过；501维度桶投影真实整窗指标/质量及2行明确预览，恶意label不提升System角色；response提交后saver故障重开不重调，撤权与配置漂移阻断，旧引用恢复兼容。 | 可选版本化事实投影已验；不代表模型语义安全、全页自主分析或报告交付，生产Driver仍关闭。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -236,7 +237,7 @@
 | G16：忽略取消、SDK清state、新旧writer叠加；账本阻model/后续I/O，晚到不能成功。 | G §9 #16 | E00实native、E06独立持久化 | 部分已验 | 两者接通并验实际callback生命周期。 |
 | G17：多Run慢model/大结果峰值、实际exit许可、队列无全量载荷。 | G §9 #17 | E00 ProcessCapacityExecutorTest | 部分已验 | 完整装配与内存测量，而非仅serializer字节。 |
 | G18：syncREADY＋asyncWAIT恢复不重GET/改hash，父不丢等待，容量拒绝不造job。 | G §9 #18 | E03/E04通用账本 | 部分已验 | 实际复合adapter＋P2容量合同。 |
-| G19：恶意label/维度仍数据，不进入SystemMessage权限。 | G §9 #19；R2 §3候选3 | 原生短引用与角色边界有基础，未找到该专门业务反例运行记录 | 待实现／验收 | 接投影器后用恶意业务字段断言角色不提升／工具规则不改变；不把受信信封误当所有文本可信。 |
+| G19：恶意label/维度仍数据，不进入SystemMessage权限。 | G §9 #19；R2 §3候选3 | E33真实维度label在READY数据观察中，System与权限配置不变；E32typed调用独立鉴权。 | 组件已验 | 生产装配沿用数据／权限边界；角色隔离不等于已验证模型抵御所有提示注入。 |
 
 ## 5. G0／G1／G2 与阶段开启条件
 
@@ -338,6 +339,7 @@
 [E30]: ../integration/campaign-plan-p3-exploration-budget-2026-09-20.md
 [E31]: ../integration/campaign-plan-p3-protocol-recovery-2026-09-20.md
 [E32]: ../integration/campaign-plan-p3-statistics-tool-2026-09-20.md
+[E33]: ../integration/campaign-plan-p3-evidence-projection-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
