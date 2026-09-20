@@ -140,6 +140,13 @@ public final class DeclineSelectionCall {
         }
     }
 
+    /** Server continuation owns the actual callback through every child operation and its finally. */
+    public InvocationRecord continueInvocation(StepPermit step, String callId, long invocationVersion) throws Exception {
+        CallPermit permit = beginContinuation(step, callId, invocationVersion);
+        try { return execute(permit); }
+        finally { calls.callbackExited(permit); }
+    }
+
     public Map<String, StatisticsJobResultReceiver.Target> resultTargets(RunToken token) {
         requireToken(token);
         Map<String, StatisticsJobResultReceiver.Target> result = new LinkedHashMap<>();

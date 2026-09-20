@@ -77,7 +77,7 @@ public final class JdbcCampaignExplorationCandidateStore implements CampaignExpl
                 || manager.getDataSource() != jdbc.getDataSource() || transactions.isReadOnly()
                 || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
                 || !(runs instanceof JdbcCampaignRunStore actual) || !actual.sharesTransactionDataSource(jdbc)
-                || !(steps instanceof JdbcCampaignStepStore))
+                || !(steps instanceof JdbcCampaignStepStore actualSteps) || !actualSteps.sharesTransactionDataSource(jdbc))
             throw failure("CANDIDATE_REQUIRES_SHARED_TRANSACTION");
         this.callbacks = new JdbcExplorationCallbackGate(jdbc);
         jdbc.query("SELECT assessment_id FROM campaign_exploration_candidate WHERE 1=0", (rs, row) -> rs.getString(1));
@@ -114,6 +114,22 @@ public final class JdbcCampaignExplorationCandidateStore implements CampaignExpl
             Assessment existing = find(token, stepId).orElse(null);
             if (existing == null) return Optional.empty();
             return Optional.of(revalidate(source(token, stepId, existing.modelChildId()), existing));
+        });
+    }
+
+    @Override public CampaignStepStore.StepRecord settleComplete(StepPermit permit) {
+        Objects.requireNonNull(permit);
+        return tx(() -> {
+            RunToken token = permit.runToken();
+            lockRun(token);
+            lockStep(token, permit.stepId(), permit);
+            Assessment existing = find(token, permit.stepId())
+                    .orElseThrow(() -> failure("CANDIDATE_ASSESSMENT_MISSING"));
+            Assessment actual = revalidate(source(token, permit.stepId(), existing.modelChildId()), existing);
+            require(actual.verdict() == Verdict.COMPLETE, "CANDIDATE_NOT_COMPLETE");
+            Map<String, String> outputs = new TreeMap<>();
+            actual.outputs().forEach((name, artifact) -> outputs.put(name, artifact.artifactId()));
+            return steps.settle(permit, CampaignStepStore.StepStatus.SUCCEEDED, outputs, null, authorizer);
         });
     }
 

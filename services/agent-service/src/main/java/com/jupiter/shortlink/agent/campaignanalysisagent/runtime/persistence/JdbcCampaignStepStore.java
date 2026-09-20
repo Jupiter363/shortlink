@@ -68,6 +68,10 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
         this.calls = new JdbcExplorationCallbackGate(jdbc);
     }
 
+    boolean sharesTransactionDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
     @Override
     public ProgressSnapshot snapshot(Caller caller, String runId) {
         Objects.requireNonNull(caller, "Current caller is required");
@@ -211,6 +215,7 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
             if (step.status() != StepStatus.RUNNING
                     && (step.status() != target || !step.outputs().equals(outputs) || !Objects.equals(step.reason(), reason)))
                 fail("STEP_ALREADY_SETTLED");
+            if (target == StepStatus.SUCCEEDED) requireNoOtherCallbacks(permit);
             List<ChildReceipt> children = childReceipts(token, permit.stepId());
             if (target == StepStatus.WAITING && children.stream().noneMatch(child ->
                     child.state().equals("WAITING") && child.jobId() != null && !child.jobId().isBlank()))
@@ -448,6 +453,20 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
         Integer children = jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger WHERE run_id=? AND callback_active=TRUE",
                 Integer.class, runId);
         return (steps != null && steps > 0) || (children != null && children > 0) || calls.hasActive(runId);
+    }
+
+    /** READY is a result fact, not proof that its producer's callback has actually exited. */
+    private void requireNoOtherCallbacks(StepPermit permit) {
+        var definition = permit.runToken().definition();
+        // The Run row and exact current Step attempt are already locked. Exclude only that Step's
+        // own callback; callbacks from any other step or revision still fence successful settlement.
+        boolean otherSteps = !jdbc.query("SELECT step_id FROM campaign_step_ledger WHERE run_id=? "
+                        + "AND callback_active=TRUE AND (revision<>? OR step_id<>?) LIMIT 1 FOR UPDATE",
+                (rs, row) -> rs.getString("step_id"), definition.runId(), definition.revision(), permit.stepId()).isEmpty();
+        boolean children = !jdbc.query("SELECT child_id FROM campaign_child_ledger WHERE run_id=? "
+                        + "AND callback_active=TRUE LIMIT 1 FOR UPDATE",
+                (rs, row) -> rs.getString("child_id"), definition.runId()).isEmpty();
+        if (otherSteps || children || calls.hasActive(definition.runId())) fail("CALLBACK_STILL_ACTIVE");
     }
 
     private void requireNoCallbacks(String runId) { if (hasCallbacks(runId)) fail("CALLBACK_STILL_ACTIVE"); }

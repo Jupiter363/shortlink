@@ -23,4 +23,7 @@ public interface CampaignExplorationCandidateStore {
     Assessment assess(StepPermit step, String modelChildId);
     /** Reads through current source, policy and Artifact authorization; never a cached authorization result. */
     Optional<Assessment> assessment(RunToken token, String stepId);
+
+    /** Revalidates the stored COMPLETE receipt and publishes only its outputs in the same Step transaction. */
+    CampaignStepStore.StepRecord settleComplete(StepPermit permit);
 }

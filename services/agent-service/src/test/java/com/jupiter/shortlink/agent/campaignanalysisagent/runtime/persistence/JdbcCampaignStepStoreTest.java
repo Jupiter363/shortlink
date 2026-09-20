@@ -161,6 +161,53 @@ class JdbcCampaignStepStoreTest {
     }
 
     @Test
+    void readyChildMustActuallyExitBeforeStepSuccessCanPublishOutputs() {
+        Fixture fixture = fixture();
+        CampaignRunStore runs = fixture.runs();
+        RunToken run = createRun(runs, OWNER, "run-ready-callback");
+        CampaignStepStore steps = fixture.steps();
+        steps.initialize(run, List.of(outputStep("collect"), simpleStep("consume", "collect")));
+        prepareChild(runs, run, "collect", "source", ChildMode.SYNC);
+        StepPermit step = steps.beginStep(run, "collect");
+        String artifactId = "artifact-ready-active";
+        try {
+            DispatchPermit child = runs.beginDispatch(run, "source");
+            try {
+                runs.publishReady(child, artifact(artifactId, NOW.plusSeconds(3600)));
+                assertEquals(ChildState.READY, runs.child(run, "source").orElseThrow().state());
+                assertTrue(runs.child(run, "source").orElseThrow().callbackActive());
+                StepRecord unchanged = steps.step(run, "collect").orElseThrow();
+                fixture.dataSource().forbidPayloadReads = true;
+                IllegalStateException blocked = assertThrows(IllegalStateException.class,
+                        () -> steps.settle(step, StepStatus.SUCCEEDED, Map.of("summary", artifactId), null, ALLOW));
+                assertEquals("CALLBACK_STILL_ACTIVE", blocked.getMessage());
+                assertEquals(unchanged, fixture.steps().step(run, "collect").orElseThrow());
+                assertTrue(steps.step(run, "collect").orElseThrow().outputs().isEmpty());
+                assertTrue(runs.child(run, "source").orElseThrow().callbackActive(),
+                        "Rejected settlement cannot substitute for the child delegate's finally");
+                assertThrows(IllegalStateException.class, () -> steps.beginStep(run, "consume"));
+            } finally {
+                runs.callbackExited(child);
+            }
+            assertFalse(runs.child(run, "source").orElseThrow().callbackActive());
+            StepRecord settled = steps.settle(step, StepStatus.SUCCEEDED, Map.of("summary", artifactId), null, ALLOW);
+            assertEquals(StepStatus.SUCCEEDED, settled.status());
+            assertEquals(Map.of("summary", artifactId), settled.outputs());
+            assertTrue(settled.callbackActive(), "The settling Step must still exit its own real callback");
+            assertThrows(IllegalStateException.class, () -> steps.beginStep(run, "consume"));
+            assertEquals(0, fixture.dataSource().payloadReads.get());
+        } finally {
+            steps.callbackExited(step);
+        }
+        StepPermit consumer = steps.beginStep(run, "consume");
+        try {
+            assertTrue(steps.mayExecute(consumer));
+        } finally {
+            steps.callbackExited(consumer);
+        }
+    }
+
+    @Test
     void outputValidationIsAtomicAndUsesAuthorizedUnexpiredMetadataWithoutReadingPayloads() {
         Fixture fixture = fixture();
         CampaignRunStore runs = fixture.runs();

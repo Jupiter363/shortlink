@@ -65,6 +65,9 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         }
     }
 
+    /** A read-only scheduling hint; beginContinuation must still grant the actual new CALL permit. */
+    public record PendingSkillContinuation(String callId, long invocationVersion) {}
+
     private record Header(Status status, String reason, String input, long turn) {}
     private record Turn(long index, String modelChildId, String invocationHash, String decision,
                         String responseHash, String callId, String receiptChild, String artifactId,
@@ -96,6 +99,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private final String projectionConfigurationId;
     private final CampaignSkillInvocationStore skills;
     private final CampaignExplorationCandidateStore candidates;
+    private final String candidateInstructions;
 
     public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
@@ -177,8 +181,10 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                 : hash(List.of(configuration, new TreeMap<>(executors), stepJson, projectionConfigurationId));
         String skillConfigurationHash = skills == null ? previousConfigurationHash
                 : hash(List.of("skill-observations/v1", previousConfigurationHash));
+        this.candidateInstructions = candidates == null ? null : candidateInstructions();
         this.configurationHash = candidates == null ? skillConfigurationHash
-                : hash(List.of(ExplorationCandidate.SCHEMA_VERSION, skillConfigurationHash,
+                : hash(List.of(ExplorationCandidate.SCHEMA_VERSION, "candidate-instructions/v1", skillConfigurationHash,
+                        candidateInstructions,
                         candidates.configurationId(token.definition(), step.stepId())));
         if (skills != null) jdbc.query("SELECT receipt_kind,skill_completion_id,skill_outputs_hash FROM campaign_exploration_turn WHERE 1=0",
                 (rs, row) -> rs.getString(1));
@@ -199,6 +205,49 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     }
 
     @Override public NativeExplorationAdapter.ExecutionKey identity() { return identity; }
+
+    /**
+     * Read the actual suspended Skill, without refreshing observations or creating a new attempt.
+     * READY dependencies do not make the Skill complete. Its registered server continuation owns
+     * the wait-contract comparison, source approval and atomic allocation of a new CALL attempt.
+     */
+    public Optional<PendingSkillContinuation> pendingSkillContinuation() {
+        return tx(() -> {
+            requireCurrent();
+            if (skills == null) return Optional.empty();
+            Header header = header();
+            if (header.status() != Status.ACTIVE && header.status() != Status.WAITING) return Optional.empty();
+            Turn current = turn(header.turn()).orElse(null);
+            if (current == null || current.callId() == null || !"TOOL".equals(current.decision())) return Optional.empty();
+            CallRecord call = calls.call(token, current.callId()).orElseThrow();
+            if (call.spec().executor().kind() != PlanSpec.ExecutorKind.SKILL) return Optional.empty();
+            requireSkillCall(current, call);
+            if (call.state() != CallState.RETURNED || call.callbackActive() || call.revoked() || gate.hasActive(runId()))
+                return Optional.empty();
+            if (!jdbc.query("SELECT child_id FROM campaign_child_ledger WHERE run_id=? AND callback_active=TRUE LIMIT 1 FOR UPDATE",
+                    (rs, row) -> rs.getString(1), runId()).isEmpty()) return Optional.empty();
+            InvocationRecord invocation = skills.invocation(token, current.callId()).orElseThrow(
+                    () -> failure("EXPLORATION_SKILL_INVOCATION_REQUIRED"));
+            if (invocation.state() != CampaignSkillInvocationStore.State.WAITING) return Optional.empty();
+            var newerStep = jdbc.query("SELECT step_attempt_id,step_attempt_version FROM campaign_exploration_call "
+                            + "WHERE run_id=? AND revision=? AND call_id=? FOR UPDATE",
+                    (rs, row) -> !step.attemptId().equals(rs.getString("step_attempt_id"))
+                            && step.attemptVersion() > rs.getLong("step_attempt_version"),
+                    runId(), revision(), current.callId());
+            if (newerStep.size() != 1 || !newerStep.get(0)) return Optional.empty();
+            List<ChildRecord> children = capabilityChildren(call.spec().actionId());
+            if (children.isEmpty() || children.stream().anyMatch(child -> child.state() != ChildState.READY
+                    || child.callbackActive() || child.reason() != null)) return Optional.empty();
+            // Validate the saved source, including current rights for every MODEL-visible input.
+            Response source = runs.readModelResponse(token, current.modelChildId(), validateInvocation(current), authorizer);
+            if (!call.spec().responseHash().equals(CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(source)))
+                    || source.toolCalls().size() != 1
+                    || !source.toolCalls().get(0).equals(new ToolCall(call.spec().toolCallId(),
+                            call.spec().executor().name(), call.spec().arguments())))
+                throw failure("EXPLORATION_SKILL_CALL_CHANGED");
+            return Optional.of(new PendingSkillContinuation(current.callId(), invocation.rowVersion()));
+        });
+    }
 
     @Override public void freezeInput(String input) {
         if (input == null || input.isBlank()) throw failure("EXPLORATION_INPUT_REQUIRED");
@@ -569,9 +618,24 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
 
     private List<Message> initialMessages(String input) {
         List<Message> messages = new ArrayList<>();
-        if (configuration.systemPrompt() != null) messages.add(new Message("system", configuration.systemPrompt(), null, null, null));
+        String system = configuration.systemPrompt();
+        if (candidateInstructions != null) system = system == null ? candidateInstructions : system + "\n\n" + candidateInstructions;
+        if (system != null) messages.add(new Message("system", system, null, null, null));
         messages.add(new Message("user", input, null, null, null));
         return messages;
+    }
+
+    private String candidateInstructions() {
+        var specification = steps.step(token, step.stepId()).orElseThrow().spec();
+        var policy = planned.explorationPolicy();
+        Map<String, Object> contract = new LinkedHashMap<>();
+        contract.put("outputContractRef", planned.outputContractRef());
+        contract.put("allowedOutputPorts", specification.allowedOutputs().stream().sorted().toList());
+        contract.put("requiredOutputPorts", specification.requiredOutputs().stream().sorted().toList());
+        contract.put("completionCriteria", policy.completionCriteria());
+        contract.put("scopeRef", policy.scopeRef());
+        contract.put("periodsRef", policy.periodsRef());
+        return ExplorationCandidate.instructions() + "\n\nFrozen server completion contract:\n" + write(contract);
     }
 
     private Request request(List<Message> messages) { return new Request(ModelInvocationRegistry.REQUEST_SCHEMA, messages, configuration.tools()); }

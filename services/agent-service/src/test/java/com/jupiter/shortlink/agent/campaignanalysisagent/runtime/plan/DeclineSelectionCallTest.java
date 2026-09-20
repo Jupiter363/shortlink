@@ -189,6 +189,13 @@ class DeclineSelectionCallTest {
         }
 
         CallFixture(boolean prepareInitialModelCall, List<PlanSpec.CriterionUse> completionCriteria) throws Exception {
+            this(prepareInitialModelCall, completionCriteria, null, null);
+        }
+
+        CallFixture(boolean prepareInitialModelCall, List<PlanSpec.CriterionUse> completionCriteria,
+                    PlanSpec.Step downstream, Capability downstreamCapability) throws Exception {
+            if ((downstream == null) != (downstreamCapability == null) || (downstream != null && prepareInitialModelCall))
+                throw new IllegalArgumentException("Driver fixture requires an unstarted native model and a registered downstream step");
             new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919_3__campaign_run_owner.sql"),
                     new ClassPathResource("sql/migration/V20260920_3__campaign_submission_deferral.sql"),
                     new ClassPathResource("sql/migration/V20260920_8__campaign_model_invocation.sql"),
@@ -216,11 +223,20 @@ class DeclineSelectionCallTest {
                     Map.of("scope", PlanBinding.input("scope"), "periods", PlanBinding.input("periods"), "definition", PlanBinding.input("definition")),
                     Map.of(), FrozenDeclineSelection.OUTPUT_CONTRACT);
             var plan = new PlanSpec(PlanSpec.SCHEMA_VERSION, "decline-call-plan", 1, RUN, "decline-call-inputs",
-                    List.of(new PlanSpec.Goal("goal", "Find observed declines", true, "Deliver selected entities and evidence")), List.of(planStep));
+                    List.of(new PlanSpec.Goal("goal", "Find observed declines", true, "Deliver selected entities and evidence")),
+                    downstream == null ? List.of(planStep) : List.of(planStep, downstream));
             var inputPorts = new LinkedHashMap<>(FrozenDeclineSelection.INPUTS); inputPorts.remove("scopeArtifact");
             var inputs = new FrozenInputSet("decline-call-inputs", RUN, inputPorts,
                     Map.of("scope", scopeRef, "periods", PAIR, "definition", descriptor));
-            var frozen = FrozenCampaignRun.freeze(plan, inputs, new PlanningAssessment(plan.planId(), 1, "decline-call-catalog/v1", List.of(), List.of(), List.of()));
+            var assessment = downstream == null
+                    ? new PlanningAssessment(plan.planId(), 1, "decline-call-catalog/v1", List.of(), List.of(), List.of())
+                    : new PlanningAssessment(plan.planId(), 1, "decline-call-catalog/v1",
+                            List.of(new PlanningAssessment.Requirement("delivery", "goal", PlanningAssessment.RequirementKind.DELIVERY,
+                                    true, "deliver-selection", "1", Map.of())),
+                            List.of(new PlanningAssessment.CoverageBinding("delivery", List.of(
+                                    new PlanningAssessment.EvidenceOutput(STEP, "selectedEntities"),
+                                    new PlanningAssessment.EvidenceOutput(STEP, "selectionEvidence")))), List.of());
+            var frozen = FrozenCampaignRun.freeze(plan, inputs, assessment);
             token = steps.acquireRun(runs.createRun(frozen.definition(OWNER, "decline-call-session")));
             scopeArtifact = publishScope();
             assertEquals(scopeRef, base.scopes.inspectPublished(OWNER, scopeArtifact, auth).scopeRef());
@@ -228,7 +244,9 @@ class DeclineSelectionCallTest {
             catalog = new CapabilityCatalog() {
                 public String version() { return "decline-call-catalog/v1"; }
                 public Optional<Capability> capability(PlanSpec.ExecutorRef ref) {
-                    return FrozenDeclineSelection.REF.equals(ref) ? Optional.of(DeclineSelectionSkill.capability()) : Optional.empty();
+                    if (FrozenDeclineSelection.REF.equals(ref)) return Optional.of(DeclineSelectionSkill.capability());
+                    return downstreamCapability != null && downstreamCapability.executor().equals(ref)
+                            ? Optional.of(downstreamCapability) : Optional.empty();
                 }
                 public Optional<Policy> policy(String ref, String version) {
                     return "decline-explore".equals(ref) && "1".equals(version) ? Optional.of(new Policy(ref, version,
@@ -241,8 +259,10 @@ class DeclineSelectionCallTest {
                 }
             };
             invocations = new JdbcCampaignSkillInvocationStore(base.jdbc, base.transactions, CLOCK, catalog, contracts);
-            steps.initialize(token, List.of(new StepSpec(STEP, FrozenCampaignRun.encode(planStep), List.of(), OUTPUTS, OUTPUTS)));
-            step = steps.beginStep(token, STEP);
+            if (downstream == null) {
+                steps.initialize(token, List.of(new StepSpec(STEP, FrozenCampaignRun.encode(planStep), List.of(), OUTPUTS, OUTPUTS)));
+                step = steps.beginStep(token, STEP);
+            } else step = null; // The actual Driver owns initialization and every Step attempt.
             arguments = FrozenCampaignRun.encode(Map.of("inputBindings", Map.of(
                     "scope", PlanBinding.input("scope"), "scopeArtifact", PlanBinding.artifact(scopeArtifact),
                     "periods", PlanBinding.input("periods"), "definition", PlanBinding.input("definition")), "parameters", Map.of("metric", "PV")));
