@@ -35,7 +35,7 @@ class CampaignReportAccessGrantTransportTest {
                     throw new AssertionError("missing grant must fail before durable reader");
                 });
         CampaignDurableResponseTransportAdapter adapter = new CampaignDurableResponseTransportAdapter(
-                route, request -> Optional.of(HANDLE), protocols());
+                route, request -> Optional.of(HANDLE), protocols(), grantResolver());
 
         assertThatThrownBy(() -> adapter.resolve(new CampaignDurableResponseTransportAdapter.GrantAuthorityRequest(
                 PROTOCOL, BASE, Set.of(CampaignResponseCapabilityGate.CAPABILITY_V2), Optional.empty())))
@@ -70,11 +70,13 @@ class CampaignReportAccessGrantTransportTest {
                             CampaignJdbcDurableRunResponseBridge.Outcome.Status.BOUND_RESPONSE, Optional.of(BASE));
                 });
         CampaignDurableResponseTransportAdapter adapter = new CampaignDurableResponseTransportAdapter(
-                route, request -> Optional.of(HANDLE), protocols());
+                route, request -> Optional.of(HANDLE), protocols(), grantResolver());
 
         CampaignResponseRouteAdapter.Outcome outcome = adapter.resolve(
                 new CampaignDurableResponseTransportAdapter.GrantAuthorityRequest(
-                        PROTOCOL, BASE, Set.of(CampaignResponseCapabilityGate.CAPABILITY_V2), Optional.of(grant())));
+                        PROTOCOL, BASE, Set.of(CampaignResponseCapabilityGate.CAPABILITY_V2),
+                        Optional.of(CampaignReportAccessGrant.issue(
+                                CALLER, HANDLE, ReportLifecycleStore.Mode.HISTORY_VIEW, "untrusted-owner"))));
 
         assertThat(outcome.status()).isEqualTo(CampaignResponseRouteAdapter.Outcome.Status.DURABLE_RESPONSE);
         assertThat(captured.get().report()).isPresent();
@@ -85,11 +87,15 @@ class CampaignReportAccessGrantTransportTest {
     }
 
     private static CampaignReportAccessGrant grant() {
-        return new CampaignReportAccessGrantResolver((caller, handle, mode) ->
-                new CampaignReportAccessGrantResolver.Authorization("report-owner"))
+        return grantResolver()
                 .resolve(new CampaignReportAccessGrantResolver.Request(
                         CALLER, HANDLE, ReportLifecycleStore.Mode.HISTORY_VIEW))
                 .orElseThrow();
+    }
+
+    private static CampaignReportAccessGrantResolver grantResolver() {
+        return new CampaignReportAccessGrantResolver((caller, handle, mode) ->
+                new CampaignReportAccessGrantResolver.Authorization("report-owner"));
     }
 
     private static CampaignResponseProtocolMetadataResolver protocols() {

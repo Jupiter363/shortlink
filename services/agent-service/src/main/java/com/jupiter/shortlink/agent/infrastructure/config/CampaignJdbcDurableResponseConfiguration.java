@@ -9,6 +9,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.Campai
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignProgressService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseCapabilityGate;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseProtocolMetadataResolver;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignReportAccessGrantResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableResponseTransportAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
@@ -64,8 +66,12 @@ public class CampaignJdbcDurableResponseConfiguration {
     public CampaignDurableResponseTransportAdapter campaignDurableResponseTransportAdapter(
             CampaignResponseRouteAdapter route,
             @Qualifier("campaignDurableResponseRunHandleResolver")
-            CampaignRunHandleResolver handles) {
-        return new CampaignDurableResponseTransportAdapter(route, handles);
+            CampaignRunHandleResolver handles,
+            @Qualifier("campaignDurableResponseProtocolMetadataResolver")
+            CampaignResponseProtocolMetadataResolver protocols,
+            @Qualifier("campaignDurableResponseReportAccessGrantResolver")
+            CampaignReportAccessGrantResolver reportGrants) {
+        return new CampaignDurableResponseTransportAdapter(route, handles, protocols, reportGrants);
     }
 
     /** Exact revision lookup; unlike the generic run reader it never selects latest implicitly. */
