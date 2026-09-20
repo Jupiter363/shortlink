@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63）
 
 记录日期：2026-09-20。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -69,6 +69,10 @@
 
 补充 JDBC 并发测试：两个不同 candidate/request 同时竞争同一 base revision 时，只有一个请求成功，另一请求返回 `REPLAN_RECEIPT_CONFLICT`；最终 ledger 保持一个新 revision、一个 receipt 和两条 consumer 记录，避免把 E58 的同请求 replay 误当成任意冲突可合并。
 
+### E63：profile 门控的可信装配契约
+
+新增 `CampaignTrustedAdapterConfiguration`，仅在 `campaign-trusted-adapter` profile 下组合 JDBC report lifecycle store、durable report application service 和 replan runtime factory。`PlanValidator`、Clock、两类重规划 authorizer、EvidenceReader、报告 AccessAuthorizer 和报告 capability 都必须由调用方显式提供；没有默认放行实现，也没有 HTTP、chat、tool 或 scheduler 注册。配置创建自己的 writable `REQUIRED` `DataSourceTransactionManager`/`TransactionTemplate`，并让两个 durable seam 共享 primary `DataSource`。
+
 ## 定向验证
 
 命令：
@@ -131,6 +135,14 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=JdbcCampaignRevisionApplierTest
 
 E60/E61/E62 增量验证仍使用同一条定向命令；在补充授权操作断言及两个并发/状态测试后结果为：21 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。新增断言覆盖授权操作类型、CANCELLED/SUPERSEDED 基准拒绝和不同候选并发冲突，未改变生产接线。
 
+E63 定向命令：
+
+```text
+mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignTrustedAdapterConfigurationTest,JdbcCampaignRevisionApplierTest,CampaignReplanRuntimeFactoryTest,CampaignReportApplicationServiceTest,NativeGraphPrecompilerTest,CampaignReplanApplicationServiceTest,ReplanCoordinatorTest -Dsurefire.failIfNoSpecifiedTests=false -Dnet.bytebuddy.experimental=true test
+```
+
+结果：24 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖默认 profile 无 trusted bean、激活 profile 缺少敏感 provider 时 fail-fast、显式 H2 provider 的 factory/report 组合与共享数据源事务；并回归 E60–E62 及此前重规划/报告边界。
+
 ## 未覆盖边界
 
 - `RevisionApplier` 是可信装配接口，本批次没有把它接入生产 `JdbcCampaignRunStore.revise` 和 `JdbcCampaignStatisticsConsumerStore.adopt`，因此不能宣称运行中 replan 已开放。
@@ -138,6 +150,7 @@ E60/E61/E62 增量验证仍使用同一条定向命令；在补充授权操作�
 - E54/E55 仍是显式 typed 组合件，尚无 token resolver、业务 profile、Spring bean 或受配置保护的 HTTP 入口；E55 的 `MemorySaver` 只用于编译前置，不是生产 checkpoint。
 - E56–E58 已接真实 H2 JDBC ledger、跨 revision consumer 接管和并发相同请求的精确 replay；仍没有真实 MySQL 方言、分布式 fencing、远端 cancel 或生产入口证据。
 - E57 的运行时工厂与 E59 的报告应用服务仍是显式 typed 组合件；尚无 token resolver、业务 profile、Spring bean、HTTP/chat 接线或客户端历史/导出验收。
+- E63 只提供受 profile 保护的组合契约；默认生产 profile 不启用，当前仍没有可信 owner/capability resolver、PlanValidator/Catalog、EvidenceReader 或真实授权 provider，因此不能宣称业务入口已开放。context 测试使用 H2 迁移替身，不替代真实 MySQL 或跨服务验收。
 - `JdbcReportLifecycleStore` 尚未由 `CampaignReportPublisher` 或 Admin/Agent 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。
