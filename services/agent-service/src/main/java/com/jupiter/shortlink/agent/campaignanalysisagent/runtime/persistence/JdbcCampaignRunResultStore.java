@@ -59,6 +59,21 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
             throw new IllegalArgumentException("Result binding requires one writable REQUIRED DataSource transaction");
     }
 
+    /** Composition guard for a trusted outer transaction; no Spring registration is implied. */
+    boolean sharesDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
+    /**
+     * Verifies and locks the exact current run token for a trusted composition transaction.
+     * The caller must already be inside the coordinator's writable REQUIRED transaction.
+     */
+    void requireCurrentToken(RunToken token) {
+        validateToken(token);
+        LedgerRow run = lockRun(token);
+        validateTokenAgainstRun(token, run);
+    }
+
     @Override
     public Binding bind(RunToken token, BindingDraft draft) {
         validateToken(token);

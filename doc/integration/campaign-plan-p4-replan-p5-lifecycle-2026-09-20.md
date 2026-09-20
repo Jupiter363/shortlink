@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72）
 
 记录日期：2026-09-20。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -108,6 +108,12 @@
 新增 `CampaignDurableRunResultReadService`，先按 caller、runId 和显式 revision 读取 E70 binding，再把 binding 中唯一的 `reportRef` 交给 E69 的授权读取组合。没有报告引用时不要求报告 owner/capability；有引用但没有显式报告凭证时直接拒绝。读取结果必须同时满足当前进度的 run/plan/revision、durable executionStatus/nextAction/limitations 和报告 reportRef/draft 身份，任一漂移都 fail closed；返回仍是 E68 的脱敏投影，不暴露报告正文、manifest、owner、capability 或 retention。
 
 新增 `CampaignRunReportBindingVerifier`，把 report lifecycle 的 READY、runId、planRevision、owner、capability 和 HISTORY_VIEW 检查收敛为注入式边界，并提供显式 retain/release 操作。它不缓存 payload、不默认放行，也没有注册 Graph、HTTP、chat 或 Spring 入口；retain/release 与 binding 写入的同事务生产接线仍需后续可信装配完成。
+
+### E72：run-result 绑定的原子生命周期协调
+
+新增 `JdbcCampaignRunResultBindingCoordinator`，把报告引用 retain、E70 durable binding 写入和 release 收敛到同一条共享数据源的可写 `PROPAGATION_REQUIRED` 事务。构造时检查结果存储、报告生命周期存储和事务管理器确实使用同一 `DataSource`，并拒绝只读或其他传播级别，避免调用方误把两个独立事务拼成“原子”操作。
+
+绑定前先锁定并校验当前 `RunToken`，再保留已授权的固定 `ReportRef`；token fencing、状态冲突、重复报告或任何后续异常都会回滚引用计数和绑定行。释放同样要求当前 token，并核对 durable binding 中记录的 reportRef，避免过期 token或无关报告删除活动引用。该协调器仍是显式 typed 组合件，没有注册 Graph、HTTP、chat 或 Spring 入口。
 
 ## 定向验证
 
@@ -243,6 +249,14 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignDurableRunResultReadSer
 
 结果：17 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖精确 revision 无 latest fallback、无报告引用时无需报告凭证、固定 reportRef 的部分报告读取、缺凭证拒绝、durable 状态与当前进度冲突、脱敏不可变输出，以及 report lifecycle 的 owner/capability、READY、run/revision 绑定和 retain/release 透传。测试使用受控 reader/fake lifecycle，不启动 Docker、应用、真实 MySQL 或模型。
 
+E72 定向验证：
+
+```text
+mvn.cmd -o -pl services/agent-service -am -Dtest=JdbcCampaignRunResultBindingCoordinatorTest -Dsurefire.failIfNoSpecifiedTests=false -Dnet.bytebuddy.experimental=true -Dmaven.compiler.useIncrementalCompilation=false test
+```
+
+结果：4 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖同事务 retain+binding+release、过期 token 绑定回滚引用、过期 token 不能释放引用、release 必须匹配 durable reportRef。测试使用 H2 和本地 Spring JDBC 事务，没有启动 Docker、应用、真实 MySQL 或模型。
+
 ## 未覆盖边界
 
 - `RevisionApplier` 是可信装配接口，本批次没有把它接入生产 `JdbcCampaignRunStore.revise` 和 `JdbcCampaignStatisticsConsumerStore.adopt`，因此不能宣称运行中 replan 已开放。
@@ -252,7 +266,7 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignDurableRunResultReadSer
 - E57 的运行时工厂与 E59 的报告应用服务仍是显式 typed 组合件；尚无 token resolver、业务 profile、Spring bean、HTTP/chat 接线或客户端历史/导出验收。
 - E63 只提供受 profile 保护的组合契约；默认生产 profile 不启用，当前仍没有可信 owner/capability resolver、PlanValidator/Catalog、EvidenceReader 或真实授权 provider，因此不能宣称业务入口已开放。context 测试使用 H2 迁移替身，不替代真实 MySQL 或跨服务验收。
 - E64 只提供不接 transport 的 typed adapter；resolver、owner/capability 解析仍由未来可信入口提供，尚无 HTTP/chat/tool 接线、远端取消或真实 MySQL/多实例 fencing 验收。
-- E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥；E67 只扩展 response 类型和纯 adapter；E68 增加纯 run-result projection；E69 增加授权的 run/report 读取组合；E70 增加受 token fencing 保护的 durable run-result 绑定；E71 增加按 revision 的授权读取组合和 report verifier。上述组件尚未由 Graph/AgentRunHarness/HTTP 生产路径调用，E71 的 retain/release 与 binding 写入尚未形成同一生产事务，客户端历史/导出入口和真实 MySQL payload 演进仍待验收。
+- E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥；E67 只扩展 response 类型和纯 adapter；E68 增加纯 run-result projection；E69 增加授权的 run/report 读取组合；E70 增加受 token fencing 保护的 durable run-result 绑定；E71 增加按 revision 的授权读取组合和 report verifier；E72 增加共享事务的 retain/bind/release 协调器。上述组件尚未由 Graph/AgentRunHarness/HTTP 生产路径调用，客户端历史/导出入口和真实 MySQL payload 演进仍待验收。
 - `JdbcReportLifecycleStore` 尚未由 `CampaignReportPublisher` 或 Admin/Agent 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。
