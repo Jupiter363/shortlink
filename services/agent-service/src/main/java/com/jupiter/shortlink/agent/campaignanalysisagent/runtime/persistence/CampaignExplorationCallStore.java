@@ -56,7 +56,10 @@ public interface CampaignExplorationCallStore {
 
     CallRecord prepare(StepPermit step, CallSpec spec, ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer);
 
-    /** A fresh PREPARED callback only; no implicit retry of returned or unknown callbacks. */
+    /**
+     * A fresh PREPARED callback only; no implicit retry of returned or unknown callbacks.
+     * Registered Skill continuations use CampaignSkillInvocationStore's persisted wait contract.
+     */
     CallPermit beginCall(StepPermit step, String callId, ModelInvocationRegistry.Approval approval, ArtifactAuthorizer authorizer);
 
     Optional<CallRecord> call(RunToken token, String callId);
