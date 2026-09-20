@@ -75,7 +75,31 @@ class JdbcCampaignRunHandleResolverTest {
     }
 
     @Test
+    void subjectAndAuthVersionMismatchesCannotResolveTheExactRevision() {
+        Fixture fixture = fixture();
+        fixture.runs.createRun(definition(1));
+        JdbcCampaignRunHandleResolver resolver = new JdbcCampaignRunHandleResolver(fixture.runs);
+
+        assertThatThrownBy(() -> resolver.resolve(new CampaignRunHandleResolver.Request(
+                new Caller("tenant-1", "other-subject", 2), "session-1", "run-1", 1, "plan-1")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("LEDGER_SUBJECT_MISMATCH");
+        assertThatThrownBy(() -> resolver.resolve(new CampaignRunHandleResolver.Request(
+                new Caller("tenant-1", "subject-1", 3), "session-1", "run-1", 1, "plan-1")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("LEDGER_SUBJECT_MISMATCH");
+    }
+
+    @Test
     void malformedCallerIsRejectedWhenTheReferenceIsConstructed() {
+        assertThatThrownBy(() -> new CampaignRunHandleResolver.Request(
+                null, "session-1", "run-1", 1, "plan-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CAMPAIGN_RUN_HANDLE_CALLER_REQUIRED");
+        assertThatThrownBy(() -> new CampaignRunHandleResolver.Request(
+                new Caller("tenant-1", null, 2), "session-1", "run-1", 1, "plan-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CAMPAIGN_RUN_HANDLE_CALLER_INVALID");
         assertThatThrownBy(() -> new CampaignRunHandleResolver.Request(
                 new Caller("", "subject-1", 2), "session-1", "run-1", 1, "plan-1"))
                 .isInstanceOf(IllegalArgumentException.class)
