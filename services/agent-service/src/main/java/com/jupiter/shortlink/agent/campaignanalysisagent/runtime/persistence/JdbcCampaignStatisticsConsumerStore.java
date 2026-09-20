@@ -38,6 +38,18 @@ public final class JdbcCampaignStatisticsConsumerStore implements CampaignStatis
         require(gate.schemaAvailable(), "CONSUMER_SCHEMA_UNAVAILABLE");
     }
 
+    /** Narrow local composition proof: cancellation must commit with the original binding intent. */
+    boolean sharesTransactionDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
+    /** Called under the same run/binding locks; keeps the configured source-reader bounds. */
+    ChildRecord cancellationSource(Binding binding) {
+        gate.verifySourceChild(binding);
+        return runs.child(gate.sourceToken(binding), binding.producerChildId())
+                .orElseThrow(() -> failure("CONSUMER_SOURCE_MISSING"));
+    }
+
     @Override public Binding pin(DispatchPermit permit, Status status, Target target) {
         Objects.requireNonNull(permit); Objects.requireNonNull(status); Objects.requireNonNull(target);
         return transaction(() -> {

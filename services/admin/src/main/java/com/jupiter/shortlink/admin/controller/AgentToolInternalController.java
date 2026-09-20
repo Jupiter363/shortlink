@@ -360,6 +360,13 @@ public class AgentToolInternalController {
         return Results.success(analytics.jobStatus(jobId));
     }
 
+    /** Backend cancellation only; the current principal and the stored job determine its scope. */
+    @PostMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}/cancel")
+    public Result<Map<String, Object>> cancelStatisticsJob(@PathVariable String jobId) {
+        requirePrincipal();
+        return Results.success(analytics.cancelJob(jobId));
+    }
+
     @GetMapping("/internal/short-link-admin/v1/agent-tools/statistics/jobs/{jobId}/page")
     public Result<Map<String, Object>> statisticsJobPage(
             @PathVariable String jobId,

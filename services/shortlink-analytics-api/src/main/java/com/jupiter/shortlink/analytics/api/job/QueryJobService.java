@@ -395,10 +395,11 @@ public class QueryJobService {
     }
 
     public Status cancel(String id, Identity identity) {
-        authorized(id, identity);
         return tx.execute(
                 s -> {
-                    var row = locked(id);
+                    // The locking read must finish before current authorization, epoch and time
+                    // are evaluated. A check made before waiting for this row can become stale.
+                    var row = authorized(id, identity, true);
                     if (Set.of("QUEUED", "RUNNING").contains(row.get("state"))) {
                         db.update(
                                 "UPDATE analytics_query_job SET"
