@@ -42,6 +42,21 @@ public final class CampaignResponseEnvelopeAdapter {
         };
     }
 
+    /** Authority path using trusted metadata and an opaque principal-bound grant. */
+    public Outcome resolve(CampaignDurableResponseTransportAdapter.GrantAuthorityRequest request) {
+        Objects.requireNonNull(request, "CAMPAIGN_RESPONSE_ENVELOPE_GRANT_AUTHORITY_REQUEST_REQUIRED");
+        CampaignResponseRouteAdapter.Outcome selected = transport.resolve(request);
+        Objects.requireNonNull(selected, "CAMPAIGN_RESPONSE_ROUTE_OUTCOME_REQUIRED");
+        return switch (selected.status()) {
+            case LEGACY_PATH -> Outcome.legacy(request.base());
+            case CLIENT_UPGRADE_REQUIRED -> Outcome.empty(Status.CLIENT_UPGRADE_REQUIRED,
+                    WireCode.CLIENT_UPGRADE_REQUIRED);
+            case NO_BINDING -> Outcome.empty(Status.NO_BINDING, WireCode.NO_BINDING);
+            case DURABLE_RESPONSE -> Outcome.durable(selected.response().orElseThrow(
+                    () -> new IllegalStateException("CAMPAIGN_DURABLE_RESPONSE_REQUIRED")));
+        };
+    }
+
     public enum Status {
         LEGACY_PATH,
         CLIENT_UPGRADE_REQUIRED,
