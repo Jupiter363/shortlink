@@ -80,6 +80,8 @@
 | [E49：重规划耐久收据][E49] | 一个 H2 定向方法通过；按当前 Run token 锁定 ACTIVE revision，以 `(run,baseRevision)` 幂等保存候选决策，冲突正文/hash 拒绝覆盖，旧 revision 不提前淘汰。 | 已补 owner-scoped finalized receipt 查询；仍未接 REQUEST_REPLAN、事务内 Graph/consumer 切版或生产入口。 |
 | [E50：候选重规划编排][E50] | 两个直接受影响后端用例通过；预编译失败不触碰 applier，accepted candidate 只进入一次发布边界，旧 revision 收据可安全幂等重放。 | `RevisionApplier` 仍需由可信装配实现同一 REQUIRED transaction 内的 consumer adoption＋revision CAS＋receipt 写入；Graph 预编译和生产入口未注册。 |
 | [E51：报告生命周期持久化][E51] | 五个 H2/JDBC 定向用例通过；manifest 可回读，HISTORY/EXPORT 期限分离，引用版本和留存期清理 CAS 生效，正文冲突拒绝。 | 尚未接 `CampaignReportPublisher`、HTTP/客户端历史导出或真实 MySQL；无前端/Docker 验收。 |
+| [E53：报告发布器持久化接线][E53] | 两个直接受影响后端用例通过；durable publisher 复用证据/逐目标评估，稳定生成 manifest/payload，显式 owner/capability/期限并固定 key 读取；合法 null 值可序列化，旧内存 API 保持兼容。 | 尚未注册到 chat/HTTP 或生产运行装配；真实 MySQL、客户端历史/导出和前端仍待验。 |
+| [E52：重规划原子应用边界][E52] | 两个直接受影响后端用例通过；同一 writable REQUIRED 事务按 lock→consumer adoption→revision→receipt 顺序执行，任一回调失败或重复键都全量回滚，并检测回调未离开事务。 | 仍是可信回调适配器，尚未接入真实 `JdbcCampaignRunStore`／`JdbcCampaignStatisticsConsumerStore`、候选校验或生产入口；不能宣称运行中 replan 已开放。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -376,6 +378,8 @@
 [E49]: ../integration/campaign-plan-p4-replan-receipt-2026-09-20.md
 [E50]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E51]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E53]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E52]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
