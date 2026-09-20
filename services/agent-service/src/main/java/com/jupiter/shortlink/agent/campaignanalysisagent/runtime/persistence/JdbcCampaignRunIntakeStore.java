@@ -49,6 +49,11 @@ public final class JdbcCampaignRunIntakeStore {
     /** Assembly check: intake loading and atomic freezing must use the same Run store. */
     public boolean usesRunStore(CampaignRunStore candidate) { return runs == candidate; }
 
+    /** Planning acceptance and typed intake registration must commit on this same DataSource. */
+    boolean sharesTransactionDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
     /** authVersion is checked but excluded from identity: reauthorization cannot bypass same-key conflict. */
     public static Identity identity(Caller caller, String sessionId, String requestKey) {
         caller(caller); id(sessionId, 96); text(requestKey, 256);
