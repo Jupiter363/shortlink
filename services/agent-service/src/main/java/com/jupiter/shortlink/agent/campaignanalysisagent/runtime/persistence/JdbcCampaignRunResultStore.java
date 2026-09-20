@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -64,6 +65,11 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
         return other != null && other.getDataSource() == jdbc.getDataSource();
     }
 
+    /** Composition guard: the trusted outer coordinator must use this exact transaction template. */
+    boolean usesTransactionTemplate(TransactionTemplate other) {
+        return transactions == other;
+    }
+
     /**
      * Verifies and locks the exact current run token for a trusted composition transaction.
      * The caller must already be inside the coordinator's writable REQUIRED transaction.
@@ -72,6 +78,35 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
         validateToken(token);
         LedgerRow run = lockRun(token);
         validateTokenAgainstRun(token, run);
+    }
+
+    /**
+     * Locks the run and any existing binding before a trusted caller performs another write.
+     * This establishes the global run -> binding -> report lock order used by publication and
+     * terminal cleanup.
+     */
+    <T> T withCurrentRunAndBinding(RunToken token, Supplier<T> action) {
+        validateToken(token);
+        Objects.requireNonNull(action, "RUN_RESULT_ACTION_REQUIRED");
+        return transactions.execute(status -> {
+            requireCurrentToken(token);
+            readCurrentBindingLocked(token);
+            return action.get();
+        });
+    }
+
+    /** Reads the current binding while its row is locked; caller must already hold the run lock. */
+    Optional<Binding> readCurrentBindingLocked(RunToken token) {
+        validateToken(token);
+        return readBinding(token.definition().runId(), token.definition().revision(), true);
+    }
+
+    /** Returns whether an already locked/retrieved binding is an exact replay of this request. */
+    boolean matchesBinding(Binding existing, RunToken token, BindingDraft draft) {
+        validateToken(token);
+        Objects.requireNonNull(existing, "RUN_RESULT_BINDING_REQUIRED");
+        Objects.requireNonNull(draft, "RUN_RESULT_DRAFT_REQUIRED");
+        return sameFacts(existing, token, draft);
     }
 
     /**

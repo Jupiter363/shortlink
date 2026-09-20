@@ -62,6 +62,11 @@ public final class CampaignReportPublisher {
         return lifecycleStore != null;
     }
 
+    /** Composition guard for a trusted coordinator; callers still use the application service. */
+    public boolean usesLifecycleStore(ReportLifecycleStore store) {
+        return lifecycleStore == store;
+    }
+
     public PublishedReport publish(PublishRequest request) {
         Objects.requireNonNull(request);
         if (!requiredClientCapability.equals(request.clientCapability()))
