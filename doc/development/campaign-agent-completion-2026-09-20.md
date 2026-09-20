@@ -94,6 +94,7 @@
 | [E63：profile 门控的可信装配契约][E63] | 3 个 Spring context 用例通过：默认 profile 无 trusted bean；激活 profile 缺少敏感 provider 时 fail-fast；显式 H2 provider 创建 replan factory、durable report service 和 lifecycle store，并共享 writable REQUIRED 数据源事务。 | 仅为受 profile 保护的组合契约，默认生产 profile 未启用；owner/capability resolver、EvidenceReader、真实 PlanValidator/Catalog provider、HTTP/chat 接线和真实 MySQL 仍待完成。 |
 | [E64：可信重规划 transport adapter][E64] | 6 个 adapter 用例及 7 个组合回归通过；resolver 只按 caller/session/runId 提供 token，adapter 精确绑定后由 factory 再检 ACTIVE、版本和 fencing；空解析、绑定错、过期/取消和 capability 拒绝均无 receipt/revision 写入，profile 缺 resolver 时 fail-fast。 | 仍是无 transport 的 typed adapter；resolver、真实授权/owner provider、HTTP/chat 接线、远端取消和真实 MySQL/多实例验收仍待完成。 |
 | [E65：耐久报告读取投影][E65] | 5 个纯后端用例通过；读取仍经 typed application service，固定 snapshot schema 不暴露 owner/capability，HISTORY_VIEW/EXPORT 原样传递；payload schema、Draft identity、goal assessment 和未知字段严格校验，空读不回退。 | 尚未接 AgentRunResult、旧 answer adapter、HTTP/chat 或客户端历史/导出入口；真实 MySQL payload 演进仍待验收。 |
+| [E66：typed snapshot 到 legacy answer 兼容桥][E66] | 5 个纯后端用例通过；只有可信 `SUCCEEDED` 且所有目标真实 `ANSWERED`、存在 block 才为 COMPLETE；EMPTY/UNAVAILABLE、PARTIAL/UNKNOWN、完整 typed 内容保留和不可变输出均有断言，矛盾状态与不可信 limitation fail closed。 | 尚未接 AgentRunResult、HTTP/chat 或客户端历史/导出入口；旧响应的 transport 接线、真实 MySQL payload 演进和跨服务验收仍待完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -199,7 +200,7 @@
 | P5-06：reportId/revision 预分配，实际固定载荷和 EvidenceManifest READY/hash/auth/read-contract/clientcapability 校验，同事务发布报告与保留引用。 | R §4.3、§5.1；C §5 | E03/E08 只提供 Artifact／分页事务前置。 | 待实现／验收 | ReportStore／公共发布器，正式读取路由；草稿不预公开、不靠 locationRef 或无法访问的 artifactId算交付。 |
 | P5-07：reuseExpiresAt 与 retainedUntil 分开，旧 expiresAt兼容一致；清理与新引用同载荷锁/CAS，不可引用 STAGING/清理中载荷。 | R §4.3；C §5、§9.1 | 当前 Artifact 单 expiresAt，不能证明报告留存。 | 待实现／验收 | 增量生命周期／保留保护；失败仅本次无引用新增载荷待清理，不删除共享 READY，不暴露半报告。 |
 | P5-08：HISTORY_VIEW/EXPORT 固定报告manifest、checksum、留存与当前对象权限；源job过期可读本地；不要求旧authVersion字面等当前；撤权仍拒绝。 | R §4.3；C §5 | 当前 Artifact严格授权不等于历史用途合同。 | 待实现／验收 | 正式历史／导出授权读、ANALYSIS_REUSE分离；清理后 REPORT_DATA_EXPIRED，不能静默重查当前数据；不新增远端 pin。 |
-| P5-09：后端 executionStatus／goalAssessments／reportRef／nextAction 分开；旧 answer 从同一报告／状态适配，WAITING可与部分已答并存。 | R §5.2；C §4 | E05/E09 仅内部进度视图。 | 部分已验 | 版本化响应与旧 answer 兼容器；上次历史完成报告不可冒充本轮等待结果。 |
+| P5-09：后端 executionStatus／goalAssessments／reportRef／nextAction 分开；旧 answer 从同一报告／状态适配，WAITING可与部分已答并存。 | R §5.2；C §4 | E05/E09 内部进度视图；E66 typed legacy answer adapter。 | 部分已验 | 接 AgentRunResult 与正式响应投影；上次历史完成报告不可冒充本轮等待结果。 |
 | UI-01：开放前最低客户端状态协议；老客户端新请求旧路径，续接新Run明确升级；客户端能力不是授权。 | I §2、§7；R §5.2；R11 | 新入口关闭，尚无最小状态消费验收。 | 待实现／验收 | API后端能力门与前端状态标签／导出修正；缺客户端验收不得开放新运行器。 |
 | UI-02：通用章节／图表／文本／表格渲染、业务进度与局部恢复、证据入口、长表分页；不每Skill／prompt一页。 | I §5；后续前端阶段 | 旧页面功能不可视为新协议验收。 | 待实现／验收 | 消费正式 Report schema 与授权读取／nextAction；Plan/Action详细诊断独立入口，产品不暴露编排术语。 |
 | UI-03：页面、历史、复制、导出同 reportId/revision 与固定证据；完整结果入口发布后可读，撤权／过期状态准确。 | I §5；R §4.3、§5.1 | 后端报告／客户端均无该验收。 | 待实现／验收 | 后端正式路由用fixture验收，允许前端验证后再做视觉／交互；不得把后台有 Artifact 等同用户已拿到结果。 |
@@ -404,6 +405,7 @@
 [E63]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E64]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E65]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E66]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
