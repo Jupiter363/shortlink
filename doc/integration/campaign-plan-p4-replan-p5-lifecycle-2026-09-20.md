@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72/E73/E74/E75/E76/E77/E78/E79/E80/E81/E82/E83/E84/E85/E86/E87/E88/E89/E90/E91/E92）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72/E73/E74/E75/E76/E77/E78/E79/E80/E81/E82/E83/E84/E85/E86/E87/E88/E89/E90/E91/E92/E94）
 
 记录日期：2026-09-21。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -236,6 +236,10 @@ E84 的 `NO_BINDING` 被保留为独立 typed 状态，不能携带 Graph base r
 `CampaignStatisticsReleaseStore` 新增 `pendingRequested(caller, limit)` 只读恢复索引。JDBC 实现按当前租户、主体和授权版本过滤 `REQUESTED` 且生产 Run 仍为 `ACTIVE` 的绑定，使用 `expires_at、producer_run_id、revision、child_id` 的稳定顺序和 256 条上限；它不 claim、不推进 Run、不触发远端调用，也不返回请求正文、Artifact 正文、报告凭证或 RunToken。返回的最小 `PendingIntent` 只包含精确 run/revision/child/job、binding version、原期限和状态，调用方必须再次解析 exact token 并重新执行释放门控。
 
 映射器交叉核对 release、run、child、Artifact 元数据和已发布 receipt 的身份、主体、版本、hash、wire/spec 与期限；任何缺行、状态漂移或篡改都以 `RELEASE_PENDING_BINDING_CORRUPTED` fail closed。重复读取不写入任何 release/确认字段，已确认、非活动、外部主体和超出 limit 的记录不会进入结果。该批仍不注册 scheduler、Graph、HTTP 或生产恢复入口。
+
+### E94：受保护 response envelope 的 Spring 装配
+
+在 `campaign-trusted-adapter & campaign-jdbc-durable-response` 联合 profile 下新增单一 `CampaignResponseEnvelopeAdapter` bean。它只接收已经通过 E90 显式 protocol/grant provider 校验的 `CampaignDurableResponseTransportAdapter`，不创建默认授权、principal 或 metadata provider；profile 未启用时不注册 envelope，任一 authority provider 缺失仍由 transport 装配直接 fail fast。该批只补齐 typed composition，不注册 Graph、HTTP、chat、scheduler 或客户端入口。
 
 
 ## 定向验证
@@ -547,6 +551,14 @@ mvn.cmd -o -pl services/agent-service -am "-Dtest=JdbcCampaignStatisticsReleaseS
 ```
 
 结果：5 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖稳定顺序、limit、重复读取零写入、主体/状态过滤和篡改 fail closed。仅使用 H2/JDBC typed store，没有启动 Docker、应用、真实 MySQL、模型或浏览器。
+
+E94 定向验证：
+
+```text
+mvn.cmd -o -pl services/agent-service -am "-Dtest=CampaignJdbcDurableResponseConfigurationTest,CampaignResponseEnvelopeAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dnet.bytebuddy.experimental=true" "-Dmaven.compiler.useIncrementalCompilation=false" test
+```
+
+结果：10 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖联合 profile 下的显式 envelope 装配、profile 关闭、protocol/grant provider 缺失 fail-fast，以及 envelope 的 legacy、upgrade、no-binding、durable 互斥输出。仅使用 H2、Spring context 和 typed fake，没有启动 Docker、应用、真实 MySQL、模型或浏览器。
 
 ## 未覆盖边界
 

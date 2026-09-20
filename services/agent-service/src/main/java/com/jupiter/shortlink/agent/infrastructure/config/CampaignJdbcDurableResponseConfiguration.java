@@ -13,6 +13,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.Campai
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignReportAccessGrantResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableResponseTransportAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseEnvelopeAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -72,6 +73,13 @@ public class CampaignJdbcDurableResponseConfiguration {
             @Qualifier("campaignDurableResponseReportAccessGrantResolver")
             CampaignReportAccessGrantResolver reportGrants) {
         return new CampaignDurableResponseTransportAdapter(route, handles, protocols, reportGrants);
+    }
+
+    /** Stable typed envelope over the one configured authority transport. */
+    @Bean
+    public CampaignResponseEnvelopeAdapter campaignResponseEnvelopeAdapter(
+            CampaignDurableResponseTransportAdapter transport) {
+        return new CampaignResponseEnvelopeAdapter(transport);
     }
 
     /** Exact revision lookup; unlike the generic run reader it never selects latest implicitly. */
