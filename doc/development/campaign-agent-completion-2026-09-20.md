@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E80 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E81 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -111,6 +111,7 @@
 | [E78：durable response 请求身份与显式装配边界][E78] | 32 个联合定向后端用例通过；无状态 runtime factory 每次创建新的 E71/E76/E77 组合，decorator 要求 server-owned `planId` 并核对 run/plan/revision 三元身份；空 binding 只返回明确 `NO_BINDING`，绑定返回 `BOUND_RESPONSE`，缺报告凭证和异常不回退，等待/完成结果继续脱敏。 | 仍是 campaign 专用纯 typed seam，尚未接 Graph/AgentRunHarness/HTTP/Spring 业务入口、客户端状态/历史/导出、真实 MySQL 或浏览器；E71 多表读取仍以事实一致性校验 fail closed，未宣称同一快照事务。 |
 | [E79：新响应协议能力门控][E79] | 5 个纯后端用例通过；新 Run 仅在 server enabled 且客户端声明 `campaign-response/v2` 时选择 durable v2；已有 v2 Run 的旧客户端得到 `CLIENT_UPGRADE_REQUIRED`，不会因开关关闭而回退；legacy Run 不自动升级，未知能力与非法协议 fail closed。 | 仍是未接 transport 的 typed gate，尚未把能力声明接到 Agent/客户端请求、生产配置或 response route；旧客户端状态消费、历史/导出、真实 MySQL 和浏览器验收仍待完成。 |
 | [E80：durable response 的受保护 Spring 装配][E80] | 23 个联合定向后端用例通过；`campaign-trusted-adapter` profile 仅接受具名 durable result/report reader，缺 provider fail-fast；factory/gate 为 singleton，decorator 为 prototype 且每次创建新的 E71/E76/E77 组合；空 binding 保持 `NO_BINDING`，不注册 E77 service singleton。 | 仍是 profile 内 typed composition，尚未接 Graph/AgentRunHarness/HTTP/Spring 业务路由、客户端状态/历史/导出、可写 JDBC response provider、真实 MySQL 或浏览器；同一快照事务仍待单独设计。 |
+| [E81：固定报告读取与脱敏 facade][E81] | 5 个纯后端用例通过；固定 `reportId/revision/mode` 透传至现有授权 projection，空读不回退，key/mode 漂移 fail closed；route-level view 仅保留可渲染 draft、goal assessments 和运行身份，不序列化 owner/capability/checksum/retention/payload 元数据。 | 仍是 transport-neutral typed facade，尚未接 HTTP/Graph/AgentRunHarness、客户端历史/导出或 Spring provider；E71 多表读取仍是事实一致性校验，不等同同一快照事务。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
