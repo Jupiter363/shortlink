@@ -53,7 +53,11 @@ class CampaignReportApplicationServiceTest {
 
     @Test
     void typedPublicationReturnsLifecycleOutcomeAndPreservesHistoryExportModes() {
-        Fixture fixture = fixture(true, (owner, capability, operation) -> true);
+        List<CampaignReportApplicationService.Operation> authorizedOperations = new ArrayList<>();
+        Fixture fixture = fixture(true, (owner, capability, operation) -> {
+            authorizedOperations.add(operation);
+            return true;
+        });
         CampaignReportApplicationService.PublishRequest request = new CampaignReportApplicationService.PublishRequest(
                 fixture.publisherRequest, "owner-a", "report/read", NOW.plusSeconds(1800), NOW.plusSeconds(2400));
 
@@ -70,6 +74,11 @@ class CampaignReportApplicationServiceTest {
                 .containsSame(first);
         assertThat(fixture.lifecycle.modes)
                 .containsExactly(ReportLifecycleStore.Mode.HISTORY_VIEW, ReportLifecycleStore.Mode.EXPORT);
+        assertThat(authorizedOperations)
+                .containsExactly(CampaignReportApplicationService.Operation.PUBLISH,
+                        CampaignReportApplicationService.Operation.PUBLISH,
+                        CampaignReportApplicationService.Operation.HISTORY_VIEW,
+                        CampaignReportApplicationService.Operation.EXPORT);
     }
 
     @Test

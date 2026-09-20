@@ -88,6 +88,9 @@
 | [E57：可信重规划运行时工厂][E57] | 三个直接受影响后端用例通过；校验同一 writable REQUIRED 数据源，`open` 绑定 owner/ACTIVE/run token/frozen run，每次执行重新装配无副作用预编译器与协调器。 | 仍是显式 typed 组合件；未注册 Spring、HTTP、chat 或 tool 入口，真实 profile 装配待完成。 |
 | [E58：并发重规划精确回放][E58] | 五个 H2/JDBC 直接受影响用例通过；旧 token 竞态仅在 owner、request JSON、candidate revision、plan hash 和提交 revision 全匹配时回放，两个相同并发请求只产生一个 revision/receipt。 | H2 不能替代真实 MySQL 锁、分布式 fencing、跨实例网络故障与远端 cancel 验收。 |
 | [E59：类型化耐久报告边界][E59] | 四个直接受影响后端用例通过；无 durable store 构造即拒绝，owner/capability/revision/期限在 I/O 前校验，HISTORY_VIEW/EXPORT 模式原样传递并保留发布幂等。 | 尚无报告服务 Spring/HTTP/chat 接线、客户端历史/导出或真实 MySQL 验收。 |
+| [E60：报告授权操作审计覆盖][E60] | 报告应用服务定向用例补充断言：发布与幂等重发布传 `PUBLISH`，历史与导出分别传 `HISTORY_VIEW`、`EXPORT`；共 4 个用例通过。 | 仍是 typed 服务边界，未增加默认授权器或生产入口。 |
+| [E61：非活动重规划基准拒绝][E61] | 运行时工厂定向用例补充 `CANCELLED`、`SUPERSEDED` 持久化基准拒绝；共 4 个用例通过，均在组合协调器前返回 `REPLAN_BASE_RUN_NOT_ACTIVE`。 | H2 状态门不能替代真实 MySQL 锁和跨实例 fencing 验收。 |
+| [E62：不同候选并发冲突][E62] | JDBC 重规划定向用例补充不同 candidate/request 竞态：一方成功、一方 `REPLAN_RECEIPT_CONFLICT`，最终一个 revision/receipt、两条 consumer；共 6 个用例通过。 | 仍需真实 MySQL 方言、分布式网络故障和远端取消联合验收。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -392,6 +395,9 @@
 [E57]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E58]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E59]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E60]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E61]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E62]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
