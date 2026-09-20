@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E87 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E88 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -118,6 +118,7 @@
 | [E85：能力门控与 durable 响应路由适配器][E85] | 10 个直接受影响后端用例通过（路由适配器 7、profile 配置 3）；先执行 E79 gate，再在 `DURABLE_V2` 下调用 E84 reader 一次；`LEGACY_PATH`、`CLIENT_UPGRADE_REQUIRED`、`NO_BINDING` 与 `DURABLE_RESPONSE` 分离，durable 失败不带 Graph fallback，profile 仅显式提供 transport-neutral adapter。 | 仍未接 Graph/AgentRunHarness、HTTP/chat 或客户端 capability/handle resolver；现有通用入口没有 durable runId/revision/planId，故本批不修改入口；真实 MySQL、客户端历史/导出和浏览器仍待验收。 |
 | [E86：精确 revision 的 server-owned response handle][E86] | 22 个直接受影响后端用例通过；exact revision resolver 不回退 latest，handle 只含 caller/session/run/plan/revision/status，不暴露 definition、row version 或 advance token；transport 仅在 `DURABLE_V2` 下解析 handle，legacy/upgrade、缺失或错配身份均 fail closed，profile 显式装配 resolver 与 transport。 | 仍是 transport-neutral trusted seam；请求 reference 和报告访问凭证仍需后续由 intake/principal/protocol 权威入口签发，尚未接 Graph/AgentRunHarness、HTTP/chat、客户端历史/导出、真实 MySQL 或浏览器；terminal status 继续由下游 durable projection 解释。 |
 | [E87：统一 transport-neutral response envelope][E87] | 27 个 E85/E86/E87 联合定向后端用例通过；envelope 为 legacy、client upgrade、no binding、durable response 固定互斥输出和 wire code，legacy 仅保留原始 base，durable 异常不回退。 | 仍未接权威 protocol metadata、principal-bound report grant、Graph/AgentRunHarness、HTTP/chat 或客户端；E79 输入字段和 E84 raw report access 仍只允许 trusted 内部组合，真实 MySQL、客户端历史/导出和浏览器仍待验收。 |
+| [E88：权威响应协议元数据与 transport seam][E88] | 36 个 E85/E86/E87/E88 联合定向后端用例通过；新增 trusted metadata resolver，authority request 不再接受调用方提供的 run kind、服务端协议或开关事实；已有运行要求 metadata identity，legacy/upgrade 在 exact handle 前短路，metadata 与 handle 身份漂移、缺失或异常均 fail closed。 | 仍是 transport-neutral authority seam，尚未接 intake/principal provider、principal-bound report grant、Graph/AgentRunHarness、HTTP/chat 或客户端；E84 raw report access 仍只允许 trusted 内部组合，真实 MySQL、客户端历史/导出和浏览器仍待验收。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -450,6 +451,7 @@
 [E85]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E86]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E87]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E88]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

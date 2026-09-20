@@ -130,6 +130,169 @@ class CampaignDurableResponseTransportAdapterTest {
                 .hasMessage("CAMPAIGN_REPORT_ACCESS_WITHOUT_RUN");
     }
 
+    @Test
+    void authorityPathRequiresMetadataAndNeverFallsBack() {
+        AtomicInteger handles = new AtomicInteger();
+        AtomicInteger reads = new AtomicInteger();
+        CampaignResponseRouteAdapter route = new CampaignResponseRouteAdapter(GATE, request -> {
+            reads.incrementAndGet();
+            throw new AssertionError("metadata failure must not route a response");
+        });
+        CampaignDurableResponseTransportAdapter adapter =
+                new CampaignDurableResponseTransportAdapter(route, request -> {
+                    handles.incrementAndGet();
+                    throw new AssertionError("metadata failure must not resolve a handle");
+                });
+        CampaignDurableResponseTransportAdapter.AuthorityRequest request = authorityRequest(
+                new CampaignResponseProtocolMetadataResolver.Request(CALLER, "session-1"), Set.of());
+
+        assertThatThrownBy(() -> adapter.resolve(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("CAMPAIGN_RESPONSE_PROTOCOL_RESOLVER_REQUIRED");
+        assertThat(handles).hasValue(0);
+        assertThat(reads).hasValue(0);
+
+        CampaignDurableResponseTransportAdapter unavailable =
+                new CampaignDurableResponseTransportAdapter(route, ignored -> {
+                    handles.incrementAndGet();
+                    throw new AssertionError("unavailable metadata must not resolve a handle");
+                }, ignored -> Optional.empty());
+        assertThatThrownBy(() -> unavailable.resolve(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("CAMPAIGN_RESPONSE_PROTOCOL_METADATA_UNAVAILABLE");
+        assertThat(handles).hasValue(0);
+        assertThat(reads).hasValue(0);
+    }
+
+    @Test
+    void authorityExistingMetadataRequiresAnExactIdentity() {
+        AtomicInteger handles = new AtomicInteger();
+        CampaignResponseProtocolMetadata metadata = new CampaignResponseProtocolMetadata(
+                CampaignResponseCapabilityGate.RunKind.EXISTING,
+                CampaignResponseCapabilityGate.PROTOCOL_V2, true, Optional.empty());
+        CampaignDurableResponseTransportAdapter adapter = new CampaignDurableResponseTransportAdapter(
+                new CampaignResponseRouteAdapter(GATE, request -> {
+                    throw new AssertionError("identity validation must happen before routing");
+                }),
+                request -> {
+                    handles.incrementAndGet();
+                    throw new AssertionError("identity validation must happen before handle lookup");
+                }, ignored -> Optional.of(metadata));
+
+        assertThatThrownBy(() -> adapter.resolve(authorityRequest(
+                new CampaignResponseProtocolMetadataResolver.Request(CALLER, "session-1",
+                        Optional.of(new CampaignResponseProtocolMetadataResolver.RunReference(
+                                "run-1", 3, "plan-1"))), Set.of(CampaignResponseCapabilityGate.CAPABILITY_V2))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("CAMPAIGN_RESPONSE_EXISTING_IDENTITY_REQUIRED");
+        assertThat(handles).hasValue(0);
+    }
+
+    @Test
+    void authorityDurablePathChecksMetadataAgainstTheResolvedHandle() {
+        CampaignRunHandle handle = handle(CALLER, "session-1", "run-1");
+        CampaignResponseProtocolMetadata matching = metadata(
+                CampaignResponseCapabilityGate.RunKind.EXISTING, CALLER, "session-1", "run-1", "plan-1", 3);
+        AtomicReference<CampaignJdbcDurableRunResponseBridgeFactory.Request> captured = new AtomicReference<>();
+        CampaignDurableResponseTransportAdapter adapter = new CampaignDurableResponseTransportAdapter(
+                new CampaignResponseRouteAdapter(GATE, request -> {
+                    captured.set(request);
+                    return new CampaignJdbcDurableRunResponseBridge.Outcome(
+                            CampaignJdbcDurableRunResponseBridge.Outcome.Status.BOUND_RESPONSE, Optional.of(BASE));
+                }),
+                request -> Optional.of(handle),
+                ignored -> Optional.of(matching));
+
+        CampaignResponseRouteAdapter.Outcome outcome = adapter.resolve(authorityRequest(
+                new CampaignResponseProtocolMetadataResolver.Request(CALLER, "session-1",
+                        Optional.of(new CampaignResponseProtocolMetadataResolver.RunReference(
+                                "run-1", 3, "plan-1"))), Set.of(CampaignResponseCapabilityGate.CAPABILITY_V2)));
+
+        assertThat(outcome.status()).isEqualTo(CampaignResponseRouteAdapter.Outcome.Status.DURABLE_RESPONSE);
+        assertThat(outcome.response()).contains(BASE);
+        assertThat(captured.get().caller()).isEqualTo(CALLER);
+        assertThat(captured.get().runId()).isEqualTo("run-1");
+        assertThat(captured.get().revision()).isEqualTo(3);
+        assertThat(captured.get().expectedPlanId()).isEqualTo("plan-1");
+
+        CampaignResponseProtocolMetadata mismatch = metadata(
+                CampaignResponseCapabilityGate.RunKind.EXISTING, CALLER, "session-1", "run-1", "plan-2", 3);
+        AtomicInteger reads = new AtomicInteger();
+        CampaignDurableResponseTransportAdapter rejected = new CampaignDurableResponseTransportAdapter(
+                new CampaignResponseRouteAdapter(GATE, request -> {
+                    reads.incrementAndGet();
+                    throw new AssertionError("metadata mismatch must not read durable response");
+                }),
+                request -> Optional.of(handle),
+                ignored -> Optional.of(mismatch));
+
+        assertThatThrownBy(() -> rejected.resolve(authorityRequest(
+                new CampaignResponseProtocolMetadataResolver.Request(CALLER, "session-1",
+                        Optional.of(new CampaignResponseProtocolMetadataResolver.RunReference(
+                                "run-1", 3, "plan-1"))), Set.of(CampaignResponseCapabilityGate.CAPABILITY_V2))))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("CAMPAIGN_RESPONSE_METADATA_IDENTITY_MISMATCH");
+        assertThat(reads).hasValue(0);
+    }
+
+    @Test
+    void authorityLegacyAndUpgradePathsDoNotResolveHandles() {
+        CampaignResponseProtocolMetadata legacy = metadata(
+                CampaignResponseCapabilityGate.RunKind.EXISTING, CALLER, "session-1", "run-1", "plan-1", 3,
+                "");
+        CampaignResponseProtocolMetadata upgrade = metadata(
+                CampaignResponseCapabilityGate.RunKind.EXISTING, CALLER, "session-1", "run-1", "plan-1", 3,
+                CampaignResponseCapabilityGate.PROTOCOL_V2);
+        AtomicInteger metadataCalls = new AtomicInteger();
+        AtomicInteger handleCalls = new AtomicInteger();
+        AtomicInteger reads = new AtomicInteger();
+        CampaignDurableResponseTransportAdapter adapter = new CampaignDurableResponseTransportAdapter(
+                new CampaignResponseRouteAdapter(GATE, request -> {
+                    reads.incrementAndGet();
+                    throw new AssertionError("non-durable authority path must not read durable response");
+                }),
+                request -> {
+                    handleCalls.incrementAndGet();
+                    throw new AssertionError("non-durable authority path must not resolve a handle");
+                }, ignored -> {
+                    metadataCalls.incrementAndGet();
+                    return Optional.of(metadataCalls.get() == 1 ? legacy : upgrade);
+                });
+        CampaignResponseProtocolMetadataResolver.Request protocol =
+                new CampaignResponseProtocolMetadataResolver.Request(CALLER, "session-1",
+                        Optional.of(new CampaignResponseProtocolMetadataResolver.RunReference(
+                                "run-1", 3, "plan-1")));
+
+        assertThat(adapter.resolve(authorityRequest(protocol,
+                Set.of(CampaignResponseCapabilityGate.CAPABILITY_V2))).status())
+                .isEqualTo(CampaignResponseRouteAdapter.Outcome.Status.LEGACY_PATH);
+        assertThat(adapter.resolve(authorityRequest(protocol, Set.of())).status())
+                .isEqualTo(CampaignResponseRouteAdapter.Outcome.Status.CLIENT_UPGRADE_REQUIRED);
+        assertThat(metadataCalls).hasValue(2);
+        assertThat(handleCalls).hasValue(0);
+        assertThat(reads).hasValue(0);
+    }
+
+    private static CampaignDurableResponseTransportAdapter.AuthorityRequest authorityRequest(
+            CampaignResponseProtocolMetadataResolver.Request protocol, Set<String> capabilities) {
+        return new CampaignDurableResponseTransportAdapter.AuthorityRequest(protocol, BASE, capabilities);
+    }
+
+    private static CampaignResponseProtocolMetadata metadata(
+            CampaignResponseCapabilityGate.RunKind kind, Caller caller, String sessionId,
+            String runId, String planId, int revision) {
+        return metadata(kind, caller, sessionId, runId, planId, revision,
+                CampaignResponseCapabilityGate.PROTOCOL_V2);
+    }
+
+    private static CampaignResponseProtocolMetadata metadata(
+            CampaignResponseCapabilityGate.RunKind kind, Caller caller, String sessionId,
+            String runId, String planId, int revision, String protocol) {
+        return new CampaignResponseProtocolMetadata(kind, protocol, true,
+                Optional.of(new CampaignResponseProtocolMetadata.Identity(
+                        caller, sessionId, runId, planId, revision)));
+    }
+
     private static CampaignDurableResponseTransportAdapter adapter(
             CampaignRunHandleResolver resolver) {
         return new CampaignDurableResponseTransportAdapter(
