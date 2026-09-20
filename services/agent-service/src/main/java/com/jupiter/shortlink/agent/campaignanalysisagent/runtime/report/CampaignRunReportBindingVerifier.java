@@ -39,6 +39,9 @@ public final class CampaignRunReportBindingVerifier implements CampaignRunResult
 
     public long release(ReportRef reportRef, String referenceId) {
         Objects.requireNonNull(reportRef, "REPORT_REF_REQUIRED");
-        return reports.release(new ReportLifecycleStore.Key(reportRef.reportId(), reportRef.revision()), referenceId);
+        ReportLifecycleStore.Key key = new ReportLifecycleStore.Key(reportRef.reportId(), reportRef.revision());
+        reports.read(key, owner, capability, ReportLifecycleStore.Mode.HISTORY_VIEW)
+                .orElseThrow(() -> new IllegalStateException("REPORT_NOT_FOUND"));
+        return reports.release(key, referenceId);
     }
 }
