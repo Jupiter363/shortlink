@@ -37,20 +37,43 @@ public final class CampaignDurableRunResponseService {
                 || request.readRequest().revision() != value.revision()) {
             throw new IllegalStateException("RUN_RESULT_IDENTITY_MISMATCH");
         }
+        if (request.expectedPlanId().isPresent()
+                && !request.expectedPlanId().get().equals(value.planId())) {
+            throw new IllegalStateException("RUN_RESULT_PLAN_IDENTITY_MISMATCH");
+        }
 
         CampaignDurableRunResponseAdapter.Identity identity =
                 new CampaignDurableRunResponseAdapter.Identity(
-                        request.readRequest().runId(), value.planId(), request.readRequest().revision());
+                        request.readRequest().runId(), request.expectedPlanId().orElse(value.planId()),
+                        request.readRequest().revision());
         return responses.adapt(new CampaignDurableRunResponseAdapter.Request(
                 request.base(), Optional.of(identity), Optional.of(value)));
     }
 
     /** Explicit base response plus one exact E71 read request. */
     public record Request(AgentRunResult base,
-                          CampaignDurableRunResultReadService.Request readRequest) {
+                          CampaignDurableRunResultReadService.Request readRequest,
+                          Optional<String> expectedPlanId) {
         public Request {
             Objects.requireNonNull(base, "AGENT_BASE_RESULT_REQUIRED");
             Objects.requireNonNull(readRequest, "RUN_RESULT_READ_REQUEST_REQUIRED");
+            expectedPlanId = expectedPlanId == null ? Optional.empty() : expectedPlanId;
+            expectedPlanId.ifPresent(planId -> {
+                if (planId.isBlank() || planId.length() > 96) {
+                    throw new IllegalArgumentException("RUN_RESULT_PLAN_ID_INVALID");
+                }
+            });
+        }
+
+        public Request(AgentRunResult base,
+                       CampaignDurableRunResultReadService.Request readRequest) {
+            this(base, readRequest, Optional.empty());
+        }
+
+        public Request(AgentRunResult base,
+                       CampaignDurableRunResultReadService.Request readRequest,
+                       String expectedPlanId) {
+            this(base, readRequest, Optional.ofNullable(expectedPlanId));
         }
     }
 }

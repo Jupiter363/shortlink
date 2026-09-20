@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E77 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E78 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -108,6 +108,7 @@
 | [E75：报告发布与 run-result 绑定原子化][E75] | 8 个新增 H2/JDBC 用例，连同配置和受影响绑定/存储/adapter 用例共 24 个定向用例通过；另执行 E70–E75 联合回归 51 个用例通过。共享 writable REQUIRED 事务保证发布、retain 与 binding 同步提交或回滚；统一 run→binding→report 锁序；过期 token、授权/身份错配和状态矩阵冲突回滚；撤权后精确重放拒绝且不重复 retain；返回只含脱敏 reportRef/binding，trusted profile 显式装配 coordinator。 | 仍是显式 typed 组合件，尚未接 Graph/AgentRunHarness/HTTP/Spring 业务入口、客户端历史/导出、真实 MySQL 或浏览器；正式读取仍需走授权 read projection。 |
 | [E76：durable run-result 到兼容响应的 typed 组合][E76] | 20 个直接受影响后端用例通过；无 binding 返回空结果，projection 只按 typed 状态和目标/报告证据生成兼容 `AgentRunResult`，保留旧操作字段并冻结外层集合；成功必须有完整可交付报告，等待/运行中/失败/未知的部分证据映射为 PARTIAL，无报告失败/未知映射为 UNAVAILABLE；identity、目标/block 唯一性、rollup、过期终态报告、旧 adapter 伪造状态和敏感元数据均有 fail-closed 断言。 | 仍是无 Graph/AgentRunHarness/HTTP/Spring 接线的纯 adapter；`SUPERSEDED` 因旧响应 enum 无对应状态而拒绝，客户端状态消费、历史/导出、真实 MySQL 和浏览器验收仍待完成。 |
 | [E77：精确 durable read 到兼容响应服务][E77] | 24 个联合定向后端用例通过（E77 服务 4 个，连同 E76/E67/E66/E68 受影响组件）；一次调用只执行一次 caller/run/revision read，空 binding 保持空结果，不回退历史或 Graph 文本；projection 身份漂移、报告读取异常和 adapter 异常均 fail closed/透传，WAITING 部分响应与 SUCCEEDED 完整响应沿用 E76 脱敏矩阵。 | 仍是无 Graph/AgentRunHarness/HTTP/Spring 接线的纯 typed service；生产 response 路由、客户端状态/历史/导出、真实 MySQL 和浏览器验收仍待完成。 |
+| [E78：durable response 请求身份与显式装配边界][E78] | 32 个联合定向后端用例通过；无状态 runtime factory 每次创建新的 E71/E76/E77 组合，decorator 要求 server-owned `planId` 并核对 run/plan/revision 三元身份；空 binding 只返回明确 `NO_BINDING`，绑定返回 `BOUND_RESPONSE`，缺报告凭证和异常不回退，等待/完成结果继续脱敏。 | 仍是 campaign 专用纯 typed seam，尚未接 Graph/AgentRunHarness/HTTP/Spring 业务入口、客户端状态/历史/导出、真实 MySQL 或浏览器；E71 多表读取仍以事实一致性校验 fail closed，未宣称同一快照事务。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -430,6 +431,7 @@
 [E75]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E76]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E77]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E78]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
