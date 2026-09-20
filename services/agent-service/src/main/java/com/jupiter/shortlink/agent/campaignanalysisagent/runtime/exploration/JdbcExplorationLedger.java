@@ -234,7 +234,9 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             requireCurrent();
             if (skills == null) return Optional.empty();
             Header header = header();
-            if (header.status() != Status.ACTIVE && header.status() != Status.WAITING) return Optional.empty();
+            if (header.status() != Status.ACTIVE && header.status() != Status.WAITING
+                    && !(header.status() == Status.BLOCKED && "REMOTE_CAPACITY".equals(header.reason())))
+                return Optional.empty();
             Turn current = turn(header.turn()).orElse(null);
             if (current == null || current.callId() == null || !"TOOL".equals(current.decision())) return Optional.empty();
             CallRecord call = calls.call(token, current.callId()).orElseThrow();
@@ -246,23 +248,22 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                     (rs, row) -> rs.getString(1), runId()).isEmpty()) return Optional.empty();
             InvocationRecord invocation = skills.invocation(token, current.callId()).orElseThrow(
                     () -> failure("EXPLORATION_SKILL_INVOCATION_REQUIRED"));
-            if (invocation.state() != CampaignSkillInvocationStore.State.WAITING) return Optional.empty();
+            if (!skillSuspended(invocation)) return Optional.empty();
             var newerStep = jdbc.query("SELECT step_attempt_id,step_attempt_version FROM campaign_exploration_call "
                             + "WHERE run_id=? AND revision=? AND call_id=? FOR UPDATE",
                     (rs, row) -> !step.attemptId().equals(rs.getString("step_attempt_id"))
                             && step.attemptVersion() > rs.getLong("step_attempt_version"),
                     runId(), revision(), current.callId());
             if (newerStep.size() != 1 || !newerStep.get(0)) return Optional.empty();
-            List<ChildRecord> children = capabilityChildren(call.spec().actionId());
-            if (children.isEmpty() || children.stream().anyMatch(child -> child.state() != ChildState.READY
-                    || child.callbackActive() || child.reason() != null)) return Optional.empty();
             // Validate the saved source, including current rights for every MODEL-visible input.
-            Response source = runs.readModelResponse(token, current.modelChildId(), validateInvocation(current), authorizer);
+            var approval = validateInvocation(current);
+            Response source = runs.readModelResponse(token, current.modelChildId(), approval, authorizer);
             if (!call.spec().responseHash().equals(CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(source)))
                     || source.toolCalls().size() != 1
                     || !source.toolCalls().get(0).equals(new ToolCall(call.spec().toolCallId(),
                             call.spec().executor().name(), call.spec().arguments())))
                 throw failure("EXPLORATION_SKILL_CALL_CHANGED");
+            if (!skills.continuationReady(token, current.callId(), approval, authorizer)) return Optional.empty();
             return Optional.of(new PendingSkillContinuation(current.callId(), invocation.rowVersion()));
         });
     }
@@ -890,9 +891,9 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         if (exact.size() != 1 || !exact.get(0)) throw failure("EXPLORATION_CALL_FENCED");
         InvocationRecord invocation = skills.invocation(token, turn.callId()).orElseThrow(() -> failure("EXPLORATION_SKILL_INVOCATION_REQUIRED"));
         if (observation.skillPending()) {
-            if (invocation.state() != CampaignSkillInvocationStore.State.WAITING || "OBSERVED".equals(turn.decision()))
+            if (!skillSuspended(invocation) || "OBSERVED".equals(turn.decision()))
                 throw failure("EXPLORATION_SKILL_NOT_WAITING");
-            saveSkillWaiting(turn, true);
+            saveSkillWaiting(turn, invocation, true);
         } else {
             if (invocation.state() != CampaignSkillInvocationStore.State.COMPLETED) throw failure("EXPLORATION_SKILL_NOT_COMPLETE");
             saveSkillReady(turn, skills.readCompletion(token, turn.callId(), authorizer));
@@ -928,21 +929,31 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         if ("OBSERVED".equals(turn.decision())) { requireSkillReceipt(turn); return; }
         InvocationRecord invocation = skills.invocation(token, turn.callId()).orElse(null);
         if (invocation == null) { setStatus(Status.BLOCKED, "EXPLORATION_SKILL_INVOCATION_REQUIRED"); return; }
-        if (invocation.state() == CampaignSkillInvocationStore.State.WAITING) {
+        if (skillSuspended(invocation)) {
             // READY remote dependencies authorize the server's continuation, not another model turn.
-            saveSkillWaiting(turn, false);
+            saveSkillWaiting(turn, invocation, false);
         } else if (invocation.state() == CampaignSkillInvocationStore.State.COMPLETED) {
             saveSkillReady(turn, skills.readCompletion(token, turn.callId(), authorizer));
         } else setStatus(Status.BLOCKED, "EXPLORATION_SKILL_RESULT_UNRESOLVED");
     }
 
-    private void saveSkillWaiting(Turn turn, boolean projected) {
+    private static boolean skillSuspended(InvocationRecord invocation) {
+        return invocation.state() == CampaignSkillInvocationStore.State.WAITING
+                || invocation.state() == CampaignSkillInvocationStore.State.DEFERRED;
+    }
+
+    private void saveSkillWaiting(Turn turn, InvocationRecord invocation, boolean projected) {
         if (turn.receiptChild() != null || turn.artifactId() != null || turn.jobId() != null
                 || turn.skillCompletionId() != null || turn.skillOutputsHash() != null)
             throw failure("EXPLORATION_SKILL_RECEIPT_CHANGED");
         if (!"SKILL".equals(turn.receiptKind()) || (projected && !turn.pendingProjected()))
             updateTurn(turn.index(), "receipt_kind='SKILL',pending_projected=?", projected || turn.pendingProjected());
-        if (header().status() != Status.WAITING) setStatus(Status.WAITING, "");
+        // A capacity refusal has no accepted remote job. Preserve a resumable action receipt,
+        // but never manufacture a job-backed WAITING state for the outer Step.
+        Status target = invocation.state() == CampaignSkillInvocationStore.State.DEFERRED ? Status.BLOCKED : Status.WAITING;
+        String reason = target == Status.BLOCKED ? "REMOTE_CAPACITY" : "";
+        Header header = header();
+        if (header.status() != target || !reason.equals(header.reason())) setStatus(target, reason);
     }
 
     private void saveSkillReady(Turn turn, InvocationRecord invocation) {
