@@ -13,6 +13,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCandidateStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.ExplorationLedger;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,7 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
     private final CampaignExplorationCandidateStore candidates;
     private final Map<String, CapabilityCatalog.Signature> signatures;
     private final PlanValidator validator;
+    private final ProcessExecutionScope processScope;
 
     /** token must have been acquired through StepStore.acquireRun; construction never silently takes over. */
     public PersistentPlanDriver(RunToken token, CampaignRunStore runs, CampaignStepStore steps,
@@ -92,6 +94,18 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
             RunAuthorizer runAuthorizer, ArtifactAuthorizer artifactAuthorizer,
             StepBindings.CurrentInputAuthorizer inputAuthorizer, List<ReactExecutor> reactExecutors,
             CampaignExplorationCandidateStore candidates) {
+        this(token, runs, steps, catalog, contracts, executors, runAuthorizer, artifactAuthorizer,
+                inputAuthorizer, reactExecutors, candidates, null);
+    }
+
+    /** Construct inside the admitted WorkFactory, before any frozen inputs or Artifact reads. */
+    public PersistentPlanDriver(RunToken token, CampaignRunStore runs, CampaignStepStore steps,
+            CapabilityCatalog catalog, ArtifactContractRegistry contracts, List<FixedExecutor> executors,
+            RunAuthorizer runAuthorizer, ArtifactAuthorizer artifactAuthorizer,
+            StepBindings.CurrentInputAuthorizer inputAuthorizer, List<ReactExecutor> reactExecutors,
+            CampaignExplorationCandidateStore candidates, ProcessExecutionScope processScope) {
+        this.processScope = processScope;
+        if (processScope != null && processScope.isClosed()) throw new IllegalStateException("PROCESS_EXECUTION_SCOPE_CLOSED");
         this.token = Objects.requireNonNull(token);
         this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps);
@@ -136,7 +150,7 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
         return NativePlanGraph.compile(frozen.plan(), frozen.inputs(), frozen.assessment(), validator,
                 new NativePlanGraph.RunIdentity(caller.tenantId(), caller.subject(), caller.authVersion(),
                         definition.sessionId(), definition.runId(), definition.planId(), definition.revision(),
-                        frozen.runnerVersion(), frozen.topologyVersion()), saver, this);
+                        frozen.runnerVersion(), frozen.topologyVersion()), saver, this, processScope);
     }
 
     /** Coordinator calls after result ingestion; this does not poll or interpret a remote job status. */
@@ -148,13 +162,23 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
         }
     }
 
-    @Override public boolean mayAdvance() { return authorized() && steps.mayAdvance(token); }
+    @Override public boolean mayAdvance() {
+        return (processScope == null || !processScope.isClosed()) && authorized() && steps.mayAdvance(token);
+    }
 
     @Override public NativePlanGraph.StepStatus status(String stepId) {
         return NativePlanGraph.StepStatus.valueOf(steps.step(token, stepId).orElseThrow().status().name());
     }
 
     @Override public void advance(PlanSpec.Step step) throws Exception {
+        // Native Graph may outlive its caller's cancelled Future. Only this node's actual
+        // finally retires its lifetime; a late node cannot load bindings after scope sealing.
+        try (var ignored = processScope == null ? null : processScope.enter()) {
+            advanceAdmitted(step);
+        }
+    }
+
+    private void advanceAdmitted(PlanSpec.Step step) throws Exception {
         if (!frozen.plan().steps().contains(step)) throw new IllegalArgumentException("FROZEN_STEP_CHANGED");
         if (!mayAdvance()) return;
         StepPermit permit = steps.beginStep(token, step.stepId());
