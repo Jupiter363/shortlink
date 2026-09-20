@@ -188,6 +188,18 @@ public record ExplorationCandidate(String schemaVersion, Kind kind, String decis
                 "x-maxUtf8Bytes", MAX_JSON_BYTES, "oneOf", List.copyOf(branches));
     }
 
+    /** Trusted protocol instruction appended by the durable session, never taken from user or tool text. */
+    public static String instructions() {
+        try {
+            return "Use the registered tools when more authorized evidence is needed. When no tool call is needed, return exactly one JSON object matching the following terminal-candidate schema, without markdown fences or surrounding text. "
+                    + "COMPLETE may reference only artifacts visible in this conversation, bound to the declared output ports; the server independently checks the frozen completion conditions. "
+                    + "Do not invent artifact IDs, evidence, completed work or new conditions. Preserve unknown collection quality and other evidence limitations. "
+                    + "Use NEEDS_INPUT for missing inputs, REQUEST_REPLAN to request a plan change, or NO_PROGRESS to report that no supported next action is available. These are requests, not authorization to change the plan. "
+                    + "decisionSummary is a brief public decision summary, not private reasoning or the full report.\n"
+                    + JSON.writeValueAsString(schema());
+        } catch (JsonProcessingException invalid) { throw invalid(); }
+    }
+
     private static Map<String, Object> textSchema(int characters, int bytes, String description) {
         return Map.of("type", "string", "minLength", 1, "maxLength", characters, "pattern", "\\S",
                 "x-maxUtf8Bytes", bytes, "description", description);

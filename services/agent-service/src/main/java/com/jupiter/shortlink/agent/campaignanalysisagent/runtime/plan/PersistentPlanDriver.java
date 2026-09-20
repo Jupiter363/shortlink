@@ -11,18 +11,21 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCandidateStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.ExplorationLedger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 /**
  * Opt-in JDBC Driver for the native serial Plan scan. No Spring registration, scheduler or custom
- * ReAct loop. This stage supports registered FIXED adapters; REACT plans fail before any dispatch
- * until the native exploration adapter has its persistent, per-I/O boundaries wired in P3.
+ * ReAct loop. REACT remains opt-in through a registered native executor and verified candidate
+ * store; the original constructor still rejects REACT before dispatch.
  */
 public final class PersistentPlanDriver implements NativePlanGraph.Driver {
     @FunctionalInterface public interface Executor { Result execute(CampaignStepExecution context) throws Exception; }
@@ -32,6 +35,20 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
     public record FixedExecutor(PlanSpec.ExecutorRef ref, StepBindings.StepPolicy policy, Executor executor) {
         public FixedExecutor { Objects.requireNonNull(ref); Objects.requireNonNull(policy); Objects.requireNonNull(executor); }
     }
+
+    @FunctionalInterface public interface ReactAction {
+        ExplorationLedger.View execute(PlanSpec.Step step, BoundInputs inputs, StepPermit permit,
+                                        BooleanSupplier currentAuthorization) throws Exception;
+    }
+
+    public record ReactExecutor(String policyRef, String policyVersion, StepBindings.StepPolicy policy, ReactAction action) {
+        public ReactExecutor {
+            if (policyRef == null || policyRef.isBlank() || policyVersion == null || policyVersion.isBlank())
+                throw new IllegalArgumentException("REACT_POLICY_REGISTRATION_REQUIRED");
+            Objects.requireNonNull(policy); Objects.requireNonNull(action);
+        }
+    }
+    private record PolicyKey(String ref, String version) {}
 
     public record Result(CampaignStepStore.StepStatus status, Map<String, String> outputs, String reason) {
         public Result {
@@ -56,6 +73,8 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
     private final StepBindings.CurrentInputAuthorizer inputAuthorizer;
     private final ArtifactContractRegistry contracts;
     private final Map<PlanSpec.ExecutorRef, FixedExecutor> executors;
+    private final Map<PolicyKey, ReactExecutor> reactExecutors;
+    private final CampaignExplorationCandidateStore candidates;
     private final Map<String, CapabilityCatalog.Signature> signatures;
     private final PlanValidator validator;
 
@@ -64,6 +83,15 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
             CapabilityCatalog catalog, ArtifactContractRegistry contracts, List<FixedExecutor> executors,
             RunAuthorizer runAuthorizer, ArtifactAuthorizer artifactAuthorizer,
             StepBindings.CurrentInputAuthorizer inputAuthorizer) {
+        this(token, runs, steps, catalog, contracts, executors, runAuthorizer, artifactAuthorizer, inputAuthorizer,
+                List.of(), null);
+    }
+
+    public PersistentPlanDriver(RunToken token, CampaignRunStore runs, CampaignStepStore steps,
+            CapabilityCatalog catalog, ArtifactContractRegistry contracts, List<FixedExecutor> executors,
+            RunAuthorizer runAuthorizer, ArtifactAuthorizer artifactAuthorizer,
+            StepBindings.CurrentInputAuthorizer inputAuthorizer, List<ReactExecutor> reactExecutors,
+            CampaignExplorationCandidateStore candidates) {
         this.token = Objects.requireNonNull(token);
         this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps);
@@ -73,14 +101,24 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
         this.inputAuthorizer = Objects.requireNonNull(inputAuthorizer);
         this.frozen = FrozenCampaignRun.read(token.definition());
         this.executors = executors.stream().collect(Collectors.toUnmodifiableMap(FixedExecutor::ref, value -> value));
+        this.reactExecutors = reactExecutors.stream().collect(Collectors.toUnmodifiableMap(
+                value -> new PolicyKey(value.policyRef(), value.policyVersion()), value -> value));
+        this.candidates = candidates;
         this.validator = new PlanValidator(catalog, id -> Optional.of(contracts.typeOf(
                 runs.inspectArtifact(token.definition().caller(), id, artifactAuthorizer))));
         validator.validate(frozen.plan(), frozen.inputs(), frozen.assessment());
         Map<String, CapabilityCatalog.Signature> registered = new HashMap<>();
         for (PlanSpec.Step step : frozen.plan().steps()) {
-            if (step.executionMode() != PlanSpec.ExecutionMode.FIXED || !this.executors.containsKey(step.executor()))
-                throw new IllegalArgumentException("RUNTIME_EXECUTOR_UNAVAILABLE");
-            registered.put(step.stepId(), catalog.capability(step.executor()).orElseThrow().signature());
+            if (step.executionMode() == PlanSpec.ExecutionMode.FIXED) {
+                if (!this.executors.containsKey(step.executor())) throw new IllegalArgumentException("RUNTIME_EXECUTOR_UNAVAILABLE");
+                registered.put(step.stepId(), catalog.capability(step.executor()).orElseThrow().signature());
+            } else {
+                if (candidates == null || !this.reactExecutors.containsKey(policyKey(step)))
+                    throw new IllegalArgumentException("RUNTIME_EXECUTOR_UNAVAILABLE");
+                registered.put(step.stepId(), catalog.policy(step.explorationPolicy().policyRef(),
+                        step.explorationPolicy().policyVersion()).orElseThrow().signature());
+                candidates.configurationId(token.definition(), step.stepId());
+            }
         }
         this.signatures = Map.copyOf(registered);
         if (!authorized()) throw new SecurityException("RUN_ACCESS_DENIED");
@@ -120,24 +158,56 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
         if (!frozen.plan().steps().contains(step)) throw new IllegalArgumentException("FROZEN_STEP_CHANGED");
         if (!mayAdvance()) return;
         StepPermit permit = steps.beginStep(token, step.stepId());
-        FixedExecutor executor = executors.get(step.executor());
-        var bindings = new StepBindings(contracts, runs, token.definition().caller(), artifactAuthorizer,
-                inputAuthorizer, executor.policy());
         String failure = "INPUT_BINDING_INVALID";
-        try (var inputs = bindings.resolve(step, frozen.inputs(), signatures.get(step.stepId()), this::completedOutput);
-             var context = new CampaignStepExecution(step, frozen.plan().goals().stream()
-                     .filter(goal -> step.goalIds().contains(goal.goalId())).toList(), inputs, permit, runs, steps,
-                     () -> authorizedInputs(bindings, signatures.get(step.stepId()), inputs))) {
-            context.requireCurrent();
-            failure = "STEP_RESULT_UNKNOWN";
-            Result result = Objects.requireNonNull(executor.executor().execute(context), "Step result is required");
-            context.requireCurrent();
-            failure = "OUTPUT_CONTRACT_INVALID";
-            if (result.status() == CampaignStepStore.StepStatus.SUCCEEDED)
-                bindings.validateOutputs(step, signatures.get(step.stepId()), inputs, result.outputs());
-            // Recheck both run authority and Artifact authority at the publication boundary.
-            context.requireCurrent();
-            steps.settle(permit, result.status(), result.outputs(), result.reason(), artifactAuthorizer);
+        try {
+            FixedExecutor executor = step.executionMode() == PlanSpec.ExecutionMode.FIXED ? executors.get(step.executor()) : null;
+            ReactExecutor react = step.executionMode() == PlanSpec.ExecutionMode.REACT ? reactExecutors.get(policyKey(step)) : null;
+            var bindings = new StepBindings(contracts, runs, token.definition().caller(), artifactAuthorizer,
+                    inputAuthorizer, react == null ? executor.policy() : react.policy());
+            try (var inputs = bindings.resolve(step, frozen.inputs(), signatures.get(step.stepId()), this::completedOutput)) {
+                if (react != null) {
+                    BooleanSupplier current = () -> steps.mayExecute(permit) && authorizedInputs(bindings, signatures.get(step.stepId()), inputs);
+                    requireCurrent(current);
+                    failure = "STEP_RESULT_UNKNOWN";
+                    ExplorationLedger.View view = Objects.requireNonNull(react.action().execute(step, inputs, permit, current));
+                    requireCurrent(current);
+                    // Adapter projection artifactIds never become outer outputs. Only the persisted
+                    // typed candidate may nominate them, and publication revalidates it atomically.
+                    var assessment = candidates.assessment(token, step.stepId());
+                    if (assessment.isPresent()) {
+                        var accepted = assessment.get();
+                        if (accepted.verdict() == CampaignExplorationCandidateStore.Verdict.COMPLETE) {
+                            Map<String, String> outputIds = accepted.outputs().entrySet().stream().collect(
+                                    Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> entry.getValue().artifactId()));
+                            failure = "OUTPUT_CONTRACT_INVALID";
+                            bindings.validateOutputs(step, signatures.get(step.stepId()), inputs, outputIds);
+                            requireCurrent(current);
+                            candidates.settleComplete(permit);
+                        } else steps.settle(permit, StepStatus.BLOCKED, Map.of(), candidateReason(accepted.verdict()), artifactAuthorizer);
+                    } else if (view.status() == ExplorationLedger.Status.WAITING) {
+                        // StepStore checks actual accepted jobs; a native string cannot manufacture WAITING.
+                        steps.settle(permit, StepStatus.WAITING, Map.of(), null, artifactAuthorizer);
+                    } else {
+                        String reason = view.reason() == null || view.reason().isBlank() ? "EXPLORATION_RESULT_UNRESOLVED" : view.reason();
+                        steps.settle(permit, StepStatus.BLOCKED, Map.of(), reason, artifactAuthorizer);
+                    }
+                    return;
+                }
+                try (var context = new CampaignStepExecution(step, frozen.plan().goals().stream()
+                         .filter(goal -> step.goalIds().contains(goal.goalId())).toList(), inputs, permit, runs, steps,
+                         () -> authorizedInputs(bindings, signatures.get(step.stepId()), inputs))) {
+                    context.requireCurrent();
+                    failure = "STEP_RESULT_UNKNOWN";
+                    Result result = Objects.requireNonNull(executor.executor().execute(context), "Step result is required");
+                    context.requireCurrent();
+                    failure = "OUTPUT_CONTRACT_INVALID";
+                    if (result.status() == CampaignStepStore.StepStatus.SUCCEEDED)
+                        bindings.validateOutputs(step, signatures.get(step.stepId()), inputs, result.outputs());
+                    // Recheck both run authority and Artifact authority at the publication boundary.
+                    context.requireCurrent();
+                    steps.settle(permit, result.status(), result.outputs(), result.reason(), artifactAuthorizer);
+                }
+            }
         } catch (Exception exception) {
             if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
             // A fenced writer cannot publish even an error; finally still records its actual callback exit.
@@ -160,10 +230,28 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
         try {
             bindings.reauthorize(signature, inputs);
             return true;
-        } catch (SecurityException | BindingException denied) {
+        } catch (SecurityException | BindingException | IllegalStateException denied) {
             return false;
         }
     }
 
     private boolean authorized() { return runAuthorizer.mayExecute(token.definition().caller(), frozen.inputs()); }
+
+    private static PolicyKey policyKey(PlanSpec.Step step) {
+        return new PolicyKey(step.explorationPolicy().policyRef(), step.explorationPolicy().policyVersion());
+    }
+
+    private static void requireCurrent(BooleanSupplier current) {
+        if (!current.getAsBoolean()) throw new SecurityException("EXECUTION_ACCESS_DENIED");
+    }
+
+    private static String candidateReason(CampaignExplorationCandidateStore.Verdict verdict) {
+        return switch (verdict) {
+            case NEEDS_INPUT -> "EXPLORATION_NEEDS_INPUT";
+            case REPLAN_REQUESTED -> "EXPLORATION_REPLAN_REQUESTED";
+            case NO_PROGRESS_REPORTED -> "EXPLORATION_NO_PROGRESS_REPORTED";
+            case REJECTED -> "EXPLORATION_CANDIDATE_REJECTED";
+            case COMPLETE -> throw new IllegalArgumentException("COMPLETE_REQUIRES_CANDIDATE_PUBLICATION");
+        };
+    }
 }

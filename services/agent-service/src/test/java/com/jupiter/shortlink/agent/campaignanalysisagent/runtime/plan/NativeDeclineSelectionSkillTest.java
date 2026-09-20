@@ -154,11 +154,16 @@ class NativeDeclineSelectionSkillTest {
 
     static NativeExplorationAdapter nativeAdapter(CallFixture f, StepPermit step, ChatModel model,
                                                   CampaignExplorationCandidateStore candidates) throws Exception {
+        return nativeAdapter(f, nativeLedger(f, step, candidates), model);
+    }
+
+    static JdbcExplorationLedger nativeLedger(CallFixture f, StepPermit step,
+                                               CampaignExplorationCandidateStore candidates) throws Exception {
         var tool = DeclineSelectionExplorationSkill.definition();
         var configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIGURATION, null,
                 List.of(new ModelInvocationRegistry.ToolDefinition(tool.name(), tool.description(), JSON.readTree(tool.inputSchema()))),
                 Map.of("scope", f.runs.inspectArtifact(OWNER, f.scopeArtifact, f.auth)), Instant.ofEpochMilli(EXPIRY));
-        var ledger = candidates == null ? new JdbcExplorationLedger(f.base.jdbc, f.base.transactions, CLOCK,
+        return candidates == null ? new JdbcExplorationLedger(f.base.jdbc, f.base.transactions, CLOCK,
                 new JdbcCampaignRunStore(f.base.jdbc, f.base.transactions, CLOCK),
                 new JdbcCampaignStepStore(f.base.jdbc, f.base.transactions, CLOCK),
                 new JdbcCampaignExplorationCallStore(f.base.jdbc, f.base.transactions, CLOCK), step, f.models, configuration,
@@ -171,7 +176,10 @@ class NativeDeclineSelectionSkillTest {
                         new JdbcCampaignExplorationCallStore(f.base.jdbc, f.base.transactions, CLOCK), step, f.models, configuration,
                         Map.of(FrozenDeclineSelection.REF.name(), FrozenDeclineSelection.REF), f.auth, ExplorationBudgetPolicy.defaults(),
                         new DeclineSelectionArtifactProjection(f.runs,
-                                new JdbcCampaignDeclineSelectionStore(f.base.jdbc, f.base.transactions, CLOCK, f.runs)), f.invocations, candidates);
+                        new JdbcCampaignDeclineSelectionStore(f.base.jdbc, f.base.transactions, CLOCK, f.runs)), f.invocations, candidates);
+    }
+
+    static NativeExplorationAdapter nativeAdapter(CallFixture f, JdbcExplorationLedger ledger, ChatModel model) {
         var wrapper = new DeclineSelectionExplorationSkill(f.adapter());
         return new NativeExplorationAdapter(ledger.identity(), ledger, model, List.of(wrapper.registration()),
                 new MemorySaver(), Runnable::run, LIMITS, ledger);
@@ -189,16 +197,24 @@ class NativeDeclineSelectionSkillTest {
         volatile InvocationRecord completion;
         volatile CallRecord call;
         final java.util.function.Function<InvocationRecord, String> terminalText;
+        final java.util.function.Consumer<Prompt> firstPrompt;
         SkillModel(CallFixture fixture) {
             this(fixture, ignored -> "The approved method produced selected members and their evidence; this remains a candidate analysis.");
         }
         SkillModel(CallFixture fixture, java.util.function.Function<InvocationRecord, String> terminalText) {
-            f = fixture; this.terminalText = terminalText;
+            this(fixture, terminalText, ignored -> {});
+        }
+        SkillModel(CallFixture fixture, java.util.function.Function<InvocationRecord, String> terminalText,
+                   java.util.function.Consumer<Prompt> firstPrompt) {
+            f = fixture; this.terminalText = terminalText; this.firstPrompt = firstPrompt;
         }
         @Override public ChatResponse call(Prompt prompt) {
             int turn = calls.incrementAndGet();
-            if (turn == 1) return response(AssistantMessage.builder().content("").toolCalls(List.of(
-                    new AssistantMessage.ToolCall(TOOL_CALL_ID, "function", FrozenDeclineSelection.REF.name(), f.arguments))).build());
+            if (turn == 1) {
+                firstPrompt.accept(prompt);
+                return response(AssistantMessage.builder().content("").toolCalls(List.of(
+                        new AssistantMessage.ToolCall(TOOL_CALL_ID, "function", FrozenDeclineSelection.REF.name(), f.arguments))).build());
+            }
             assertEquals(2, turn, "A completed logical model slot must never invoke the model again");
             assertNotNull(completion); assertNotNull(call);
             var pending = prompt.getInstructions().stream().filter(ToolResponseMessage.class::isInstance)

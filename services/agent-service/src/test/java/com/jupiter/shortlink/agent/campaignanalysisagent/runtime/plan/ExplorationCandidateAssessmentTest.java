@@ -167,7 +167,7 @@ class ExplorationCandidateAssessmentTest {
         }
     }
 
-    private static CompletionCriterionRegistry criteria(CallFixture f, boolean completeCollection) {
+    static CompletionCriterionRegistry criteria(CallFixture f, boolean completeCollection) {
         var registrations = new ArrayList<CompletionCriterionRegistry.Registration>();
         registrations.add(DeclineSelectionCompletionCriteria.coverage("decline-explore", "1", "supported-evidence",
                 new JdbcCampaignDeclineSelectionStore(f.base.jdbc, f.base.transactions, CLOCK, f.runs), f.auth));
@@ -176,12 +176,12 @@ class ExplorationCandidateAssessmentTest {
         return new CompletionCriterionRegistry(registrations);
     }
 
-    private static CampaignExplorationCandidateStore candidates(CallFixture f, CompletionCriterionRegistry criteria) {
+    static CampaignExplorationCandidateStore candidates(CallFixture f, CompletionCriterionRegistry criteria) {
         return new JdbcCampaignExplorationCandidateStore(f.base.jdbc, f.base.transactions, CLOCK, f.runs, f.steps,
                 f.models, f.catalog, f.contracts, criteria, f.auth);
     }
 
-    private static String completeCandidate(InvocationRecord completion) {
+    static String completeCandidate(InvocationRecord completion) {
         Map<String, PlanBinding> bindings = new TreeMap<>();
         completion.outputs().forEach((name, ref) -> bindings.put(name, PlanBinding.artifact(ref.artifactId())));
         return new ExplorationCandidate(ExplorationCandidate.SCHEMA_VERSION, ExplorationCandidate.Kind.COMPLETE,
@@ -189,24 +189,27 @@ class ExplorationCandidateAssessmentTest {
                 completion.outputs().values().stream().map(ArtifactRef::artifactId).sorted().toList(), bindings, null, null, null).encode();
     }
 
-    private static void migrate(CallFixture f) {
+    static void migrate(CallFixture f) {
         new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260920_10__campaign_exploration_ledger.sql"),
                 new ClassPathResource("sql/migration/V20260920_11__campaign_exploration_budget.sql"),
                 new ClassPathResource("sql/migration/V20260920_13__campaign_skill_observation.sql"),
                 new ClassPathResource("sql/migration/V20260920_14__campaign_exploration_candidate.sql")).execute(f.base.jdbc.getDataSource());
     }
 
-    private static void exited(CallFixture f) {
+    static void exited(CallFixture f) {
         for (String table : List.of("campaign_child_ledger", "campaign_step_ledger", "campaign_exploration_call"))
             assertEquals(0, f.base.jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE callback_active=TRUE", Integer.class));
     }
 
-    private static final class TerminalModel implements ChatModel {
+    static final class TerminalModel implements ChatModel {
         final String response;
         final AtomicInteger calls = new AtomicInteger();
-        TerminalModel(String response) { this.response = response; }
+        final java.util.function.Consumer<Prompt> firstPrompt;
+        TerminalModel(String response) { this(response, ignored -> {}); }
+        TerminalModel(String response, java.util.function.Consumer<Prompt> firstPrompt) { this.response = response; this.firstPrompt = firstPrompt; }
         @Override public ChatResponse call(Prompt prompt) {
             assertEquals(1, calls.incrementAndGet(), "A durable terminal candidate must reuse its original MODEL response");
+            firstPrompt.accept(prompt);
             return new ChatResponse(List.of(new Generation(new AssistantMessage(response))));
         }
         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.defer(() -> Flux.just(call(prompt))); }
