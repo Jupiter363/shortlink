@@ -5,6 +5,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.harness.runtime.AgentRunResult;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Resolves a server-owned run handle before handing a response request to the E85 route.
@@ -19,11 +20,20 @@ import java.util.Optional;
 public final class CampaignDurableResponseTransportAdapter {
     private final CampaignResponseRouteAdapter route;
     private final CampaignRunHandleResolver handles;
+    private final CampaignResponseProtocolMetadataResolver protocols;
 
     public CampaignDurableResponseTransportAdapter(CampaignResponseRouteAdapter route,
                                                    CampaignRunHandleResolver handles) {
+        this(route, handles, null);
+    }
+
+    /** Authority-aware composition; protocol facts must come from a server-owned resolver. */
+    public CampaignDurableResponseTransportAdapter(CampaignResponseRouteAdapter route,
+                                                   CampaignRunHandleResolver handles,
+                                                   CampaignResponseProtocolMetadataResolver protocols) {
         this.route = Objects.requireNonNull(route, "CAMPAIGN_RESPONSE_ROUTE_REQUIRED");
         this.handles = Objects.requireNonNull(handles, "CAMPAIGN_RESPONSE_HANDLE_RESOLVER_REQUIRED");
+        this.protocols = protocols;
     }
 
     /** Resolves only after the E79 gate selects the durable path; no fallback is attempted. */
@@ -47,6 +57,43 @@ public final class CampaignDurableResponseTransportAdapter {
                         request.report(), handle.planId());
         return route.route(new CampaignResponseRouteAdapter.Request(
                 request.capability(), Optional.of(durable)));
+    }
+
+    /**
+     * Authority-aware response path.  The caller supplies only client capabilities and a lookup
+     * reference; run kind, server protocol and enablement are read from the trusted metadata
+     * resolver.  Missing metadata is an error, never an implicit legacy decision.
+     */
+    public CampaignResponseRouteAdapter.Outcome resolve(AuthorityRequest request) {
+        Objects.requireNonNull(request, "CAMPAIGN_RESPONSE_AUTHORITY_REQUEST_REQUIRED");
+        if (protocols == null)
+            throw new IllegalStateException("CAMPAIGN_RESPONSE_PROTOCOL_RESOLVER_REQUIRED");
+        Optional<CampaignResponseProtocolMetadata> metadata = protocols.resolve(request.protocol());
+        if (metadata == null || metadata.isEmpty())
+            throw new IllegalStateException("CAMPAIGN_RESPONSE_PROTOCOL_METADATA_UNAVAILABLE");
+        if (metadata.get().runKind() == CampaignResponseCapabilityGate.RunKind.EXISTING
+                && metadata.get().identity().isEmpty())
+            throw new IllegalStateException("CAMPAIGN_RESPONSE_EXISTING_IDENTITY_REQUIRED");
+        CampaignResponseCapabilityGate.Decision decision = route.decide(metadata.get(),
+                request.clientCapabilities());
+        if (decision != CampaignResponseCapabilityGate.Decision.DURABLE_V2)
+            return route.route(decision, Optional.empty());
+
+        CampaignResponseProtocolMetadataResolver.Request protocol = request.protocol();
+        CampaignRunHandleResolver.Request reference = protocol.handleRequest();
+        Optional<CampaignRunHandle> resolved = handles.resolve(reference);
+        if (resolved == null || resolved.isEmpty())
+            throw new IllegalStateException("CAMPAIGN_RUN_HANDLE_NOT_FOUND");
+        CampaignRunHandle handle = resolved.get();
+        verify(reference, handle);
+        if (metadata.get().identity().isPresent() && !metadata.get().matches(handle))
+            throw new SecurityException("CAMPAIGN_RESPONSE_METADATA_IDENTITY_MISMATCH");
+
+        CampaignJdbcDurableRunResponseBridgeFactory.Request durable =
+                new CampaignJdbcDurableRunResponseBridgeFactory.Request(
+                        request.base(), handle.caller(), handle.runId(), handle.revision(),
+                        request.report(), handle.planId());
+        return route.route(decision, Optional.of(durable));
     }
 
     private static void verify(CampaignRunHandleResolver.Request reference, CampaignRunHandle handle) {
@@ -77,6 +124,31 @@ public final class CampaignDurableResponseTransportAdapter {
         public Request(CampaignResponseCapabilityGate.Request capability, AgentRunResult base,
                        CampaignRunHandleResolver.Request run) {
             this(capability, base, Optional.ofNullable(run), Optional.empty());
+        }
+    }
+
+    /** Request carrying no caller-controlled server protocol or run-kind fields. */
+    public record AuthorityRequest(
+            CampaignResponseProtocolMetadataResolver.Request protocol,
+            AgentRunResult base,
+            Set<String> clientCapabilities,
+            Optional<CampaignJdbcDurableRunResponseBridgeFactory.ReportAccess> report) {
+        public AuthorityRequest {
+            Objects.requireNonNull(protocol, "CAMPAIGN_RESPONSE_PROTOCOL_REQUEST_REQUIRED");
+            Objects.requireNonNull(base, "AGENT_BASE_RESULT_REQUIRED");
+            if (clientCapabilities == null)
+                throw new IllegalArgumentException("CAMPAIGN_RESPONSE_CAPABILITIES_REQUIRED");
+            if (clientCapabilities.stream().anyMatch(value -> value == null || value.isBlank()))
+                throw new IllegalArgumentException("CAMPAIGN_RESPONSE_CAPABILITY_INVALID");
+            clientCapabilities = Set.copyOf(clientCapabilities);
+            report = report == null ? Optional.empty() : report;
+            if (protocol.run().isEmpty() && report.isPresent())
+                throw new IllegalArgumentException("CAMPAIGN_REPORT_ACCESS_WITHOUT_RUN");
+        }
+
+        public AuthorityRequest(CampaignResponseProtocolMetadataResolver.Request protocol,
+                                AgentRunResult base, Set<String> clientCapabilities) {
+            this(protocol, base, clientCapabilities, Optional.empty());
         }
     }
 }

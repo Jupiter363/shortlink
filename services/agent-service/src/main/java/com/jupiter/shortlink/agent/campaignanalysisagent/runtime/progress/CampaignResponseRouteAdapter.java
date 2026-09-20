@@ -3,6 +3,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress;
 import com.jupiter.shortlink.agent.harness.runtime.AgentRunResult;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Transport-neutral selector for campaign responses.
@@ -35,11 +36,25 @@ public final class CampaignResponseRouteAdapter {
     public Outcome route(Request request) {
         Objects.requireNonNull(request, "CAMPAIGN_RESPONSE_ROUTE_REQUEST_REQUIRED");
         CampaignResponseCapabilityGate.Decision decision = decide(request.capability());
+        return route(decision, request.durable());
+    }
+
+    /** Routes a previously authorized protocol decision without accepting raw server metadata. */
+    public Outcome route(CampaignResponseCapabilityGate.Decision decision,
+                         Optional<CampaignJdbcDurableRunResponseBridgeFactory.Request> durable) {
+        Objects.requireNonNull(decision, "CAMPAIGN_RESPONSE_DECISION_REQUIRED");
+        durable = durable == null ? Optional.empty() : durable;
         return switch (decision) {
             case LEGACY_PATH -> Outcome.legacyPath();
             case CLIENT_UPGRADE_REQUIRED -> Outcome.clientUpgradeRequired();
-            case DURABLE_V2 -> durable(request.durable());
+            case DURABLE_V2 -> durable(durable);
         };
+    }
+
+    /** Routes from server-owned metadata and client capability advertisement. */
+    public Outcome route(CampaignResponseProtocolMetadata metadata, Set<String> clientCapabilities,
+                         Optional<CampaignJdbcDurableRunResponseBridgeFactory.Request> durable) {
+        return route(gate.decide(metadata, clientCapabilities), durable);
     }
 
     /** Exposes the pure protocol decision so a transport can resolve a durable handle lazily. */
@@ -47,6 +62,12 @@ public final class CampaignResponseRouteAdapter {
             CampaignResponseCapabilityGate.Request capability) {
         return gate.decide(Objects.requireNonNull(capability,
                 "CAMPAIGN_RESPONSE_CAPABILITY_REQUEST_REQUIRED"));
+    }
+
+    /** Exposes the authority-aware gate decision for a transport that resolves handles lazily. */
+    public CampaignResponseCapabilityGate.Decision decide(
+            CampaignResponseProtocolMetadata metadata, Set<String> clientCapabilities) {
+        return gate.decide(metadata, clientCapabilities);
     }
 
     private Outcome durable(Optional<CampaignJdbcDurableRunResponseBridgeFactory.Request> request) {
