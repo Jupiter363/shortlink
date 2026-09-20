@@ -42,6 +42,8 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
 
     private static final String STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE = "STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE";
 
+    private static final String STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE = "STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE";
+
     private static final String QUERY_CAPACITY_EXHAUSTED = "QUERY_CAPACITY_EXHAUSTED";
 
     private static final String FROZEN_JOBS_PATH = "/internal/short-link-admin/v1/agent-tools/statistics/frozen-jobs";
@@ -294,6 +296,77 @@ public class ShortLinkBusinessHttpGateway implements ShortLinkBusinessGateway {
             return statisticsReleaseFailure(statisticsReadDecodeFailure(failure)
                     ? STATISTICS_RELEASE_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
         }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public ToolResult cancelStatisticsJob(ToolContext context, String jobId) {
+        if (!statisticsReadPrincipal(context)) return statisticsCancelFailure("FORBIDDEN");
+        if (!validStatisticsJobId(jobId)) return statisticsCancelFailure("INVALID_QUERY");
+        try {
+            String path = STATISTICS_JOBS_PATH + "/" + jobId + "/cancel";
+            Map<String, Object> body;
+            if (transport != null) {
+                body = transport.exchange("POST", uri(path, Map.of()), headers(context).toSingleValueMap(), Map.of());
+            } else {
+                ResponseEntity<Map> response = restTemplate.exchange(uri(path, Map.of()), HttpMethod.POST,
+                        new HttpEntity<>(Map.of(), headers(context)), Map.class);
+                if (response.getStatusCode().value() != 200)
+                    return statisticsCancelHttpFailure(response.getStatusCode().value());
+                body = response.getBody();
+            }
+            if (body == null) return statisticsCancelFailure(STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE);
+            Object code = body.get("code");
+            if (!("0".equals(code) || code instanceof Number number && "0".equals(number.toString())))
+                return statisticsCancelFailure(code instanceof String value && value.matches("[A-Z][A-Z0-9_]{0,63}")
+                        ? value : STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE);
+            if (body.containsKey("success") && !Boolean.TRUE.equals(body.get("success"))
+                    || !(body.get("data") instanceof Map<?, ?> data) || !validCancelledJob(data, jobId))
+                return statisticsCancelFailure(STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE);
+            Map<String, Object> receipt = new LinkedHashMap<>();
+            for (String field : List.of("jobId", "state", "expiresAt", "resultState", "resultReady", "resultCode"))
+                receipt.put(field, data.get(field));
+            // SUCCEEDED/FAILED mean the cancellation opportunity ended, not that it was cancelled.
+            return ToolResult.success(Collections.unmodifiableMap(receipt));
+        } catch (com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport.HttpStatusFailure failure) {
+            return statisticsCancelHttpFailure(failure.statusCode());
+        } catch (org.springframework.web.client.HttpStatusCodeException failure) {
+            return statisticsCancelHttpFailure(failure.getStatusCode().value());
+        } catch (SecurityException denied) {
+            return statisticsCancelFailure("FORBIDDEN");
+        } catch (RuntimeException failure) {
+            return statisticsCancelFailure(statisticsReadDecodeFailure(failure)
+                    ? STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE : "REMOTE_UNAVAILABLE");
+        }
+    }
+
+    private static boolean validCancelledJob(Map<?, ?> data, String jobId) {
+        if (!Set.of("jobId", "state", "expiresAt", "resultState", "resultReady", "resultCode",
+                        "rowCount", "byteCount", "pageCount", "errorCode").containsAll(data.keySet())
+                || !data.keySet().containsAll(Set.of("jobId", "state", "expiresAt", "resultState", "resultReady", "resultCode"))
+                || !jobId.equals(data.get("jobId")) || !(data.get("state") instanceof String state)
+                || !Set.of("SUCCEEDED", "FAILED", "CANCELLED").contains(state)) return false;
+        try {
+            if (selectedInteger(data.get("expiresAt")) <= 0) return false;
+            for (String count : List.of("rowCount", "byteCount", "pageCount"))
+                if (data.containsKey(count) && selectedInteger(data.get(count)) < 0) return false;
+        } catch (RuntimeException invalid) { return false; }
+        if (data.get("errorCode") != null && !(data.get("errorCode") instanceof String)) return false;
+        if ("RELEASED".equals(data.get("resultState")))
+            return Boolean.FALSE.equals(data.get("resultReady")) && "RESULT_RELEASED".equals(data.get("resultCode"));
+        return data.get("resultCode") == null && ("SUCCEEDED".equals(state)
+                ? "AVAILABLE".equals(data.get("resultState")) && Boolean.TRUE.equals(data.get("resultReady"))
+                : "UNAVAILABLE".equals(data.get("resultState")) && Boolean.FALSE.equals(data.get("resultReady")));
+    }
+
+    private static ToolResult statisticsCancelHttpFailure(int status) {
+        return statisticsCancelFailure(status == 401 || status == 403 ? "FORBIDDEN"
+                : Set.of(404, 405, 501).contains(status) ? STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE
+                : status == 400 ? "INVALID_QUERY" : status == 409 ? "CONFLICT" : "REMOTE_UNAVAILABLE");
+    }
+
+    private static ToolResult statisticsCancelFailure(String code) {
+        return failure(code, "Statistics job cancellation is unavailable");
     }
 
     private static ToolResult statisticsReleaseHttpFailure(int status) {

@@ -38,6 +38,12 @@ public interface ShortLinkBusinessGateway {
                 "Statistics result release protocol is unavailable");
     }
 
+    /** Trusted cancellation coordinator only; one attempt, never a model tool or generic POST fallback. */
+    default ToolResult cancelStatisticsJob(ToolContext context, String jobId) {
+        return new ToolResult(false, Map.of("code", "STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE"),
+                "Statistics job cancellation protocol is unavailable");
+    }
+
     /** Current authorization of exactly the specified IDs, including an explicit empty set. */
     default ToolResult authorizeStatisticsScope(ToolContext context, Map<String, Object> request) {
         return new ToolResult(false, Map.of("code", "FROZEN_SCOPE_PROTOCOL_UNAVAILABLE"),

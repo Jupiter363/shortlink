@@ -418,6 +418,71 @@ public class QueryJobServiceTest {
     }
 
     @Test
+    void cancellationRechecksExpiryAndCurrentScopeAfterWaitingForTheJobLock() throws Exception {
+        for (boolean revokeScope : List.of(false, true)) {
+            ownership.set("v1");
+            var job = submit("cancel-lock-" + revokeScope);
+            var lease = service.claim("cancel-worker-" + revokeScope);
+            assertThat(lease.jobId()).isEqualTo(job.jobId());
+            db.update("INSERT INTO analytics_query_page(job_id,lease_token,page_index,payload_json) VALUES(?,?,0,'[]')",
+                    job.jobId(), lease.token());
+            CountDownLatch cancelAtLock = new CountDownLatch(1);
+            // Only the service's database-clock read is controlled; the job lock and transactions
+            // are real H2. This proves time is evaluated AFTER the lock, without timing sleeps.
+            var databaseNow = new AtomicReference<>(new java.sql.Timestamp(job.expiresAt() - 1_000));
+            JdbcTemplate observed = new JdbcTemplate(db.getDataSource()) {
+                @Override
+                public List<Map<String, Object>> queryForList(String sql, Object... arguments) {
+                    if (sql.contains("FROM analytics_query_job WHERE job_id=?") && sql.endsWith("FOR UPDATE"))
+                        cancelAtLock.countDown();
+                    return super.queryForList(sql, arguments);
+                }
+
+                @Override
+                public <T> T queryForObject(String sql, Class<T> type) {
+                    if (sql.equals("SELECT CURRENT_TIMESTAMP")) return type.cast(databaseNow.get());
+                    return super.queryForObject(sql, type);
+                }
+            };
+            var cancelling = new QueryJobService(observed, json, auth, settings, ch,
+                    new DataSourceTransactionManager(db.getDataSource()));
+            var holder = new TransactionTemplate(new DataSourceTransactionManager(db.getDataSource()));
+            var worker = Executors.newSingleThreadExecutor();
+            var result = new AtomicReference<Future<QueryJobService.Status>>();
+            try {
+                holder.executeWithoutResult(transaction -> {
+                    db.queryForList("SELECT job_id FROM analytics_query_job WHERE job_id=? FOR UPDATE", job.jobId());
+                    result.set(worker.submit(() -> cancelling.cancel(job.jobId(), identity(0))));
+                    try {
+                        assertThat(cancelAtLock.await(3, TimeUnit.SECONDS)).isTrue();
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError(interrupted);
+                    }
+                    assertThat(result.get().isDone()).isFalse();
+                    if (revokeScope) ownership.set("v2");
+                    else databaseNow.set(new java.sql.Timestamp(job.expiresAt()));
+                });
+                assertThatThrownBy(() -> result.get().get(5, TimeUnit.SECONDS))
+                        .hasCauseInstanceOf(QueryFailure.class)
+                        .satisfies(failure -> assertThat(((QueryFailure) failure.getCause()).code)
+                                .isEqualTo(revokeScope ? "QUERY_SCOPE_CHANGED" : "SNAPSHOT_EXPIRED"));
+                var unchanged = db.queryForMap("SELECT state,lease_token,error_code FROM analytics_query_job WHERE job_id=?",
+                        job.jobId());
+                assertThat(unchanged.get("state")).isEqualTo("RUNNING");
+                assertThat(((Number) unchanged.get("lease_token")).longValue()).isEqualTo(lease.token());
+                assertThat(unchanged.get("error_code")).isNull();
+                assertThat(db.queryForObject("SELECT payload_json FROM analytics_query_page WHERE job_id=? AND lease_token=? AND page_index=0",
+                        String.class, job.jobId(), lease.token())).isEqualTo("[]");
+                verifyNoInteractions(ch);
+            } finally {
+                worker.shutdownNow();
+                assertThat(worker.awaitTermination(3, TimeUnit.SECONDS)).isTrue();
+            }
+        }
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void streamFailureDiscardsAttemptPagesAndRetriesAreBounded() {
         doAnswer(

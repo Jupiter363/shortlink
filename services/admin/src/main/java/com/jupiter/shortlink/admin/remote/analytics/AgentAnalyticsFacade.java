@@ -456,6 +456,43 @@ public class AgentAnalyticsFacade {
         return Map.of("requestId", requestId, "query", query);
     }
 
+    public Map<String, Object> cancelJob(String jobId) {
+        if (jobId == null || !jobId.matches("[A-Za-z0-9_-]{1,128}"))
+            throw AnalyticsJsonClient.cancelFailure("INVALID_QUERY");
+        // Never accept identity or replacement scope from cancellation request content.
+        if (UserContext.getUserId() == null || UserContext.getUsername() == null || UserContext.getAuthVersion() == null)
+            throw AnalyticsJsonClient.cancelFailure("FORBIDDEN");
+        JSONObject response = client.cancelJob(jobId, jobIdentity());
+        if (response == null || !(response.get("code") instanceof String code))
+            throw AnalyticsJsonClient.cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        if (!"0".equals(code)) throw AnalyticsJsonClient.cancelFailure(code);
+        if (response.containsKey("success") && !Boolean.TRUE.equals(response.get("success"))
+                || !(response.get("data") instanceof Map<?, ?> data)
+                || !Set.of("jobId", "state", "rowCount", "byteCount", "pageCount", "errorCode", "expiresAt",
+                        "resultState", "resultReady", "resultCode").containsAll(data.keySet())
+                || !data.keySet().containsAll(Set.of("jobId", "state", "expiresAt", "resultState", "resultReady", "resultCode"))
+                || !jobId.equals(data.get("jobId")) || !(data.get("state") instanceof String state)
+                || !Set.of("SUCCEEDED", "FAILED", "CANCELLED").contains(state)
+                || !integerAtLeast(data.get("expiresAt"), 1))
+            throw AnalyticsJsonClient.cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        for (String count : List.of("rowCount", "byteCount", "pageCount"))
+            if (data.containsKey(count) && !integerAtLeast(data.get(count), 0))
+                throw AnalyticsJsonClient.cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        if (data.get("errorCode") != null && !(data.get("errorCode") instanceof String))
+            throw AnalyticsJsonClient.cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        boolean released = "RELEASED".equals(data.get("resultState"));
+        boolean valid = released
+                ? Boolean.FALSE.equals(data.get("resultReady")) && "RESULT_RELEASED".equals(data.get("resultCode"))
+                : data.get("resultCode") == null && ("SUCCEEDED".equals(state)
+                        ? "AVAILABLE".equals(data.get("resultState")) && Boolean.TRUE.equals(data.get("resultReady"))
+                        : "UNAVAILABLE".equals(data.get("resultState")) && Boolean.FALSE.equals(data.get("resultReady")));
+        if (!valid) throw AnalyticsJsonClient.cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        Map<String, Object> receipt = new LinkedHashMap<>();
+        for (String field : List.of("jobId", "state", "expiresAt", "resultState", "resultReady", "resultCode"))
+            receipt.put(field, data.get(field));
+        return receipt;
+    }
+
     public Map<String, Object> jobStatus(String jobId) {
         Map<String, Object> result = readJobData(client.job(jobId, "status", jobIdentity()));
         if (!jobId.equals(result.get("jobId"))

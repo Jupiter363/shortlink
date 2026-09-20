@@ -75,6 +75,7 @@
 | [E44：请求幂等与可信装配][E44] | 两项后端方法首次通过；并发同键登记／冻结仅一Run，typed proposal获准后验证；真实Coordinator／scoped Graph首次WAIT及原job恢复，取消／改版重放停止；排队撤权先于解析，跨主体／错引用／环境事务拒绝。 | 内部typed入口已验，保留原权限门和稳定身份；自由文本规划、生产身份resolver／路由、真实MySQL和客户端仍待完成。 |
 | [E45：原生规划候选与首次执行][E45] | 两项后端方法首次通过；真实Native按typed需求产出候选，接纳事务失败后复用READY响应，Tool→固定Skill按依赖WAIT／接原job，规划自然过期后续扫不重调；四类非法候选拒绝、provider未知不盲重试，原目标及因果缺口完整保留。 | 初次候选到内部执行链已验；Tool→REACT仅本批结构验真；自然语言需求拆解、真实业务菜单、运行中重规划／adopt及生产入口未完成。 |
 | [E46：原任务跨版本消费关系][E46] | 四项后端方法首次通过；真实revise＋adopt错范围事务回滚，合法新rev续收原页／原Artifact、submit一次；RUNNING真实TTL绑定、撤权／恢复、采用取消两个顺序及并发竞争、REQUESTED不重开、共享release许可和旧schema兼容。 | 同Run原producer消费协议已验；非完整Graph重规划，远端取消适配、跨rev主动释放、释放后新本地消费及跨Run复用仍待完成。 |
+| [E47：取消链路与终态保真][E47] | 五个直接受影响后端方法通过；Agent→Admin→Analytics 专用取消 POST，无备用路由／模型工具；同一 binding 的取消资格与操作回执同事务持久化，丢回执后只 GET 原 job；SUCCEEDED/FAILED/CANCELLED 保留真实终态；Analytics 行锁后重新校验 TTL／scope。 | 进程死亡接管、真实 MySQL 方言／跨服务部署和生产入口仍未验；新协调器保持内部未注册。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -366,6 +367,7 @@
 [E44]: ../integration/campaign-plan-p1-trusted-intake-2026-09-20.md
 [E45]: ../integration/campaign-plan-p4-planning-intake-2026-09-20.md
 [E46]: ../integration/campaign-plan-p4-statistics-consumers-2026-09-20.md
+[E47]: ../integration/campaign-plan-p4-statistics-cancellation-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

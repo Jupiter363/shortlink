@@ -23,7 +23,7 @@ import java.util.concurrent.Flow;
 
 @Component
 public class AnalyticsJsonClient {
-    private enum ResponseContract { DEFAULT, RECOVERY, JOB_READ, JOB_SCOPE_READ, FROZEN_JOB, SELECTED_SCOPE, JOB_RELEASE, AUTHORITY_PAGE }
+    private enum ResponseContract { DEFAULT, RECOVERY, JOB_READ, JOB_SCOPE_READ, FROZEN_JOB, SELECTED_SCOPE, JOB_RELEASE, JOB_CANCEL, AUTHORITY_PAGE }
 
     private final HttpClient client =
             HttpClient.newBuilder()
@@ -95,6 +95,13 @@ public class AnalyticsJsonClient {
                 ResponseContract.JOB_RELEASE);
     }
 
+    /** One mutation attempt only. Lost acknowledgements are reconciled through the status route. */
+    public JSONObject cancelJob(String jobId, Object identity) {
+        if (jobId == null || !jobId.matches("[A-Za-z0-9_-]{1,128}")) throw cancelFailure("INVALID_QUERY");
+        return post(analyticsUrl + "/internal/analytics/v1/jobs/" + jobId + "/cancel", identity,
+                ResponseContract.JOB_CANCEL);
+    }
+
     public JSONObject job(String jobId, String operation, Object request) {
         if (jobId == null
                 || !jobId.matches("[A-Za-z0-9_-]{1,128}")
@@ -113,6 +120,7 @@ public class AnalyticsJsonClient {
         boolean recovery = contract == ResponseContract.RECOVERY;
         boolean authorityPage = contract == ResponseContract.AUTHORITY_PAGE;
         boolean release = contract == ResponseContract.JOB_RELEASE;
+        boolean cancel = contract == ResponseContract.JOB_CANCEL;
         boolean frozen = contract == ResponseContract.FROZEN_JOB || contract == ResponseContract.SELECTED_SCOPE;
         boolean jobRead = contract == ResponseContract.JOB_READ
                 || contract == ResponseContract.JOB_SCOPE_READ;
@@ -123,6 +131,7 @@ public class AnalyticsJsonClient {
                 || UserContext.getAuthVersion() == null) {
             if (authorityPage) throw authorityPageFailure("FORBIDDEN");
             if (release) throw releaseFailure("FORBIDDEN");
+            if (cancel) throw cancelFailure("FORBIDDEN");
             if (frozen) throw frozenFailure("FORBIDDEN");
             if (jobRead) throw readFailure("FORBIDDEN");
             throw new RemoteException("Trusted analytics service identity is unavailable");
@@ -142,6 +151,7 @@ public class AnalyticsJsonClient {
         if (!permits.tryAcquire()) {
             if (authorityPage) throw authorityPageFailure("REMOTE_UNAVAILABLE");
             if (release) throw releaseFailure("REMOTE_UNAVAILABLE");
+            if (cancel) throw cancelFailure("REMOTE_UNAVAILABLE");
             if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             throw new RemoteException("Analytics request concurrency budget is exhausted");
@@ -151,6 +161,7 @@ public class AnalyticsJsonClient {
                     client.send(request, ignored -> new LimitedBody(2 * 1024 * 1024));
             if (authorityPage) return authorityPageResponse(response);
             if (release) return releaseResponse(response);
+            if (cancel) return cancelResponse(response);
             if (frozen) return frozenResponse(response, contract == ResponseContract.SELECTED_SCOPE);
             if (jobRead) return readResponse(response, contract == ResponseContract.JOB_SCOPE_READ);
             if (recovery && List.of(404, 405, 501).contains(response.statusCode())) {
@@ -170,6 +181,7 @@ public class AnalyticsJsonClient {
             Thread.currentThread().interrupt();
             if (authorityPage) throw authorityPageFailure("REMOTE_UNAVAILABLE");
             if (release) throw releaseFailure("REMOTE_UNAVAILABLE");
+            if (cancel) throw cancelFailure("REMOTE_UNAVAILABLE");
             if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             if (recovery) throw recoveryFailure("UNAVAILABLE");
@@ -177,6 +189,7 @@ public class AnalyticsJsonClient {
         } catch (java.io.IOException | IllegalArgumentException unavailable) {
             if (authorityPage) throw authorityPageFailure("REMOTE_UNAVAILABLE");
             if (release) throw releaseFailure("REMOTE_UNAVAILABLE");
+            if (cancel) throw cancelFailure("REMOTE_UNAVAILABLE");
             if (frozen) throw frozenFailure("REMOTE_UNAVAILABLE");
             if (jobRead) throw readFailure("REMOTE_UNAVAILABLE");
             if (recovery) throw recoveryFailure("UNAVAILABLE");
@@ -231,6 +244,31 @@ public class AnalyticsJsonClient {
         if (selectedScope || result.containsKey("success") && !Boolean.TRUE.equals(result.get("success")))
             throw frozenFailure("FROZEN_SCOPE_PROTOCOL_UNAVAILABLE");
         return result;
+    }
+
+    private static JSONObject cancelResponse(HttpResponse<byte[]> response) {
+        int status = response.statusCode();
+        if (status == 401 || status == 403) throw cancelFailure("FORBIDDEN");
+        if (status == 400) throw cancelFailure("INVALID_QUERY");
+        if (status == 409) throw cancelFailure("CONFLICT");
+        if (status == 404 || status == 405 || status == 501)
+            throw cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        if (status != 200) throw cancelFailure("REMOTE_UNAVAILABLE");
+        JSONObject result;
+        try { result = JSON.parseObject(new String(response.body(), java.nio.charset.StandardCharsets.UTF_8)); }
+        catch (RuntimeException invalid) { throw cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE"); }
+        if (result == null || !(result.get("code") instanceof String code))
+            throw cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        if (!"0".equals(code)) throw cancelFailure(code);
+        if (result.containsKey("success") && !Boolean.TRUE.equals(result.get("success")))
+            throw cancelFailure("STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE");
+        return result;
+    }
+
+    static RemoteException cancelFailure(String upstreamCode) {
+        String code = upstreamCode != null && upstreamCode.matches("[A-Z][A-Z0-9_]{0,63}")
+                ? upstreamCode : "STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE";
+        return new RemoteException("Statistics job cancellation unavailable", errorCode(code, "Statistics job cancellation unavailable"));
     }
 
     private static JSONObject releaseResponse(HttpResponse<byte[]> response) {

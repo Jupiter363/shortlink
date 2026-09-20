@@ -34,6 +34,75 @@ class StatisticsResultReleaseGatewayTest {
     private static final ToolContext CONTEXT = new ToolContext("session-1", "zhangsan", Map.of(), StatsTestFixtures.PRINCIPAL);
 
     @Test
+    void cancellationUsesOneDedicatedRequestAndPreservesRealTerminalStateWithoutFallback() throws Exception {
+        String protocol = "STATISTICS_CANCEL_PROTOCOL_UNAVAILABLE";
+        String path = ROOT + "jobs/" + JOB + "/cancel";
+        for (boolean bounded : List.of(true, false)) {
+            try (var remote = new Fixture()) {
+                var gateway = remote.gateway(bounded);
+                failure(gateway.cancelStatisticsJob(null, JOB), "FORBIDDEN");
+                failure(gateway.cancelStatisticsJob(new ToolContext("s", "system", Map.of(), AgentPrincipal.system("system")), JOB), "FORBIDDEN");
+                failure(gateway.cancelStatisticsJob(CONTEXT, "../other"), "INVALID_QUERY");
+                assertThat(remote.calls).isEmpty();
+
+                Map<String, Object> cancelled = null;
+                int attempts = 0;
+                for (String state : List.of("CANCELLED", "SUCCEEDED", "FAILED")) {
+                    var receipt = new LinkedHashMap<String, Object>(Map.of("jobId", JOB, "state", state,
+                            "expiresAt", 1900000000000L, "resultState", "SUCCEEDED".equals(state) ? "AVAILABLE" : "UNAVAILABLE",
+                            "resultReady", "SUCCEEDED".equals(state)));
+                    receipt.put("resultCode", null);
+                    if (state.equals("CANCELLED")) cancelled = receipt;
+                    var status = new LinkedHashMap<>(receipt);
+                    status.put("rowCount", 0); status.put("byteCount", 0); status.put("pageCount", 0);
+                    status.put("errorCode", state.equals("CANCELLED") ? "CANCELLED" : null);
+                    remote.body = envelope(status);
+                    ToolResult result = gateway.cancelStatisticsJob(CONTEXT, JOB);
+                    assertThat(result.success()).isTrue();
+                    assertThat(result.data()).isEqualTo(receipt);
+                    assertThat(remote.calls).hasSize(++attempts);
+                }
+                remote.body = envelope(released("SUCCEEDED"));
+                assertThat(gateway.cancelStatisticsJob(CONTEXT, JOB).data()).isEqualTo(released("SUCCEEDED"));
+                assertThat(remote.calls).hasSize(++attempts);
+
+                List<Map<String, Object>> bad = new ArrayList<>();
+                bad.add(Map.of("jobId", JOB, "state", "CANCELLED"));
+                for (var change : Map.<String, Object>of("jobId", "another-job", "state", "RUNNING",
+                        "resultState", "AVAILABLE", "resultReady", true, "resultCode", "RESULT_RELEASED", "expiresAt", "1900000000000").entrySet()) {
+                    var receipt = new LinkedHashMap<>(cancelled);
+                    receipt.put(change.getKey(), change.getValue()); bad.add(receipt);
+                }
+                for (var receipt : bad) {
+                    remote.body = envelope(receipt);
+                    failure(gateway.cancelStatisticsJob(CONTEXT, JOB), protocol);
+                    assertThat(remote.calls).hasSize(++attempts);
+                }
+                for (int status : List.of(404, 405, 501, 403, 503)) {
+                    remote.status = status;
+                    failure(gateway.cancelStatisticsJob(CONTEXT, JOB), status == 403 ? "FORBIDDEN"
+                            : status == 503 ? "REMOTE_UNAVAILABLE" : protocol);
+                    assertThat(remote.calls).hasSize(++attempts);
+                }
+                remote.status = 200;
+                remote.body = JSON.writeValueAsString(Map.of("code", "QUERY_SCOPE_CHANGED", "message", "private SQL credentials"));
+                failure(gateway.cancelStatisticsJob(CONTEXT, JOB), "QUERY_SCOPE_CHANGED");
+                assertThat(remote.calls).hasSize(++attempts);
+                for (Captured call : remote.calls) {
+                    assertThat(call.method()).isEqualTo("POST"); assertThat(call.path()).isEqualTo(path);
+                    assertThat(call.body()).isEmpty();
+                    assertThat(call.tenant()).isEqualTo("1001"); assertThat(call.username()).isEqualTo("zhangsan");
+                    assertThat(call.authVersion()).isEqualTo("7"); assertThat(call.principalMode()).isNull();
+                }
+            }
+        }
+        ShortLinkBusinessGateway unsupported = (pathName, context, query) -> {
+            throw new AssertionError("Cancellation must not fall back to a generic request");
+        };
+        failure(unsupported.cancelStatisticsJob(CONTEXT, JOB), protocol);
+    }
+
+    @Test
     void releasePostsTheOriginalFrozenRequestAndReleasedReadsKeepTheSameUnavailableIdentity() throws Exception {
         for (boolean bounded : List.of(true, false)) {
             try (var remote = new Fixture()) {
