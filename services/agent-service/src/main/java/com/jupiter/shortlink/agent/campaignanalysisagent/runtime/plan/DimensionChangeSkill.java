@@ -90,6 +90,7 @@ public final class DimensionChangeSkill {
     private static Map<String, Port> inputs(PlanSpec.ExecutorRef ref) {
         if (FrozenDimensionChange.REF.equals(ref)) return FrozenDimensionChange.INPUTS;
         if (FrozenDimensionChange.REF_V2.equals(ref)) return FrozenDimensionChange.INPUTS_V2;
+        if (FrozenDimensionChange.REF_V3.equals(ref)) return FrozenDimensionChange.INPUTS_V3;
         throw new IllegalArgumentException("DIMENSION_EXECUTOR_UNAVAILABLE");
     }
 
@@ -240,17 +241,39 @@ public final class DimensionChangeSkill {
         ArtifactRef scope = scopes.publish(context, token, source.pair().selectedEntities().ref().artifactId(),
                 source.pair().selectionEvidence().ref().artifactId(), bound.periods());
         var definition = definition(bound, scope);
+        return executeDimension(context, () -> publisher.progress(token, bound.step().stepId(), definition),
+                shard -> queries(bound, scope, shard),
+                (query, boundary) -> StatisticsJobFixedExecutor.submit(boundary, token.definition(), current, gateway,
+                        query.request(), () -> authorized(bound, scope, query)),
+                (position, queries) -> publisher.publishPage(context, token, definition, slot(queries.get(0)), slot(queries.get(1)),
+                        position.shardIndex(), position.side(), position.pageIndex(), position.previousArtifactId()),
+                head -> publisher.finish(context, token, definition, head), this::requireCurrent);
+    }
+
+    @FunctionalInterface interface SubmitQuery {
+        CampaignStepExecution.ChildResult submit(BoundQuery query, CampaignStepExecution.IoBoundary boundary) throws Exception;
+    }
+    @FunctionalInterface interface PublishPage {
+        void publish(DimensionChangePublisher.Position position, List<BoundQuery> queries) throws Exception;
+    }
+    @FunctionalInterface interface FinishDimension { ArtifactRef finish(String head) throws Exception; }
+
+    /** The existing bounded page algorithm, shared by actual fixed Steps and actual CALL owners. */
+    static PersistentPlanDriver.Result executeDimension(CapabilityExecution context,
+            java.util.function.Supplier<DimensionChangePublisher.Position> progress,
+            java.util.function.IntFunction<List<BoundQuery>> queriesForShard, SubmitQuery submit,
+            PublishPage publish, FinishDimension finish, Runnable current) throws Exception {
         for (;;) {
-            context.requireCurrent(); requireCurrent();
-            var position = publisher.progress(token, bound.step().stepId(), definition);
+            context.requireCurrent(); current.run();
+            var position = progress.get();
             if (position.complete()) return PersistentPlanDriver.Result.succeeded(Map.of("dimensionChanges",
-                    publisher.finish(context, token, definition, position.previousArtifactId()).artifactId()));
-            List<BoundQuery> queries = queries(bound, scope, position.shardIndex());
+                    finish.finish(position.previousArtifactId()).artifactId()));
+            List<BoundQuery> queries = queriesForShard.apply(position.shardIndex());
+            if (queries.size() != 2) throw new IllegalArgumentException("DIMENSION_PERIODS_MISMATCH");
             boolean pending = false, waiting = false, capacity = false;
             for (BoundQuery query : queries) {
                 ChildRecord child;
-                try { child = context.child(query.child(), boundary -> StatisticsJobFixedExecutor.submit(boundary,
-                        token.definition(), current, gateway, query.request(), () -> authorized(bound, scope, query))); }
+                try { child = context.child(query.child(), boundary -> submit.submit(query, boundary)); }
                 catch (StatisticsJobFixedExecutor.SubmissionUnresolved unknown) { pending = true; continue; }
                 if (child.state() == ChildState.READY) {
                     if (!query.target().artifactId().equals(child.artifactId())) throw new IllegalArgumentException("DIMENSION_RESULT_BINDING_MISMATCH");
@@ -261,8 +284,7 @@ public final class DimensionChangeSkill {
             }
             if (pending) return waiting ? PersistentPlanDriver.Result.waiting()
                     : PersistentPlanDriver.Result.blocked(capacity ? "REMOTE_CAPACITY" : "STEP_RESULT_UNKNOWN");
-            publisher.publishPage(context, token, definition, slot(queries.get(0)), slot(queries.get(1)),
-                    position.shardIndex(), position.side(), position.pageIndex(), position.previousArtifactId());
+            publish.publish(position, queries);
         }
     }
 

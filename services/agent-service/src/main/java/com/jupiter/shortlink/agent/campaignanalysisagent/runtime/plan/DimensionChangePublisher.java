@@ -7,6 +7,9 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalc
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallSpec;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignSkillInvocationStore.CompletionSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignDimensionEvidence.VerifiedQuery;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Period;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Slot;
@@ -30,6 +33,7 @@ public final class DimensionChangePublisher {
     public static final String SCHEMA = "campaign.dimension-change/v1";
     private static final String IMPLEMENTATION = CampaignRunStore.sha256(
             "dimension-change/v1:joint-buckets:complete-query-zero:observed-only:decimal128:shard-cohort:paged");
+    public static String implementationId() { return IMPLEMENTATION; }
     private static final ObjectMapper JSON = new ObjectMapper()
             .enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
     private final CampaignRunStore runs;
@@ -53,6 +57,7 @@ public final class DimensionChangePublisher {
     }
     public record Prepared(ChildSpec child, Approval approval, CampaignStepExecution.LocalCall calculation) {}
     public record Position(int shardIndex, int side, int pageIndex, String previousArtifactId, boolean complete) {}
+    private record CallIdentity(String callId, String actionId) {}
 
     public DimensionChangePublisher(CampaignRunStore runs, CampaignSelectedScope scopes,
                                     CampaignDimensionEvidence evidence, ArtifactAuthorizer authorizer) {
@@ -62,7 +67,16 @@ public final class DimensionChangePublisher {
 
     /** Rebuilds the first unfinished position from authorized, durable LOCAL outputs without recalculation. */
     public Position progress(RunToken token, String stepId, Definition definition) {
+        return progress(token, stepId, null, definition);
+    }
+
+    public Position progress(RunToken token, CallSpec call, Definition definition) {
+        return progress(token, call.stepId(), new CallIdentity(call.callId(), call.actionId()), definition);
+    }
+
+    private Position progress(RunToken token, String stepId, CallIdentity call, Definition definition) {
         Artifact scope = scopes.inspect(token.definition().caller(), definition.selectedScopeArtifactId());
+        requireCallScope(token, call, scope);
         require(definition.periodsRef().equals(scope.metadata().ref().periodsRef()), "DIMENSION_PERIODS_MISMATCH");
         JsonNode scopeBody = tree(scope.payloadJson());
         int shards = positionInteger(scopeBody, "shardCount");
@@ -71,13 +85,13 @@ public final class DimensionChangePublisher {
         Artifact previous = null;
         JsonNode previousBody = null;
         while (shard < shards) {
-            String identity = identity(token, stepId, definition.collectionId(), shard + ":" + side + ":" + pageIndex);
+            String identity = identity(token, stepId, call, definition.collectionId(), shard + ":" + side + ":" + pageIndex);
             String childId = "dimension-child-" + identity;
             var child = runs.child(token, childId);
             if (child.isEmpty() || child.get().state() != ChildState.READY)
                 return new Position(shard, side, pageIndex,
                         previous == null ? null : previous.metadata().ref().artifactId(), false);
-            Artifact current = readPage(token, stepId, "dimension-" + identity, definition);
+            Artifact current = readPage(token, stepId, call, "dimension-" + identity, definition);
             require(childId.equals(current.metadata().childId()), "DIMENSION_PAGE_PRODUCER_INVALID");
             require(scope.metadata().ref().scopeRef().equals(current.metadata().ref().scopeRef())
                     && definition.periodsRef().equals(current.metadata().ref().periodsRef()), "DIMENSION_SOURCE_CHANGED");
@@ -120,6 +134,10 @@ public final class DimensionChangePublisher {
         return "dimension-" + identity(token, stepId, definition.collectionId(), "final");
     }
 
+    public String finalArtifactId(RunToken token, CallSpec call, Definition definition) {
+        return "dimension-" + identity(token, call.stepId(), new CallIdentity(call.callId(), call.actionId()), definition.collectionId(), "final");
+    }
+
     private static int positionInteger(JsonNode body, String field) {
         JsonNode value = body.path(field);
         require(value.isIntegralNumber() && value.canConvertToInt(), "DIMENSION_PAGE_CHAIN_INVALID");
@@ -137,8 +155,37 @@ public final class DimensionChangePublisher {
 
     public Prepared preparePage(RunToken token, String stepId, Definition definition, Slot baseline, Slot target,
                                 int shardIndex, int side, int pageIndex, String previousArtifactId) {
+        return preparePage(token, stepId, null, definition, baseline, target, shardIndex, side, pageIndex, previousArtifactId);
+    }
+
+    public Prepared preparePage(RunToken token, CallSpec call, Definition definition, Slot baseline, Slot target,
+                                int shardIndex, int side, int pageIndex, String previousArtifactId) {
+        return preparePage(token, call.stepId(), new CallIdentity(call.callId(), call.actionId()), definition,
+                baseline, target, shardIndex, side, pageIndex, previousArtifactId);
+    }
+
+    public Prepared preparePage(CallPermit permit, Definition definition, Slot baseline, Slot target,
+                                int shardIndex, int side, int pageIndex, String previousArtifactId) {
+        return preparePage(permit.step().runToken(), permit.step().stepId(), new CallIdentity(permit.callId(), permit.actionId()),
+                definition, baseline, target, shardIndex, side, pageIndex, previousArtifactId);
+    }
+
+    public ArtifactRef publishPage(CapabilityExecution context, CallPermit permit, Definition definition, Slot baseline, Slot target,
+                                   int shardIndex, int side, int pageIndex, String previousArtifactId) throws Exception {
+        context.requireCurrent();
+        Prepared prepared = preparePage(permit, definition, baseline, target, shardIndex, side, pageIndex, previousArtifactId);
+        ArtifactRef output = context.local(prepared.child(), prepared.approval(), authorizer, prepared.calculation()).get("dimensionPage");
+        context.requireCurrent();
+        return output;
+    }
+
+    private Prepared preparePage(RunToken token, String stepId, CallIdentity call, Definition definition, Slot baseline, Slot target,
+                                  int shardIndex, int side, int pageIndex, String previousArtifactId) {
         require(side == 0 || side == 1, "DIMENSION_SIDE_INVALID");
         Artifact scope = scopes.inspect(token.definition().caller(), definition.selectedScopeArtifactId());
+        requireCallScope(token, call, scope);
+        requireCallSlot(token, call, baseline);
+        requireCallSlot(token, call, target);
         JsonNode scopeBody = tree(scope.payloadJson());
         require(definition.periodsRef().equals(scope.metadata().ref().periodsRef()), "DIMENSION_PERIODS_MISMATCH");
         var shard = scopes.shard(token.definition().caller(), definition.selectedScopeArtifactId(), shardIndex);
@@ -150,13 +197,13 @@ public final class DimensionChangePublisher {
         require(scopeBody.path("gid").asText().equals(base.request().get("gid"))
                 && scopeBody.path("gid").asText().equals(current.request().get("gid")), "DIMENSION_GID_MISMATCH");
         require(pageIndex >= 0 && pageIndex < (side == 0 ? pages(base) : pages(current)), "DIMENSION_PAGE_INVALID");
-        Artifact previous = previousArtifactId == null ? null : readPage(token, stepId, previousArtifactId, definition);
+        Artifact previous = previousArtifactId == null ? null : readPage(token, stepId, call, previousArtifactId, definition);
         int ordinal = previous == null ? 0 : Math.addExact(tree(previous.payloadJson()).path("ordinal").intValue(), 1);
         requireNext(previous, shardIndex, side, pageIndex, base, current);
         Map<String, ArtifactMetadata> inputs = new LinkedHashMap<>();
         inputs.put("selectedScope", scope.metadata()); inputs.put("baseline", base.metadata()); inputs.put("target", current.metadata());
         if (previous != null) inputs.put("previous", previous.metadata());
-        String identity = identity(token, stepId, definition.collectionId(), shardIndex + ":" + side + ":" + pageIndex);
+        String identity = identity(token, stepId, call, definition.collectionId(), shardIndex + ":" + side + ":" + pageIndex);
         Map<String, CampaignLinkComparability.QueryAssessment> comparability = new LinkedHashMap<>();
         for (var metric : CampaignLinkComparability.Metric.values()) comparability.put(metric.name(),
                 CampaignLinkComparability.assessQuery(comparisonPeriod(periods.get(0)), comparisonPeriod(periods.get(1)),
@@ -177,7 +224,7 @@ public final class DimensionChangePublisher {
         payload.put("limitations", List.of("OBSERVED_ONLY", "CROSS_QUERY_SNAPSHOTS_NOT_A_COMMON_DATABASE_SNAPSHOT",
                 "COHORT_UV_UIP_MUST_NOT_BE_SUMMED", "SOURCE_SELECTION_QUALITY_PRESERVED"));
         String parameters = json(Map.of("definition", definition, "shardIndex", shardIndex, "side", side, "pageIndex", pageIndex));
-        return prepare(identity, "dimension-change-page", "dimensionPage", PAGE_TYPE, PAGE_SCHEMA,
+        return prepare(identity, call == null ? null : call.actionId(), "dimension-change-page", "dimensionPage", PAGE_TYPE, PAGE_SCHEMA,
                 scope.metadata().ref().scopeRef(), definition.periodsRef(), inputs, parameters, payload, boundary -> {
                     require(base.metadata().equals(runs.inspectArtifact(token.definition().caller(), baseline.artifactId(), authorizer))
                             && current.metadata().equals(runs.inspectArtifact(token.definition().caller(), target.artifactId(), authorizer)),
@@ -194,7 +241,46 @@ public final class DimensionChangePublisher {
     }
 
     public Prepared prepareFinal(RunToken token, String stepId, Definition definition, String headArtifactId) {
+        return prepareFinal(token, stepId, null, definition, headArtifactId);
+    }
+
+    public Prepared prepareFinal(RunToken token, CallSpec call, Definition definition, String headArtifactId) {
+        return prepareFinal(token, call.stepId(), new CallIdentity(call.callId(), call.actionId()), definition, headArtifactId);
+    }
+
+    public Prepared prepareFinal(CallPermit permit, Definition definition, String headArtifactId) {
+        return prepareFinal(permit.step().runToken(), permit.step().stepId(), new CallIdentity(permit.callId(), permit.actionId()),
+                definition, headArtifactId);
+    }
+
+    public ArtifactRef finish(CapabilityExecution context, CallPermit permit, Definition definition, String headArtifactId) throws Exception {
+        context.requireCurrent();
+        Prepared prepared = prepareFinal(permit, definition, headArtifactId);
+        ArtifactRef result = context.local(prepared.child(), prepared.approval(), authorizer, prepared.calculation()).get("dimensionChanges");
+        context.requireCurrent();
+        return result;
+    }
+
+    /** Freeze the final slot from the real derived-scope preparation, before its page/head exists. */
+    public CompletionSpec completionSpec(CallPermit permit, Definition definition, String selectedScopeRef) {
+        return completionSpec(permit.step().runToken(), permit.step().stepId(), new CallIdentity(permit.callId(), permit.actionId()),
+                definition, selectedScopeRef);
+    }
+
+    public CompletionSpec completionSpec(RunToken token, CallSpec call, Definition definition, String selectedScopeRef) {
+        return completionSpec(token, call.stepId(), new CallIdentity(call.callId(), call.actionId()), definition, selectedScopeRef);
+    }
+
+    private CompletionSpec completionSpec(RunToken token, String stepId, CallIdentity call, Definition definition, String selectedScopeRef) {
+        require(selectedScopeRef != null && !selectedScopeRef.isBlank(), "DIMENSION_SCOPE_REQUIRED");
+        String identity = identity(token, stepId, call, definition.collectionId(), "final");
+        return new CompletionSpec("dimension-child-" + identity, FrozenDimensionChange.OUTPUT_CONTRACT,
+                Map.of("dimensionChanges", new OutputBinding("dimension-" + identity, TYPE, SCHEMA, selectedScopeRef, definition.periodsRef())));
+    }
+
+    private Prepared prepareFinal(RunToken token, String stepId, CallIdentity call, Definition definition, String headArtifactId) {
         Artifact scope = scopes.inspect(token.definition().caller(), definition.selectedScopeArtifactId());
+        requireCallScope(token, call, scope);
         JsonNode source = tree(scope.payloadJson());
         require(definition.periodsRef().equals(scope.metadata().ref().periodsRef()), "DIMENSION_PERIODS_MISMATCH");
         long members = source.path("memberCount").longValue();
@@ -204,7 +290,7 @@ public final class DimensionChangePublisher {
         long comparisonRows = 0; int pageCount = 0;
         Artifact head = null;
         if (headArtifactId != null) {
-            head = readPage(token, stepId, headArtifactId, definition); inputs.put("head", head.metadata());
+            head = readPage(token, stepId, call, headArtifactId, definition); inputs.put("head", head.metadata());
             JsonNode last = tree(head.payloadJson());
             require(last.path("shardIndex").intValue() == shards - 1 && last.path("side").intValue() == 1
                     && last.path("pageIndex").intValue() == last.path("targetPageCount").intValue() - 1,
@@ -217,7 +303,7 @@ public final class DimensionChangePublisher {
                         && body.path("rows").size() <= 500, "DIMENSION_PAGE_CHAIN_INVALID");
                 pageCount = Math.addExact(pageCount, 1); comparisonRows = Math.addExact(comparisonRows, body.path("rows").size());
                 String previousId = body.path("previousArtifactId").isNull() ? null : body.path("previousArtifactId").asText();
-                Artifact previous = previousId == null ? null : readPage(token, stepId, previousId, definition);
+                Artifact previous = previousId == null ? null : readPage(token, stepId, call, previousId, definition);
                 require(previous == null ? expected == -1 && body.path("previousPayloadHash").isNull()
                         : previous.metadata().ref().payloadHash().equals(body.path("previousPayloadHash").asText())
                             && !page.metadata().ref().expiresAt().isAfter(previous.metadata().ref().expiresAt()),
@@ -237,7 +323,8 @@ public final class DimensionChangePublisher {
         payload.put("evidenceDisposition", members > 0 ? "OBSERVED" : "NO_DECLINES".equals(source.path("emptyReason").asText())
                 ? "NOT_APPLICABLE" : "INSUFFICIENT_EVIDENCE");
         payload.put("groupScopeComplete", false);
-        return prepare(identity(token, stepId, definition.collectionId(), "final"), "dimension-change-final", "dimensionChanges",
+        return prepare(identity(token, stepId, call, definition.collectionId(), "final"), call == null ? null : call.actionId(),
+                "dimension-change-final", "dimensionChanges",
                 TYPE, SCHEMA, scope.metadata().ref().scopeRef(), definition.periodsRef(), inputs,
                 json(Map.of("definition", definition)), payload, boundary -> {}, null);
     }
@@ -273,7 +360,7 @@ public final class DimensionChangePublisher {
         return List.copyOf(result);
     }
 
-    private Artifact readPage(RunToken token, String stepId, String id, Definition definition) {
+    private Artifact readPage(RunToken token, String stepId, CallIdentity call, String id, Definition definition) {
         Artifact artifact = runs.readArtifact(token.definition().caller(), id, authorizer);
         var meta = artifact.metadata();
         require(PAGE_TYPE.equals(meta.ref().type()) && PAGE_SCHEMA.equals(meta.ref().schemaVersion())
@@ -285,11 +372,37 @@ public final class DimensionChangePublisher {
                 && IMPLEMENTATION.equals(child.spec().localInvocation().implementationHash())
                 && meta.ref().equals(runs.localOutputs(token, child.spec().childId(), authorizer).get("dimensionPage")),
                 "DIMENSION_PAGE_PRODUCER_INVALID");
+        if (call != null) require(call.actionId().equals(child.spec().actionId()) && call.actionId().equals(meta.actionId())
+                && token.definition().caller().equals(meta.owner()) && token.definition().planId().equals(meta.planId()),
+                "DIMENSION_PAGE_PRODUCER_INVALID");
         JsonNode body = tree(artifact.payloadJson());
         require(tree(json(definition)).equals(body.path("definition")), "DIMENSION_DEFINITION_CHANGED");
         String position = body.path("shardIndex").intValue() + ":" + body.path("side").intValue() + ":" + body.path("pageIndex").intValue();
-        require(id.equals("dimension-" + identity(token, stepId, definition.collectionId(), position)), "DIMENSION_PAGE_PRODUCER_INVALID");
+        require(id.equals("dimension-" + identity(token, stepId, call, definition.collectionId(), position)), "DIMENSION_PAGE_PRODUCER_INVALID");
         return artifact;
+    }
+
+    private void requireCallScope(RunToken token, CallIdentity call, Artifact scope) {
+        if (call == null) return;
+        ArtifactMetadata metadata = scope.metadata();
+        require(call.actionId().equals(metadata.actionId()) && token.definition().caller().equals(metadata.owner())
+                && token.definition().runId().equals(metadata.runId()) && token.definition().planId().equals(metadata.planId())
+                && token.definition().revision() == metadata.revision(), "DIMENSION_SCOPE_PRODUCER_INVALID");
+        ChildRecord child = runs.child(token, metadata.childId()).orElseThrow();
+        require(call.actionId().equals(child.spec().actionId()) && child.spec().mode() == ChildMode.LOCAL
+                        && child.state() == ChildState.READY && !child.callbackActive() && child.reason() == null
+                        && child.spec().localInvocation() != null && "selected-scope".equals(child.spec().localInvocation().contractName())
+                        && metadata.ref().equals(runs.localOutputs(token, child.spec().childId(), authorizer).get(CampaignSelectedScope.OUTPUT)),
+                "DIMENSION_SCOPE_PRODUCER_INVALID");
+    }
+
+    private void requireCallSlot(RunToken token, CallIdentity call, Slot slot) {
+        if (call == null) return;
+        require(slot != null && token.equals(slot.runToken()), "DIMENSION_SOURCE_CHANGED");
+        ChildRecord child = runs.child(token, slot.childId()).orElseThrow();
+        require(call.actionId().equals(child.spec().actionId()) && child.spec().mode() == ChildMode.ASYNC
+                        && child.state() == ChildState.READY && !child.callbackActive() && child.reason() == null
+                        && slot.artifactId().equals(child.artifactId()), "DIMENSION_SOURCE_CHANGED");
     }
 
     private static void requireNext(Artifact previous, int shard, int side, int page, VerifiedQuery baseline, VerifiedQuery target) {
@@ -310,7 +423,7 @@ public final class DimensionChangePublisher {
     }
 
     @FunctionalInterface private interface Recheck { void verify(CampaignStepExecution.LocalBoundary boundary); }
-    private Prepared prepare(String identity, String contractName, String outputName, String type, String schema,
+    private Prepared prepare(String identity, String actionId, String contractName, String outputName, String type, String schema,
                              String scopeRef, String periodsRef, Map<String, ArtifactMetadata> inputs,
                              String parameters, Map<String, Object> payload, Recheck recheck,
                              java.util.function.Supplier<List<Map<String, Object>>> rowsSupplier) {
@@ -324,7 +437,7 @@ public final class DimensionChangePublisher {
                 Map.of(outputName, new TypeContract(type, schema)), value -> value.equals(tree(parameters)),
                 values -> validOutput(values.get(outputName), tree(encoded), rowsSupplier != null));
         Approval approval = new LocalCalculationRegistry(List.of(contract)).approve(invocation);
-        ChildSpec child = new ChildSpec("dimension-child-" + identity, "dimension-action-" + identity, ChildMode.LOCAL,
+        ChildSpec child = new ChildSpec("dimension-child-" + identity, actionId == null ? "dimension-action-" + identity : actionId, ChildMode.LOCAL,
                 "dimension-request-" + identity, null, invocation);
         return new Prepared(child, approval, boundary -> {
             for (String name : inputs.keySet()) boundary.readInput(name);
@@ -407,6 +520,12 @@ public final class DimensionChangePublisher {
     private static String identity(RunToken token, String step, String collection, String part) {
         return CampaignRunStore.sha256(json(List.of(token.definition().caller(), token.definition().runId(),
                 token.definition().planId(), token.definition().revision(), step, collection, part)));
+    }
+    private static String identity(RunToken token, String step, CallIdentity call, String collection, String part) {
+        if (call == null) return identity(token, step, collection, part);
+        // Stable logical positions belong to the real CALL, independent of parameters and attempts.
+        return CampaignRunStore.sha256(json(List.of(token.definition().caller(), token.definition().runId(),
+                token.definition().planId(), token.definition().revision(), step, "dimension-call/v1", call.callId(), part)));
     }
     private static JsonNode tree(String value) {
         try { return JSON.readTree(value); }
