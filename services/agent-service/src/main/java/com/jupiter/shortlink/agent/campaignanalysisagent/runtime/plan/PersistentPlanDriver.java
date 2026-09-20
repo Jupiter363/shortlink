@@ -249,6 +249,13 @@ public final class PersistentPlanDriver implements NativePlanGraph.Driver {
                 .map(record -> record.outputs().get(name));
     }
 
+    /** Package-local trusted intake proof; factories cannot accidentally omit the current gates. */
+    boolean matchesIntake(CampaignRunIntake.RuntimeContext context) {
+        return token.equals(context.token()) && processScope == context.scope()
+                && runAuthorizer == context.runAuthorizer() && artifactAuthorizer == context.artifactAuthorizer()
+                && inputAuthorizer == context.inputAuthorizer();
+    }
+
     private boolean authorizedInputs(StepBindings bindings, CapabilityCatalog.Signature signature, BoundInputs inputs) {
         if (!authorized()) return false;
         try {

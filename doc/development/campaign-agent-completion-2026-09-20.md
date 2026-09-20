@@ -72,6 +72,7 @@
 | [E41：Skill混合容量等待续接][E41] | 四项后端方法首次通过；实际Native Driver中已受理任务与可信容量拒绝并存，退避到期且原job接收后同CALL多次续接，只重提未受理原请求；纯容量不伪造job，未知／不可信／变更证明阻断，旧JOB-only兼容。 | 原请求和产物复用、CALL attempt 1→2→3与双输出交付已验；UNKNOWN自动对账、生产装配及真实环境仍待完成。 |
 | [E42：原生维度Skill与派生范围验收][E42] | 四项后端方法首次通过；同一REACT Step真实下降pair→dimension/3→原任务恢复→实际联合桶观察→后端typed输出。保留UNKNOWN、独立UV和来源关系；空选集零维度查询，撤权零派发，旧FIXED分片／恢复及候选exact路径兼容。 | 实际Skill结果复用和派生范围完成门已验；非任意维度引擎或因果解释，生产统一装配、Goal／报告和客户端继续推进。 |
 | [E43：原生推进进程准入][E43] | 四项后端方法首次通过；三Run共用许可，真实工具timeout/cancel仍占用，排队零加载／零MODEL，满队列未接纳；实际退出后放行，WAIT归零，原job恢复不重提。另验真实scoped Driver／Graph等待及旧queued-timeout／reject路径。 | 显式准入接线已验；生产入口／风险Agent共用、真实多Run内存峰值和容量配置实测仍待完成。 |
+| [E44：请求幂等与可信装配][E44] | 两项后端方法首次通过；并发同键登记／冻结仅一Run，typed proposal获准后验证；真实Coordinator／scoped Graph首次WAIT及原job恢复，取消／改版重放停止；排队撤权先于解析，跨主体／错引用／环境事务拒绝。 | 内部typed入口已验，保留原权限门和稳定身份；自由文本规划、生产身份resolver／路由、真实MySQL和客户端仍待完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -105,7 +106,7 @@
 | P0-05：Plan 模式、DAG、端口、schema、参数、覆盖与 DELIVERY 静态校验；恶意／未知能力调用前拒绝。 | C §2–3、§7–8；I §6 | E00：PlanContractTest／PlanValidatorTest 54 项。 | 组件已验 | 静态可执行性不等于业务完成；实际 Planner 与目标终评见 P4/P5。 |
 | P0-06：原生 Skill 固定内容／版本、read_skill 当前授权，不扩大工具闭包；原生挂载／投影与跨执行身份隔离有实际证据。 | C §6；G §4、§5；R12 | E00/E01：RunPinnedSkills、Checkpoint tests。 | 组件已验 | P2 注册真实业务组合，P3 冻结包和闭包接耐久 Run。 |
 | P0-07：多 Run 有界执行器／许可，CallerRuns／silent discard 不绕过，超时不早还实际 worker 许可。 | R §1.6；G §8 | E00：ProcessCapacityExecutorTest。 | 组件已验 | 真实装配后的解析／序列化驻留峰值与风险 Agent 共享影响仍待 P3。 |
-| P1-01：Run／Plan／InputSet 不可变完整定义和 hash，可信 tenant/subject/authVersion/session，CAS token／attempt，取消改版旧 token 不能派发发布。 | C §1–2、§7；I §4.1 | E03/E04：JdbcCampaignRunStore、FrozenCampaignRun。 | 组件已验 | 用户请求／Run 创建幂等与生产装配；跨版本采用不是仅 revise 成功。 |
+| P1-01：Run／Plan／InputSet 不可变完整定义和 hash，可信 tenant/subject/authVersion/session，CAS token／attempt，取消改版旧 token 不能派发发布。 | C §1–2、§7；I §4.1 | E03/E04；E44稳定请求身份／并发注册与原子冻结、拒绝同键变化和旧rev重放。 | 内部typed入口已验 | 自由文本请求接线与生产身份配置；跨版本采用不是仅revise成功。 |
 | P1-02：Action 保存可恢复原调用合同；每同步／异步 child 在 I/O 前持久化稳定 ID、wire 正文/hash；requestId 合法且≤96，attempt 不改逻辑身份。 | R §2–2.1；C §3.3 | E03/E10：RunLedgerTest、FrozenStatisticsJobQueryTest。 | 部分已验 | 接所有业务适配器与 REACT assistant 映射；记录原请求期限／策略版本／安全余量，不用新 ID 绕冲突。 |
 | P1-03：PREPARED→DISPATCHING→已知 job／READY／UNRESOLVED；未知异步仅 recover-existing，未知同步 READ_RESULT_UNKNOWN 不盲目重 GET。 | R §2–2.1；I §4.3 | E03/E06/E10；StatisticsSubmissionReconciler。 | 部分已验 | 真实同步 Tool 适配／显式新收集代次；失败、等待和可用证据同时保留。 |
 | P1-04：Agent→Admin→Analytics 独立 EXISTING_ONLY，复用 gate/hash/授权但零创建；旧端点、剥字段、近过期清理、正文冲突保留结构化错误。 | R §2；R13；V08/V28 | E02、E10。 | 组件已验 | FROZEN_SET 恢复原成员适配仍归 P2；真实跨服务与 MySQL gate 行为未实测。 |
@@ -120,7 +121,7 @@
 | P1-13：完整页集发布小 manifest＋Artifact＋READY 同事务，SQL 复核 counts／chain；STAGING 不可读，权限／期限／hash 检查，不全量 collect。 | R §1.4、§4.1、§4.3 | E08：5501 行、多 quantum、故障回滚；8MiB 单页可配置。 | 组件已验 | P5 报告引用／清理保护；P2 释放远端结果前的全部 consumer 可读证明。 |
 | P1-14：固定统计查询四种 kind、冻结 scope/period/query、严格参数、稳定逻辑 slot；首次 submit／未知恢复／READY 重用同可信门控。 | I §4.1；C §7 | E10：METRICS／ACCESS_RECORDS／LINK_METRICS／DIMENSION_BREAKDOWN。 | 组件已验 | 该适配不等于全部 Tool；生产 QueryAuthorizer／注册及受理计划装配，FROZEN_SET 尚拒绝。 |
 | P1-15：同事务当前 revision 进度快照，不领取 token／不读大 payload；cancel 可看原授权结果；逐结果计数，未知 children 不虚构总完成率。 | I §2、§5；R §5.2 | E05/E09：ProgressSnapshot／ResultProgressReader。 | 组件已验 | 接正式授权读取 API、恢复 nextAction；Goal 仍 NOT_ASSESSED，不冒充最终完成。 |
-| P1-16：整体生产底座：可信入口装配版本目录／授权、请求幂等、Run/Step/Child/Artifact/recovery/receiver/driver、增量迁移与诊断。 | I §2–3、§7；C §7 | E03–E10 都注明组件未打开生产入口。 | 待实现／验收 | 实现受配置保护的新入口和组件装配；按后端合同测试用户请求→固定运行→恢复→结果；启用仍受客户端/P2/P3 相应门槛。 |
+| P1-16：整体生产底座：可信入口装配版本目录／授权、请求幂等、Run/Step/Child/Artifact/recovery/receiver/driver、增量迁移与诊断。 | I §2–3、§7；C §7 | E03–E10组件；E43准入；E44内部typed intake→Coordinator→scoped Driver/Graph、真实原任务结果续接。 | 部分已验 | 自由文本规划、生产profile／身份resolver／业务能力／receiver联合装配和受配置保护路由未完成；未启用户入口，客户端等门仍保留。 |
 
 ### 2.3 P2：固定范围、持续全量取数与业务组合
 
@@ -360,6 +361,7 @@
 [E41]: ../integration/campaign-plan-p3-skill-capacity-2026-09-20.md
 [E42]: ../integration/campaign-plan-p3-native-dimension-2026-09-20.md
 [E43]: ../integration/campaign-plan-p3-process-admission-2026-09-20.md
+[E44]: ../integration/campaign-plan-p1-trusted-intake-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

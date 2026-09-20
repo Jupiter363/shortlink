@@ -130,6 +130,10 @@ public final class NativePlanGraph {
     public String threadId() { return threadId; }
     public int recursionLimit() { return recursionLimit; }
 
+    boolean belongsTo(Driver expected, ProcessExecutionScope scope) {
+        return driver == expected && processScope == scope;
+    }
+
     /** Every call starts a NEW scan at START; completed steps are skipped using persisted facts. */
     public synchronized ScanResult advance() {
         try (var ignored = processScope == null ? null : processScope.enter()) {
