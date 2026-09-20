@@ -88,6 +88,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private final NativeExplorationAdapter.ExecutionKey identity;
     private final ExplorationBudgetPolicy budgetPolicy;
     private final JdbcExplorationBudgetStore budgets;
+    private final ExplorationArtifactProjection artifactProjection;
+    private final String projectionConfigurationId;
 
     public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
@@ -102,6 +104,15 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
             Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
             ExplorationBudgetPolicy budgetPolicy) {
+        this(jdbc, transactions, clock, runs, steps, calls, step, registry, configuration, executors, authorizer,
+                budgetPolicy, ExplorationArtifactProjection.references());
+    }
+
+    public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
+            StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
+            Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
+            ExplorationBudgetPolicy budgetPolicy, ExplorationArtifactProjection artifactProjection) {
         this.jdbc = Objects.requireNonNull(jdbc); this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock); this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps); this.calls = Objects.requireNonNull(calls);
@@ -109,6 +120,10 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         this.registry = Objects.requireNonNull(registry); this.configuration = Objects.requireNonNull(configuration);
         this.executors = Map.copyOf(executors); this.authorizer = Objects.requireNonNull(authorizer);
         this.budgetPolicy = Objects.requireNonNull(budgetPolicy);
+        this.artifactProjection = Objects.requireNonNull(artifactProjection);
+        this.projectionConfigurationId = Objects.requireNonNull(artifactProjection.configurationId());
+        if (projectionConfigurationId.isBlank() || projectionConfigurationId.length() > 512)
+            throw failure("EXPLORATION_PROJECTION_CONFIGURATION_INVALID");
         this.budgets = new JdbcExplorationBudgetStore(jdbc, transactions, clock, budgetPolicy);
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
                 || manager.getDataSource() != jdbc.getDataSource()
@@ -127,7 +142,11 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             if (!name.equals(executor.name()) || !planned.explorationPolicy().allowedExecutors().contains(executor))
                 throw failure("EXPLORATION_EXECUTOR_NOT_ALLOWED");
         });
-        this.configurationHash = hash(List.of(configuration, new TreeMap<>(executors), stepJson));
+        // Reference-only sessions keep their original identity across this additive deployment.
+        // Opt-in projections are pinned so a resume cannot silently replace already observed facts.
+        this.configurationHash = artifactProjection == ExplorationArtifactProjection.references()
+                ? hash(List.of(configuration, new TreeMap<>(executors), stepJson))
+                : hash(List.of(configuration, new TreeMap<>(executors), stepJson, projectionConfigurationId));
         var definition = token.definition(); var owner = definition.caller();
         this.identity = new NativeExplorationAdapter.ExecutionKey(owner.tenantId(), owner.subject(), owner.authVersion(),
                 definition.sessionId(), definition.runId(), definition.planId(), definition.revision(), step.stepId(),
@@ -453,19 +472,40 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                 for (ToolCall call : response.toolCalls()) messages.add(new Message("tool", "{\"executed\":false,\"code\":\"BATCH_REJECTED\"}", null, call.id(), call.name()));
             } else {
                 if (response.toolCalls().size() != 1 || turn.artifactId() == null) throw failure("EXPLORATION_HISTORY_INVALID");
-                requireReceipt(turn);
+                ArtifactMetadata receipt = requireReceipt(turn);
+                Map<String, Object> evidence = projectEvidence(receipt);
                 ToolCall call = response.toolCalls().get(0);
                 if (turn.pendingProjected()) {
                     if (turn.jobId() == null || turn.observationId() == null) throw failure("EXPLORATION_HISTORY_INVALID");
                     messages.add(new Message("tool", NativeExplorationAdapter.Observation.pending(turn.jobId()).json(), null, call.id(), call.name()));
                     var savedCall = calls.call(token, turn.callId()).orElseThrow();
-                    messages.add(new Message("user", write(Map.of("type", "trusted_action_observation", "status", "READY",
+                    Map<String, Object> ready = new LinkedHashMap<>(Map.of("type", "trusted_action_observation", "status", "READY",
                             "observationId", turn.observationId(), "actionId", savedCall.spec().actionId(),
-                            "jobId", turn.jobId(), "artifactId", turn.artifactId())), null, null, null));
-                } else messages.add(new Message("tool", NativeExplorationAdapter.Observation.ready(turn.artifactId()).json(), null, call.id(), call.name()));
+                            "jobId", turn.jobId(), "artifactId", turn.artifactId()));
+                    if (!evidence.isEmpty()) ready.put("evidence", evidence);
+                    messages.add(new Message("user", write(ready), null, null, null));
+                } else {
+                    Map<String, Object> ready = new LinkedHashMap<>(Map.of("status", "READY", "artifactId", turn.artifactId()));
+                    if (!evidence.isEmpty()) ready.put("evidence", evidence);
+                    String observation = evidence.isEmpty()
+                            ? NativeExplorationAdapter.Observation.ready(turn.artifactId()).json() : write(ready);
+                    messages.add(new Message("tool", observation, null, call.id(), call.name()));
+                }
             }
         }
         return messages.values();
+    }
+
+    private Map<String, Object> projectEvidence(ArtifactMetadata receipt) {
+        if (artifactProjection == ExplorationArtifactProjection.references()) return Map.of();
+        if (!projectionConfigurationId.equals(artifactProjection.configurationId()))
+            throw failure("EXPLORATION_PROJECTION_CONFIGURATION_CHANGED");
+        Map<String, Object> evidence = Objects.requireNonNull(
+                artifactProjection.project(token.definition().caller(), receipt, authorizer));
+        // The projector owns its per-artifact bound; the full request still uses ContextMessages.
+        // Values are data in the existing tool/user observation, never promoted to system policy.
+        requireArtifact(receipt);
+        return evidence;
     }
 
     private List<Message> initialMessages(String input) {
