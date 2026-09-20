@@ -80,6 +80,39 @@ class CampaignAgentRunResultAdapterTest {
                 .hasMessage("AGENT_REPORT_STATUS_CONFLICT");
     }
 
+    @Test
+    void rejectsForgedCompleteWithoutReportAndTerminalPartialReport() {
+        CampaignAgentRunResultAdapter adapter = new CampaignAgentRunResultAdapter();
+        AgentRunResult base = new AgentRunResult("session", "trace", "old", List.of(), List.of(),
+                List.of(), List.of(), List.of(), List.of());
+        CampaignLegacyAnswerAdapter.LegacyView empty = new CampaignLegacyAnswerAdapter().adapt(null,
+                CampaignLegacyAnswerAdapter.ExecutionStatus.EMPTY, List.of());
+        CampaignLegacyAnswerAdapter.LegacyView forgedComplete = new CampaignLegacyAnswerAdapter.LegacyView(
+                CampaignLegacyAnswerAdapter.SCHEMA, CampaignLegacyAnswerAdapter.Availability.COMPLETE,
+                CampaignLegacyAnswerAdapter.ExecutionStatus.SUCCEEDED, "forged", null, List.of(), List.of(),
+                new CampaignLegacyAnswerAdapter.GoalRollup(0, 0, 0, 0), empty.limitations());
+        assertThatThrownBy(() -> adapter.adapt(new CampaignAgentRunResultAdapter.Request(base, forgedComplete)))
+                .hasMessage("AGENT_RESULT_REPORT_REQUIRED");
+
+        CampaignLegacyAnswerAdapter.LegacyView complete = view(
+                CampaignLegacyAnswerAdapter.ExecutionStatus.SUCCEEDED,
+                CampaignLegacyAnswerAdapter.Availability.COMPLETE);
+        CampaignLegacyAnswerAdapter.LegacyView cancelledPartial = new CampaignLegacyAnswerAdapter.LegacyView(
+                CampaignLegacyAnswerAdapter.SCHEMA, CampaignLegacyAnswerAdapter.Availability.PARTIAL,
+                CampaignLegacyAnswerAdapter.ExecutionStatus.CANCELLED, complete.answer(), complete.snapshot(),
+                complete.blocks(), complete.goalAssessments(),
+                new CampaignLegacyAnswerAdapter.GoalRollup(1, 1, 0, 0), complete.limitations());
+        assertThatThrownBy(() -> adapter.adapt(new CampaignAgentRunResultAdapter.Request(base, cancelledPartial)))
+                .hasMessage("AGENT_RESULT_STATUS_CONFLICT");
+
+        CampaignLegacyAnswerAdapter.LegacyView unavailableWithEvidence = new CampaignLegacyAnswerAdapter.LegacyView(
+                CampaignLegacyAnswerAdapter.SCHEMA, CampaignLegacyAnswerAdapter.Availability.UNAVAILABLE,
+                CampaignLegacyAnswerAdapter.ExecutionStatus.FAILED, "forged", complete.snapshot(),
+                complete.blocks(), complete.goalAssessments(), complete.goalRollup(), complete.limitations());
+        assertThatThrownBy(() -> adapter.adapt(new CampaignAgentRunResultAdapter.Request(base,
+                unavailableWithEvidence))).hasMessage("AGENT_RESULT_STATUS_CONFLICT");
+    }
+
     private static CampaignAgentRunResultAdapter.Request request(AgentRunResult base,
                                                                   CampaignLegacyAnswerAdapter.LegacyView view) {
         return new CampaignAgentRunResultAdapter.Request(base, view);
