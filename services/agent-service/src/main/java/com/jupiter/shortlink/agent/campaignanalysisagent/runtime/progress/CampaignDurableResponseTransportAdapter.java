@@ -92,7 +92,41 @@ public final class CampaignDurableResponseTransportAdapter {
         CampaignJdbcDurableRunResponseBridgeFactory.Request durable =
                 new CampaignJdbcDurableRunResponseBridgeFactory.Request(
                         request.base(), handle.caller(), handle.runId(), handle.revision(),
-                        request.report(), handle.planId());
+                        Optional.empty(), handle.planId());
+        return route.route(decision, Optional.of(durable));
+    }
+
+    /** Authority path with a principal-bound grant; raw ReportAccess is never accepted here. */
+    public CampaignResponseRouteAdapter.Outcome resolve(GrantAuthorityRequest request) {
+        Objects.requireNonNull(request, "CAMPAIGN_RESPONSE_GRANT_AUTHORITY_REQUEST_REQUIRED");
+        if (protocols == null)
+            throw new IllegalStateException("CAMPAIGN_RESPONSE_PROTOCOL_RESOLVER_REQUIRED");
+        Optional<CampaignResponseProtocolMetadata> metadata = protocols.resolve(request.protocol());
+        if (metadata == null || metadata.isEmpty())
+            throw new IllegalStateException("CAMPAIGN_RESPONSE_PROTOCOL_METADATA_UNAVAILABLE");
+        if (metadata.get().runKind() == CampaignResponseCapabilityGate.RunKind.EXISTING
+                && metadata.get().identity().isEmpty())
+            throw new IllegalStateException("CAMPAIGN_RESPONSE_EXISTING_IDENTITY_REQUIRED");
+        CampaignResponseCapabilityGate.Decision decision = route.decide(metadata.get(),
+                request.clientCapabilities());
+        if (decision != CampaignResponseCapabilityGate.Decision.DURABLE_V2)
+            return route.route(decision, Optional.empty());
+        CampaignRunHandleResolver.Request reference = request.protocol().handleRequest();
+        Optional<CampaignRunHandle> resolved = handles.resolve(reference);
+        if (resolved == null || resolved.isEmpty())
+            throw new IllegalStateException("CAMPAIGN_RUN_HANDLE_NOT_FOUND");
+        CampaignRunHandle handle = resolved.get();
+        verify(reference, handle);
+        if (metadata.get().identity().isPresent() && !metadata.get().matches(handle))
+            throw new SecurityException("CAMPAIGN_RESPONSE_METADATA_IDENTITY_MISMATCH");
+        CampaignReportAccessGrant grant = request.reportGrant().orElseThrow(
+                () -> new SecurityException("REPORT_ACCESS_GRANT_REQUIRED"));
+        if (!grant.bindsTo(handle.caller(), handle))
+            throw new SecurityException("REPORT_ACCESS_GRANT_BINDING_MISMATCH");
+        CampaignJdbcDurableRunResponseBridgeFactory.Request durable =
+                new CampaignJdbcDurableRunResponseBridgeFactory.Request(
+                        request.base(), handle.caller(), handle.runId(), handle.revision(),
+                        Optional.of(grant.reportAccess()), handle.planId());
         return route.route(decision, Optional.of(durable));
     }
 
@@ -106,7 +140,8 @@ public final class CampaignDurableResponseTransportAdapter {
             throw new SecurityException("CAMPAIGN_RUN_HANDLE_BINDING_MISMATCH");
     }
 
-    /** Base graph response is retained only for a legacy caller; durable output replaces it. */
+    /** Base graph response is retained only for a legacy trusted compatibility caller. */
+    @Deprecated
     public record Request(
             CampaignResponseCapabilityGate.Request capability,
             AgentRunResult base,
@@ -131,8 +166,7 @@ public final class CampaignDurableResponseTransportAdapter {
     public record AuthorityRequest(
             CampaignResponseProtocolMetadataResolver.Request protocol,
             AgentRunResult base,
-            Set<String> clientCapabilities,
-            Optional<CampaignJdbcDurableRunResponseBridgeFactory.ReportAccess> report) {
+            Set<String> clientCapabilities) {
         public AuthorityRequest {
             Objects.requireNonNull(protocol, "CAMPAIGN_RESPONSE_PROTOCOL_REQUEST_REQUIRED");
             Objects.requireNonNull(base, "AGENT_BASE_RESULT_REQUIRED");
@@ -141,13 +175,30 @@ public final class CampaignDurableResponseTransportAdapter {
             if (clientCapabilities.stream().anyMatch(value -> value == null || value.isBlank()))
                 throw new IllegalArgumentException("CAMPAIGN_RESPONSE_CAPABILITY_INVALID");
             clientCapabilities = Set.copyOf(clientCapabilities);
-            report = report == null ? Optional.empty() : report;
-            if (protocol.run().isEmpty() && report.isPresent())
+        }
+    }
+
+    /** Trusted metadata request carrying only an opaque principal-bound report grant. */
+    public record GrantAuthorityRequest(
+            CampaignResponseProtocolMetadataResolver.Request protocol,
+            AgentRunResult base,
+            Set<String> clientCapabilities,
+            Optional<CampaignReportAccessGrant> reportGrant) {
+        public GrantAuthorityRequest {
+            Objects.requireNonNull(protocol, "CAMPAIGN_RESPONSE_PROTOCOL_REQUEST_REQUIRED");
+            Objects.requireNonNull(base, "AGENT_BASE_RESULT_REQUIRED");
+            if (clientCapabilities == null)
+                throw new IllegalArgumentException("CAMPAIGN_RESPONSE_CAPABILITIES_REQUIRED");
+            if (clientCapabilities.stream().anyMatch(value -> value == null || value.isBlank()))
+                throw new IllegalArgumentException("CAMPAIGN_RESPONSE_CAPABILITY_INVALID");
+            clientCapabilities = Set.copyOf(clientCapabilities);
+            reportGrant = reportGrant == null ? Optional.empty() : reportGrant;
+            if (protocol.run().isEmpty() && reportGrant.isPresent())
                 throw new IllegalArgumentException("CAMPAIGN_REPORT_ACCESS_WITHOUT_RUN");
         }
 
-        public AuthorityRequest(CampaignResponseProtocolMetadataResolver.Request protocol,
-                                AgentRunResult base, Set<String> clientCapabilities) {
+        public GrantAuthorityRequest(CampaignResponseProtocolMetadataResolver.Request protocol,
+                                     AgentRunResult base, Set<String> clientCapabilities) {
             this(protocol, base, clientCapabilities, Optional.empty());
         }
     }
