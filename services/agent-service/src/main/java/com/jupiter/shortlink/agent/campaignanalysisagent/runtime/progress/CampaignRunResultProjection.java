@@ -207,7 +207,7 @@ public final class CampaignRunResultProjection {
             throw new IllegalArgumentException("RUN_RESULT_TERMINAL_ACTION_INVALID");
     }
 
-    private static boolean complete(CampaignReportReadProjection.Snapshot snapshot) {
+    static boolean complete(CampaignReportReadProjection.Snapshot snapshot) {
         List<GoalAssessment> goals = snapshot.goalAssessments();
         return !goals.isEmpty() && goals.stream().allMatch(goal -> goal.status() == GoalAssessment.Status.ANSWERED)
                 && snapshot.draft().blocks().stream().anyMatch(ReportBlock::isDeliverable);
