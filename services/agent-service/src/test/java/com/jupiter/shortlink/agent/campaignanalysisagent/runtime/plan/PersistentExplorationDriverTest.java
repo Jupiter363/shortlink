@@ -12,6 +12,7 @@ import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsJobResultReceiver;
@@ -158,6 +159,37 @@ class PersistentExplorationDriverTest {
 
     private record Runtime(PersistentPlanDriver driver, NativePlanGraph graph) {}
 
+    @Test
+    void admittedDriverUsesOneScopeThroughNativeWaitingAndRejectsALateScan() throws Exception {
+        var f = new DriverFixture();
+        var model = new SkillModel(f.base, ExplorationCandidateAssessmentTest::completeCandidate);
+        var runtime = new AtomicReference<Runtime>();
+        var lifecycle = new AtomicReference<ProcessExecutionScope>();
+        try (var admitted = new AdmittedCampaignAdvance(new ProcessCapacityExecutor.Limits(2, 2, 2, 4),
+                Runnable::run, (reference, scope) -> {
+                    lifecycle.set(scope);
+                    var loaded = f.runtime(f.base.token, model, scope);
+                    runtime.set(loaded);
+                    return () -> assertEquals(1, loaded.graph().advance().advancedSteps());
+                })) {
+            admitted.submit(new ProcessCapacityExecutor.WorkRef(f.base.token.definition().runId(), "initial"))
+                    .get(20, java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals(StepStatus.WAITING, f.step(f.base.token, STEP).status());
+            assertEquals(1, model.calls.get());
+            assertEquals(2, f.base.gateway.submits);
+            assertEquals(0, admitted.snapshot().activeAdvances());
+            assertEquals(0, admitted.snapshot().models());
+            assertEquals(0, admitted.snapshot().largePayloads());
+            assertTrue(lifecycle.get().isClosed());
+            assertEquals(0, lifecycle.get().activeCount());
+            assertFalse(runtime.get().driver().mayAdvance());
+            assertThrows(IllegalStateException.class, () -> runtime.get().graph().advance());
+            assertEquals(1, model.calls.get());
+            assertEquals(2, f.base.gateway.submits);
+            exited(f.base);
+        }
+    }
+
     private static void assertCandidateInstructions(Prompt prompt) {
         String system = prompt.getInstructions().stream().filter(SystemMessage.class::isInstance).map(SystemMessage.class::cast)
                 .map(SystemMessage::getText).collect(java.util.stream.Collectors.joining("\n"));
@@ -181,6 +213,10 @@ class PersistentExplorationDriverTest {
         StepRecord step(RunToken token, String id) { return base.steps.step(token, id).orElseThrow(); }
 
         Runtime runtime(RunToken token, ChatModel model) throws Exception {
+            return runtime(token, model, null);
+        }
+
+        Runtime runtime(RunToken token, ChatModel model, ProcessExecutionScope scope) throws Exception {
             var readPolicy = new StepBindings.StepPolicy() {
                 public void validateInputs(PlanSpec.Step step, BoundInputs inputs) {
                     assertEquals(CONSUME, step.stepId());
@@ -219,7 +255,11 @@ class PersistentExplorationDriverTest {
                 assertTrue(authorized.getAsBoolean()); assertEquals(STEP, planned.stepId());
                 assertEquals(permit.runToken(), token); reactPermits.add(permit);
                 var ledger = nativeLedger(base, permit, candidates);
-                var adapter = nativeAdapter(base, ledger, model);
+                var adapter = scope == null ? nativeAdapter(base, ledger, model)
+                        : new NativeExplorationAdapter(ledger.identity(), ledger, model,
+                                List.of(new DeclineSelectionExplorationSkill(base.adapter()).registration()),
+                                new MemorySaver(), Runnable::run, new NativeExplorationAdapter.Limits(
+                                        0, 4096, 32768, 32768, 8, java.time.Duration.ofSeconds(10)), ledger, scope);
                 return new PersistentExplorationExecutor.Session(ledger, adapter, PROMPT, (current, callId, version) -> {
                     assertTrue(authorized.getAsBoolean()); continuations.incrementAndGet();
                     var completion = base.adapter().continueInvocation(current, callId, version);
@@ -229,12 +269,12 @@ class PersistentExplorationDriverTest {
                         skillModel.call = base.calls.call(current.runToken(), callId).orElseThrow();
                     }
                 });
-            });
+            }, scope);
             var driver = new PersistentPlanDriver(token, base.runs, base.steps, base.catalog, base.contracts, List.of(consumer),
                     (caller, inputs) -> base.allowed.get() && OWNER.equals(caller), base.auth,
                     (caller, type, value) -> base.allowed.get() && OWNER.equals(caller)
                             && ("ScopeRef".equals(type.name()) ? base.scopeRef.equals(value) : "PeriodsRef".equals(type.name()) && PAIR.equals(value)),
-                    List.of(new PersistentPlanDriver.ReactExecutor("decline-explore", "1", reactPolicy, execute)), candidates);
+                    List.of(new PersistentPlanDriver.ReactExecutor("decline-explore", "1", reactPolicy, execute)), candidates, scope);
             return new Runtime(driver, driver.compile(new MemorySaver()));
         }
     }

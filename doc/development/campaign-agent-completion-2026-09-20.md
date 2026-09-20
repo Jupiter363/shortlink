@@ -71,6 +71,7 @@
 | [E40：已观察请求的精确重复停止][E40] | 三项后端方法首次通过；真实Skill结果已投影后，换键序/调用ID的相同请求不新增CALL或提数，原生及后端唯一拒绝配对、STOP幂等、撤权拒读；PV改UV正常新调用和四任务恢复，旧Driver兼容。 | 显式只读策略下精确重复已验；非语义同义或跨revision采用，新增Run计数未单测跨revision，生产入口继续关闭。 |
 | [E41：Skill混合容量等待续接][E41] | 四项后端方法首次通过；实际Native Driver中已受理任务与可信容量拒绝并存，退避到期且原job接收后同CALL多次续接，只重提未受理原请求；纯容量不伪造job，未知／不可信／变更证明阻断，旧JOB-only兼容。 | 原请求和产物复用、CALL attempt 1→2→3与双输出交付已验；UNKNOWN自动对账、生产装配及真实环境仍待完成。 |
 | [E42：原生维度Skill与派生范围验收][E42] | 四项后端方法首次通过；同一REACT Step真实下降pair→dimension/3→原任务恢复→实际联合桶观察→后端typed输出。保留UNKNOWN、独立UV和来源关系；空选集零维度查询，撤权零派发，旧FIXED分片／恢复及候选exact路径兼容。 | 实际Skill结果复用和派生范围完成门已验；非任意维度引擎或因果解释，生产统一装配、Goal／报告和客户端继续推进。 |
+| [E43：原生推进进程准入][E43] | 四项后端方法首次通过；三Run共用许可，真实工具timeout/cancel仍占用，排队零加载／零MODEL，满队列未接纳；实际退出后放行，WAIT归零，原job恢复不重提。另验真实scoped Driver／Graph等待及旧queued-timeout／reject路径。 | 显式准入接线已验；生产入口／风险Agent共用、真实多Run内存峰值和容量配置实测仍待完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -148,7 +149,7 @@
 | P3-05：每次模型／handler／内部 HTTP 读当前 Run/step/attempt/child；timeout 清 native state 后仍阻模型，未决旧 callback 不因新 writer 恢复派发。 | R §1.2、§1.5；V31 | E00 原生反例；E04/E06 fixed；E28原生超时CALL、子请求父许可、跨revision阻断及死亡证明恢复。 | 回调基础已验 | 完整探索接线仍待完成；不能承诺网络原子撤销。 |
 | P3-06：有限协议修复、无进展、停止／重试／预算按 Run 累计，继续／重启／新 revision 不重置；耗尽保留证据与明确 stopReason。 | R §1.1；C §3.3、§9.5 | E30 Run预算；E31修复耗尽；E38–39后端完成验收；E40已观察只读请求精确重复停止与同revision幂等恢复。 | 部分已验 | 更广的无新增证据/跨revision循环、token费用和显式预算调整协议继续实现；不将模型NO_PROGRESS声明或一次精确匹配当全机制覆盖。 |
 | P3-07：同 action 新 attempt 重试，WAITING 原 action/job/revision，容量阻断未受理；重放同义完成请求先复用事实，新鲜数据显式新分析。 | R §1.3、§2；I §4.3 | E03/E10 fixed身份；E40精确重复停止；E41实际Skill混合／纯容量等待与同CALL多次续接，UNKNOWN／不可信／改变证明拒绝。 | 部分已验 | 其余业务Skill、UNKNOWN自动对账和生产恢复装配；不把明确未受理的退避恢复用于未知提交。 |
-| P3-08：模型／活跃推进／大结果许可在加载前获得，固定短获取顺序，队列轻量且公平；拒绝不绕许可，真实退出才释放。 | R §1.6；G §8 | E00 容量类单独验收。 | 部分已验 | 同统一运行器接模型／解析／序列化路径，测多 Run 组合峰值／共享风险 Agent，配置有实测依据。 |
+| P3-08：模型／活跃推进／大结果许可在加载前获得，固定短获取顺序，队列轻量且公平；拒绝不绕许可，真实退出才释放。 | R §1.6；G §8 | E00容量类；E43短引用factory准入、原生Graph/模型/工具实际生命周期，三Run timeout/cancel及WAIT恢复。 | 显式接线已验 | 统一生产入口／共享风险Agent接线、真实多Run驻留峰值及容量配置实测仍待完成。 |
 | P3-09：Plan/Explore 独立逻辑身份固定版本；子图不重复持锁，合法多轮不受旧16误限，有限模板缓存不随 session 无限长。 | G §5–8 | E00/E03 身份／40步／投影组件。 | 部分已验 | 持久化嵌套装配与缓存边界验收；原生 interrupt/resume 不成为未验证依赖。 |
 
 ### 2.5 P4：规划、重规划与复用
@@ -221,7 +222,7 @@
 | V31：callback忽略cancel、旧/新writer重叠，额外model0/后续I/O0、迟到不发布。 | I §6 #31；P3-05 | E00原生反例；E06进程/epoch | 部分已验 | native＋JDBCchild＋当前恢复者一体化测试。 |
 | V32：首次sync丢响应明确unknown/新代次；冻结page超时原snapshot恢复不混。 | I §6 #32；P1-03/12 | E03 unknown分类，E08页cursor恢复 | 部分已验 | 实际sync适配和新收集代次；页恢复证据不可代替首GET语义。 |
 | V33：八个保留完成任务后第九、release/consumer竞争；明确未受理、只推进剩余、同ID不重建。 | I §6 #33；P2-05–07 | E12远端第9任务、E13单producer证明/释放、E14Agent九任务续接 | 部分已验 | P4多消费者竞争及生产/真实MySQL联合验收。 |
-| V34：多Run慢模型/大结果cancel/timeout，推进/model/解析峰值受控，实际worker退出才还，队列短refs。 | I §6 #34；P3-08 | E00容量组件，不是整链峰值 | 部分已验 | 新运行器真实装配的后端多Run测量，共享风险Agent影响。 |
+| V34：多Run慢模型/大结果cancel/timeout，推进/model/解析峰值受控，实际worker退出才还，队列短refs。 | I §6 #34；P3-08 | E00容量组件；E43真实Native工具延迟退出／多Run排队／WAIT续接及scoped Driver。 | 部分已验 | 未测真实慢模型与大结果RSS峰值；生产统一装配和风险Agent共用影响继续验证。 |
 | V35：两goal有证据但删首表/完整入口，首不能ANSWERED；恢复后通过，第二独立，无强制长文。 | I §6 #35；P5-02 | 仅静态DELIVERY覆盖 | 待实现／验收 | 真草稿＋正式授权读入口的发布终评。 |
 
 ## 4. Graph 19 项专项验收
@@ -358,6 +359,7 @@
 [E40]: ../integration/campaign-plan-p3-no-progress-2026-09-20.md
 [E41]: ../integration/campaign-plan-p3-skill-capacity-2026-09-20.md
 [E42]: ../integration/campaign-plan-p3-native-dimension-2026-09-20.md
+[E43]: ../integration/campaign-plan-p3-process-admission-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

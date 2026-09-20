@@ -2,6 +2,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.BoundInputs;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.ExplorationLedger;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.JdbcExplorationLedger;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.NativeExplorationAdapter;
@@ -29,15 +30,30 @@ public final class PersistentExplorationExecutor implements PersistentPlanDriver
     }
 
     private final Factory factory;
+    private final ProcessExecutionScope processScope;
 
-    public PersistentExplorationExecutor(Factory factory) { this.factory = Objects.requireNonNull(factory); }
+    public PersistentExplorationExecutor(Factory factory) { this(factory, null); }
+
+    public PersistentExplorationExecutor(Factory factory, ProcessExecutionScope processScope) {
+        this.factory = Objects.requireNonNull(factory);
+        this.processScope = processScope;
+    }
 
     @Override public ExplorationLedger.View execute(PlanSpec.Step step, BoundInputs inputs, StepPermit permit,
+                                                    BooleanSupplier currentAuthorization) throws Exception {
+        try (var ignored = processScope == null ? null : processScope.enter()) {
+            return executeAdmitted(step, inputs, permit, currentAuthorization);
+        }
+    }
+
+    private ExplorationLedger.View executeAdmitted(PlanSpec.Step step, BoundInputs inputs, StepPermit permit,
                                                     BooleanSupplier currentAuthorization) throws Exception {
         requireCurrent(currentAuthorization);
         if (step.executionMode() != PlanSpec.ExecutionMode.REACT || step.explorationPolicy() == null
                 || !step.stepId().equals(permit.stepId())) throw new IllegalArgumentException("EXPLORATION_REQUIRES_REACT_STEP");
         Session session = Objects.requireNonNull(factory.create(step, inputs, permit, currentAuthorization));
+        if (processScope != null && session.adapter().processExecutionScope() != processScope)
+            throw new IllegalArgumentException("EXPLORATION_PROCESS_SCOPE_CHANGED");
         requireCurrent(currentAuthorization);
         var definition = permit.runToken().definition();
         var frozen = FrozenCampaignRun.read(definition);

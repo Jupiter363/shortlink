@@ -20,6 +20,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.planning.FrozenInputSet
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanValidator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningAssessment;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope;
 import com.jupiter.shortlink.agent.infrastructure.persistence.AgentStateSerializerFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -78,20 +79,29 @@ public final class NativePlanGraph {
     private final BaseCheckpointSaver saver;
     private final CompiledGraph graph;
     private final int recursionLimit;
+    private final ProcessExecutionScope processScope;
 
     public static NativePlanGraph compile(PlanSpec plan, FrozenInputSet inputs, PlanningAssessment assessment,
             PlanValidator validator, RunIdentity identity, BaseCheckpointSaver saver, Driver driver) throws GraphStateException {
+        return compile(plan, inputs, assessment, validator, identity, saver, driver, null);
+    }
+
+    public static NativePlanGraph compile(PlanSpec plan, FrozenInputSet inputs, PlanningAssessment assessment,
+            PlanValidator validator, RunIdentity identity, BaseCheckpointSaver saver, Driver driver,
+            ProcessExecutionScope processScope) throws GraphStateException {
         Objects.requireNonNull(validator).validate(plan, inputs, assessment);
         Objects.requireNonNull(identity);
         if (!identity.runId().equals(plan.runId()) || !identity.planId().equals(plan.planId())
                 || identity.revision() != plan.revision()) {
             throw new IllegalArgumentException("Plan execution identity does not match the frozen plan");
         }
-        return new NativePlanGraph(plan, identity, Objects.requireNonNull(saver), Objects.requireNonNull(driver));
+        return new NativePlanGraph(plan, identity, Objects.requireNonNull(saver), Objects.requireNonNull(driver), processScope);
     }
 
-    private NativePlanGraph(PlanSpec plan, RunIdentity identity, BaseCheckpointSaver saver, Driver driver)
+    private NativePlanGraph(PlanSpec plan, RunIdentity identity, BaseCheckpointSaver saver, Driver driver,
+            ProcessExecutionScope processScope)
             throws GraphStateException {
+        this.processScope = processScope;
         this.identity = identity;
         this.saver = saver;
         this.driver = driver;
@@ -122,6 +132,12 @@ public final class NativePlanGraph {
 
     /** Every call starts a NEW scan at START; completed steps are skipped using persisted facts. */
     public synchronized ScanResult advance() {
+        try (var ignored = processScope == null ? null : processScope.enter()) {
+            return advanceAdmitted();
+        }
+    }
+
+    private ScanResult advanceAdmitted() {
         RunnableConfig config = RunnableConfig.builder().threadId(threadId).nextNode(StateGraph.START).build();
         saver.get(config).ifPresent(checkpoint -> {
             if (checkpoint.getState().keySet().stream()
@@ -139,6 +155,12 @@ public final class NativePlanGraph {
     }
 
     private Map<String, Object> scan(PlanSpec.Step step, String node, OverAllState state) throws Exception {
+        try (var ignored = processScope == null ? null : processScope.enter()) {
+            return scanAdmitted(step, node, state);
+        }
+    }
+
+    private Map<String, Object> scanAdmitted(PlanSpec.Step step, String node, OverAllState state) throws Exception {
         if (stopped(state)) return Map.of();
         if (!driver.mayAdvance()) return Map.of("stopped", true);
         StepStatus status = Objects.requireNonNull(driver.status(step.stepId()), "Persistent step status is required");
