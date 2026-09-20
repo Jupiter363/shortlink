@@ -60,9 +60,25 @@ public final class CampaignProgressService {
     public CampaignProgressView read(Caller caller, String runId) {
         var received = resultReader == null ? null : Objects.requireNonNull(resultReader.read(caller, runId));
         var snapshot = received == null ? steps.snapshot(caller, runId) : received.execution();
+        return project(caller, runId, received, snapshot);
+    }
+
+    /**
+     * Projects a caller-owned progress snapshot without reading the run, steps, or receipts
+     * again.  Transaction coordinators use this overload while their exact revision locks remain
+     * held; artifact and scope authorizers are still rechecked for every emitted reference.
+     */
+    public CampaignProgressView read(Caller caller, CampaignResultProgressReader.Snapshot received) {
+        Objects.requireNonNull(received, "PROGRESS_SNAPSHOT_REQUIRED");
+        return project(caller, received.execution().run().definition().runId(), received, received.execution());
+    }
+
+    private CampaignProgressView project(Caller caller, String requestedRunId,
+                                         CampaignResultProgressReader.Snapshot received,
+                                         CampaignStepStore.ProgressSnapshot snapshot) {
         var run = snapshot.run();
-        if (received != null && (!Objects.equals(caller, run.definition().caller())
-                || !Objects.equals(runId, run.definition().runId())))
+        if (!Objects.equals(caller, run.definition().caller())
+                || !Objects.equals(requestedRunId, run.definition().runId()))
             throw new SecurityException("PROGRESS_ACCESS_DENIED");
         var frozen = FrozenCampaignRun.read(run.definition());
         PlanSpec plan = frozen.plan();

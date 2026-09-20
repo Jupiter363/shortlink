@@ -61,9 +61,31 @@ public final class CampaignRunReportReadProjection {
             });
         }
 
+        return projectPreloaded(progress, report, request.report().isPresent());
+    }
+
+    /**
+     * Projects already-authorized, already-loaded facts without invoking either reader.  A
+     * transaction-owning coordinator can use this seam while its row locks remain held, then
+     * compare the resulting status/action/limitations with the durable binding before returning a
+     * response.
+     */
+    public CampaignRunResultProjection.Projection projectPreloaded(
+            CampaignProgressView progress,
+            Optional<CampaignReportReadProjection.Snapshot> report) {
+        return projectPreloaded(progress, report, report != null && report.isPresent());
+    }
+
+    private CampaignRunResultProjection.Projection projectPreloaded(
+            CampaignProgressView progress,
+            Optional<CampaignReportReadProjection.Snapshot> report,
+            boolean reportRequested) {
+        Objects.requireNonNull(progress, "RUN_RESULT_PROGRESS_REQUIRED");
+        report = report == null ? Optional.empty() : report;
+        validateProgress(progress);
         CampaignRunResultProjection.ExecutionStatus status = status(progress, report.orElse(null));
         CampaignRunResultProjection.NextAction nextAction = nextAction(progress, status);
-        List<String> limitations = limitations(progress, status, request.report().isPresent(), report.orElse(null));
+        List<String> limitations = limitations(progress, status, reportRequested, report.orElse(null));
         return resultProjection.project(progress, status, report, nextAction, limitations);
     }
 

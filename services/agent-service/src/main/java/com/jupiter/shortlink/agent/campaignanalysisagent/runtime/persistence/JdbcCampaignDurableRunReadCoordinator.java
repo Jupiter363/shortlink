@@ -47,29 +47,120 @@ public final class JdbcCampaignDurableRunReadCoordinator {
 
     public Outcome read(Request request) {
         Objects.requireNonNull(request, "RUN_READ_REQUEST_REQUIRED");
-        return transactions.execute(status -> {
-            Optional<CampaignRunResultStore.Binding> binding = bindings.readCurrentBindingLocked(
-                    request.caller(), request.runId(), request.revision());
-            if (binding.isEmpty()) return Outcome.noBinding();
+        FactOutcome<Void> facts = readFacts(request, null, false);
+        return facts.status() == Outcome.Status.NO_BINDING
+                ? Outcome.noBinding() : Outcome.bound(facts.snapshot());
+    }
 
-            CampaignRunResultStore.Binding value = binding.get();
-            ReportAccess access = value.reportRef() == null
-                    ? null : request.report().orElseThrow(() -> new SecurityException("RUN_RESULT_REPORT_ACCESS_REQUIRED"));
-            CampaignResultProgressReader.Snapshot progressSnapshot =
-                    progress.readInCurrentTransaction(request.caller(), request.runId(), request.revision());
-            Optional<ReportIdentity> report = Optional.empty();
-            if (value.reportRef() != null) {
-                ReportLifecycleStore.Published published = reports.readLockedInCurrentTransaction(
-                        new ReportLifecycleStore.Key(value.reportRef().reportId(), value.reportRef().revision()),
-                        access.owner(), access.capability(), access.mode())
-                        .orElseThrow(() -> new IllegalStateException("RUN_RESULT_REPORT_NOT_FOUND"));
-                ReportRef ref = new ReportRef(published.key().reportId(), published.key().revision());
-                report = Optional.of(new ReportIdentity(ref, published.runId(),
-                        value.planId(), published.planRevision(),
-                        published.version()));
-            }
-            return Outcome.bound(new CampaignDurableRunReadSnapshot(value, progressSnapshot, report));
+    /**
+     * Runs a typed projector before the shared transaction closes.  The report projector receives
+     * an already-authorized, locked lifecycle row and must immediately return a sanitized value;
+     * it must not retain or publish the row.  The snapshot projector then sees the raw snapshot
+     * and that sanitized report value while all coordinator locks are still held.
+     */
+    public <R, T> ProjectedOutcome<T> readProjected(Request request,
+                                                    ReportProjector<R> reportProjector,
+                                                    SnapshotProjector<R, T> snapshotProjector) {
+        Objects.requireNonNull(request, "RUN_READ_REQUEST_REQUIRED");
+        Objects.requireNonNull(snapshotProjector, "RUN_READ_PROJECTOR_REQUIRED");
+        return transactions.execute(status -> {
+            FactOutcome<R> facts = readFactsInCurrentTransaction(request, reportProjector, true);
+            if (facts.status() == Outcome.Status.NO_BINDING) return ProjectedOutcome.noBinding();
+            T projected = Objects.requireNonNull(snapshotProjector.project(facts.snapshot(), facts.report()),
+                    "RUN_READ_PROJECTED_VALUE_REQUIRED");
+            return ProjectedOutcome.bound(projected);
         });
+    }
+
+    private <R> FactOutcome<R> readFacts(Request request, ReportProjector<R> reportProjector,
+                                          boolean requireReportProjector) {
+        return transactions.execute(status -> readFactsInCurrentTransaction(
+                request, reportProjector, requireReportProjector));
+    }
+
+    private <R> FactOutcome<R> readFactsInCurrentTransaction(Request request,
+                                                               ReportProjector<R> reportProjector,
+                                                               boolean requireReportProjector) {
+        Optional<CampaignRunResultStore.Binding> binding = bindings.readCurrentBindingLocked(
+                request.caller(), request.runId(), request.revision());
+        if (binding.isEmpty()) return FactOutcome.noBinding();
+
+        CampaignRunResultStore.Binding value = binding.get();
+        ReportAccess access = value.reportRef() == null
+                ? null : request.report().orElseThrow(() -> new SecurityException("RUN_RESULT_REPORT_ACCESS_REQUIRED"));
+        CampaignResultProgressReader.Snapshot progressSnapshot =
+                progress.readInCurrentTransaction(request.caller(), request.runId(), request.revision());
+        Optional<ReportIdentity> identity = Optional.empty();
+        Optional<R> projectedReport = Optional.empty();
+        if (value.reportRef() != null) {
+            ReportLifecycleStore.Published published = reports.readLockedInCurrentTransaction(
+                    new ReportLifecycleStore.Key(value.reportRef().reportId(), value.reportRef().revision()),
+                    access.owner(), access.capability(), access.mode())
+                    .orElseThrow(() -> new IllegalStateException("RUN_RESULT_REPORT_NOT_FOUND"));
+            ReportRef ref = new ReportRef(published.key().reportId(), published.key().revision());
+            identity = Optional.of(new ReportIdentity(ref, published.runId(),
+                    value.planId(), published.planRevision(),
+                    published.version()));
+            if (reportProjector != null) {
+                projectedReport = Optional.of(Objects.requireNonNull(
+                        reportProjector.project(published, access.mode()),
+                        "RUN_RESULT_REPORT_PROJECTED_VALUE_REQUIRED"));
+            } else if (requireReportProjector) {
+                throw new IllegalStateException("RUN_RESULT_REPORT_PROJECTOR_REQUIRED");
+            }
+        }
+        return FactOutcome.bound(new CampaignDurableRunReadSnapshot(value, progressSnapshot, identity), projectedReport);
+    }
+
+    @FunctionalInterface
+    public interface ReportProjector<R> {
+        R project(ReportLifecycleStore.Published published, ReportLifecycleStore.Mode mode);
+    }
+
+    @FunctionalInterface
+    public interface SnapshotProjector<R, T> {
+        T project(CampaignDurableRunReadSnapshot snapshot, Optional<R> report);
+    }
+
+    private record FactOutcome<R>(Outcome.Status status, CampaignDurableRunReadSnapshot snapshot,
+                                  Optional<R> report) {
+        private FactOutcome {
+            Objects.requireNonNull(status, "RUN_READ_STATUS_REQUIRED");
+            report = report == null ? Optional.empty() : report;
+            if (status == Outcome.Status.BOUND && snapshot == null)
+                throw new IllegalArgumentException("RUN_READ_SNAPSHOT_REQUIRED");
+            if (status == Outcome.Status.NO_BINDING && snapshot != null)
+                throw new IllegalArgumentException("RUN_READ_NO_BINDING_SNAPSHOT_FORBIDDEN");
+        }
+
+        static <R> FactOutcome<R> noBinding() {
+            return new FactOutcome<>(Outcome.Status.NO_BINDING, null, Optional.empty());
+        }
+
+        static <R> FactOutcome<R> bound(CampaignDurableRunReadSnapshot snapshot, Optional<R> report) {
+            return new FactOutcome<>(Outcome.Status.BOUND, snapshot, report);
+        }
+    }
+
+    public record ProjectedOutcome<T>(Status status, Optional<T> value) {
+        public ProjectedOutcome {
+            Objects.requireNonNull(status, "RUN_READ_STATUS_REQUIRED");
+            value = value == null ? Optional.empty() : value;
+            if (status == Status.BOUND && value.isEmpty())
+                throw new IllegalArgumentException("RUN_READ_PROJECTED_VALUE_REQUIRED");
+            if (status == Status.NO_BINDING && value.isPresent())
+                throw new IllegalArgumentException("RUN_READ_NO_BINDING_VALUE_FORBIDDEN");
+        }
+
+        static <T> ProjectedOutcome<T> noBinding() {
+            return new ProjectedOutcome<>(Status.NO_BINDING, Optional.empty());
+        }
+
+        static <T> ProjectedOutcome<T> bound(T value) {
+            return new ProjectedOutcome<>(Status.BOUND, Optional.of(value));
+        }
+
+        public enum Status { NO_BINDING, BOUND }
     }
 
     public record Request(Caller caller, String runId, int revision, Optional<ReportAccess> report) {
