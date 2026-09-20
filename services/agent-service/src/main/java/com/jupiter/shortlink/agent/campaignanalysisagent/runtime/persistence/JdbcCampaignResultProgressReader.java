@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -44,23 +45,51 @@ public final class JdbcCampaignResultProgressReader implements CampaignResultPro
         this.steps = new JdbcCampaignStepStore(jdbc, transactions, Objects.requireNonNull(clock), limits);
     }
 
+    boolean sharesDataSource(JdbcTemplate other) {
+        return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
+    boolean usesTransactionTemplate(TransactionTemplate other) {
+        return transactions == other;
+    }
+
     @Override
     public Snapshot read(Caller caller, String runId) {
-        return transactions.execute(status -> {
-            var execution = steps.snapshot(caller, runId);
-            Set<String> registeredSteps = execution.steps().stream().map(step -> step.spec().stepId()).collect(Collectors.toSet());
-            int revision = execution.run().definition().revision();
-            // Start at the receipt and retain every row, including a malformed association. An
-            // inner join to steps would silently hide an already-registered orphan receipt.
-            var receipts = jdbc.query("SELECT a.step_id,r.spec_json,r.spec_hash,r.stored_pages,r.stored_rows "
-                            + "FROM campaign_statistics_receipt r "
-                            + "LEFT JOIN campaign_child_ledger c ON c.run_id=r.run_id AND c.revision=r.revision AND c.child_id=r.child_id "
-                            + "LEFT JOIN campaign_action_ledger a ON a.run_id=c.run_id AND a.revision=c.revision AND a.action_id=c.action_id "
-                            + "LEFT JOIN campaign_step_ledger s ON s.run_id=a.run_id AND s.revision=a.revision AND s.step_id=a.step_id "
-                            + "WHERE r.run_id=? AND r.revision=? ORDER BY s.ordinal_index,c.child_id FOR UPDATE",
-                    (rs, row) -> receipt(rs, registeredSteps), runId, revision);
-            return new Snapshot(execution, receipts);
-        });
+        return transactions.execute(status -> readInCurrentTransaction(caller, runId));
+    }
+
+    /** Reads execution and receipt rows in the caller's already-open transaction. */
+    Snapshot readInCurrentTransaction(Caller caller, String runId) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("PROGRESS_TRANSACTION_REQUIRED");
+        var execution = steps.snapshotInCurrentTransaction(caller, runId);
+        return readReceiptsInCurrentTransaction(execution, runId);
+    }
+
+    /** Reads one exact revision in the caller's already-open transaction. */
+    Snapshot readInCurrentTransaction(Caller caller, String runId, int revision) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("PROGRESS_TRANSACTION_REQUIRED");
+        if (revision < 1) throw new IllegalArgumentException("RUN_REVISION_INVALID");
+        var execution = steps.snapshotInCurrentTransaction(caller, runId, revision);
+        if (execution.run().definition().revision() != revision)
+            throw new IllegalStateException("PROGRESS_SNAPSHOT_CHANGED");
+        return readReceiptsInCurrentTransaction(execution, runId);
+    }
+
+    private Snapshot readReceiptsInCurrentTransaction(CampaignStepStore.ProgressSnapshot execution, String runId) {
+        Set<String> registeredSteps = execution.steps().stream().map(step -> step.spec().stepId()).collect(Collectors.toSet());
+        int revision = execution.run().definition().revision();
+        // Start at the receipt and retain every row, including a malformed association. An
+        // inner join to steps would silently hide an already-registered orphan receipt.
+        var receipts = jdbc.query("SELECT a.step_id,r.spec_json,r.spec_hash,r.stored_pages,r.stored_rows "
+                        + "FROM campaign_statistics_receipt r "
+                        + "LEFT JOIN campaign_child_ledger c ON c.run_id=r.run_id AND c.revision=r.revision AND c.child_id=r.child_id "
+                        + "LEFT JOIN campaign_action_ledger a ON a.run_id=c.run_id AND a.revision=c.revision AND a.action_id=c.action_id "
+                        + "LEFT JOIN campaign_step_ledger s ON s.run_id=a.run_id AND s.revision=a.revision AND s.step_id=a.step_id "
+                        + "WHERE r.run_id=? AND r.revision=? ORDER BY s.ordinal_index,c.child_id FOR UPDATE",
+                (rs, row) -> receipt(rs, registeredSteps), runId, revision);
+        return new Snapshot(execution, receipts);
     }
 
     private ReceiptProgress receipt(ResultSet row, Set<String> registeredSteps) throws SQLException {
