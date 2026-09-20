@@ -35,8 +35,11 @@ class JdbcReplanReceiptStoreTest {
 
         assertThat(second).isEqualTo(first);
         assertThat(store.find(run)).contains(first);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM campaign_replan_receipt", Integer.class)).isEqualTo(1);
         assertThatThrownBy(() -> store.record(run, 2, "b".repeat(64), "{\"x\":2}", "ACCEPTED", null))
                 .isInstanceOf(IllegalStateException.class).hasMessage("REPLAN_RECEIPT_CONFLICT");
+        jdbc.update("UPDATE campaign_run_ledger SET run_status='SUPERSEDED' WHERE run_id='run' AND revision=1");
+        assertThat(store.findFinalized(new Caller("t", "s", 1), "run", 1)).contains(first);
+        assertThat(store.findFinalized(new Caller("other", "s", 1), "run", 1)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM campaign_replan_receipt", Integer.class)).isEqualTo(1);
     }
 }

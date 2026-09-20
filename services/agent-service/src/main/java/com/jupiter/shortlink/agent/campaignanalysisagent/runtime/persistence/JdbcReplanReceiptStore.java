@@ -59,6 +59,19 @@ public final class JdbcReplanReceiptStore implements ReplanReceiptStore {
         });
     }
 
+    @Override
+    public Optional<Receipt> findFinalized(CampaignRunStore.Caller caller, String runId, int baseRevision) {
+        Objects.requireNonNull(caller);
+        if (runId == null || runId.isBlank() || baseRevision < 1)
+            throw new IllegalArgumentException("REPLAN_LOOKUP_INVALID");
+        return transactions.execute(status -> jdbc.query(
+                "SELECT r.receipt_id,r.run_id,r.base_revision,r.candidate_revision,r.candidate_plan_hash,r.request_json,r.decision,r.reason_code,r.created_at "
+                        + "FROM campaign_replan_receipt r JOIN campaign_run_ledger l ON l.run_id=r.run_id AND l.revision=r.base_revision "
+                        + "WHERE r.run_id=? AND r.base_revision=? AND l.tenant_id=? AND l.subject_name=? AND l.auth_version=?",
+                rs -> rs.next() ? Optional.of(read(rs)) : Optional.empty(), runId, baseRevision,
+                caller.tenantId(), caller.subject(), caller.authVersion()));
+    }
+
     private Optional<Receipt> read(CampaignRunStore.RunToken run) {
         return jdbc.query("SELECT receipt_id,run_id,base_revision,candidate_revision,candidate_plan_hash,request_json,decision,reason_code,created_at FROM campaign_replan_receipt WHERE run_id=? AND base_revision=?",
                 rs -> rs.next() ? Optional.of(read(rs)) : Optional.empty(), run.definition().runId(), run.definition().revision());

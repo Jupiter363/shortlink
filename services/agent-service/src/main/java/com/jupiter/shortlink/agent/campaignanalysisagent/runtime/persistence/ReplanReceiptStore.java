@@ -13,4 +13,13 @@ public interface ReplanReceiptStore {
                    String requestJson, String decision, String reasonCode);
 
     Optional<Receipt> find(CampaignRunStore.RunToken run);
+
+    /**
+     * Looks up a receipt after its base revision has been superseded. The caller identity is
+     * checked by the durable implementation; this method intentionally does not require an
+     * ACTIVE run token because an accepted replan retires that token as part of its commit.
+     */
+    default Optional<Receipt> findFinalized(CampaignRunStore.Caller caller, String runId, int baseRevision) {
+        return Optional.empty();
+    }
 }
