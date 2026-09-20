@@ -43,5 +43,8 @@ public interface CampaignSkillInvocationStore {
 
     InvocationRecord completeInvocation(CallPermit permit, ArtifactAuthorizer authorizer);
 
+    /** Revalidates a sealed invocation under the current Run and ACL, without reviving its old callback. */
+    InvocationRecord readCompletion(RunToken token, String callId, ArtifactAuthorizer authorizer);
+
     Optional<InvocationRecord> invocation(RunToken token, String callId);
 }

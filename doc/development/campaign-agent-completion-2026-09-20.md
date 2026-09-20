@@ -65,6 +65,7 @@
 | [E34：固定与CALL共用子执行边界][E34] | 四项后端方法首次通过；真实CALL内SYNC/LOCAL双输出/ASYNC复用、输出原子回滚重放及越权拒绝；原生统计迁移、固定LOCAL恢复与取消迟到job兼容。 | 子调用共同协议已验；CALL新阶段准入、多child整体Skill完成/观察和Driver仍待实现。 |
 | [E35：Skill等待、续接与完成合同][E35] | 三项后端方法首次通过；两原任务齐备后竞争续接仅一成功，LOCAL双输出完整封存；等待登记和CALL返回故障原子回滚，旧原生超时门兼容。 | 领域组件已验；实际Skill业务接线、多输出原生观察和Driver仍待实现，不代表局部Skill整链已完成。 |
 | [E36：真实下降筛选CALL][E36] | 两项后端方法首次通过；同Run发布候选、真实MODEL/CALL、两期统计接收、原CALL续接、实际下降对象及双输出索引可读；撤权与撤销发布拒绝，固定501候选主例兼容。 | 首个非探索Skill业务CALL组件已验；Native多输出观察、混合容量恢复、Driver与生产入口仍待接线。 |
+| [E37：原生Skill具名多输出观察][E37] | 两项后端方法首次通过；真实Native下降筛选PENDING→原CALL续接→双输出READY，完整metadata和有限真实事实进入MODEL2；空saver／撤权恢复不重调，旧统计Tool兼容。 | 原生单片异步Skill整链已验；结构化终局验收、多阶段混合恢复、Driver／生产装配及报告仍待完成，CANDIDATE不等于SUCCEEDED。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -346,6 +347,7 @@
 [E34]: ../integration/campaign-plan-p3-capability-boundary-2026-09-20.md
 [E35]: ../integration/campaign-plan-p3-skill-invocation-2026-09-20.md
 [E36]: ../integration/campaign-plan-p3-decline-call-2026-09-20.md
+[E37]: ../integration/campaign-plan-p3-native-skill-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

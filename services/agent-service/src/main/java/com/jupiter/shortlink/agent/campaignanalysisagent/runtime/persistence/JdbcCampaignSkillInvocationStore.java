@@ -222,28 +222,8 @@ public final class JdbcCampaignSkillInvocationStore implements CampaignSkillInvo
                 requireRunning(row, permit);
                 gate.requireParent(permit, permit.actionId());
             } else require(call.state() == CallState.RETURNED, "SKILL_COMPLETION_CALL_CHANGED");
-            CapabilityCatalog.Signature signature = validateContract(call.spec(), row.record().spec());
-            validateSourceInputs(token, call.spec(), authorizer);
-            for (String id : childIds(token, call.spec().actionId())) ready(token, call.spec(), child(token, call.spec(), id), authorizer);
-            CompletionSpec spec = row.record().spec();
-            ChildRecord finalChild = child(token, call.spec(), spec.finalLocalChildId());
-            require(finalChild.spec().mode() == ChildMode.LOCAL && finalChild.spec().localInvocation() != null
-                            && finalChild.spec().localInvocation().outputs().equals(spec.outputs()),
-                    "SKILL_FINAL_LOCAL_CHANGED");
-            Map<String, ArtifactRef> outputs = runs.localOutputs(token, spec.finalLocalChildId(), authorizer);
-            require(outputs.keySet().equals(spec.outputs().keySet()), "SKILL_COMPLETION_OUTPUTS_CHANGED");
-            for (var entry : outputs.entrySet()) {
-                var binding = spec.outputs().get(entry.getKey());
-                ArtifactRef output = entry.getValue();
-                require(binding.artifactId().equals(output.artifactId()) && binding.type().equals(output.type())
-                                && binding.schemaVersion().equals(output.schemaVersion()) && binding.scopeRef().equals(output.scopeRef())
-                                && binding.periodsRef().equals(output.periodsRef()), "SKILL_COMPLETION_OUTPUTS_CHANGED");
-                var actual = contracts.validateArtifact(signature.outputs().get(entry.getKey()).type(), output.artifactId(),
-                        runs, token.definition().caller(), authorizer).metadata();
-                require(actual.ref().equals(output), "SKILL_COMPLETION_OUTPUTS_CHANGED");
-                producer(token, call.spec(), finalChild, actual);
-            }
-            String completionId = "skill-completion-" + CampaignRunStore.sha256(token.definition().definitionHash() + ":" + call.spec().callId());
+            Map<String, ArtifactRef> outputs = completionOutputs(token, call, row, authorizer);
+            String completionId = completionId(token, call);
             if (row.record().state() == State.COMPLETED) {
                 require(completionId.equals(row.record().completionId()) && outputs.equals(row.record().outputs()),
                         "SKILL_COMPLETION_CHANGED");
@@ -258,6 +238,50 @@ public final class JdbcCampaignSkillInvocationStore implements CampaignSkillInvo
             calls.recordReturned(permit);
             return required(token, permit.callId(), call).record();
         });
+    }
+
+    @Override public InvocationRecord readCompletion(RunToken token, String callId, ArtifactAuthorizer authorizer) {
+        Objects.requireNonNull(authorizer);
+        return transaction(() -> {
+            calls.lockRun(token, true);
+            CallRecord call = calls.find(token, callId, true).orElseThrow(() -> failure("EXPLORATION_CALL_NOT_FOUND"));
+            Row row = required(token, callId, call);
+            require(row.record().state() == State.COMPLETED && call.state() == CallState.RETURNED && !call.revoked()
+                            && Objects.equals(row.attemptId(), call.attemptId()) && row.attemptVersion() == call.attemptVersion(),
+                    "SKILL_COMPLETION_NOT_AVAILABLE");
+            Map<String, ArtifactRef> outputs = completionOutputs(token, call, row, authorizer);
+            require(completionId(token, call).equals(row.record().completionId()) && outputs.equals(row.record().outputs()),
+                    "SKILL_COMPLETION_CHANGED");
+            return row.record();
+        });
+    }
+
+    private Map<String, ArtifactRef> completionOutputs(RunToken token, CallRecord call, Row row, ArtifactAuthorizer authorizer) {
+        CapabilityCatalog.Signature signature = validateContract(call.spec(), row.record().spec());
+        validateSourceInputs(token, call.spec(), authorizer);
+        for (String id : childIds(token, call.spec().actionId())) ready(token, call.spec(), child(token, call.spec(), id), authorizer);
+        CompletionSpec spec = row.record().spec();
+        ChildRecord finalChild = child(token, call.spec(), spec.finalLocalChildId());
+        require(finalChild.spec().mode() == ChildMode.LOCAL && finalChild.spec().localInvocation() != null
+                        && finalChild.spec().localInvocation().outputs().equals(spec.outputs()), "SKILL_FINAL_LOCAL_CHANGED");
+        Map<String, ArtifactRef> outputs = runs.localOutputs(token, spec.finalLocalChildId(), authorizer);
+        require(outputs.keySet().equals(spec.outputs().keySet()), "SKILL_COMPLETION_OUTPUTS_CHANGED");
+        for (var entry : outputs.entrySet()) {
+            var binding = spec.outputs().get(entry.getKey());
+            ArtifactRef output = entry.getValue();
+            require(binding.artifactId().equals(output.artifactId()) && binding.type().equals(output.type())
+                            && binding.schemaVersion().equals(output.schemaVersion()) && binding.scopeRef().equals(output.scopeRef())
+                            && binding.periodsRef().equals(output.periodsRef()), "SKILL_COMPLETION_OUTPUTS_CHANGED");
+            var actual = contracts.validateArtifact(signature.outputs().get(entry.getKey()).type(), output.artifactId(),
+                    runs, token.definition().caller(), authorizer).metadata();
+            require(actual.ref().equals(output), "SKILL_COMPLETION_OUTPUTS_CHANGED");
+            producer(token, call.spec(), finalChild, actual);
+        }
+        return outputs;
+    }
+
+    private String completionId(RunToken token, CallRecord call) {
+        return "skill-completion-" + CampaignRunStore.sha256(token.definition().definitionHash() + ":" + call.spec().callId());
     }
 
     @Override public Optional<InvocationRecord> invocation(RunToken token, String callId) {
