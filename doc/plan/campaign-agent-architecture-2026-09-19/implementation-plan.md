@@ -4,6 +4,8 @@
 
 [原生规划候选与首次执行](../../integration/campaign-plan-p4-planning-intake-2026-09-20.md)已将完整 typed goals／requirements、能力菜单、一次原生模型候选、严格校验和 E44 可信入口接通；接纳失败复用原模型响应，等待接续原 job。任意自然语言需求拆解、运行中重规划／adopt 和报告交付继续实现，不能将该组件验收当作生产开放。
 
+[原任务跨版本消费关系](../../integration/campaign-plan-p4-statistics-consumers-2026-09-20.md)已验同Run内版本切换与consumer采用同事务、实际原页接收、当前权限与原producer产物、采用／取消意图竞争和共享释放保护。模型自动重规划、远端取消对账及新consumer主动释放仍未完成，P4生产门继续关闭。
+
 P2 前置进度：[冻结成员与范围证明](../../integration/campaign-plan-p2-frozen-scope-2026-09-20.md)补齐指定成员当前授权、501 成员确定性分片、跨服务专用查询／恢复及 Artifact proof；耐久枚举收集、父集合对账、业务组合和生产装配仍待完成。全部完成条件见[逐项完成矩阵](../../development/campaign-agent-completion-2026-09-20.md)。
 
 [权威成员分页合同](../../integration/campaign-plan-p2-authority-pages-2026-09-20.md)已复用现Command查询并补齐严格页合同与跨层scope变化错误；耐久分页收集、完整ScopeArtifact及父集合对账仍待完成。

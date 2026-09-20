@@ -51,6 +51,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     private final Limits limits;
     private final SubmissionBackoff submissionBackoff;
     private final JdbcExplorationCallbackGate calls;
+    private final JdbcStatisticsConsumerGate consumers;
 
     public JdbcCampaignRunStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock) {
         this(jdbc, transactions, clock, Limits.defaults());
@@ -68,6 +69,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         this.limits = Objects.requireNonNull(limits);
         this.submissionBackoff = Objects.requireNonNull(submissionBackoff);
         this.calls = new JdbcExplorationCallbackGate(jdbc);
+        this.consumers = new JdbcStatisticsConsumerGate(jdbc, clock);
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
                 || manager.getDataSource() != jdbc.getDataSource()
                 || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
@@ -311,6 +313,42 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return begin(token, childId, DispatchPurpose.RECONCILE, false, Objects.requireNonNull(parentCall));
     }
 
+    @Override public DispatchPermit beginAdoptedReconciliation(RunToken consumer, String consumerId) {
+        return transaction(() -> {
+            var access = consumers.prepareRead(consumer, consumerId);
+            RunToken producer = access.sourceToken();
+            requireNoCallbacks(producer.definition().runId());
+            ChildRecord child = findChild(producer.definition(), access.childId(), true)
+                    .orElseThrow(() -> new IllegalStateException("CHILD_NOT_FOUND"));
+            // A stopped read can exit after its consumer loses authority. Only the persisted
+            // actual exit permits recovery; retain the original job and durable page cursor.
+            if (child.spec().mode() == ChildMode.ASYNC && child.jobId() != null
+                    && child.state() == ChildState.DISPATCHING && !child.callbackActive()
+                    && child.purpose() == DispatchPurpose.RECONCILE) {
+                unresolved(producer.definition(), child);
+                child = findChild(producer.definition(), access.childId(), true).orElseThrow();
+            }
+            if (child.spec().mode() != ChildMode.ASYNC || child.jobId() == null || child.callbackActive()
+                    || (child.state() != ChildState.WAITING && child.state() != ChildState.UNRESOLVED))
+                conflict("ADOPTION_REQUIRES_KNOWN_ASYNC_WAIT");
+            var permit = new DispatchPermit(producer, access.childId(), freshId(),
+                    Math.addExact(child.attemptVersion(), 1), DispatchPurpose.RECONCILE, null, access.lease());
+            consumers.requirePermit(permit);
+            jdbc.update("UPDATE campaign_child_ledger SET child_state='DISPATCHING',unresolved_reason=NULL,"
+                            + "attempt_id=?,attempt_version=?,attempt_purpose='RECONCILE',dispatch_run_version=?,"
+                            + "dispatch_run_token=?,callback_active=TRUE,updated_at=? WHERE run_id=? AND revision=? AND child_id=?",
+                    permit.attemptId(), permit.attemptVersion(), producer.version(), producer.advanceToken(),
+                    now(), producer.definition().runId(), producer.definition().revision(), access.childId());
+            if (calls.schemaAvailable()) {
+                jdbc.update("UPDATE campaign_child_ledger SET parent_call_id=NULL,parent_call_attempt_id=NULL,"
+                                + "parent_call_attempt_version=NULL WHERE run_id=? AND revision=? AND child_id=?",
+                        producer.definition().runId(), producer.definition().revision(), access.childId());
+            }
+            consumers.bindAttempt(permit);
+            return permit;
+        });
+    }
+
     @Override public DispatchPermit beginAuthorityPageReconciliation(RunToken token, String childId) {
         return begin(token, childId, DispatchPurpose.AUTHORITY_PAGE_READ);
     }
@@ -526,6 +564,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                         parentCall == null ? null : parentCall.attemptVersion(), token.definition().runId(),
                         token.definition().revision(), childId);
             }
+            consumers.bindAttempt(permit);
             return permit;
         });
     }
@@ -534,7 +573,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     public boolean mayDispatch(DispatchPermit permit) {
         return transaction(() -> {
             try {
-                lockRun(permit.token(), true);
+                lockDispatchRun(permit);
                 ChildRecord child = requireAttempt(permit);
                 requireDispatchAuthority(permit, child);
                 ChildState expected = permit.purpose() == DispatchPurpose.RELEASE ? ChildState.READY : ChildState.DISPATCHING;
@@ -561,7 +600,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         requireResultMutationPurpose(permit);
         id(jobId, "jobId", 128);
         transaction(() -> {
-            lockRun(permit.token(), true);
+            lockDispatchRun(permit);
             ChildRecord child = requireAttempt(permit);
             requireDispatchAuthority(permit, child);
             if (child.spec().mode() != ChildMode.ASYNC) conflict("SYNC_CHILD_CANNOT_WAIT_ON_JOB");
@@ -602,9 +641,10 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         requireResultMutationPurpose(permit);
         validateArtifact(draft);
         return transaction(() -> {
-            lockRun(permit.token(), true);
+            lockDispatchRun(permit);
             ChildRecord child = requireAttempt(permit);
             requireDispatchAuthority(permit, child);
+            consumers.requirePublication(permit, draft);
             if (child.spec().mode() == ChildMode.LOCAL) conflict("LOCAL_RESULT_REQUIRES_MULTI_OUTPUT_PUBLICATION");
             if (child.spec().mode() == ChildMode.MODEL) conflict("MODEL_RESULT_REQUIRES_RESPONSE_PUBLICATION");
             ActionSpec action = action(permit.token(), child.spec().actionId()).orElseThrow();
@@ -729,7 +769,7 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     public void markUnresolved(DispatchPermit permit) {
         requireResultMutationPurpose(permit);
         transaction(() -> {
-            lockRun(permit.token(), true);
+            lockDispatchRun(permit);
             ChildRecord child = requireAttempt(permit);
             if (child.state() == ChildState.UNRESOLVED) return null;
             if (child.state() != ChildState.DISPATCHING) conflict("ATTEMPT_NOT_DISPATCHING");
@@ -991,6 +1031,13 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return found;
     }
 
+    private void lockDispatchRun(DispatchPermit permit) {
+        if (permit.adoptionLease() == null) lockRun(permit.token(), true);
+        // The adopted path validates the active consumer and the exact historical producer.
+        // It grants only reads/publication for that original job, never general Run authority.
+        consumers.requirePermit(permit);
+    }
+
     private RunRecord requireFrozenDefinition(RunDefinition definition) {
         RunRecord found = findRun(definition.runId(), definition.revision(), true)
                 .orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
@@ -1028,10 +1075,17 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         } else if (parent != null) {
             conflict("CALLBACK_SCHEMA_UNAVAILABLE");
         }
+        consumers.requireExactAttempt(permit);
         return child;
     }
 
     private void requireDispatchAuthority(DispatchPermit permit, ChildRecord child) {
+        if (permit.adoptionLease() != null) {
+            if (permit.purpose() != DispatchPurpose.RECONCILE || permit.parentCall() != null
+                    || child.spec().mode() != ChildMode.ASYNC || child.jobId() == null)
+                conflict("ADOPTION_ONLY_RECEIVES_EXISTING_JOB");
+            return; // The live consumer binding was checked before the child lock.
+        }
         requireDispatchAuthority(permit.token(), child, permit.purpose(), permit.parentCall());
     }
 

@@ -23,7 +23,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Local release preflight and facts only; no HTTP, scheduling, multi-consumer adoption or cleanup. */
+/** Local release preflight and facts only; shares the consumer gate without issuing HTTP or cleanup. */
 public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatisticsReleaseStore {
     private static final ObjectMapper JSON = new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
@@ -32,6 +32,7 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
     private final Clock clock;
     private final CampaignRunStore runs;
     private final CampaignStatisticsResultStore results;
+    private final JdbcStatisticsConsumerGate consumers;
 
     public JdbcCampaignStatisticsReleaseStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock) {
         this(jdbc, transactions, clock, Limits.defaults(), 8 * 1024 * 1024);
@@ -49,12 +50,16 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
             throw new IllegalArgumentException("Release requires one writable REQUIRED DataSource transaction");
         runs = new JdbcCampaignRunStore(jdbc, transactions, clock, limits);
         results = new JdbcCampaignStatisticsResultStore(jdbc, transactions, clock, limits, pageBytes);
+        consumers = new JdbcStatisticsConsumerGate(jdbc, clock);
     }
 
     @Override
     public Intent prepare(RunToken token, String childId, ArtifactAuthorizer authorizer) {
         Objects.requireNonNull(authorizer);
         return transaction(() -> {
+            // The shared gate locks all revisions in order before the physical job binding.
+            // Old schemas retain their single-producer contract and cannot expose adoption.
+            var shared = consumers.schemaAvailable() ? consumers.lockForRelease(token, childId) : null;
             lockRun(token, true);
             ChildRecord initial = child(token, childId);
             require(initial.jobId() != null, "RELEASE_JOB_REQUIRED");
@@ -78,6 +83,7 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
                     artifact.metadata().ref().payloadHash(), receipt.chainHash(), receipt.spec().expiresAtMillis(), 1, State.REQUESTED);
             if (existing.isPresent()) {
                 requireSameBinding(expected, existing.get().intent());
+                if (shared != null) consumers.markLocalOnly(shared.bindingId());
                 return existing.get().intent();
             }
             Caller owner = token.definition().caller();
@@ -87,6 +93,9 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
                     bindingId, owner.tenantId(), owner.subject(), owner.authVersion(), expected.producerRunId(), expected.revision(),
                     childId, expected.jobId(), expected.requestId(), expected.requestHash(), expected.artifactId(),
                     expected.artifactHash(), expected.chainHash(), expected.expiresAtMillis(), clock.millis());
+            // This change and REQUESTED commit together. Adoption can now depend only on the
+            // just-verified complete local Artifact; no live consumer may still require pages.
+            if (shared != null) consumers.markLocalOnly(shared.bindingId());
             return expected;
         });
     }
@@ -105,10 +114,12 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
     public boolean mayRelease(DispatchPermit permit, Intent expected) {
         try {
             return transaction(() -> {
+                var shared = consumers.schemaAvailable() ? consumers.lockForRelease(permit.token(), permit.childId()) : null;
                 lockRun(permit.token(), true);
                 Stored stored = requireBinding(permit, expected);
                 if (expected.state() != State.REQUESTED || stored.intent().state() != State.REQUESTED
                         || clock.millis() >= stored.intent().expiresAtMillis()) return false;
+                if (shared != null && !shared.localOnly()) return false;
                 ReleaseAttempt attempt = exactAttempt(permit, stored.intent());
                 requireSoleProducer(permit.token(), child(permit.token(), permit.childId()));
                 return attempt.callbackActive() && runs.mayDispatch(permit);
@@ -121,6 +132,7 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
     @Override
     public void confirm(DispatchPermit permit, Intent expected, long remoteExpiresAt) {
         transaction(() -> {
+            if (consumers.schemaAvailable()) consumers.lockForReleaseFact(permit);
             lockRun(permit.token(), false); // Cancellation fences new I/O, not an already dispatched remote fact.
             Stored stored = requireBinding(permit, expected);
             ReleaseAttempt attempt = exactAttempt(permit, stored.intent());

@@ -3,6 +3,8 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery;
 import com.jupiter.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore.Binding;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsResultStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsResultStore.Receipt;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsResultStore.ReceiptSpec;
@@ -32,6 +34,7 @@ public final class StatisticsJobResultReceiver {
     private final ShortLinkBusinessGateway gateway;
     private final Clock clock;
     private final int pagesPerPass;
+    private final CampaignStatisticsConsumerStore consumers;
 
     public StatisticsJobResultReceiver(CampaignRunStore runs, CampaignStatisticsResultStore results,
             ShortLinkBusinessGateway gateway, Clock clock) {
@@ -41,12 +44,25 @@ public final class StatisticsJobResultReceiver {
     /** Work quantum only; every later pass continues the durable cursor, with no total-page cap. */
     public StatisticsJobResultReceiver(CampaignRunStore runs, CampaignStatisticsResultStore results,
             ShortLinkBusinessGateway gateway, Clock clock, int pagesPerPass) {
+        this(runs, results, gateway, clock, pagesPerPass, null);
+    }
+
+    public StatisticsJobResultReceiver(CampaignRunStore runs, CampaignStatisticsResultStore results,
+            ShortLinkBusinessGateway gateway, Clock clock, CampaignStatisticsConsumerStore consumers) {
+        this(runs, results, gateway, clock, 8, consumers);
+    }
+
+    /** Shared consumption is explicit; the legacy constructors never infer a consumer binding. */
+    public StatisticsJobResultReceiver(CampaignRunStore runs, CampaignStatisticsResultStore results,
+            ShortLinkBusinessGateway gateway, Clock clock, int pagesPerPass,
+            CampaignStatisticsConsumerStore consumers) {
         this.runs = Objects.requireNonNull(runs);
         this.results = Objects.requireNonNull(results);
         this.gateway = Objects.requireNonNull(gateway);
         this.clock = Objects.requireNonNull(clock);
         if (pagesPerPass < 1) throw new IllegalArgumentException("Positive page work quantum required");
         this.pagesPerPass = pagesPerPass;
+        this.consumers = consumers;
     }
 
     public Result receive(RunToken token, String childId, AgentPrincipal current, Target target,
@@ -72,9 +88,55 @@ public final class StatisticsJobResultReceiver {
             return result(childId, jobId, Outcome.BLOCKED, safeCode(unsupported.getMessage(), "RESULT_REQUEST_UNSUPPORTED"), null);
         }
         Receipt receipt = results.receipt(token, childId).orElse(null);
-        var context = new ToolContext(token.definition().sessionId(), current.username(), protocol.request(), current);
         DispatchPermit permit = runs.beginReconciliation(token, childId);
+        return receivePass(child, current, target, authorized, protocol, receipt, permit, null, null);
+    }
+
+    /**
+     * Consume the original producer without copying its child, request, pages or Artifact identity.
+     * The supplied grant must authorize this actual frozen consumer scope and remain current; it
+     * is repeated before and after every remote read, not inferred from possession of consumerId.
+     */
+    public Result receiveAdopted(RunToken currentConsumerToken, String consumerId, AgentPrincipal current,
+                                 BooleanSupplier authorized) {
+        requirePrincipal(currentConsumerToken, current);
+        Objects.requireNonNull(authorized);
+        if (consumers == null) throw new IllegalStateException("STATISTICS_CONSUMERS_UNAVAILABLE");
+        if (!authorized.getAsBoolean()) return result(consumerId, null, Outcome.STOPPED, "RUN_ACCESS_DENIED", null);
+        var consumption = consumers.resolve(currentConsumerToken, consumerId,
+                (token, binding, expectation) -> authorized.getAsBoolean());
+        Binding binding = consumption.binding();
+        RunToken source = consumption.sourceToken();
+        String childId = binding.producerChildId();
+        ChildRecord child = runs.child(source, childId).orElseThrow(() -> new IllegalArgumentException("CHILD_NOT_FOUND"));
+        requireSource(binding, source, child);
+        Target target = binding.target();
+        if (child.state() == ChildState.READY)
+            return new Result(childId, binding.jobId(), target.artifactId().equals(child.artifactId()) ? Outcome.ALREADY_READY : Outcome.BLOCKED,
+                    target.artifactId().equals(child.artifactId()) ? null : "RESULT_TARGET_CHANGED", 0, 0, child.artifactId());
+        if (child.callbackActive() || (child.state() == ChildState.DISPATCHING && child.purpose() != DispatchPurpose.RECONCILE))
+            return result(childId, binding.jobId(), Outcome.BLOCKED, "EXECUTION_UNRESOLVED", null);
+        StatisticsJobResultProtocol protocol = new StatisticsJobResultProtocol(child);
+        Receipt receipt = results.receipt(source, childId).orElse(null);
+        DispatchPermit permit = runs.beginAdoptedReconciliation(currentConsumerToken, consumerId);
+        // The Core-issued lease retains the original producer token while fencing on the current
+        // consumer. No alternate writer can turn this into a fresh submission or another child.
+        return receivePass(child, current, target, authorized, protocol, receipt, permit, binding,
+                new AdoptionLease(binding.bindingId(), consumerId, currentConsumerToken, binding.version()));
+    }
+
+    private Result receivePass(ChildRecord child, AgentPrincipal current, Target target,
+            BooleanSupplier authorized, StatisticsJobResultProtocol protocol, Receipt receipt,
+            DispatchPermit permit, Binding adopted, AdoptionLease expectedAdoption) {
+        String childId = child.spec().childId();
+        String jobId = child.jobId();
         try {
+            var context = new ToolContext(permit.token().definition().sessionId(), current.username(), protocol.request(), current);
+            if (adopted != null) {
+                requireSource(adopted, permit.token(), child);
+                if (!Objects.equals(expectedAdoption, permit.adoptionLease()))
+                    throw new IllegalStateException("STATISTICS_CONSUMER_BINDING_CHANGED");
+            }
             if (!live(permit, authorized)) return stopped(childId, jobId, receipt);
             ToolResult response = status(context, jobId);
             if (!live(permit, authorized)) return stopped(childId, jobId, receipt);
@@ -82,6 +144,14 @@ public final class StatisticsJobResultReceiver {
             var status = protocol.status(response.data());
             if ("FAILED".equals(status.state()) || "CANCELLED".equals(status.state()))
                 return result(childId, jobId, Outcome.BLOCKED, "REMOTE_JOB_" + status.state(), receipt);
+            if (status.expiresAtMillis() > 0 && status.expiresAtMillis() <= clock.millis())
+                return result(childId, jobId, Outcome.BLOCKED, "SNAPSHOT_EXPIRED", receipt);
+            if (adopted != null && status.expiresAtMillis() != adopted.expiresAtMillis())
+                return result(childId, jobId, Outcome.BLOCKED, "STATISTICS_RESULT_CHANGED", receipt);
+            if (adopted == null && consumers != null && status.expiresAtMillis() > 0) {
+                if (!live(permit, authorized)) return stopped(childId, jobId, receipt);
+                consumers.pin(permit, status, target);
+            }
             if (!"SUCCEEDED".equals(status.state())) {
                 if (receipt != null) return result(childId, jobId, Outcome.BLOCKED, "STATISTICS_RESULT_CHANGED", receipt);
                 runs.recordWaiting(permit, jobId);
@@ -119,6 +189,19 @@ public final class StatisticsJobResultReceiver {
                 runs.callbackExited(permit);
             }
         }
+    }
+
+    private static void requireSource(Binding binding, RunToken source, ChildRecord child) {
+        var definition = source.definition();
+        if (!binding.owner().equals(definition.caller()) || !binding.producerRunId().equals(definition.runId())
+                || binding.producerRevision() != definition.revision()
+                || !binding.producerDefinitionHash().equals(definition.definitionHash())
+                || !binding.producerChildId().equals(child.spec().childId())
+                || !binding.actionId().equals(child.spec().actionId()) || child.spec().mode() != ChildMode.ASYNC
+                || child.spec().wire() == null || !binding.jobId().equals(child.jobId())
+                || !binding.requestId().equals(child.spec().requestId())
+                || !binding.requestHash().equals(child.spec().wire().hash()))
+            throw new IllegalStateException("STATISTICS_CONSUMER_BINDING_CHANGED");
     }
 
     private boolean live(DispatchPermit permit, BooleanSupplier authorized) {
