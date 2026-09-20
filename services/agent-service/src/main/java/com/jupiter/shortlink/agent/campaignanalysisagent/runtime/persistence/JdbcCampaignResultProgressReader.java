@@ -45,11 +45,13 @@ public final class JdbcCampaignResultProgressReader implements CampaignResultPro
         this.steps = new JdbcCampaignStepStore(jdbc, transactions, Objects.requireNonNull(clock), limits);
     }
 
-    boolean sharesDataSource(JdbcTemplate other) {
+    /** Composition guard for a trusted outer coordinator. */
+    public boolean sharesDataSource(JdbcTemplate other) {
         return other != null && other.getDataSource() == jdbc.getDataSource();
     }
 
-    boolean usesTransactionTemplate(TransactionTemplate other) {
+    /** Composition guard: the coordinator must use this exact transaction template. */
+    public boolean usesTransactionTemplate(TransactionTemplate other) {
         return transactions == other;
     }
 

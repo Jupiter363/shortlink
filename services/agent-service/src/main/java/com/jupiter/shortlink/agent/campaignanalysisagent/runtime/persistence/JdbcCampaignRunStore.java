@@ -78,8 +78,13 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     }
 
     /** Narrow composition proof for stores that must publish business rows and READY atomically. */
-    boolean sharesTransactionDataSource(JdbcTemplate other) {
+    public boolean sharesTransactionDataSource(JdbcTemplate other) {
         return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
+    /** Composition proof for callers that keep one transaction across multiple JDBC stores. */
+    public boolean usesTransactionTemplate(TransactionTemplate other) {
+        return transactions == other;
     }
 
     /**

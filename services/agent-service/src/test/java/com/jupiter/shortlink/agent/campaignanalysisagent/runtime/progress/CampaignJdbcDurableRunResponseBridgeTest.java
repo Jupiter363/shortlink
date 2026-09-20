@@ -175,6 +175,56 @@ class CampaignJdbcDurableRunResponseBridgeTest {
                 .hasMessage("RUN_RESULT_REPORT_ACCESS_REQUIRED");
     }
 
+    @Test
+    void requestFactoryKeepsNoBindingExplicitAndDoesNotInvokeProjectors() {
+        Fixture fixture = fixture("bridge_factory_empty", false, false);
+        AtomicInteger projectorCalls = new AtomicInteger();
+        CampaignJdbcDurableRunResponseBridgeFactory factory = new CampaignJdbcDurableRunResponseBridgeFactory(
+                fixture.jdbc, fixture.transactions, CLOCK,
+                new JdbcCampaignResultProgressReader(fixture.jdbc, fixture.transactions, CLOCK), fixture.reports,
+                (caller, snapshot) -> { projectorCalls.incrementAndGet(); throw new AssertionError(); },
+                (published, mode) -> { projectorCalls.incrementAndGet(); throw new AssertionError(); },
+                (progress, report) -> { projectorCalls.incrementAndGet(); throw new AssertionError(); });
+
+        CampaignJdbcDurableRunResponseBridge.Outcome outcome = factory.read(
+                new CampaignJdbcDurableRunResponseBridgeFactory.Request(
+                        request(fixture, "plan-1").base(), CALLER, "run-1", 1, "plan-1"));
+
+        assertThat(outcome.status()).isEqualTo(CampaignJdbcDurableRunResponseBridge.Outcome.Status.NO_BINDING);
+        assertThat(projectorCalls).hasValue(0);
+    }
+
+    @Test
+    void requestFactoryBuildsFreshCoordinatorForWaitingRun() {
+        Fixture fixture = fixture("bridge_factory_waiting", true, false);
+        fixture.initializeStep();
+        fixture.results.bind(fixture.token,
+                new CampaignRunResultStore.BindingDraft(ExecutionStatus.EMPTY,
+                        new NextAction(CampaignRunResultProjection.NextActionKind.CONTINUE,
+                                "RUN_NOT_STARTED", List.of())));
+        CampaignJdbcDurableRunResponseBridgeFactory factory = new CampaignJdbcDurableRunResponseBridgeFactory(
+                fixture.jdbc, fixture.transactions, CLOCK,
+                new JdbcCampaignResultProgressReader(fixture.jdbc, fixture.transactions, CLOCK), fixture.reports,
+                (caller, snapshot) -> {
+                    assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                    return progress(fixture.token, CampaignProgressView.WorkState.PENDING,
+                            CampaignStepStore.StepStatus.PENDING);
+                },
+                (published, mode) -> { throw new AssertionError("report should not be read"); },
+                (current, report) -> new CampaignRunReportReadProjection(
+                        (caller, runId) -> current,
+                        request -> Optional.empty()).projectPreloaded(current, report));
+
+        CampaignJdbcDurableRunResponseBridge.Outcome outcome = factory.read(
+                new CampaignJdbcDurableRunResponseBridgeFactory.Request(
+                        request(fixture, "plan-1").base(), CALLER, "run-1", 1, "plan-1"));
+
+        assertThat(outcome.status()).isEqualTo(CampaignJdbcDurableRunResponseBridge.Outcome.Status.BOUND_RESPONSE);
+        assertThat(outcome.response()).isPresent();
+        assertThat(outcome.response().orElseThrow().report().availability())
+                .isEqualTo(com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignLegacyAnswerAdapter.Availability.EMPTY);
+    }
+
     private static CampaignJdbcDurableRunResponseBridge bridge(Fixture fixture,
                                                                  CampaignJdbcDurableRunResponseBridge.ProgressProjector progress,
                                                                  CampaignJdbcDurableRunResponseBridge.ReportSnapshotProjector report,
