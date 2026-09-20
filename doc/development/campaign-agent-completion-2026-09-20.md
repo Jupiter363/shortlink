@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E91 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E92 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -122,6 +122,7 @@
 | [E89：principal-bound report access grant][E89] | 42 个 E85–E89 联合定向后端用例通过；grant 绑定 caller、exact run handle/revision/plan 与 mode，owner 由 trusted authorizer 解析，capability 固定且不进入 grant 公共 API；HISTORY/EXPORT 授权、SUPERSEDED、缺 grant、grant 错配和 durable reader fail-closed 均有覆盖，authority transport 只接受 opaque grant。 | 仍是 transport-neutral grant seam，尚未接生产 principal provider、Graph/AgentRunHarness、HTTP/chat 或客户端；旧 raw `Request` 仅保留 trusted 兼容路径，真实 MySQL、客户端历史/导出和浏览器仍待验收。 |
 | [E90：受保护 authority provider 的显式装配][E90] | 44 个 E85–E90 联合定向后端用例通过；受保护 JDBC response profile 的 transport bean 必须显式注入具名 protocol metadata 与 report grant provider，缺任一 provider 直接 fail-fast；grant authority 先核对 opaque grant 与 exact handle，再由可信 resolver 重新签发后构造内部 E84 report access。 | 仍是 transport-neutral provider composition，尚未接生产 principal/metadata provider、Graph/AgentRunHarness、HTTP/chat 或客户端；旧二／三参数构造器仅保留兼容路径，真实 MySQL、客户端历史/导出和浏览器仍待验收。 |
 | [E91：exact response handle 身份边界回归][E91] | 7 个 H2/JDBC resolver 用例通过；subject/authVersion 不匹配、空 caller/subject 在 reference 构造时 fail-fast，SUPERSEDED revision 可按 exact key 作为事实读取；handle 仍不暴露 definition、row version 或 advance token。 | 仍是 transport-neutral identity seam，尚未接 intake 到 handle 的生产身份链、Graph/AgentRunHarness、HTTP/chat 或客户端；真实 MySQL 锁隔离、跨实例并发和浏览器仍待验收。 |
+| [E92：REQUESTED 释放意图的有界恢复读取][E92] | 5 个 H2/JDBC release-store 用例通过；按 tenant/subject/authVersion 与 ACTIVE run 过滤 REQUESTED，稳定排序和 256 上限，返回最小 PendingIntent；release/child/artifact/receipt 身份与 hash/spec 不一致时 fail closed，重复读取零写入。 | 只是只读恢复索引，尚未接 scheduler、Graph、HTTP 或生产恢复入口；调用方仍需重新解析 exact token 和释放门控，H2 不替代真实 MySQL 隔离。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -458,6 +459,7 @@
 [E89]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E90]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E91]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E92]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

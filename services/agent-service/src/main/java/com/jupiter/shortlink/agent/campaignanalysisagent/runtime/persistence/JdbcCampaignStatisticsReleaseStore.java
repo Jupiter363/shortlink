@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Local release preflight and facts only; shares the consumer gate without issuing HTTP or cleanup. */
 public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatisticsReleaseStore {
+    private static final int MAX_PENDING_LIMIT = 256;
     private static final ObjectMapper JSON = new ObjectMapper().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private final JdbcTemplate jdbc;
@@ -108,6 +109,38 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
                             (rs, row) -> stored(rs), token.definition().runId(), token.definition().revision(), childId).stream().findFirst()
                     .map(stored -> { requireProducer(stored, token, childId); return stored.intent(); });
         });
+    }
+
+    @Override
+    public List<PendingIntent> pendingRequested(Caller caller, int limit) {
+        validateCaller(caller);
+        if (limit < 1 || limit > MAX_PENDING_LIMIT)
+            throw new IllegalArgumentException("RELEASE_PENDING_LIMIT_INVALID");
+        return transaction(() -> jdbc.query(
+                "SELECT r.binding_id,r.tenant_id,r.subject_name,r.auth_version,r.producer_run_id,r.revision,r.child_id,"
+                        + "r.job_id,r.request_id,r.request_hash,r.artifact_id,r.artifact_hash,r.chain_hash,r.expires_at,"
+                        + "r.binding_version,r.release_state,l.run_id AS ledger_run_id,l.revision AS ledger_revision,"
+                        + "l.tenant_id AS ledger_tenant_id,l.subject_name AS ledger_subject_name,l.auth_version AS ledger_auth_version,"
+                        + "l.run_status,c.run_id AS child_run_id,c.revision AS child_revision,c.child_id AS ledger_child_id,"
+                        + "c.tenant_id AS child_tenant_id,c.child_mode,c.child_state,c.request_id AS child_request_id,"
+                        + "c.wire_hash AS child_wire_hash,"
+                        + "c.job_id AS child_job_id,c.artifact_id AS child_artifact_id,"
+                        + "a.artifact_id AS metadata_artifact_id,a.tenant_id AS artifact_tenant_id,a.subject_name AS artifact_subject_name,"
+                        + "a.auth_version AS artifact_auth_version,a.run_id AS artifact_run_id,a.revision AS artifact_revision,"
+                        + "a.child_id AS artifact_child_id,a.payload_hash AS artifact_payload_hash,a.expires_at AS artifact_expires_at,"
+                        + "q.artifact_id AS receipt_artifact_id,q.spec_json AS receipt_spec_json,"
+                        + "q.spec_hash AS receipt_spec_hash,q.published AS receipt_published "
+                        + "FROM campaign_statistics_release r "
+                        + "JOIN campaign_run_ledger l ON l.run_id=r.producer_run_id AND l.revision=r.revision "
+                        + "LEFT JOIN campaign_child_ledger c ON c.run_id=r.producer_run_id AND c.revision=r.revision "
+                        + "AND c.child_id=r.child_id "
+                        + "LEFT JOIN campaign_artifact a ON a.artifact_id=r.artifact_id "
+                        + "LEFT JOIN campaign_statistics_receipt q ON q.run_id=r.producer_run_id AND q.revision=r.revision "
+                        + "AND q.child_id=r.child_id "
+                        + "WHERE r.tenant_id=? AND r.subject_name=? AND r.auth_version=? "
+                        + "AND r.release_state='REQUESTED' AND l.run_status='ACTIVE' "
+                        + "ORDER BY r.expires_at ASC,r.producer_run_id ASC,r.revision ASC,r.child_id ASC LIMIT ?",
+                (rs, row) -> pending(rs, caller), caller.tenantId(), caller.subject(), caller.authVersion(), limit));
     }
 
     @Override
@@ -274,7 +307,93 @@ public final class JdbcCampaignStatisticsReleaseStore implements CampaignStatist
                 new Intent(rs.getString("binding_id"), rs.getString("producer_run_id"), rs.getInt("revision"), rs.getString("child_id"),
                         rs.getString("job_id"), rs.getString("request_id"), rs.getString("request_hash"), rs.getString("artifact_id"),
                         rs.getString("artifact_hash"), rs.getString("chain_hash"), rs.getLong("expires_at"), rs.getLong("binding_version"),
-                        State.valueOf(rs.getString("release_state"))));
+                State.valueOf(rs.getString("release_state"))));
+    }
+
+    private static PendingIntent pending(ResultSet rs, Caller expected) throws SQLException {
+        Caller owner = new Caller(rs.getString("tenant_id"), rs.getString("subject_name"),
+                rs.getLong("auth_version"));
+        Caller ledgerOwner = new Caller(rs.getString("ledger_tenant_id"), rs.getString("ledger_subject_name"),
+                rs.getLong("ledger_auth_version"));
+        String runId = rs.getString("producer_run_id");
+        int revision = rs.getInt("revision");
+        String childId = rs.getString("child_id");
+        String jobId = rs.getString("job_id");
+        String artifactId = rs.getString("artifact_id");
+        String requestId = rs.getString("request_id");
+        String requestHash = rs.getString("request_hash");
+        String artifactHash = rs.getString("artifact_hash");
+        String chainHash = rs.getString("chain_hash");
+        long expiresAt = rs.getLong("expires_at");
+        long version = rs.getLong("binding_version");
+        String state = rs.getString("release_state");
+        requirePending(expected.equals(owner) && expected.equals(ledgerOwner)
+                        && Objects.equals(runId, rs.getString("ledger_run_id")) && revision == rs.getInt("ledger_revision")
+                        && Objects.equals(runId, rs.getString("child_run_id")) && revision == rs.getInt("child_revision")
+                        && Objects.equals(childId, rs.getString("ledger_child_id"))
+                        && Objects.equals(expected.tenantId(), rs.getString("child_tenant_id"))
+                        && "ASYNC".equals(rs.getString("child_mode")) && "READY".equals(rs.getString("child_state"))
+                        && Objects.equals(requestId, rs.getString("child_request_id"))
+                        && Objects.equals(jobId, rs.getString("child_job_id"))
+                        && Objects.equals(requestHash, rs.getString("child_wire_hash"))
+                        && Objects.equals(artifactId, rs.getString("child_artifact_id"))
+                        && Objects.equals(artifactId, rs.getString("metadata_artifact_id"))
+                        && Objects.equals(expected.tenantId(), rs.getString("artifact_tenant_id"))
+                        && Objects.equals(expected.subject(), rs.getString("artifact_subject_name"))
+                        && expected.authVersion() == rs.getLong("artifact_auth_version")
+                        && Objects.equals(runId, rs.getString("artifact_run_id"))
+                        && revision == rs.getInt("artifact_revision")
+                        && Objects.equals(childId, rs.getString("artifact_child_id"))
+                        && Objects.equals(artifactHash, rs.getString("artifact_payload_hash"))
+                        && expiresAt == rs.getLong("artifact_expires_at")
+                        && Objects.equals(artifactId, rs.getString("receipt_artifact_id"))
+                        && receiptSpecMatches(rs, jobId, requestHash, artifactId, expiresAt)
+                        && rs.getBoolean("receipt_published")
+                        && version == 1 && expiresAt > 0 && "REQUESTED".equals(state)
+                        && validId(runId, 128) && validId(childId, 128) && validId(jobId, 128)
+                        && validId(requestId, 128) && validId(artifactId, 128)
+                        && hash(requestHash) && hash(artifactHash) && hash(chainHash)
+                        && bindingId(owner, jobId).equals(rs.getString("binding_id")),
+                "RELEASE_PENDING_BINDING_CORRUPTED");
+        return new PendingIntent(runId, revision, childId, jobId, version, expiresAt, State.REQUESTED);
+    }
+
+    private static boolean receiptSpecMatches(ResultSet rs, String jobId, String requestHash,
+                                              String artifactId, long expiresAt) throws SQLException {
+        String specJson = rs.getString("receipt_spec_json");
+        String specHash = rs.getString("receipt_spec_hash");
+        if (specJson == null || !hash(specHash) || !CampaignRunStore.sha256(specJson).equals(specHash)) return false;
+        try {
+            JsonNode spec = JSON.readTree(specJson);
+            return spec != null && spec.isObject()
+                    && Objects.equals(jobId, spec.path("jobId").asText(null))
+                    && Objects.equals(requestHash, spec.path("requestHash").asText(null))
+                    && Objects.equals(artifactId, spec.path("artifactId").asText(null))
+                    && expiresAt == spec.path("expiresAtMillis").asLong(Long.MIN_VALUE);
+        } catch (JsonProcessingException malformed) {
+            return false;
+        }
+    }
+
+    private static void validateCaller(Caller caller) {
+        Objects.requireNonNull(caller, "RELEASE_PENDING_CALLER_REQUIRED");
+        if (!validId(caller.tenantId(), 96) || caller.subject() == null || caller.subject().isBlank()
+                || caller.subject().length() > 128 || caller.subject().chars().anyMatch(Character::isISOControl)
+                || caller.authVersion() < 1)
+            throw new IllegalArgumentException("RELEASE_PENDING_CALLER_INVALID");
+    }
+
+    private static boolean validId(String value, int max) {
+        return value != null && !value.isBlank() && value.length() <= max
+                && value.matches("[A-Za-z0-9][A-Za-z0-9_.:-]*");
+    }
+
+    private static boolean hash(String value) {
+        return value != null && value.matches("[0-9a-fA-F]{64}");
+    }
+
+    private static void requirePending(boolean valid, String reason) {
+        if (!valid) throw failure(reason);
     }
     private static void requireProducer(Stored stored, RunToken token, String childId) {
         if (!stored.owner().equals(token.definition().caller())) throw new SecurityException("RELEASE_SUBJECT_MISMATCH");
