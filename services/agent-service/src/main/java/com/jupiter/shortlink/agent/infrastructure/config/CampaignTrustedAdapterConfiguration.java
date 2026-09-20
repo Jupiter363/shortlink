@@ -6,9 +6,11 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportPu
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.GoalAssessor;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignTrustedRunResultAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanApplicationService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanRuntimeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanTrustedAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignRunReportPublicationCoordinator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.ReportLifecycleStore;
 import java.time.Clock;
@@ -32,9 +34,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Profile("campaign-trusted-adapter")
 public class CampaignTrustedAdapterConfiguration {
     @Bean
-    public ReportLifecycleStore campaignReportLifecycleStore(JdbcTemplate jdbc,
-                                                              @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions,
-                                                              Clock clock) {
+    public JdbcReportLifecycleStore campaignReportLifecycleStore(JdbcTemplate jdbc,
+                                                                  @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions,
+                                                                  Clock clock) {
         return new JdbcReportLifecycleStore(jdbc, transactions, clock);
     }
 
@@ -57,6 +59,21 @@ public class CampaignTrustedAdapterConfiguration {
             CampaignReportPublisher publisher,
             CampaignReportApplicationService.AccessAuthorizer authorizer) {
         return new CampaignReportApplicationService(publisher, authorizer);
+    }
+
+    @Bean
+    public CampaignTrustedRunResultAdapter campaignTrustedRunResultAdapter(
+            JdbcTemplate jdbc, JdbcReportLifecycleStore lifecycle,
+            @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions, Clock clock) {
+        return new CampaignTrustedRunResultAdapter(jdbc, lifecycle, transactions, clock);
+    }
+
+    @Bean
+    public CampaignRunReportPublicationCoordinator campaignRunReportPublicationCoordinator(
+            CampaignReportApplicationService reports, CampaignTrustedRunResultAdapter results,
+            JdbcReportLifecycleStore lifecycle, JdbcTemplate jdbc,
+            @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions) {
+        return new CampaignRunReportPublicationCoordinator(reports, results, lifecycle, jdbc, transactions);
     }
 
     @Bean

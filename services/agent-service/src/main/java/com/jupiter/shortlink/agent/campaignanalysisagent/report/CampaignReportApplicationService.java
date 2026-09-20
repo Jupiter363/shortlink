@@ -52,6 +52,11 @@ public final class CampaignReportApplicationService {
                 request.mode());
     }
 
+    /** Composition guard for an atomic report/result publisher; not a public storage escape hatch. */
+    public boolean usesLifecycleStore(ReportLifecycleStore store) {
+        return publisher.usesLifecycleStore(store);
+    }
+
     private void authorize(String owner, String capability, Operation operation) {
         if (!authorizer.mayAccess(owner, capability, operation)) {
             throw new SecurityException("REPORT_ACCESS_DENIED");

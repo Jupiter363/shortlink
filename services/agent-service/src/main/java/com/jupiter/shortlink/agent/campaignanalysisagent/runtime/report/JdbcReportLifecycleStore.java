@@ -32,6 +32,11 @@ public final class JdbcReportLifecycleStore implements ReportLifecycleStore {
         return other != null && other.getDataSource() == jdbc.getDataSource();
     }
 
+    /** Composition guard: trusted multi-store writes must use this exact transaction template. */
+    public boolean usesTransactionTemplate(TransactionTemplate other) {
+        return transactions == other;
+    }
+
     @Override
     public Published publish(Draft draft) {
         Objects.requireNonNull(draft);

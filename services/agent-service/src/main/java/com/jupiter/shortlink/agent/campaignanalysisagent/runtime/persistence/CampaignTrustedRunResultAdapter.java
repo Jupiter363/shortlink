@@ -10,6 +10,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcRepo
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.ReportLifecycleStore;
 import java.time.Clock;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -51,6 +52,28 @@ public final class CampaignTrustedRunResultAdapter {
         return context.coordinator().bind(token, Objects.requireNonNull(draft, "RUN_RESULT_DRAFT_REQUIRED"));
     }
 
+    /** Composition guard for the atomic publication boundary. */
+    public boolean usesLifecycleStore(JdbcReportLifecycleStore lifecycle) {
+        return reports == lifecycle;
+    }
+
+    /** Composition guard for the atomic publication boundary. */
+    public boolean usesTransactionTemplate(TransactionTemplate template) {
+        return transactions == template;
+    }
+
+    /**
+     * Runs a trusted action while the exact run and any existing result binding are locked. The
+     * action is deliberately supplied by a typed composition boundary, not a transport caller.
+     */
+    public <T> T withCurrentRunAndBinding(Caller caller, RunToken token,
+                                          String reportOwner, String reportCapability,
+                                          Supplier<T> action) {
+        RequestContext context = context(caller, token, reportOwner, reportCapability);
+        return context.results().withCurrentRunAndBinding(token, Objects.requireNonNull(action,
+                "RUN_RESULT_ACTION_REQUIRED"));
+    }
+
     /** Releases only the exact report reference recorded by the current run revision. */
     public long release(Caller caller, RunToken token, ReportRef reportRef,
                         String reportOwner, String reportCapability) {
@@ -73,8 +96,9 @@ public final class CampaignTrustedRunResultAdapter {
         JdbcCampaignRunResultBindingCoordinator coordinator =
                 new JdbcCampaignRunResultBindingCoordinator(
                         results, reports, jdbc, transactions, reportOwner, reportCapability);
-        return new RequestContext(coordinator);
+        return new RequestContext(results, coordinator);
     }
 
-    private record RequestContext(JdbcCampaignRunResultBindingCoordinator coordinator) {}
+    private record RequestContext(JdbcCampaignRunResultStore results,
+                                  JdbcCampaignRunResultBindingCoordinator coordinator) {}
 }

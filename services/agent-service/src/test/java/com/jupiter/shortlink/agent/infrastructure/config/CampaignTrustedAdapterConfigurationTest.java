@@ -7,9 +7,11 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanValidator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportApplicationService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportPublisher;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignTrustedRunResultAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanApplicationService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanRuntimeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanTrustedAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignRunReportPublicationCoordinator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.ReportLifecycleStore;
 import java.time.Clock;
 import java.time.Instant;
@@ -63,6 +65,8 @@ class CampaignTrustedAdapterConfigurationTest {
                     assertThat(context).hasSingleBean(CampaignReplanRuntimeFactory.class);
                     assertThat(context).hasSingleBean(CampaignReplanTrustedAdapter.class);
                     assertThat(context).hasSingleBean(CampaignReportApplicationService.class);
+                    assertThat(context).hasSingleBean(CampaignTrustedRunResultAdapter.class);
+                    assertThat(context).hasSingleBean(CampaignRunReportPublicationCoordinator.class);
                     assertThat(context).hasSingleBean(JdbcTemplate.class);
                     assertThat(context).hasSingleBean(TransactionTemplate.class);
                     ReportLifecycleStore store = context.getBean(ReportLifecycleStore.class);
@@ -84,7 +88,8 @@ class CampaignTrustedAdapterConfigurationTest {
                     new ClassPathResource("sql/migration/V20260920__campaign_statistics_result.sql"),
                     new ClassPathResource("sql/migration/V20260920_19__campaign_statistics_consumers.sql"),
                     new ClassPathResource("sql/migration/V20260920_21__campaign_replan_receipt.sql"),
-                    new ClassPathResource("sql/migration/V20260920_22__campaign_report_lifecycle.sql"))
+                    new ClassPathResource("sql/migration/V20260920_22__campaign_report_lifecycle.sql"),
+                    new ClassPathResource("sql/migration/V20260921__campaign_run_result_binding.sql"))
                     .execute(dataSource);
             return new JdbcTemplate(dataSource);
         }

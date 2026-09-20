@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E74 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E75 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -105,6 +105,7 @@
 | [E72：run-result 绑定原子生命周期协调][E72] | 4 个 H2/JDBC 定向用例通过；`JdbcCampaignRunResultBindingCoordinator` 强制共享数据源与可写 `REQUIRED` 事务，绑定前锁定当前 token，retain 与 durable binding 同事务提交或回滚；释放要求当前 token 且 reportRef 与绑定一致。 | 仍是显式 typed 组合件，尚未接 Graph/AgentRunHarness/HTTP/Spring 生产入口、客户端历史/导出或真实 MySQL；清理与跨服务验收仍待完成。 |
 | [E73：request-bound run-result adapter][E73] | 6 个 H2/JDBC 定向用例通过；`CampaignTrustedRunResultAdapter` 按请求校验 Caller/RunToken，并为每次调用创建独立 owner/capability verifier，复用 E72 共享事务；错误凭证、错误主体和过期 token 均不改变引用。 | 仍是显式 typed 组合件，尚未接 Graph/AgentRunHarness/HTTP/Spring 生产入口、客户端历史/导出或真实 MySQL。 |
 | [E74：终态 run-result 引用清理][E74] | 5 个新增 H2/JDBC 清理用例，加上 9 个受影响 lifecycle/coordinator 用例通过；精确终态 ledger/binding 锁、过期或已删除报告的幂等引用释放、活动/主体/reportRef 拒绝，以及 retain/release/cleanup 的 report 行锁顺序已验证。 | 仍是显式 typed 维护组件，尚未接 Graph/AgentRunHarness/HTTP/Spring 生产入口、客户端历史/导出、真实 MySQL 或跨服务清理调度。 |
+| [E75：报告发布与 run-result 绑定原子化][E75] | 8 个新增 H2/JDBC 用例，连同配置和受影响绑定/存储/adapter 用例共 24 个定向用例通过；另执行 E70–E75 联合回归 51 个用例通过。共享 writable REQUIRED 事务保证发布、retain 与 binding 同步提交或回滚；统一 run→binding→report 锁序；过期 token、授权/身份错配和状态矩阵冲突回滚；撤权后精确重放拒绝且不重复 retain；返回只含脱敏 reportRef/binding，trusted profile 显式装配 coordinator。 | 仍是显式 typed 组合件，尚未接 Graph/AgentRunHarness/HTTP/Spring 业务入口、客户端历史/导出、真实 MySQL 或浏览器；正式读取仍需走授权 read projection。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -207,10 +208,10 @@
 | P5-03：观察／计算／假设／因果主张／建议分开；完整联合分布不是因果；全部／唯一／导致等强结论须覆盖与方法证据。 | C §2.1；R §5.1；R10 | 静态 CAUSAL_EVIDENCE 合同。 | 待实现／验收 | 矛盾解释拒该块保数据；因果条件不足 PARTIAL/gap，脚本反例通过后仍标真实模型质量待验。 |
 | P5-04：evidence_synthesis 只产 analysis 建议，不发布权威完成；可信 ExecutionContext 注入原 goalSpecs；无模型也可确定性交付已算结果。 | C §6；I §5 | 仅拟议执行器。 | 待实现／验收 | 版本化类型合同与事实引用，解释失败／缺综合时公共发布器仍可工作。 |
 | P5-05：按问题组织可重复章节：指标／图表→分段解释→相关表→假设反证→验证建议；不按节点强生等量卡片，不限几句话。 | I §5；C §4、§6；Issue #62 | 旧结果展示不等于新正式协议。 | 待实现／验收 | 版本化通用 ReportSection／block schema，goalIds/evidenceArtifactIds，全量结果入口和分页，保完整分析。 |
-| P5-06：reportId/revision 预分配，实际固定载荷和 EvidenceManifest READY/hash/auth/read-contract/clientcapability 校验，同事务发布报告与保留引用。 | R §4.3、§5.1；C §5 | E03/E08 只提供 Artifact／分页事务前置。 | 待实现／验收 | ReportStore／公共发布器，正式读取路由；草稿不预公开、不靠 locationRef 或无法访问的 artifactId算交付。 |
-| P5-07：reuseExpiresAt 与 retainedUntil 分开，旧 expiresAt兼容一致；清理与新引用同载荷锁/CAS，不可引用 STAGING/清理中载荷。 | R §4.3；C §5、§9.1 | 当前 Artifact 单 expiresAt，不能证明报告留存。 | 待实现／验收 | 增量生命周期／保留保护；失败仅本次无引用新增载荷待清理，不删除共享 READY，不暴露半报告。 |
+| P5-06：reportId/revision 预分配，实际固定载荷和 EvidenceManifest READY/hash/auth/read-contract/clientcapability 校验，同事务发布报告与保留引用。 | R §4.3、§5.1；C §5 | E51/E53 durable lifecycle/publisher；E75 共享发布＋retain＋run-result binding 事务及回滚验证。 | 部分已验 | 接入正式运行入口和读取路由；草稿不预公开、不靠 locationRef 或无法访问的 artifactId算交付。 |
+| P5-07：reuseExpiresAt 与 retainedUntil 分开，旧 expiresAt兼容一致；清理与新引用同载荷锁/CAS，不可引用 STAGING/清理中载荷。 | R §4.3；C §5、§9.1 | E51/E74 lifecycle 期限、引用 CAS、终态清理和 report 行锁；E75 发布失败回滚无悬空 binding/reference。 | 部分已验 | 接入真实清理调度与跨入口对账；失败仅本次无引用新增载荷待清理，不删除共享 READY，不暴露半报告。 |
 | P5-08：HISTORY_VIEW/EXPORT 固定报告manifest、checksum、留存与当前对象权限；源job过期可读本地；不要求旧authVersion字面等当前；撤权仍拒绝。 | R §4.3；C §5 | 当前 Artifact严格授权不等于历史用途合同。 | 待实现／验收 | 正式历史／导出授权读、ANALYSIS_REUSE分离；清理后 REPORT_DATA_EXPIRED，不能静默重查当前数据；不新增远端 pin。 |
-| P5-09：后端 executionStatus／goalAssessments／reportRef／nextAction 分开；旧 answer 从同一报告／状态适配，WAITING可与部分已答并存。 | R §5.2；C §4 | E05/E09 内部进度视图；E66 typed legacy answer adapter；E67 sanitized AgentRunResult bridge；E68 typed run-result projection；E69 authorized run/report read composition；E70 durable run-result binding；E71 durable authorized read composition；E72 atomic retain/bind/release coordinator；E73 request-bound adapter；E74 terminal reference cleanup。 | 部分已验 | 接入生产 Graph/Run response 与正式路由，补客户端历史/导出和真实 MySQL；上次历史完成报告不可冒充本轮等待结果。 |
+| P5-09：后端 executionStatus／goalAssessments／reportRef／nextAction 分开；旧 answer 从同一报告／状态适配，WAITING可与部分已答并存。 | R §5.2；C §4 | E05/E09 内部进度视图；E66 typed legacy answer adapter；E67 sanitized AgentRunResult bridge；E68 typed run-result projection；E69 authorized run/report read composition；E70 durable run-result binding；E71 durable authorized read composition；E72 atomic retain/bind/release coordinator；E73 request-bound adapter；E74 terminal reference cleanup；E75 atomic publication/binding coordinator。 | 部分已验 | 接入生产 Graph/Run response 与正式路由，补客户端历史/导出和真实 MySQL；上次历史完成报告不可冒充本轮等待结果。 |
 | UI-01：开放前最低客户端状态协议；老客户端新请求旧路径，续接新Run明确升级；客户端能力不是授权。 | I §2、§7；R §5.2；R11 | 新入口关闭，尚无最小状态消费验收。 | 待实现／验收 | API后端能力门与前端状态标签／导出修正；缺客户端验收不得开放新运行器。 |
 | UI-02：通用章节／图表／文本／表格渲染、业务进度与局部恢复、证据入口、长表分页；不每Skill／prompt一页。 | I §5；后续前端阶段 | 旧页面功能不可视为新协议验收。 | 待实现／验收 | 消费正式 Report schema 与授权读取／nextAction；Plan/Action详细诊断独立入口，产品不暴露编排术语。 |
 | UI-03：页面、历史、复制、导出同 reportId/revision 与固定证据；完整结果入口发布后可读，撤权／过期状态准确。 | I §5；R §4.3、§5.1 | 后端报告／客户端均无该验收。 | 待实现／验收 | 后端正式路由用fixture验收，允许前端验证后再做视觉／交互；不得把后台有 Artifact 等同用户已拿到结果。 |
@@ -424,6 +425,7 @@
 [E72]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E73]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E74]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E75]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
