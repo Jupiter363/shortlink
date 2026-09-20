@@ -53,6 +53,15 @@ public final class CampaignReportPublisher {
         this.lifecycleStore = Objects.requireNonNull(lifecycleStore);
     }
 
+    /**
+     * Internal configuration check used by the typed application boundary.  It is package
+     * private deliberately: callers should use {@link CampaignReportApplicationService} rather
+     * than branching on the publisher's storage mode themselves.
+     */
+    boolean hasDurableStore() {
+        return lifecycleStore != null;
+    }
+
     public PublishedReport publish(PublishRequest request) {
         Objects.requireNonNull(request);
         if (!requiredClientCapability.equals(request.clientCapability()))

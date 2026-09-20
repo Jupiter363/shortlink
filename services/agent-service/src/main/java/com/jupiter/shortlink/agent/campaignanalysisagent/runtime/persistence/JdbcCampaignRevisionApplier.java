@@ -78,30 +78,49 @@ public final class JdbcCampaignRevisionApplier implements ReplanCoordinator.Revi
         Optional<ReplanCoordinator.AppliedRevision> replay = finalizedReplay(request, candidate);
         if (replay.isPresent()) return replay.get();
 
-        return transactions.execute(status -> {
-            // The snapshot and all subsequent writes share this transaction.  activeConsumers
-            // locks the base row and therefore also fences a concurrent replan/cancel.
-            runs.requireReplanReady(request.baseRun());
-            List<JdbcCampaignStatisticsConsumerStore.ActiveConsumer> active = consumers.activeConsumers(request.baseRun());
-            validateConsumers(request.baseRun(), candidate.definition(), active);
+        try {
+            return transactions.execute(status -> {
+                // The snapshot and all subsequent writes share this transaction.  activeConsumers
+                // locks the base row and therefore also fences a concurrent replan/cancel.
+                runs.requireReplanReady(request.baseRun());
+                List<JdbcCampaignStatisticsConsumerStore.ActiveConsumer> active = consumers.activeConsumers(request.baseRun());
+                validateConsumers(request.baseRun(), candidate.definition(), active);
 
-            // Receipt must be recorded before revise(): JdbcReplanReceiptStore intentionally
-            // accepts receipts only while the base revision is ACTIVE.
-            ReplanReceiptStore.Receipt receipt = receipts.record(request.baseRun(),
-                    candidate.plan().revision(), candidate.planHash(), request.requestJson(), "ACCEPTED", "ACCEPTED");
-            RunToken next = runs.revise(request.baseRun(), candidate.plan().revision(), candidate.definition().definitionJson());
+                // Receipt must be recorded before revise(): JdbcReplanReceiptStore intentionally
+                // accepts receipts only while the base revision is ACTIVE.
+                ReplanReceiptStore.Receipt receipt = receipts.record(request.baseRun(),
+                        candidate.plan().revision(), candidate.planHash(), request.requestJson(), "ACCEPTED", "ACCEPTED");
+                RunToken next = runs.revise(request.baseRun(), candidate.plan().revision(), candidate.definition().definitionJson());
 
-            Set<String> adoptedIds = new HashSet<>();
-            for (JdbcCampaignStatisticsConsumerStore.ActiveConsumer activeConsumer : active) {
-                CampaignStatisticsConsumerStore.Consumer old = activeConsumer.consumer();
-                CampaignStatisticsConsumerStore.Binding binding = activeConsumer.binding();
-                String id = CampaignStatisticsConsumerStore.consumerId(next.definition(),
-                        old.expectation().stepId(), binding.bindingId());
-                if (!adoptedIds.add(id)) throw new IllegalStateException("CONSUMER_IDENTITY_COLLISION");
-                consumers.adopt(next, id, binding.bindingId(), old.expectation(), authorizer);
-            }
-            return new ReplanCoordinator.AppliedRevision(next, receipt);
-        });
+                Set<String> adoptedIds = new HashSet<>();
+                for (JdbcCampaignStatisticsConsumerStore.ActiveConsumer activeConsumer : active) {
+                    CampaignStatisticsConsumerStore.Consumer old = activeConsumer.consumer();
+                    CampaignStatisticsConsumerStore.Binding binding = activeConsumer.binding();
+                    String id = CampaignStatisticsConsumerStore.consumerId(next.definition(),
+                            old.expectation().stepId(), binding.bindingId());
+                    if (!adoptedIds.add(id)) throw new IllegalStateException("CONSUMER_IDENTITY_COLLISION");
+                    consumers.adopt(next, id, binding.bindingId(), old.expectation(), authorizer);
+                }
+                return new ReplanCoordinator.AppliedRevision(next, receipt);
+            });
+        } catch (IllegalStateException staleBase) {
+            // Two trusted coordinators can pass the initial receipt lookup before either one
+            // locks the base.  If the winner commits first, the loser observes the fenced old
+            // token (or its now-revoked status).  Re-read the owner-scoped finalized receipt
+            // after the failed transaction and replay only an exact request/candidate match.
+            // Without that receipt the original fencing failure remains authoritative.
+            if (!staleBaseAfterConcurrentCommit(staleBase)) throw staleBase;
+            Optional<ReplanCoordinator.AppliedRevision> finalized = finalizedReplay(request, candidate);
+            if (finalized.isPresent()) return finalized.get();
+            throw staleBase;
+        }
+    }
+
+    private static boolean staleBaseAfterConcurrentCommit(IllegalStateException failure) {
+        return "RUN_TOKEN_FENCED".equals(failure.getMessage())
+                || "RUN_NOT_ACTIVE".equals(failure.getMessage())
+                || "REPLAN_RUN_NOT_FOUND".equals(failure.getMessage())
+                || "REPLAN_RUN_TOKEN_INVALID".equals(failure.getMessage());
     }
 
     private Candidate validateCandidate(ReplanCoordinator.ApplyRequest request) {

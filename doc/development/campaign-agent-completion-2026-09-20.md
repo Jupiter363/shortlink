@@ -85,6 +85,9 @@
 | [E54：typed 重规划应用边界][E54] | 三个直接受影响后端用例通过；owner/run token/capability 在协调前重检，结果保留 APPLIED/IDEMPOTENT/REJECTED，不把 chat/tool 参数当写权限。 | 尚无 token resolver、Spring/chat/HTTP 入口或生产 profile。 |
 | [E55：无副作用 Native Graph 预编译][E55] | 两个直接受影响后端用例通过；绑定 base frozen inputs/identity，使用 SAA 原生 compile 与 inert driver，不创建 PersistentPlanDriver、不 advance、不写 checkpoint。 | 仍需每次按可信 base run 装配；MemorySaver 只用于前置编译，真实运行图和生产 executor 尚未接线。 |
 | [E56：JDBC 重规划原子应用][E56] | 四个 H2/JDBC 直接受影响用例通过；无 callback 时锁定 base，校验并接管全部兼容 consumer，receipt→revise→adopt 同一 REQUIRED 事务，失败全回滚，精确重放不重复写入，允许历史 producer revision。 | 尚无 Spring/HTTP 生产入口；并发协调器 loser 的 replay 重试、真实 MySQL、分布式 fencing 和远端 cancel 未验。 |
+| [E57：可信重规划运行时工厂][E57] | 三个直接受影响后端用例通过；校验同一 writable REQUIRED 数据源，`open` 绑定 owner/ACTIVE/run token/frozen run，每次执行重新装配无副作用预编译器与协调器。 | 仍是显式 typed 组合件；未注册 Spring、HTTP、chat 或 tool 入口，真实 profile 装配待完成。 |
+| [E58：并发重规划精确回放][E58] | 五个 H2/JDBC 直接受影响用例通过；旧 token 竞态仅在 owner、request JSON、candidate revision、plan hash 和提交 revision 全匹配时回放，两个相同并发请求只产生一个 revision/receipt。 | H2 不能替代真实 MySQL 锁、分布式 fencing、跨实例网络故障与远端 cancel 验收。 |
+| [E59：类型化耐久报告边界][E59] | 四个直接受影响后端用例通过；无 durable store 构造即拒绝，owner/capability/revision/期限在 I/O 前校验，HISTORY_VIEW/EXPORT 模式原样传递并保留发布幂等。 | 尚无报告服务 Spring/HTTP/chat 接线、客户端历史/导出或真实 MySQL 验收。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -386,6 +389,9 @@
 [E54]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E55]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E56]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E57]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E58]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E59]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
