@@ -16,6 +16,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.Artifac
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.BindingException;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.CompletionCriterionRegistry;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.ExplorationCandidate;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.exploration.ExplorationArtifactBoundary;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepPermit;
@@ -64,15 +65,27 @@ public final class JdbcCampaignExplorationCandidateStore implements CampaignExpl
     private final CompletionCriterionRegistry criteria;
     private final ArtifactAuthorizer authorizer;
     private final JdbcExplorationCallbackGate callbacks;
+    private final ExplorationArtifactBoundary artifactBoundary;
 
     public JdbcCampaignExplorationCandidateStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             CampaignRunStore runs, CampaignStepStore steps, ModelInvocationRegistry models, CapabilityCatalog catalog,
             ArtifactContractRegistry artifacts, CompletionCriterionRegistry criteria, ArtifactAuthorizer authorizer) {
+        this(jdbc, transactions, clock, runs, steps, models, catalog, artifacts, criteria, authorizer,
+                ExplorationArtifactBoundary.exact());
+    }
+
+    public JdbcCampaignExplorationCandidateStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            CampaignRunStore runs, CampaignStepStore steps, ModelInvocationRegistry models, CapabilityCatalog catalog,
+            ArtifactContractRegistry artifacts, CompletionCriterionRegistry criteria, ArtifactAuthorizer authorizer,
+            ExplorationArtifactBoundary artifactBoundary) {
         this.jdbc = Objects.requireNonNull(jdbc); this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock); this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps); this.models = Objects.requireNonNull(models);
         this.catalog = Objects.requireNonNull(catalog); this.artifacts = Objects.requireNonNull(artifacts);
         this.criteria = Objects.requireNonNull(criteria); this.authorizer = Objects.requireNonNull(authorizer);
+        this.artifactBoundary = Objects.requireNonNull(artifactBoundary);
+        require(artifactBoundary.configurationId() != null && !artifactBoundary.configurationId().isBlank()
+                && artifactBoundary.configurationId().length() <= 512, "CANDIDATE_BOUNDARY_CONFIGURATION_INVALID");
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
                 || manager.getDataSource() != jdbc.getDataSource() || transactions.isReadOnly()
                 || transactions.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRED
@@ -232,8 +245,7 @@ public final class JdbcCampaignExplorationCandidateStore implements CampaignExpl
     }
 
     private void validBoundary(Source source, ArtifactMetadata actual) {
-        var policy = source.policy().step().explorationPolicy();
-        valid(policy.scopeRef().equals(actual.ref().scopeRef()) && policy.periodsRef().equals(actual.ref().periodsRef()),
+        valid(artifactBoundary.permits(source.token(), source.policy().step(), actual, authorizer),
                 "CANDIDATE_ARTIFACT_BOUNDARY_MISMATCH");
     }
 
@@ -266,6 +278,8 @@ public final class JdbcCampaignExplorationCandidateStore implements CampaignExpl
         boundary(frozen.inputs(), step, registered, "PeriodsRef", requested.periodsRef());
         String registryId = criteria.configurationId(registered);
         require(registryId != null && !registryId.isBlank() && registryId.length() <= 512, "CANDIDATE_REGISTRY_INVALID");
+        if (artifactBoundary != ExplorationArtifactBoundary.exact()) registryId = "candidate-boundary/v1:"
+                + CampaignRunStore.sha256(encode(List.of(registryId, artifactBoundary.configurationId())));
         return new Policy(step, registered, registryId);
     }
 

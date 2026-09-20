@@ -10,6 +10,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignDeclineSelectionStore.SelectionPair;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Period;
 import com.jupiter.shortlink.contract.FrozenQueryScope;
 import java.nio.charset.StandardCharsets;
@@ -60,6 +62,32 @@ public final class CampaignSelectedScope {
     /** Read-only reconstruction also supplies the exact registered approval for LOCAL recovery. */
     public Prepared prepare(RunToken token, String stepId, String selectedId, String evidenceId,
                             List<Period> expectedPeriods) {
+        String identity = CampaignRunStore.sha256(json(List.of(token.definition().caller(), token.definition().runId(),
+                token.definition().planId(), token.definition().revision(), stepId, "selected-scope")));
+        return prepare(token, selectedId, evidenceId, expectedPeriods, identity, "selected-scope-action-" + identity);
+    }
+
+    public Prepared prepare(RunToken token, CallSpec call, String selectedId, String evidenceId, List<Period> expectedPeriods) {
+        return prepare(token, selectedId, evidenceId, expectedPeriods, callIdentity(token, call.stepId(), call.callId()), call.actionId());
+    }
+
+    public Prepared prepare(CallPermit permit, String selectedId, String evidenceId, List<Period> expectedPeriods) {
+        RunToken token = permit.step().runToken();
+        return prepare(token, selectedId, evidenceId, expectedPeriods,
+                callIdentity(token, permit.step().stepId(), permit.callId()), permit.actionId());
+    }
+
+    public ArtifactRef publish(CapabilityExecution context, CallPermit permit, String selectedId,
+                               String evidenceId, List<Period> expectedPeriods) throws Exception {
+        context.requireCurrent();
+        Prepared prepared = prepare(permit, selectedId, evidenceId, expectedPeriods);
+        ArtifactRef result = context.local(prepared.child(), prepared.approval(), authorizer, prepared.calculation()).get(OUTPUT);
+        context.requireCurrent();
+        return result;
+    }
+
+    private Prepared prepare(RunToken token, String selectedId, String evidenceId, List<Period> expectedPeriods,
+                             String identity, String actionId) {
         Snapshot snapshot = snapshot(token.definition().caller(), selectedId, evidenceId,
                 List.copyOf(expectedPeriods), null);
         SelectionPair pair = snapshot.pair();
@@ -67,8 +95,6 @@ public final class CampaignSelectedScope {
                 "selectionEvidence", pair.selectionEvidence(), "sourceScope", pair.scopeArtifact());
         Instant expiry = inputs.values().stream().map(value -> value.ref().expiresAt())
                 .min(Instant::compareTo).orElseThrow();
-        String identity = CampaignRunStore.sha256(json(List.of(token.definition().caller(), token.definition().runId(),
-                token.definition().planId(), token.definition().revision(), stepId, "selected-scope")));
         OutputBinding output = new OutputBinding("selected-scope-" + identity, TYPE, SCHEMA,
                 (String) snapshot.manifest().get("scopeRef"), pair.definition().periodsRef());
         String parameters = json(Map.of("selectedArtifactId", selectedId, "evidenceArtifactId", evidenceId,
@@ -83,7 +109,7 @@ public final class CampaignSelectedScope {
                 inputTypes, Map.of(OUTPUT, new TypeContract(TYPE, SCHEMA)),
                 value -> value.equals(tree(parameters)), values -> tree(payload).equals(values.get(OUTPUT)));
         Approval approval = new LocalCalculationRegistry(List.of(contract)).approve(invocation);
-        ChildSpec child = new ChildSpec("selected-scope-child-" + identity, "selected-scope-action-" + identity,
+        ChildSpec child = new ChildSpec("selected-scope-child-" + identity, actionId,
                 ChildMode.LOCAL, "selected-scope-request-" + identity, null, invocation);
         return new Prepared(child, approval, boundary -> {
             for (String name : inputs.keySet()) boundary.readInput(name);
@@ -95,6 +121,11 @@ public final class CampaignSelectedScope {
                     "{\"calculator\":\"campaign-selected-scope/v1\",\"enumerationVersionKind\":\"SOURCE_GROUP_MEMBERSHIP\"}",
                     expiry, payload));
         });
+    }
+
+    private static String callIdentity(RunToken token, String stepId, String callId) {
+        return CampaignRunStore.sha256(json(List.of(token.definition().caller(), token.definition().runId(),
+                token.definition().planId(), token.definition().revision(), stepId, "selected-scope-call/v1", callId)));
     }
 
     /** Authorized descriptor read, including genuine empty sets that cannot create a query shard. */
