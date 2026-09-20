@@ -130,10 +130,7 @@ class CampaignReplanTrustedAdapterTest {
     @Test
     void profileCreatesAdapterOnlyWithExplicitResolverProvider() {
         contextRunner(false).withUserConfiguration(TrustedProviders.class)
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    assertThat(context).doesNotHaveBean(CampaignReplanTrustedAdapter.class);
-                });
+                .run(context -> assertThat(context).hasFailed());
         contextRunner(true).withUserConfiguration(TrustedProviders.class, ResolverProvider.class)
                 .run(context -> {
                     assertThat(context).hasNotFailed();

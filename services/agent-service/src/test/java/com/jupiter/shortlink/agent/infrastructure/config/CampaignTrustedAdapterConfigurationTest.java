@@ -9,6 +9,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportPu
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanApplicationService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanRuntimeFactory;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanTrustedAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.ReportLifecycleStore;
 import java.time.Clock;
 import java.time.Instant;
@@ -60,6 +61,7 @@ class CampaignTrustedAdapterConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(CampaignReplanRuntimeFactory.class);
+                    assertThat(context).hasSingleBean(CampaignReplanTrustedAdapter.class);
                     assertThat(context).hasSingleBean(CampaignReportApplicationService.class);
                     assertThat(context).hasSingleBean(JdbcTemplate.class);
                     assertThat(context).hasSingleBean(TransactionTemplate.class);
@@ -98,6 +100,9 @@ class CampaignTrustedAdapterConfigurationTest {
         }
         @Bean CampaignReplanApplicationService.CapabilityAuthorizer capabilityAuthorizer() { return (o, t, c) -> true; }
         @Bean CampaignStatisticsConsumerStore.Authorizer consumerAuthorizer() { return (r, b, e) -> true; }
+        @Bean CampaignReplanTrustedAdapter.RunTokenResolver runTokenResolver() {
+            return (owner, sessionId, runId) -> Optional.empty();
+        }
         @Bean CampaignReportPublisher.EvidenceReader evidenceReader() { return id -> Optional.empty(); }
         @Bean CampaignReportApplicationService.AccessAuthorizer reportAccessAuthorizer() { return (o, c, op) -> true; }
         @Bean(name = "campaignReportCapability") String campaignReportCapability() { return "report/v1"; }

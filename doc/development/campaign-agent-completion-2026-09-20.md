@@ -92,7 +92,7 @@
 | [E61：非活动重规划基准拒绝][E61] | 运行时工厂定向用例补充 `CANCELLED`、`SUPERSEDED` 持久化基准拒绝；共 4 个用例通过，均在组合协调器前返回 `REPLAN_BASE_RUN_NOT_ACTIVE`。 | H2 状态门不能替代真实 MySQL 锁和跨实例 fencing 验收。 |
 | [E62：不同候选并发冲突][E62] | JDBC 重规划定向用例补充不同 candidate/request 竞态：一方成功、一方 `REPLAN_RECEIPT_CONFLICT`，最终一个 revision/receipt、两条 consumer；共 6 个用例通过。 | 仍需真实 MySQL 方言、分布式网络故障和远端取消联合验收。 |
 | [E63：profile 门控的可信装配契约][E63] | 3 个 Spring context 用例通过：默认 profile 无 trusted bean；激活 profile 缺少敏感 provider 时 fail-fast；显式 H2 provider 创建 replan factory、durable report service 和 lifecycle store，并共享 writable REQUIRED 数据源事务。 | 仅为受 profile 保护的组合契约，默认生产 profile 未启用；owner/capability resolver、EvidenceReader、真实 PlanValidator/Catalog provider、HTTP/chat 接线和真实 MySQL 仍待完成。 |
-| [E64：可信重规划 transport adapter][E64] | 5 个 adapter 用例及 7 个组合回归通过；resolver 只按 caller/session/runId 提供 token，adapter 精确绑定后由 factory 再检 ACTIVE、版本和 fencing；空解析、绑定错、过期/取消和 capability 拒绝均无 receipt/revision 写入。 | 仍是无 transport 的 typed adapter；resolver、真实授权/owner provider、HTTP/chat 接线、远端取消和真实 MySQL/多实例验收仍待完成。 |
+| [E64：可信重规划 transport adapter][E64] | 6 个 adapter 用例及 7 个组合回归通过；resolver 只按 caller/session/runId 提供 token，adapter 精确绑定后由 factory 再检 ACTIVE、版本和 fencing；空解析、绑定错、过期/取消和 capability 拒绝均无 receipt/revision 写入，profile 缺 resolver 时 fail-fast。 | 仍是无 transport 的 typed adapter；resolver、真实授权/owner provider、HTTP/chat 接线、远端取消和真实 MySQL/多实例验收仍待完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 

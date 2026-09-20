@@ -51,7 +51,7 @@ public final class CampaignReplanTrustedAdapter {
 
     private static void verifyResolution(Request request, CampaignRunStore.RunToken token) {
         if (token == null || token.definition() == null || token.definition().caller() == null
-                || token.version() < 1 || token.definition().revision() < 1 || token.advanceToken() == null
+                || token.version() < 0 || token.definition().revision() < 1 || token.advanceToken() == null
                 || token.advanceToken().isBlank()) {
             throw new SecurityException("REPLAN_RUN_TOKEN_INVALID");
         }

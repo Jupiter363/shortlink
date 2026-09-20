@@ -16,7 +16,6 @@ import java.util.Objects;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -71,12 +70,8 @@ public class CampaignTrustedAdapterConfiguration {
                 processScope.getIfAvailable(), capabilityAuthorizer, consumerAuthorizer);
     }
 
-    /**
-     * The adapter is created only when a trusted transport explicitly supplies a resolver.  No
-     * default resolver can turn a free-text run id or model argument into a durable write.
-     */
+    /** The profile requires a transport-owned resolver; no default can authorize a durable write. */
     @Bean
-    @ConditionalOnBean(CampaignReplanTrustedAdapter.RunTokenResolver.class)
     public CampaignReplanTrustedAdapter campaignReplanTrustedAdapter(
             CampaignReplanRuntimeFactory runtimeFactory,
             CampaignReplanTrustedAdapter.RunTokenResolver tokenResolver) {
