@@ -19,7 +19,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
-import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignStepExecution.ChildResult;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignCallExecution;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenStatisticsJobQuery;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenStatisticsJobQuery.Prepared;
@@ -169,45 +169,25 @@ public final class StatisticsExplorationTool {
         try (BoundCall bound = resolve(owner.step().runToken(), owner.callId(), arguments)) {
             requireLive(bound, owner);
             if (!bound.call().spec().actionId().equals(owner.actionId())) throw rejected("STATISTICS_CALL_CHANGED");
-            ChildRecord existing = runs.prepareChild(owner.step().runToken(), bound.prepared().child());
-            if (existing.state() == ChildState.READY || existing.state() == ChildState.WAITING)
-                return project(owner.step().runToken(), existing, bound);
-            if (existing.state() != ChildState.PREPARED || existing.attemptVersion() != 0)
-                throw rejected(existing.reason() == UnresolvedReason.QUERY_CAPACITY_EXHAUSTED
-                        ? "STATISTICS_CAPACITY_CONTINUATION_REQUIRED" : "SUBMISSION_UNRESOLVED");
-            DispatchPermit dispatch = runs.beginDispatch(owner.step().runToken(), existing.spec().childId(), owner);
-            boolean receiptSaved = false;
-            try {
-                Runnable beforeIo = () -> {
-                    try {
-                        scope.dispatch(() -> {
-                            requireLive(bound, owner);
-                            if (!runs.mayDispatch(dispatch)) throw new SecurityException("STATISTICS_CHILD_FENCED");
-                            return null;
-                        });
-                    } catch (RuntimeException denied) { throw denied; }
-                    catch (Exception denied) { throw new SecurityException("STATISTICS_CHILD_FENCED"); }
-                };
-                ChildResult result = StatisticsJobFixedExecutor.submit(bound.prepared().child().wire(), beforeIo,
-                        definition, current, gateway, bound.prepared().request(), () -> authorized(bound, owner));
-                if (result.jobId() != null && (!authorized(bound, owner) || !runs.mayDispatch(dispatch))) {
-                    runs.recordLateJob(dispatch, result.jobId()); receiptSaved = true;
-                    throw new SecurityException("STATISTICS_CHILD_FENCED");
-                }
-                beforeIo.run(); // The same current rights apply to receipt publication after the ACK.
-                if (result.capacityKind() != null) {
-                    runs.deferUnadmitted(dispatch, result.capacityKind()); receiptSaved = true;
-                    throw rejected("STATISTICS_CAPACITY_CONTINUATION_REQUIRED");
-                }
-                if (result.jobId() == null || result.artifact() != null) throw rejected("STATISTICS_SUBMISSION_RECEIPT_INVALID");
-                runs.recordWaiting(dispatch, result.jobId()); receiptSaved = true;
-            } finally {
-                try { if (!receiptSaved && runs.mayDispatch(dispatch)) runs.markUnresolved(dispatch); }
-                finally { runs.callbackExited(dispatch); }
+            try (var execution = new CampaignCallExecution(owner, runs, steps, calls, () -> authorized(bound, owner))) {
+                ChildRecord child = execution.child(bound.prepared().child(), boundary -> {
+                    Runnable beforeIo = () -> {
+                        try {
+                            scope.dispatch(() -> { boundary.beforeIo(); return null; });
+                        } catch (RuntimeException denied) { throw denied; }
+                        catch (Exception denied) { throw new SecurityException("STATISTICS_CHILD_FENCED"); }
+                    };
+                    return StatisticsJobFixedExecutor.submit(boundary.request(), beforeIo,
+                            definition, current, gateway, bound.prepared().request(), () -> authorized(bound, owner));
+                });
+                requireLive(bound, owner);
+                if (child.state() != ChildState.READY && child.state() != ChildState.WAITING)
+                    throw rejected(child.reason() == UnresolvedReason.QUERY_CAPACITY_EXHAUSTED
+                            ? "STATISTICS_CAPACITY_CONTINUATION_REQUIRED" : "SUBMISSION_UNRESOLVED");
+                return project(owner.step().runToken(), child, bound);
             }
-            requireLive(bound, owner);
-            return project(owner.step().runToken(), runs.child(owner.step().runToken(), existing.spec().childId()).orElseThrow(), bound);
-        }
+        } catch (RuntimeException rejected) { throw rejected; }
+        catch (Exception failed) { throw new IllegalStateException("STATISTICS_CHILD_EXECUTION_FAILED"); }
     }
 
     private NativeExplorationAdapter.Observation project(RunToken token, ChildRecord child, BoundCall bound) {
