@@ -21,19 +21,29 @@ public final class CampaignDurableResponseTransportAdapter {
     private final CampaignResponseRouteAdapter route;
     private final CampaignRunHandleResolver handles;
     private final CampaignResponseProtocolMetadataResolver protocols;
+    private final CampaignReportAccessGrantResolver reportGrants;
 
     public CampaignDurableResponseTransportAdapter(CampaignResponseRouteAdapter route,
                                                    CampaignRunHandleResolver handles) {
-        this(route, handles, null);
+        this(route, handles, null, null);
     }
 
     /** Authority-aware composition; protocol facts must come from a server-owned resolver. */
     public CampaignDurableResponseTransportAdapter(CampaignResponseRouteAdapter route,
                                                    CampaignRunHandleResolver handles,
                                                    CampaignResponseProtocolMetadataResolver protocols) {
+        this(route, handles, protocols, null);
+    }
+
+    /** Authority-aware composition with a trusted report-grant issuer. */
+    public CampaignDurableResponseTransportAdapter(CampaignResponseRouteAdapter route,
+                                                   CampaignRunHandleResolver handles,
+                                                   CampaignResponseProtocolMetadataResolver protocols,
+                                                   CampaignReportAccessGrantResolver reportGrants) {
         this.route = Objects.requireNonNull(route, "CAMPAIGN_RESPONSE_ROUTE_REQUIRED");
         this.handles = Objects.requireNonNull(handles, "CAMPAIGN_RESPONSE_HANDLE_RESOLVER_REQUIRED");
         this.protocols = protocols;
+        this.reportGrants = reportGrants;
     }
 
     /** Resolves only after the E79 gate selects the durable path; no fallback is attempted. */
@@ -119,8 +129,16 @@ public final class CampaignDurableResponseTransportAdapter {
         verify(reference, handle);
         if (metadata.get().identity().isPresent() && !metadata.get().matches(handle))
             throw new SecurityException("CAMPAIGN_RESPONSE_METADATA_IDENTITY_MISMATCH");
-        CampaignReportAccessGrant grant = request.reportGrant().orElseThrow(
+        CampaignReportAccessGrant suppliedGrant = request.reportGrant().orElseThrow(
                 () -> new SecurityException("REPORT_ACCESS_GRANT_REQUIRED"));
+        if (!suppliedGrant.bindsTo(handle.caller(), handle))
+            throw new SecurityException("REPORT_ACCESS_GRANT_BINDING_MISMATCH");
+        if (reportGrants == null)
+            throw new IllegalStateException("REPORT_ACCESS_GRANT_RESOLVER_REQUIRED");
+        CampaignReportAccessGrant grant = reportGrants.resolve(
+                        new CampaignReportAccessGrantResolver.Request(
+                                handle.caller(), handle, suppliedGrant.mode()))
+                .orElseThrow(() -> new SecurityException("REPORT_ACCESS_DENIED"));
         if (!grant.bindsTo(handle.caller(), handle))
             throw new SecurityException("REPORT_ACCESS_GRANT_BINDING_MISMATCH");
         CampaignJdbcDurableRunResponseBridgeFactory.Request durable =

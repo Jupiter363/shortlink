@@ -14,14 +14,18 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.Campai
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableResponseTransportAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseProtocolMetadataResolver;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignReportAccessGrantResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResultProgressReader;
 import java.time.Clock;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -55,6 +59,26 @@ class CampaignJdbcDurableResponseConfigurationTest {
         runner().withPropertyValues("spring.profiles.active=campaign-trusted-adapter,campaign-jdbc-durable-response")
                 .withUserConfiguration(CampaignTrustedAdapterConfigurationTest.ExplicitProviders.class,
                         CampaignTrustedAdapterConfigurationTest.DurableResponseProviders.class)
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    void combinedProfileFailsWhenProtocolAuthorityProviderIsMissing() {
+        runner().withPropertyValues("spring.profiles.active=campaign-trusted-adapter,campaign-jdbc-durable-response",
+                        "test.campaign.protocol-provider=false")
+                .withUserConfiguration(CampaignTrustedAdapterConfigurationTest.ExplicitProviders.class,
+                        CampaignTrustedAdapterConfigurationTest.DurableResponseProviders.class,
+                        JdbcDurableProviders.class)
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    void combinedProfileFailsWhenReportGrantAuthorityProviderIsMissing() {
+        runner().withPropertyValues("spring.profiles.active=campaign-trusted-adapter,campaign-jdbc-durable-response",
+                        "test.campaign.grant-provider=false")
+                .withUserConfiguration(CampaignTrustedAdapterConfigurationTest.ExplicitProviders.class,
+                        CampaignTrustedAdapterConfigurationTest.DurableResponseProviders.class,
+                        JdbcDurableProviders.class)
                 .run(context -> assertThat(context).hasFailed());
     }
 
@@ -110,6 +134,18 @@ class CampaignJdbcDurableResponseConfigurationTest {
                 @Qualifier("campaignJdbcDurableRunProgress") CampaignProgressService progress,
                 @Qualifier("campaignJdbcDurableRunReportProjection") CampaignReportReadProjection reports) {
             return new CampaignRunReportReadProjection(progress, reports);
+        }
+
+        @Bean(name = "campaignDurableResponseProtocolMetadataResolver")
+        @ConditionalOnProperty(name = "test.campaign.protocol-provider", havingValue = "true", matchIfMissing = true)
+        CampaignResponseProtocolMetadataResolver responseProtocolMetadataResolver() {
+            return ignored -> Optional.empty();
+        }
+
+        @Bean(name = "campaignDurableResponseReportAccessGrantResolver")
+        @ConditionalOnProperty(name = "test.campaign.grant-provider", havingValue = "true", matchIfMissing = true)
+        CampaignReportAccessGrantResolver reportAccessGrantResolver() {
+            return new CampaignReportAccessGrantResolver((caller, handle, mode) -> null);
         }
     }
 }
