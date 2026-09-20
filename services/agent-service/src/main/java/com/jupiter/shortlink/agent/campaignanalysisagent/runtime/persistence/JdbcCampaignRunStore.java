@@ -82,6 +82,20 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return other != null && other.getDataSource() == jdbc.getDataSource();
     }
 
+    /**
+     * Locks an ACTIVE base revision and proves that no persisted callback is still in flight.
+     * Replan composition invokes this package-private guard inside its outer REQUIRED
+     * transaction before writing the receipt or superseding the base revision.
+     */
+    void requireReplanReady(RunToken token) {
+        Objects.requireNonNull(token, "REPLAN_RUN_REQUIRED");
+        transaction(() -> {
+            lockRun(token, true);
+            requireNoCallbacks(token.definition().runId());
+            return null;
+        });
+    }
+
     @Override
     public RunToken createRun(RunDefinition definition) {
         validateDefinition(definition);

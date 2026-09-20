@@ -217,6 +217,9 @@ public record ReplanRequest(String schemaVersion, Baseline baseline,
                 "runId", plan.runId(), "inputSetRef", plan.inputSetRef(), "goals", plan.goals(),
                 "steps", plan.steps())));
     }
+
+    /** Stable candidate identity shared by precompilation and the replan assessment. */
+    public static String planHash(PlanSpec plan) { return computePlanHash(Objects.requireNonNull(plan)); }
     private static String canonical(Object value) {
         try { return JSON.writeValueAsString(value); }
         catch (Exception invalid) { throw new IllegalArgumentException("REPLAN_CANONICALIZATION_FAILED"); }

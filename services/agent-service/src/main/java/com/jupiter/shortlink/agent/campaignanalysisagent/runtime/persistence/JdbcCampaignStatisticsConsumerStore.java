@@ -43,6 +43,33 @@ public final class JdbcCampaignStatisticsConsumerStore implements CampaignStatis
         return other != null && other.getDataSource() == jdbc.getDataSource();
     }
 
+    /**
+     * Returns the live consumers owned by one active base revision while holding the run lock.
+     *
+     * <p>This is intentionally package-private.  Replan application is the only caller that may
+     * snapshot these rows, and it must do so inside the same transaction that records the receipt
+     * and inserts the replacement revision.  Exposing a general list operation would make a
+     * consumer enumeration look like an authorization grant.</p>
+     */
+    List<ActiveConsumer> activeConsumers(RunToken current) {
+        Objects.requireNonNull(current, "CONSUMER_RUN_REQUIRED");
+        return transaction(() -> {
+            gate.lockRuns(current, true);
+            var ids = jdbc.query("SELECT c.consumer_id FROM campaign_statistics_consumer c "
+                            + "WHERE c.run_id=? AND c.revision=? AND c.active=TRUE ORDER BY c.consumer_id FOR UPDATE",
+                    (rs, row) -> rs.getString(1), current.definition().runId(), current.definition().revision());
+            return ids.stream().map(id -> {
+                Consumer consumer = gate.consumer(id);
+                require(consumer.active() && current.definition().runId().equals(consumer.runId())
+                                && current.definition().revision() == consumer.revision(),
+                        "CONSUMER_FENCED");
+                return new ActiveConsumer(consumer, gate.binding(consumer.bindingId()));
+            }).toList();
+        });
+    }
+
+    record ActiveConsumer(Consumer consumer, Binding binding) {}
+
     /** Called under the same run/binding locks; keeps the configured source-reader bounds. */
     ChildRecord cancellationSource(Binding binding) {
         gate.verifySourceChild(binding);
