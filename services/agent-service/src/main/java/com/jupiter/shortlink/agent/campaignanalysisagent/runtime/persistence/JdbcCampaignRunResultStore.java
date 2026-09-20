@@ -74,6 +74,40 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
         validateTokenAgainstRun(token, run);
     }
 
+    /**
+     * Locks an exact terminal run and its result binding for a trusted cleanup composition.
+     *
+     * <p>This intentionally does not require the binding execution status to mirror the current
+     * ledger status. A run can be cancelled or superseded after it has already published a
+     * report; cleanup must still be able to release that report reference. The public read path
+     * keeps the stricter status matrix and therefore cannot be reused here.</p>
+     */
+    Optional<TerminalBinding> lockTerminalBinding(Caller caller, String runId, int revision) {
+        validateCaller(caller);
+        validateRunId(runId);
+        if (revision < 1) throw new IllegalArgumentException("RUN_RESULT_REVISION_INVALID");
+        LedgerRow run = jdbc.query("SELECT tenant_id,subject_name,auth_version,session_id,plan_id,definition_hash,"
+                        + "run_status,row_version,advance_token FROM campaign_run_ledger "
+                        + "WHERE run_id=? AND revision=? FOR UPDATE",
+                (rs, row) -> ledger(rs), runId, revision)
+                .stream().findFirst().orElseThrow(() -> new IllegalStateException("RUN_RESULT_RUN_NOT_FOUND"));
+        if (!caller.equals(run.caller())) throw new SecurityException("RUN_RESULT_ACCESS_DENIED");
+        if (run.status() == RunStatus.ACTIVE)
+            throw new IllegalStateException("RUN_RESULT_CLEANUP_RUN_ACTIVE");
+        if (run.status() != RunStatus.CANCELLED && run.status() != RunStatus.SUPERSEDED)
+            throw new IllegalStateException("RUN_RESULT_CLEANUP_RUN_NOT_TERMINAL");
+        Optional<Binding> binding = readBinding(runId, revision, true, false);
+        return binding.map(value -> new TerminalBinding(runId, revision, value.reportRef(), run.status()));
+    }
+
+    record TerminalBinding(String runId, int revision, ReportRef reportRef, RunStatus runStatus) {
+        TerminalBinding {
+            validateRunId(runId);
+            if (revision < 1 || runStatus == null)
+                throw new IllegalArgumentException("RUN_RESULT_TERMINAL_BINDING_INVALID");
+        }
+    }
+
     @Override
     public Binding bind(RunToken token, BindingDraft draft) {
         validateToken(token);
@@ -142,6 +176,10 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
     }
 
     private Optional<Binding> readBinding(String runId, int revision, boolean lock) {
+        return readBinding(runId, revision, lock, true);
+    }
+
+    private Optional<Binding> readBinding(String runId, int revision, boolean lock, boolean checkRunStatus) {
         return jdbc.query("SELECT '" + CampaignRunResultStore.SCHEMA + "' AS schema_version,b.run_id,b.revision,"
                         + "l.plan_id,b.report_id,b.report_revision,b.execution_status,b.next_action_kind,"
                         + "b.next_action_reason,b.required_inputs_json,b.limitations_json,b.source_row_version,"
@@ -149,7 +187,7 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
                         + "FROM campaign_run_result_binding b JOIN campaign_run_ledger l "
                         + "ON l.run_id=b.run_id AND l.revision=b.revision WHERE b.run_id=? AND b.revision=?"
                         + (lock ? " FOR UPDATE" : ""),
-                rs -> rs.next() ? Optional.of(readRow(rs, true)) : Optional.empty(), runId, revision);
+                rs -> rs.next() ? Optional.of(readRow(rs, checkRunStatus)) : Optional.empty(), runId, revision);
     }
 
     private static LedgerRow ledger(ResultSet rs) throws SQLException {
