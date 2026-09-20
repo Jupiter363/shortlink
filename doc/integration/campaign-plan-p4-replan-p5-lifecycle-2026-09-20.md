@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59）
 
 记录日期：2026-09-20。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -44,6 +44,18 @@
 ### E56：JDBC 重规划真实原子应用
 
 `JdbcCampaignRevisionApplier` 接入现有 JDBC ledger：锁定 base run 并确认没有活跃 callback，快照并校验活跃 consumer 的 step、executor、output contract、冻结 scope/period，复制 base 持久化定义中的 `FrozenInputSet`，在同一个 writable `PROPAGATION_REQUIRED` 事务中先记录 ACCEPTED receipt，再 `revise`，最后接管所有兼容 consumer。历史 producer revision（`producerRevision <= baseRevision`）可继续被接管；接管失败、重复键或 callback 活跃都会回滚 receipt、revision 和 consumer。精确已提交 revision 重放返回同一 token/receipt，不重复写入。
+
+### E57：可信重规划运行时工厂
+
+`CampaignReplanRuntimeFactory` 将 E54–E56 的 typed 边界显式组合成一次可信运行：启动时校验 `JdbcTemplate` 与 writable `REQUIRED` 事务管理器使用同一数据源，`open` 只接受 owner、ACTIVE 状态、完整 `RunToken` 和可解析的 `FrozenCampaignRun`，每次 `execute` 按当前 base run 新建 `NativeGraphPrecompiler` 与 `ReplanCoordinator`。该工厂不注册 Spring、HTTP、chat 或 tool 入口，调用方仍需在受保护的业务 profile 中显式装配。
+
+### E58：并发重规划精确回放
+
+`JdbcCampaignRevisionApplier` 对旧 token 被 fencing、旧 run 已失效或旧 revision 不可写的窄失败窗口执行 owner-scoped finalized receipt 回放。只有 request JSON、candidate revision、plan hash 和提交 revision 全部匹配时才复用已提交结果；不匹配或没有收据时保留原始错误。H2 并发用例验证两个相同请求最终只有一个 revision/receipt，两个调用返回同一结果。
+
+### E59：类型化耐久报告边界
+
+`CampaignReportApplicationService` 将报告发布与读取固定为 typed `PublishRequest`/`ReadRequest`，在任何 durable I/O 前校验 owner、能力、revision、留存期限和复用期限；构造阶段拒绝没有 durable store 的 publisher。`HISTORY_VIEW` 与 `EXPORT` 模式原样交给生命周期 store，发布幂等和冲突语义继续由 `ReportLifecycleStore` 负责，不注册自然语言、HTTP 或前端入口。
 
 ## 定向验证
 
@@ -97,12 +109,21 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=JdbcCampaignRevisionApplierTest
 
 覆盖断言包括：预编译失败不调用 revision applier；accepted candidate 只发布一次且旧 revision 收据可幂等重放；收据正文冲突拒绝、owner 隔离；报告按 revision 幂等、manifest 可回读、HISTORY/EXPORT 过期区别、引用释放和留存期后的清理 CAS。
 
+E57/E58/E59 合并定向命令：
+
+```text
+mvn.cmd -o -pl services/agent-service -am -Dtest=JdbcCampaignRevisionApplierTest,CampaignReplanRuntimeFactoryTest,CampaignReportApplicationServiceTest,NativeGraphPrecompilerTest,CampaignReplanApplicationServiceTest,ReplanCoordinatorTest -Dsurefire.failIfNoSpecifiedTests=false -Dnet.bytebuddy.experimental=true test
+```
+
+结果：19 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖可信运行时 owner/token/frozen 输入校验、并发相同请求精确回放、typed durable 报告授权与历史/导出模式传递，并回归本批次此前的预编译、协调和原子发布边界。
+
 ## 未覆盖边界
 
 - `RevisionApplier` 是可信装配接口，本批次没有把它接入生产 `JdbcCampaignRunStore.revise` 和 `JdbcCampaignStatisticsConsumerStore.adopt`，因此不能宣称运行中 replan 已开放。
 - E52 只提供共享事务的原子应用适配器；实际 store 回调、候选 hash/scope/owner 校验和生产 Spring 装配仍待完成，不能把 H2 回调测试当作真实重规划入口。
 - E54/E55 仍是显式 typed 组合件，尚无 token resolver、业务 profile、Spring bean 或受配置保护的 HTTP 入口；E55 的 `MemorySaver` 只用于编译前置，不是生产 checkpoint。
-- E56 已接真实 H2 JDBC ledger 和跨 revision consumer 接管，但并发两个协调器同时通过预检查时，失败方的 owner-scoped replay 重试仍需在生产入口补充；真实 MySQL 方言、分布式 fencing 和远端服务仍未验。
+- E56–E58 已接真实 H2 JDBC ledger、跨 revision consumer 接管和并发相同请求的精确 replay；仍没有真实 MySQL 方言、分布式 fencing、远端 cancel 或生产入口证据。
+- E57 的运行时工厂与 E59 的报告应用服务仍是显式 typed 组合件；尚无 token resolver、业务 profile、Spring bean、HTTP/chat 接线或客户端历史/导出验收。
 - `JdbcReportLifecycleStore` 尚未由 `CampaignReportPublisher` 或 Admin/Agent 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。

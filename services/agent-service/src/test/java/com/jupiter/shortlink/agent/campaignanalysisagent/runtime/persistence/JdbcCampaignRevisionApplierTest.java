@@ -33,6 +33,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -120,6 +126,34 @@ class JdbcCampaignRevisionApplierTest {
             assertThat(fixture.count("campaign_replan_receipt")).isZero();
         } finally {
             fixture.runs.callbackExited(callback);
+        }
+    }
+
+    @Test
+    void concurrentIdenticalRequestsConvergeOnOneCommittedRevision() throws Exception {
+        Fixture fixture = new Fixture(true);
+        ReplanCoordinator.ApplyRequest request = fixture.request(CONTRACT);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<ReplanCoordinator.AppliedRevision> call = () -> {
+            ready.countDown();
+            if (!start.await(5, TimeUnit.SECONDS)) throw new AssertionError("race did not start");
+            return fixture.applier.apply(request);
+        };
+        Future<ReplanCoordinator.AppliedRevision> first = pool.submit(call);
+        Future<ReplanCoordinator.AppliedRevision> second = pool.submit(call);
+        assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+        start.countDown();
+        try {
+            ReplanCoordinator.AppliedRevision winner = first.get(10, TimeUnit.SECONDS);
+            ReplanCoordinator.AppliedRevision replay = second.get(10, TimeUnit.SECONDS);
+            assertThat(replay).isEqualTo(winner);
+            assertThat(fixture.count("campaign_run_ledger")).isEqualTo(2);
+            assertThat(fixture.count("campaign_replan_receipt")).isEqualTo(1);
+            assertThat(fixture.count("campaign_statistics_consumer")).isEqualTo(2);
+        } finally {
+            pool.shutdownNow();
         }
     }
 
