@@ -8,6 +8,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunDefinition;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunStatus;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepRecord;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepStatus;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
@@ -24,6 +26,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Unregistered, read-only projection for the future versioned client. Does not dispatch, refresh,
@@ -71,6 +75,23 @@ public final class CampaignProgressService {
     public CampaignProgressView read(Caller caller, CampaignResultProgressReader.Snapshot received) {
         Objects.requireNonNull(received, "PROGRESS_SNAPSHOT_REQUIRED");
         return project(caller, received.execution().run().definition().runId(), received, received.execution());
+    }
+
+    /**
+     * Proves that this projection's artifact/step/run reads participate in the trusted JDBC
+     * snapshot transaction. Legacy in-memory/fake stores intentionally do not satisfy this
+     * guard and therefore cannot be used by the durable JDBC response factory.
+     */
+    public boolean isComposedWith(JdbcTemplate jdbc, TransactionTemplate transactions,
+                                  CampaignResultProgressReader reader) {
+        return reader != null
+                && reader == resultReader
+                && steps instanceof JdbcCampaignStepStore jdbcSteps
+                && runs instanceof JdbcCampaignRunStore jdbcRuns
+                && jdbcSteps.sharesTransactionDataSource(jdbc)
+                && jdbcSteps.usesTransactionTemplate(transactions)
+                && jdbcRuns.sharesTransactionDataSource(jdbc)
+                && jdbcRuns.usesTransactionTemplate(transactions);
     }
 
     private CampaignProgressView project(Caller caller, String requestedRunId,

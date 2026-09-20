@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E83 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E84 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -114,6 +114,7 @@
 | [E81：固定报告读取与脱敏 facade][E81] | 5 个纯后端用例通过；固定 `reportId/revision/mode` 透传至现有授权 projection，空读不回退，key/mode 漂移 fail closed；route-level view 仅保留可渲染 draft、goal assessments 和运行身份，不序列化 owner/capability/checksum/retention/payload 元数据。 | 仍是 transport-neutral typed facade，尚未接 HTTP/Graph/AgentRunHarness、客户端历史/导出或 Spring provider；E71 多表读取仍是事实一致性校验，不等同同一快照事务。 |
 | [E82：JDBC durable read 快照协调][E82] | 4 个 H2/JDBC 定向用例通过；精确 caller/run/revision 读取按 run→binding→steps/receipts→report 锁序执行，无 binding 先短路，binding source row version/advance token 与 progress 快照围栏校验，报告凭证显式传入且只返回 identity，构造器拒绝非共享 writable REQUIRED 事务。 | 仍是 transport-neutral JDBC typed 组件，尚未接 E71/E80、Graph/AgentRunHarness、HTTP 或 Spring response provider；H2 不替代真实 MySQL 隔离/锁行为验证。 |
 | [E83：事务内 JDBC durable response bridge][E83] | 20 个直接受影响 H2/JDBC/typed 用例通过；E82 coordinator 增加事务内 report/snapshot projector，新增 bridge 一次读取并生成 E68 projection，逐项核对 binding 状态/动作/限制和 reportRef 后交给 E76；无 binding 保持 `NO_BINDING`，projector 不触发 E71 二次读取，响应 JSON 不含 owner/capability/payload/checksum/retention。 | 仍是 transport-neutral 内部 seam，尚未接 Spring provider、Graph/AgentRunHarness、HTTP 或 chat；H2 不替代真实 MySQL 锁隔离和业务入口验收。 |
+| [E84：受保护的 JDBC durable response provider 工厂][E84] | 10 个直接受影响 H2/Spring JDBC 用例通过（E83 bridge 7、provider profile 3）；conjunctive profile 仅从具名 progress/lifecycle/projector provider 创建 factory，每次请求新建报告 verifier、binding store、E82 coordinator 和 E83 bridge；无 report access 使用拒绝默认值，工厂构造守卫 step/run/artifact/report 共用同一 DataSource 与 writable REQUIRED transaction。 | 仍是 transport-neutral provider/factory seam，尚未接 Graph/AgentRunHarness、HTTP/chat、客户端历史/导出、真实 MySQL 或浏览器；E80 legacy generic response factory 保持未替换。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -442,6 +443,7 @@
 [E81]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E82]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E83]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E84]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

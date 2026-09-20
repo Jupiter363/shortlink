@@ -69,8 +69,13 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
         this.calls = new JdbcExplorationCallbackGate(jdbc);
     }
 
-    boolean sharesTransactionDataSource(JdbcTemplate other) {
+    public boolean sharesTransactionDataSource(JdbcTemplate other) {
         return other != null && other.getDataSource() == jdbc.getDataSource();
+    }
+
+    /** Composition proof for callers that keep one transaction across multiple JDBC stores. */
+    public boolean usesTransactionTemplate(TransactionTemplate other) {
+        return transactions == other;
     }
 
     @Override
