@@ -2,11 +2,15 @@ package com.jupiter.shortlink.agent.infrastructure.config;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignResultProgressReader;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunHandleResolver;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunHandleResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignJdbcDurableRunResponseBridgeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignProgressService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseCapabilityGate;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableResponseTransportAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -50,5 +54,26 @@ public class CampaignJdbcDurableResponseConfiguration {
             CampaignResponseCapabilityGate gate,
             CampaignJdbcDurableRunResponseBridgeFactory factory) {
         return new CampaignResponseRouteAdapter(gate, factory);
+    }
+
+    /**
+     * Requires a server-owned exact handle resolver; no identity is inferred from session or graph
+     * state. The adapter remains transport-neutral until a later HTTP/chat contract supplies it.
+     */
+    @Bean
+    public CampaignDurableResponseTransportAdapter campaignDurableResponseTransportAdapter(
+            CampaignResponseRouteAdapter route,
+            @Qualifier("campaignDurableResponseRunHandleResolver")
+            CampaignRunHandleResolver handles) {
+        return new CampaignDurableResponseTransportAdapter(route, handles);
+    }
+
+    /** Exact revision lookup; unlike the generic run reader it never selects latest implicitly. */
+    @Bean(name = "campaignDurableResponseRunHandleResolver")
+    public CampaignRunHandleResolver campaignDurableResponseRunHandleResolver(
+            JdbcTemplate jdbc,
+            @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions,
+            Clock clock) {
+        return new JdbcCampaignRunHandleResolver(new JdbcCampaignRunStore(jdbc, transactions, clock));
     }
 }

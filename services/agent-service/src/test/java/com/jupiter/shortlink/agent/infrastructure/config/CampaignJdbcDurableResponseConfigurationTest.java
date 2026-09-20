@@ -6,12 +6,14 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportRe
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignResultProgressReader;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunHandleResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignJdbcDurableRunResponseBridgeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignProgressService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableResponseTransportAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResultProgressReader;
 import java.time.Clock;
 import java.util.UUID;
@@ -44,6 +46,7 @@ class CampaignJdbcDurableResponseConfigurationTest {
         runner().run(context -> {
             assertThat(context).doesNotHaveBean(CampaignJdbcDurableRunResponseBridgeFactory.class);
             assertThat(context).doesNotHaveBean(CampaignResponseRouteAdapter.class);
+            assertThat(context).doesNotHaveBean(CampaignDurableResponseTransportAdapter.class);
         });
     }
 
@@ -65,6 +68,8 @@ class CampaignJdbcDurableResponseConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(CampaignJdbcDurableRunResponseBridgeFactory.class);
                     assertThat(context).hasSingleBean(CampaignResponseRouteAdapter.class);
+                    assertThat(context).hasSingleBean(CampaignDurableResponseTransportAdapter.class);
+                    assertThat(context).hasBean("campaignDurableResponseRunHandleResolver");
                     assertThat(context).hasSingleBean(JdbcCampaignResultProgressReader.class);
                     assertThat(context).hasBean("campaignJdbcDurableRunResultProjection");
                     assertThat(context).getBean("campaignJdbcDurableRunResultProjection")

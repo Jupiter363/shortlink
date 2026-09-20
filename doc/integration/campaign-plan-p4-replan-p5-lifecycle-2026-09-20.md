@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72/E73/E74/E75/E76/E77/E78/E79/E80/E81/E82/E83/E84/E85）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72/E73/E74/E75/E76/E77/E78/E79/E80/E81/E82/E83/E84/E85/E86）
 
 记录日期：2026-09-21。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -198,6 +198,14 @@ release 也重新经过 `HISTORY_VIEW` 的报告授权检查，再进入 E72 的
 E84 的 `NO_BINDING` 被保留为独立 typed 状态，不能携带 Graph base response；绑定成功才返回脱敏的 `AgentRunResult`。durable reader 的异常原样向上传播，不重读 latest/history，也不切回 Graph、E71 legacy decorator 或自由文本。适配器不解析 session、trace、message，不保存请求身份，也没有修改通用 `AgentRunRequest`、`DefaultAgentRunHarness`、Graph executor 或 `AgentChatController`。
 
 `campaign-trusted-adapter & campaign-jdbc-durable-response` profile 现在显式提供该适配器，但仍不注册 HTTP、chat、Graph 或 scheduler 入口；后续 transport 必须先解析 server-owned handle，再把 typed request 交给此边界。
+
+### E86：精确 revision 的 server-owned response handle
+
+新增脱敏的 `CampaignRunHandle` 与 `CampaignRunHandleResolver`。handle 只包含 caller、session、run、plan、revision 和持久化状态，不携带 definition JSON、row version 或 advance token；这些字段属于执行凭证或 durable payload，不能进入只读响应路径。`JdbcCampaignRunHandleResolver` 通过新增的 `readRunAtRevision` 精确锁定 `(caller, runId, revision)`，核对 session、plan 和所有身份字段，永远不调用按 run 取最高 revision 的通用读取，也保留 `ACTIVE`、`CANCELLED`、`SUPERSEDED` 事实供下游 projection 处理。
+
+`CampaignDurableResponseTransportAdapter` 先执行 E79 capability gate，只有 `DURABLE_V2` 才解析 exact handle；legacy 和客户端升级路径不会触碰 resolver。resolver 缺失、身份不一致或异常均 fail closed，不回退 Graph/base response。验证通过后才把脱敏身份和请求级报告凭证交给 E84 route/factory。配置仍受 `campaign-trusted-adapter & campaign-jdbc-durable-response` conjunctive profile 保护，未注册 HTTP、chat、Graph、scheduler 或客户端入口。
+
+本批只建立 transport-neutral 的 server-owned identity seam；没有把尚未具备 durable `runId/revision/planId` 和协议字段的通用 Agent/Graph 请求强行接入，也没有把 `RunToken` 当作响应凭证。
 
 ## 定向验证
 
@@ -449,6 +457,14 @@ mvn.cmd -o -pl services/agent-service -am "-Dtest=CampaignResponseRouteAdapterTe
 
 结果：10 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖 legacy path 不调用 durable reader、已有 v2 run 缺客户端能力时不回退、v2 缺 server-owned request 直接拒绝、`NO_BINDING` 不携带 Graph response、绑定响应单次返回、读取异常不重试以及 profile 关闭/缺 provider/完整 provider 装配。测试只使用纯 typed reader、H2 和本地 Spring context，没有启动 Docker、应用、真实 MySQL、模型或浏览器。
 
+E86 定向验证：
+
+```text
+mvn.cmd -o -pl services/agent-service -am "-Dtest=CampaignResponseRouteAdapterTest,CampaignDurableResponseTransportAdapterTest,JdbcCampaignRunHandleResolverTest,CampaignJdbcDurableResponseConfigurationTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dnet.bytebuddy.experimental=true" "-Dmaven.compiler.useIncrementalCompilation=false" test
+```
+
+结果：22 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖 exact revision 不回退 latest、session/plan/caller 身份校验、ACTIVE/CANCELLED/SUPERSEDED 状态事实、legacy/upgrade 不解析 handle、缺失或错配 handle fail closed、报告凭证必须随 run reference 提供，以及 profile 下 resolver/transport 装配。测试只使用 H2、本地 Spring context 和 typed fake reader，没有启动 Docker、应用、真实 MySQL、模型或浏览器。
+
 ## 未覆盖边界
 
 - `RevisionApplier` 是可信装配接口，本批次没有把它接入生产 `JdbcCampaignRunStore.revise` 和 `JdbcCampaignStatisticsConsumerStore.adopt`，因此不能宣称运行中 replan 已开放。
@@ -458,7 +474,7 @@ mvn.cmd -o -pl services/agent-service -am "-Dtest=CampaignResponseRouteAdapterTe
 - E57 的运行时工厂与 E59 的报告应用服务仍是显式 typed 组合件；尚无 token resolver、业务 profile、Spring bean、HTTP/chat 接线或客户端历史/导出验收。
 - E63 只提供受 profile 保护的组合契约；默认生产 profile 不启用，当前仍没有可信 owner/capability resolver、PlanValidator/Catalog、EvidenceReader 或真实授权 provider，因此不能宣称业务入口已开放。context 测试使用 H2 迁移替身，不替代真实 MySQL 或跨服务验收。
 - E64 只提供不接 transport 的 typed adapter；resolver、owner/capability 解析仍由未来可信入口提供，尚无 HTTP/chat/tool 接线、远端取消或真实 MySQL/多实例 fencing 验收。
-- E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥；E67 只扩展 response 类型和纯 adapter；E68 增加纯 run-result projection；E69 增加授权的 run/report 读取组合；E70 增加受 token fencing 保护的 durable run-result 绑定；E71 增加按 revision 的授权读取组合和 report verifier；E72 增加共享事务的 retain/bind/release 协调器；E73 增加按请求解析身份的 adapter；E74 增加终态引用清理和 report 行锁协议；E75 增加报告发布与 run-result 绑定的共享事务及精确重放保护；E76 增加 durable projection 到兼容响应的纯 typed 组合和状态/脱敏校验；E77 增加一次精确 durable read 到兼容响应的 typed 服务边界；E78 增加无状态 runtime factory、三元身份核验和显式无绑定 outcome；E79 增加新响应协议的客户端能力门控；E80 增加受 `campaign-trusted-adapter` profile 保护的具名 provider 装配、prototype decorator 和能力 gate；E81 增加固定 report key 的 route-level 脱敏 facade；E82 增加同一 writable REQUIRED 事务内的 JDBC durable read 快照协调和 row-version 围栏；E83 增加事务内 typed projector 与 JDBC durable response bridge，禁止快照结束后的 E71 二次读取；E84 增加 conjunctive profile 下的 JDBC durable response factory、请求级报告凭证绑定及 step/run/artifact 同事务组合守卫；E85 增加先能力门控、后 durable factory 的 transport-neutral response route，区分 legacy、客户端升级、无绑定和绑定响应，禁止 durable 失败回退。上述组件尚未由 Graph/AgentRunHarness/HTTP 生产路径调用，客户端历史/导出入口和真实 MySQL payload 演进仍待验收。
+- E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥；E67 只扩展 response 类型和纯 adapter；E68 增加纯 run-result projection；E69 增加授权的 run/report 读取组合；E70 增加受 token fencing 保护的 durable run-result 绑定；E71 增加按 revision 的授权读取组合和 report verifier；E72 增加共享事务的 retain/bind/release 协调器；E73 增加按请求解析身份的 adapter；E74 增加终态引用清理和 report 行锁协议；E75 增加报告发布与 run-result 绑定的共享事务及精确重放保护；E76 增加 durable projection 到兼容响应的纯 typed 组合和状态/脱敏校验；E77 增加一次精确 durable read 到兼容响应的 typed 服务边界；E78 增加无状态 runtime factory、三元身份核验和显式无绑定 outcome；E79 增加新响应协议的客户端能力门控；E80 增加受 `campaign-trusted-adapter` profile 保护的具名 provider 装配、prototype decorator 和能力 gate；E81 增加固定 report key 的 route-level 脱敏 facade；E82 增加同一 writable REQUIRED 事务内的 JDBC durable read 快照协调和 row-version 围栏；E83 增加事务内 typed projector 与 JDBC durable response bridge，禁止快照结束后的 E71 二次读取；E84 增加 conjunctive profile 下的 JDBC durable response factory、请求级报告凭证绑定及 step/run/artifact 同事务组合守卫；E85 增加先能力门控、后 durable factory 的 transport-neutral response route，区分 legacy、客户端升级、无绑定和绑定响应，禁止 durable 失败回退；E86 增加 exact revision 的 server-owned 脱敏 response handle resolver，并让 transport adapter 在 durable 路径上先解析 handle、禁止 latest/RunToken 误绑定和 fallback。上述组件尚未由 Graph/AgentRunHarness/HTTP 生产路径调用，客户端历史/导出入口和真实 MySQL payload 演进仍待验收。
 - `JdbcReportLifecycleStore` 已通过 E75 的 trusted profile 由报告发布与 run-result 组合器显式复用，但尚未由 Graph/AgentRunHarness 或 Admin/Agent HTTP/chat 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。

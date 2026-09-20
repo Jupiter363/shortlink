@@ -34,12 +34,19 @@ public final class CampaignResponseRouteAdapter {
     /** Selects exactly one response path. Reader failures intentionally propagate without fallback. */
     public Outcome route(Request request) {
         Objects.requireNonNull(request, "CAMPAIGN_RESPONSE_ROUTE_REQUEST_REQUIRED");
-        CampaignResponseCapabilityGate.Decision decision = gate.decide(request.capability());
+        CampaignResponseCapabilityGate.Decision decision = decide(request.capability());
         return switch (decision) {
             case LEGACY_PATH -> Outcome.legacyPath();
             case CLIENT_UPGRADE_REQUIRED -> Outcome.clientUpgradeRequired();
             case DURABLE_V2 -> durable(request.durable());
         };
+    }
+
+    /** Exposes the pure protocol decision so a transport can resolve a durable handle lazily. */
+    public CampaignResponseCapabilityGate.Decision decide(
+            CampaignResponseCapabilityGate.Request capability) {
+        return gate.decide(Objects.requireNonNull(capability,
+                "CAMPAIGN_RESPONSE_CAPABILITY_REQUEST_REQUIRED"));
     }
 
     private Outcome durable(Optional<CampaignJdbcDurableRunResponseBridgeFactory.Request> request) {
