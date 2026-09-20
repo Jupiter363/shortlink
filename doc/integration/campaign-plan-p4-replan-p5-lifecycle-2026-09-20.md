@@ -75,7 +75,7 @@
 
 ### E64：可信重规划 transport adapter
 
-新增纯类型化 `CampaignReplanTrustedAdapter`。transport 只提交已认证的 caller、session 和 run 标识及 typed candidate；`RunTokenResolver` 从权威账本解析当前 token，adapter 再精确校验 caller/session/runId，并交由 runtime factory 重新检查 ACTIVE、版本和 fencing token 后才执行。resolver 缺失、主体或 session 绑定不符、过期/取消 token 和 capability 拒绝均在 receipt/revision 写入前失败；没有自由文本 token、模型参数、HTTP/chat/tool/scheduler 注册。Spring 仅在调用方显式提供 resolver 时条件创建 adapter。
+新增纯类型化 `CampaignReplanTrustedAdapter`。transport 只提交已认证的 caller、session 和 run 标识及 typed candidate；`RunTokenResolver` 从权威账本解析当前 token，adapter 再精确校验 caller/session/runId，并交由 runtime factory 重新检查 ACTIVE、版本和 fencing token 后才执行。resolver 缺失、主体或 session 绑定不符、过期/取消 token 和 capability 拒绝均在 receipt/revision 写入前失败；没有自由文本 token、模型参数、HTTP/chat/tool/scheduler 注册。激活 profile 时 resolver 必须由调用方显式提供，缺失即 fail-fast。
 
 ## 定向验证
 
@@ -153,7 +153,7 @@ E64 增量验证：
 mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignReplanTrustedAdapterTest,CampaignReplanRuntimeFactoryTest,CampaignTrustedAdapterConfigurationTest -Dsurefire.failIfNoSpecifiedTests=false -Dnet.bytebuddy.experimental=true test
 ```
 
-结果：12 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖 resolver 空结果/绑定错误、过期与取消 token、授权拒绝零 receipt/revision 写入，以及 E63 profile 组合回归。
+结果：13 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖 resolver 空结果/绑定错误、过期与取消 token、授权拒绝零 receipt/revision 写入，以及 profile 缺 resolver 时 fail-fast、显式 resolver 时创建 adapter 的组合回归。
 
 ## 未覆盖边界
 
@@ -163,7 +163,7 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignReplanTrustedAdapterTes
 - E56–E58 已接真实 H2 JDBC ledger、跨 revision consumer 接管和并发相同请求的精确 replay；仍没有真实 MySQL 方言、分布式 fencing、远端 cancel 或生产入口证据。
 - E57 的运行时工厂与 E59 的报告应用服务仍是显式 typed 组合件；尚无 token resolver、业务 profile、Spring bean、HTTP/chat 接线或客户端历史/导出验收。
 - E63 只提供受 profile 保护的组合契约；默认生产 profile 不启用，当前仍没有可信 owner/capability resolver、PlanValidator/Catalog、EvidenceReader 或真实授权 provider，因此不能宣称业务入口已开放。context 测试使用 H2 迁移替身，不替代真实 MySQL 或跨服务验收。
-- E64 只提供不接 transport 的 typed adapter 和条件 bean；resolver、owner/capability 解析仍由未来可信入口提供，尚无 HTTP/chat/tool 接线、远端取消或真实 MySQL/多实例 fencing 验收。
+- E64 只提供不接 transport 的 typed adapter；resolver、owner/capability 解析仍由未来可信入口提供，尚无 HTTP/chat/tool 接线、远端取消或真实 MySQL/多实例 fencing 验收。
 - `JdbcReportLifecycleStore` 尚未由 `CampaignReportPublisher` 或 Admin/Agent 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。
