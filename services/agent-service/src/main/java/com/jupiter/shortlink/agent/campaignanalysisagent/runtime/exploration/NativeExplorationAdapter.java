@@ -431,6 +431,21 @@ public final class NativeExplorationAdapter {
                 return new AgentCommand(JumpTo.end, messages, UpdatePolicy.REPLACE);
             }
             ledger.registerCall(new ExplorationLedger.CallInput(call.id(), call.name(), call.arguments(), assistant.getText()));
+            if (durableSession != null) {
+                var terminal = durableSession.terminalCallResponse();
+                if (terminal.isPresent()) {
+                    var rejected = terminal.get();
+                    var view = ledger.view();
+                    if (!"tool".equals(rejected.role()) || !call.id().equals(rejected.toolCallId())
+                            || !call.name().equals(rejected.toolName()) || rejected.text().length() > limits.observationCharacters()
+                            || view.status() != ExplorationLedger.Status.BLOCKED || view.activeCallbacks() != 0)
+                        throw new IllegalStateException("EXPLORATION_TERMINAL_CALL_INVALID");
+                    var stopped = new ArrayList<>(messages);
+                    stopped.add(ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse(
+                            call.id(), call.name(), rejected.text()))).build());
+                    return new AgentCommand(JumpTo.end, stopped, UpdatePolicy.REPLACE);
+                }
+            }
             return new AgentCommand(messages, UpdatePolicy.REPLACE);
         }
     }

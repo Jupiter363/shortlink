@@ -68,6 +68,7 @@
 | [E37：原生Skill具名多输出观察][E37] | 两项后端方法首次通过；真实Native下降筛选PENDING→原CALL续接→双输出READY，完整metadata和有限真实事实进入MODEL2；空saver／撤权恢复不重调，旧统计Tool兼容。 | 原生单片异步Skill整链已验；结构化终局验收、多阶段混合恢复、Driver／生产装配及报告仍待完成，CANDIDATE不等于SUCCEEDED。 |
 | [E38：结构化候选与后端条件验收][E38] | 三项后端方法通过；真实Native双输出按冻结条件分别COMPLETE或UNKNOWN拒绝，重开同源不重调，旧writer／撤权拒绝；缺输入／重规划／无进展／非法候选耐久化，旧Skill兼容。 | 局部候选合同已验；无Step输出发布或Goal完成，NO_PROGRESS仅为模型报告，Driver／真正停止机制及生产入口继续实现。 |
 | [E39：原生探索接外层计划Driver][E39] | 四项后端方法首次通过；真实Graph REACT等待→原CALL续接→候选验真→原产物具名发布→下游读取，重扫不重做；缺输入／非法候选阻断、READY回调未退出拒成功、旧FIXED兼容。 | 显式装配的嵌套原生链已验；生产入口保持关闭，无进展／混合恢复／真正多目标报告及客户端仍待完成。 |
+| [E40：已观察请求的精确重复停止][E40] | 三项后端方法首次通过；真实Skill结果已投影后，换键序/调用ID的相同请求不新增CALL或提数，原生及后端唯一拒绝配对、STOP幂等、撤权拒读；PV改UV正常新调用和四任务恢复，旧Driver兼容。 | 显式只读策略下精确重复已验；非语义同义或跨revision采用，新增Run计数未单测跨revision，生产入口继续关闭。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -143,7 +144,7 @@
 | P3-03：局部冻结 InputSet 仅 INPUT/已授权 READY ARTIFACT；无 ACTION_OUTPUT／局部 STEP_OUTPUT；动作 CALL/COMPLETE/NEEDS_INPUT/REQUEST_REPLAN/NO_PROGRESS。 | C §3.2；I §4.2 | E32真实统计Tool；E36–38真实Skill/闭合候选与后端条件验收；E39输出发布和BLOCKED原因映射。 | 部分已验 | 请求后的实际澄清/重规划/无进展机制仍待接线；已验Step成功不等于Goal完成。 |
 | P3-04：持久化 invocation/assistant/toolCall→action/request/hash；规范 PENDING＋READY 新观察，投影版本／序列／ack 与失败重试防丢防重。 | R §1.3；G §4.2 | E26–E28 MODEL/CALL；E29 JDBC轮次与三轮依赖恢复，真实异步PENDING＋唯一READY观察、当前ACL。 | 耐久组件部分已验 | E30预算/历史引用，E31接纳事务故障及未记录PENDING的唯一READY窗口已验；精确投影ack和生产组合仍待完成。 |
 | P3-05：每次模型／handler／内部 HTTP 读当前 Run/step/attempt/child；timeout 清 native state 后仍阻模型，未决旧 callback 不因新 writer 恢复派发。 | R §1.2、§1.5；V31 | E00 原生反例；E04/E06 fixed；E28原生超时CALL、子请求父许可、跨revision阻断及死亡证明恢复。 | 回调基础已验 | 完整探索接线仍待完成；不能承诺网络原子撤销。 |
-| P3-06：有限协议修复、无进展、停止／重试／预算按 Run 累计，继续／重启／新 revision 不重置；耗尽保留证据与明确 stopReason。 | R §1.1；C §3.3、§9.5 | E00修复机制；E30模型/CALL/repair逻辑槽和Run累计，模型预算跨重开/升级/版本及上下文字节边界已验。 | 部分已验 | E31修复耗尽及重开已验；无进展、token费用和显式预算调整协议待验，COMPLETE候选不能绕后端验收。 |
+| P3-06：有限协议修复、无进展、停止／重试／预算按 Run 累计，继续／重启／新 revision 不重置；耗尽保留证据与明确 stopReason。 | R §1.1；C §3.3、§9.5 | E30 Run预算；E31修复耗尽；E38–39后端完成验收；E40已观察只读请求精确重复停止与同revision幂等恢复。 | 部分已验 | 更广的无新增证据/跨revision循环、token费用和显式预算调整协议继续实现；不将模型NO_PROGRESS声明或一次精确匹配当全机制覆盖。 |
 | P3-07：同 action 新 attempt 重试，WAITING 原 action/job/revision，容量阻断未受理；重放同义完成请求先复用事实，新鲜数据显式新分析。 | R §1.3、§2；I §4.3 | E01 同义调用阻断；E03/E10 fixed 请求身份。 | 部分已验 | 真实 Tool／Skill 适配与恢复顺序：READY→未决对账→已知 job→未提交；父级不丢局部失败／等待。 |
 | P3-08：模型／活跃推进／大结果许可在加载前获得，固定短获取顺序，队列轻量且公平；拒绝不绕许可，真实退出才释放。 | R §1.6；G §8 | E00 容量类单独验收。 | 部分已验 | 同统一运行器接模型／解析／序列化路径，测多 Run 组合峰值／共享风险 Agent，配置有实测依据。 |
 | P3-09：Plan/Explore 独立逻辑身份固定版本；子图不重复持锁，合法多轮不受旧16误限，有限模板缓存不随 session 无限长。 | G §5–8 | E00/E03 身份／40步／投影组件。 | 部分已验 | 持久化嵌套装配与缓存边界验收；原生 interrupt/resume 不成为未验证依赖。 |
@@ -352,6 +353,7 @@
 [E37]: ../integration/campaign-plan-p3-native-skill-2026-09-20.md
 [E38]: ../integration/campaign-plan-p3-candidate-assessment-2026-09-20.md
 [E39]: ../integration/campaign-plan-p3-react-driver-2026-09-20.md
+[E40]: ../integration/campaign-plan-p3-no-progress-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

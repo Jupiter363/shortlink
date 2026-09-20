@@ -100,6 +100,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private final CampaignSkillInvocationStore skills;
     private final CampaignExplorationCandidateStore candidates;
     private final String candidateInstructions;
+    private final ExplorationRepeatPolicy repeatPolicy;
+    private final JdbcExplorationProgressStore progress;
 
     public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
@@ -143,6 +145,17 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
             ExplorationBudgetPolicy budgetPolicy, ExplorationArtifactProjection artifactProjection,
             CampaignSkillInvocationStore skills, CampaignExplorationCandidateStore candidates) {
+        this(jdbc, transactions, clock, runs, steps, calls, step, registry, configuration, executors, authorizer,
+                budgetPolicy, artifactProjection, skills, candidates, ExplorationRepeatPolicy.disabled());
+    }
+
+    public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
+            StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
+            Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
+            ExplorationBudgetPolicy budgetPolicy, ExplorationArtifactProjection artifactProjection,
+            CampaignSkillInvocationStore skills, CampaignExplorationCandidateStore candidates,
+            ExplorationRepeatPolicy repeatPolicy) {
         this.jdbc = Objects.requireNonNull(jdbc); this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock); this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps); this.calls = Objects.requireNonNull(calls);
@@ -153,6 +166,8 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         this.artifactProjection = Objects.requireNonNull(artifactProjection);
         this.skills = skills;
         this.candidates = candidates;
+        this.repeatPolicy = Objects.requireNonNull(repeatPolicy);
+        this.progress = repeatPolicy.enabled() ? new JdbcExplorationProgressStore(jdbc, transactions, clock, steps) : null;
         this.projectionConfigurationId = Objects.requireNonNull(artifactProjection.configurationId());
         if (projectionConfigurationId.isBlank() || projectionConfigurationId.length() > 512)
             throw failure("EXPLORATION_PROJECTION_CONFIGURATION_INVALID");
@@ -182,10 +197,12 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         String skillConfigurationHash = skills == null ? previousConfigurationHash
                 : hash(List.of("skill-observations/v1", previousConfigurationHash));
         this.candidateInstructions = candidates == null ? null : candidateInstructions();
-        this.configurationHash = candidates == null ? skillConfigurationHash
+        String candidateConfigurationHash = candidates == null ? skillConfigurationHash
                 : hash(List.of(ExplorationCandidate.SCHEMA_VERSION, "candidate-instructions/v1", skillConfigurationHash,
                         candidateInstructions,
                         candidates.configurationId(token.definition(), step.stepId())));
+        this.configurationHash = progress == null ? candidateConfigurationHash
+                : hash(List.of("exact-request-repeat/v1", candidateConfigurationHash, repeatPolicy.configurationId()));
         if (skills != null) jdbc.query("SELECT receipt_kind,skill_completion_id,skill_outputs_hash FROM campaign_exploration_turn WHERE 1=0",
                 (rs, row) -> rs.getString(1));
         var definition = token.definition(); var owner = definition.caller();
@@ -195,6 +212,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         tx(() -> {
             requireCurrent();
             budgets.initialize(step);
+            if (progress != null) progress.initialize(step);
             var existing = headers();
             if (existing.isEmpty()) jdbc.update("INSERT INTO campaign_exploration_session (run_id,revision,step_id,configuration_hash,"
                             + "session_status,reason,current_turn,row_version,created_at,updated_at) VALUES (?,?,?,?,'ACTIVE','',1,0,?,?)",
@@ -301,12 +319,24 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                 List<Turn> rows = turns();
                 currentInputs(rows);
                 Turn current = turn(header.turn()).orElse(null);
+                if (noProgress(header)) {
+                    Message stopped = terminalCallResponseLocked(header).orElseThrow();
+                    InvocationSpec invocation = validateInvocation(current).invocation();
+                    ContextMessages messages = new ContextMessages();
+                    ModelInvocationRegistry.decodeRequest(invocation.requestJson(), DECODE_LIMITS).messages().forEach(messages::add);
+                    Response answer = response(current);
+                    messages.add(new Message("assistant", answer.text(), answer.toolCalls(), null, null));
+                    messages.add(stopped);
+                    return messages.values();
+                }
                 if (current != null && ("MODEL".equals(current.decision()) || "TOOL".equals(current.decision()))) {
                     InvocationSpec invocation = validateInvocation(current).invocation();
                     return ModelInvocationRegistry.decodeRequest(invocation.requestJson(), DECODE_LIMITS).messages();
                 }
                 return history(header, rows);
             } catch (ContextBudgetExceeded exhausted) {
+                // A projection-size failure must not erase an already committed stop receipt.
+                if (noProgress(header)) throw failure("EXPLORATION_CONTEXT_BUDGET_EXHAUSTED");
                 blockContext(); return null;
             }
         });
@@ -377,6 +407,23 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             if (!returned.equals(supplied) || !response.text().equals(input.assistantText())) throw failure("EXPLORATION_TOOL_CALL_CHANGED");
             PlanSpec.ExecutorRef executor = executors.get(returned.name());
             if (executor == null) throw failure("EXPLORATION_EXECUTOR_NOT_ALLOWED");
+            if (noProgress(header)) { terminalCallResponseLocked(header).orElseThrow(); return null; }
+            if (header.status() != Status.ACTIVE) throw failure("EXPLORATION_NOT_ACTIVE");
+            String fingerprint = progress == null ? null : repeatFingerprint(executor, returned.arguments());
+            // Only a new proposal is examined. Reopening the same PREPARED CALL or an accepted
+            // asynchronous Skill never enters the exact-repeat gate.
+            if (progress != null && turn.callId() == null && repeatPolicy.reusableExecutors().contains(executor)) {
+                var prior = progress.observed(step, turn.index(), fingerprint);
+                if (prior.isPresent()) {
+                    var evidence = repeatEvidence(prior.get(), turn, executor, returned);
+                    if (evidence.isPresent()) {
+                        progress.stopped(step, turn.index(), fingerprint, turn.modelChildId(),
+                                CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(response)), prior.get(), hash(evidence.get()));
+                        setStatus(Status.BLOCKED, "EXPLORATION_NO_PROGRESS");
+                        return null;
+                    }
+                }
+            }
             var identity = CampaignExplorationCallStore.identity(token.definition(), step.stepId(), turn.modelChildId(), returned.id());
             var spec = new CallSpec(identity.callId(), identity.actionId(), step.stepId(), turn.modelChildId(),
                     CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(response)), returned.id(), executor, returned.arguments());
@@ -387,8 +434,87 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
                 throw failure("EXPLORATION_CALL_NOT_REPLAYABLE");
             if (turn.callId() != null && !turn.callId().equals(spec.callId())) throw failure("EXPLORATION_CALL_CHANGED");
             updateTurn(turn.index(), "decision='TOOL',call_id=?", spec.callId());
+            if (progress != null) progress.admitted(step, turn.index(), fingerprint, turn.modelChildId(), spec.responseHash(), spec.callId());
             return null;
         });
+    }
+
+    @Override public Optional<Message> terminalCallResponse() {
+        return tx(() -> { requireCurrent(); return terminalCallResponseLocked(header()); });
+    }
+
+    private Optional<Message> terminalCallResponseLocked(Header header) {
+        if (!noProgress(header)) return Optional.empty();
+        if (progress == null) throw failure("EXPLORATION_PROGRESS_RECEIPT_REQUIRED");
+        Turn current = turn(header.turn()).orElseThrow();
+        var stop = progress.proposal(step, current.index()).orElseThrow(() -> failure("EXPLORATION_PROGRESS_RECEIPT_REQUIRED"));
+        Response answer = response(current);
+        if (!"MODEL".equals(current.decision()) || current.callId() != null || stop.decision() != JdbcExplorationProgressStore.Decision.STOP
+                || !current.modelChildId().equals(stop.modelChildId()) || answer.toolCalls().size() != 1
+                || !stop.responseHash().equals(CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(answer))))
+            throw failure("EXPLORATION_PROGRESS_PROPOSAL_CHANGED");
+        ToolCall proposed = answer.toolCalls().get(0);
+        PlanSpec.ExecutorRef executor = executors.get(proposed.name());
+        if (executor == null || !repeatPolicy.reusableExecutors().contains(executor)
+                || !stop.fingerprint().equals(repeatFingerprint(executor, proposed.arguments())))
+            throw failure("EXPLORATION_PROGRESS_PROPOSAL_CHANGED");
+        var source = progress.proposal(step, stop.sourceTurnIndex()).orElseThrow();
+        if (!Objects.equals(stop.sourceCallId(), source.callId()) || !stop.fingerprint().equals(source.fingerprint()))
+            throw failure("EXPLORATION_PROGRESS_SOURCE_CHANGED");
+        Map<String, ArtifactRef> outputs = repeatEvidence(source, current, executor, proposed)
+                .orElseThrow(() -> failure("EXPLORATION_PROGRESS_EVIDENCE_NOT_VISIBLE"));
+        if (!stop.outputsHash().equals(hash(outputs))) throw failure("EXPLORATION_PROGRESS_EVIDENCE_CHANGED");
+        var message = new Message("tool", write(Map.of("executed", false, "code", "EXPLORATION_NO_PROGRESS",
+                "sourceCallId", source.callId(), "outputs", outputs)), null, proposed.id(), proposed.name());
+        encodedSize(message, budgetPolicy.maxContextBytes());
+        return Optional.of(message);
+    }
+
+    private String repeatFingerprint(PlanSpec.ExecutorRef executor, String arguments) {
+        // No turn/callback identity and no expanding MODEL.inputs prefix enters request identity.
+        return hash(List.of(configurationHash, repeatPolicy.configurationId(), executor, arguments));
+    }
+
+    private Optional<Map<String, ArtifactRef>> repeatEvidence(JdbcExplorationProgressStore.Proposal source, Turn current,
+                                                           PlanSpec.ExecutorRef executor, ToolCall proposed) {
+        Turn observed = turn(source.turnIndex()).orElseThrow();
+        if (source.decision() != JdbcExplorationProgressStore.Decision.ADMITTED || source.turnIndex() >= current.index()
+                || !"OBSERVED".equals(observed.decision()) || !Objects.equals(observed.callId(), source.callId())
+                || !observed.modelChildId().equals(source.modelChildId())) throw failure("EXPLORATION_PROGRESS_SOURCE_CHANGED");
+        CallRecord call = calls.call(token, source.callId()).orElseThrow();
+        Response answer = response(observed);
+        if (call.state() != CallState.RETURNED || call.callbackActive() || call.revoked()
+                || !executor.equals(call.spec().executor()) || !step.stepId().equals(call.spec().stepId())
+                || !observed.modelChildId().equals(call.spec().modelChildId()) || !proposed.arguments().equals(call.spec().arguments())
+                || !source.responseHash().equals(CampaignRunStore.sha256(ModelInvocationRegistry.encodeResponse(answer)))
+                || !source.responseHash().equals(call.spec().responseHash()) || answer.toolCalls().size() != 1
+                || !answer.toolCalls().get(0).equals(new ToolCall(call.spec().toolCallId(), executor.name(), call.spec().arguments()))
+                || !source.fingerprint().equals(repeatFingerprint(executor, proposed.arguments())))
+            throw failure("EXPLORATION_PROGRESS_SOURCE_CHANGED");
+        Map<String, ArtifactMetadata> evidence = new TreeMap<>();
+        if ("SKILL".equals(observed.receiptKind())) {
+            var completion = requireSkillReceipt(observed);
+            for (var entry : completion.outputs().entrySet()) {
+                var metadata = runs.readArtifact(token.definition().caller(), entry.getValue().artifactId(), authorizer).metadata();
+                if (!metadata.ref().equals(entry.getValue())) throw failure("EXPLORATION_PROGRESS_EVIDENCE_CHANGED");
+                evidence.put(entry.getKey(), metadata);
+            }
+        } else {
+            var children = capabilityChildren(call.spec().actionId());
+            if (children.size() != 1 || children.get(0).state() != ChildState.READY || children.get(0).callbackActive()
+                    || children.get(0).reason() != null) throw failure("EXPLORATION_PROGRESS_SOURCE_INCOMPLETE");
+            evidence.put("artifact", requireReceipt(observed));
+        }
+        if (evidence.isEmpty()) throw failure("EXPLORATION_PROGRESS_SOURCE_INCOMPLETE");
+        var visible = validateInvocation(current).invocation().inputs().values();
+        if (!visible.containsAll(evidence.values())) return Optional.empty();
+        Map<String, ArtifactRef> outputs = new TreeMap<>();
+        evidence.forEach((name, metadata) -> outputs.put(name, metadata.ref()));
+        return Optional.of(Map.copyOf(outputs));
+    }
+
+    private static boolean noProgress(Header header) {
+        return header.status() == Status.BLOCKED && "EXPLORATION_NO_PROGRESS".equals(header.reason());
     }
 
     @Override public long beginCallback(String toolCallId, String toolName) {
@@ -860,6 +986,12 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
 
     private void refresh() {
         Header header = header();
+        if (noProgress(header)) {
+            // A stopped session still exposes evidence references; every fresh projection must
+            // revalidate the original receipt instead of treating STOP as cached authorization.
+            terminalCallResponseLocked(header).orElseThrow();
+            return;
+        }
         if (header.status() == Status.FAILED || header.status() == Status.CANDIDATE || budgetBlocked(header)) return;
         Turn turn = turn(header.turn()).orElse(null);
         if (turn == null || turn.callId() == null) return;
