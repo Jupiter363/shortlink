@@ -83,6 +83,7 @@ class CampaignTrustedAdapterConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(CampaignReplanRuntimeFactory.class);
                     assertThat(context).hasSingleBean(CampaignReplanTrustedAdapter.class);
+                    assertThat(context).hasBean("campaignReplanRunTokenResolver");
                     assertThat(context).hasSingleBean(CampaignReportApplicationService.class);
                     assertThat(context).hasSingleBean(CampaignTrustedRunResultAdapter.class);
                     assertThat(context).hasSingleBean(CampaignRunReportPublicationCoordinator.class);
@@ -142,7 +143,8 @@ class CampaignTrustedAdapterConfigurationTest {
         }
         @Bean CampaignReplanApplicationService.CapabilityAuthorizer capabilityAuthorizer() { return (o, t, c) -> true; }
         @Bean CampaignStatisticsConsumerStore.Authorizer consumerAuthorizer() { return (r, b, e) -> true; }
-        @Bean CampaignReplanTrustedAdapter.RunTokenResolver runTokenResolver() {
+        @Bean(name = "campaignReplanRunTokenResolver")
+        CampaignReplanTrustedAdapter.RunTokenResolver runTokenResolver() {
             return (owner, sessionId, runId) -> Optional.empty();
         }
         @Bean CampaignReportPublisher.EvidenceReader evidenceReader() { return id -> Optional.empty(); }

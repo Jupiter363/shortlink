@@ -123,6 +123,7 @@ public class CampaignTrustedAdapterConfiguration {
     @Bean
     public CampaignReplanTrustedAdapter campaignReplanTrustedAdapter(
             CampaignReplanRuntimeFactory runtimeFactory,
+            @Qualifier("campaignReplanRunTokenResolver")
             CampaignReplanTrustedAdapter.RunTokenResolver tokenResolver) {
         return new CampaignReplanTrustedAdapter(runtimeFactory, tokenResolver);
     }
