@@ -14,6 +14,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.Campai
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseRouteAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableResponseTransportAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseEnvelopeAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseProtocolMetadataResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignReportAccessGrantResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResultProgressReader;
@@ -51,6 +52,7 @@ class CampaignJdbcDurableResponseConfigurationTest {
             assertThat(context).doesNotHaveBean(CampaignJdbcDurableRunResponseBridgeFactory.class);
             assertThat(context).doesNotHaveBean(CampaignResponseRouteAdapter.class);
             assertThat(context).doesNotHaveBean(CampaignDurableResponseTransportAdapter.class);
+            assertThat(context).doesNotHaveBean(CampaignResponseEnvelopeAdapter.class);
         });
     }
 
@@ -93,6 +95,7 @@ class CampaignJdbcDurableResponseConfigurationTest {
                     assertThat(context).hasSingleBean(CampaignJdbcDurableRunResponseBridgeFactory.class);
                     assertThat(context).hasSingleBean(CampaignResponseRouteAdapter.class);
                     assertThat(context).hasSingleBean(CampaignDurableResponseTransportAdapter.class);
+                    assertThat(context).hasSingleBean(CampaignResponseEnvelopeAdapter.class);
                     assertThat(context).hasBean("campaignDurableResponseRunHandleResolver");
                     assertThat(context).hasSingleBean(JdbcCampaignResultProgressReader.class);
                     assertThat(context).hasBean("campaignJdbcDurableRunResultProjection");
