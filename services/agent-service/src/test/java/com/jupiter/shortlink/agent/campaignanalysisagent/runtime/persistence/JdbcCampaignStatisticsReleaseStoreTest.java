@@ -148,7 +148,67 @@ class JdbcCampaignStatisticsReleaseStoreTest {
         }
     }
 
+    @Test
+    void pendingRequestedIsBoundedDeterministicAndReadOnlyAndExcludesConfirmedTerminalOrForeignRows() throws Exception {
+        Fixture ordered = fixture();
+        Seed firstSeed = seed(ordered, "a", 0, true, "job-a");
+        Seed middleSeed = seed(ordered, "m", 0, true, "job-m");
+        Seed lastSeed = seed(ordered, "z", 0, true, "job-z");
+        var releases = ordered.releases(CLOCK);
+        releases.prepare(firstSeed.run(), firstSeed.childId(), ALLOW);
+        releases.prepare(middleSeed.run(), middleSeed.childId(), ALLOW);
+        releases.prepare(lastSeed.run(), lastSeed.childId(), ALLOW);
+
+        List<Map<String, Object>> before = ordered.jdbc().queryForList(
+                "SELECT binding_id,release_state,binding_version,confirmed_at FROM campaign_statistics_release ORDER BY binding_id");
+        List<PendingIntent> firstRead = releases.pendingRequested(OWNER, 2);
+        assertEquals(List.of("run-a", "run-m"), firstRead.stream().map(PendingIntent::runId).toList());
+        assertEquals(List.of("job-a", "job-m"), firstRead.stream().map(PendingIntent::jobId).toList());
+        assertTrue(firstRead.stream().allMatch(entry -> entry.state() == State.REQUESTED
+                && entry.bindingVersion() == 1 && entry.expiresAtMillis() == EXPIRY));
+        assertEquals(firstRead, releases.pendingRequested(OWNER, 2));
+        assertEquals(before, ordered.jdbc().queryForList(
+                "SELECT binding_id,release_state,binding_version,confirmed_at FROM campaign_statistics_release ORDER BY binding_id"));
+        assertTrue(releases.pendingRequested(new Caller("1001", "other-subject", 7), 10).isEmpty());
+        assertTrue(releases.pendingRequested(new Caller("foreign-tenant", "analyst-a", 7), 10).isEmpty());
+
+        Fixture filtered = fixture();
+        Seed pending = seed(filtered, "pending", 0, true, "job-pending");
+        Seed confirmed = seed(filtered, "confirmed", 0, true, "job-confirmed");
+        Seed terminal = seed(filtered, "terminal", 0, true, "job-terminal");
+        var filteredReleases = filtered.releases(CLOCK);
+        filteredReleases.prepare(pending.run(), pending.childId(), ALLOW);
+        filteredReleases.prepare(confirmed.run(), confirmed.childId(), ALLOW);
+        filteredReleases.prepare(terminal.run(), terminal.childId(), ALLOW);
+        filtered.jdbc().update("UPDATE campaign_statistics_release SET release_state='CONFIRMED',confirmed_at=? "
+                + "WHERE producer_run_id=? AND revision=? AND child_id=?", NOW.toEpochMilli(),
+                confirmed.run().definition().runId(), confirmed.run().definition().revision(), confirmed.childId());
+        filtered.runs().cancel(terminal.run());
+        assertEquals(List.of("run-pending"), filteredReleases.pendingRequested(OWNER, 10).stream()
+                .map(PendingIntent::runId).toList());
+        assertThrows(IllegalArgumentException.class, () -> filteredReleases.pendingRequested(OWNER, 0));
+        assertThrows(IllegalArgumentException.class, () -> filteredReleases.pendingRequested(OWNER, 257));
+    }
+
+    @Test
+    void pendingRequestedFailsClosedWhenTheStoredBindingNoLongerMatchesTheChildProof() throws Exception {
+        Fixture fixture = fixture();
+        Seed seed = seed(fixture, "corrupt-pending", 0, true, "job-corrupt");
+        var releases = fixture.releases(CLOCK);
+        releases.prepare(seed.run(), seed.childId(), ALLOW);
+        fixture.jdbc().update("UPDATE campaign_statistics_release SET request_hash=? WHERE producer_run_id=? "
+                        + "AND revision=? AND child_id=?", "0".repeat(64), seed.run().definition().runId(),
+                seed.run().definition().revision(), seed.childId());
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> releases.pendingRequested(OWNER, 10));
+        assertEquals("RELEASE_PENDING_BINDING_CORRUPTED", failure.getMessage());
+    }
+
     private static Seed seed(Fixture fixture, String suffix, int total, boolean publish) throws Exception {
+        return seed(fixture, suffix, total, publish, "physical-job");
+    }
+
+    private static Seed seed(Fixture fixture, String suffix, int total, boolean publish, String jobId) throws Exception {
         var runs = fixture.runs();
         RunToken run = runs.createRun(new RunDefinition(OWNER, "session-1", "run-" + suffix, "plan-1", 1, "{}"));
         String childId = "child-" + suffix;
@@ -165,20 +225,20 @@ class JdbcCampaignStatisticsReleaseStoreTest {
         runs.prepareAction(run, new ActionSpec("action-" + suffix, "step-1", "TOOL", "statistics", "1", "{}"));
         runs.prepareChild(run, new ChildSpec(childId, "action-" + suffix, ChildMode.ASYNC, requestId, wire));
         DispatchPermit submission = runs.beginDispatch(run, childId);
-        try { runs.recordWaiting(submission, "physical-job"); }
+        try { runs.recordWaiting(submission, jobId); }
         finally { runs.callbackExited(submission); }
         DispatchPermit receipt = runs.beginReconciliation(run, childId);
         int pageCount = total / 500 + (total % 500 == 0 ? 0 : 1);
         ArtifactRef artifact = null;
         try {
             var results = fixture.results();
-            results.initialize(receipt, new CampaignStatisticsResultStore.ReceiptSpec("physical-job", wire.hash(), artifactId,
+            results.initialize(receipt, new CampaignStatisticsResultStore.ReceiptSpec(jobId, wire.hash(), artifactId,
                     scopeRef, "periods-frozen", total, pageCount, EXPIRY));
             var protocol = new StatisticsJobResultProtocol(runs.child(run, childId).orElseThrow());
-            var status = new StatisticsJobResultProtocol.Status("physical-job", "SUCCEEDED", total, pageCount, EXPIRY, null);
+            var status = new StatisticsJobResultProtocol.Status(jobId, "SUCCEEDED", total, pageCount, EXPIRY, null);
             int received = publish ? Math.max(1, pageCount) : 1;
             for (int index = 0; index < received; index++) {
-                results.append(receipt, protocol.page(status, page(scope, total, index, pageCount), index));
+                results.append(receipt, protocol.page(status, page(scope, total, index, pageCount, jobId), index));
             }
             if (publish) artifact = results.publish(receipt);
             else runs.markUnresolved(receipt);
@@ -188,9 +248,13 @@ class JdbcCampaignStatisticsReleaseStoreTest {
     }
 
     private static Map<String, Object> page(FrozenQueryScope scope, int total, int index, int pages) {
+        return page(scope, total, index, pages, "physical-job");
+    }
+
+    private static Map<String, Object> page(FrozenQueryScope scope, int total, int index, int pages, String jobId) {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("queryKind", "ACCESS_RECORDS"); meta.put("gid", "group-1"); meta.put("linkIds", scope.linkIds());
-        meta.put("snapshotId", "physical-job"); meta.put("snapshotExpiresAt", EXPIRY);
+        meta.put("snapshotId", jobId); meta.put("snapshotExpiresAt", EXPIRY);
         meta.put("metricVersion", "click-v1"); meta.put("recoveryEpoch", "epoch-1");
         meta.put("sourceCut", Map.of("manifestSelectionHash", "cut-1"));
         meta.put("manifestVersion", Map.of("selectionHash", "cut-1"));
