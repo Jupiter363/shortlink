@@ -69,6 +69,10 @@ public final class JdbcCampaignRunResultBindingCoordinator {
 
     static String referenceId(RunToken token) {
         String runId = token.definition().runId();
-        return "run-result-binding:" + runId + ":" + token.definition().revision();
+        return referenceId(runId, token.definition().revision());
+    }
+
+    static String referenceId(String runId, int revision) {
+        return "run-result-binding:" + runId + ":" + revision;
     }
 }

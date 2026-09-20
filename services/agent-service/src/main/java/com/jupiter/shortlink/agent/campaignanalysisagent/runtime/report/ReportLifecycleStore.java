@@ -54,6 +54,21 @@ public interface ReportLifecycleStore {
     /** Removes one reference. Releasing an absent reference is idempotent. */
     long release(Key key, String referenceId);
 
+    /**
+     * Removes one reference for a trusted terminal-run cleanup path without reading the report.
+     * This path must not be used as a user report-read authorization check.
+     */
+    default ReferenceRelease releaseReferenceIfPresent(Key key, String referenceId) {
+        throw new UnsupportedOperationException("REPORT_REFERENCE_RELEASE_UNAVAILABLE");
+    }
+
+    record ReferenceRelease(boolean reportPresent, boolean referenceRemoved, long rowVersion) {
+        public ReferenceRelease {
+            if (rowVersion < 0 || (!reportPresent && rowVersion != 0))
+                throw new IllegalArgumentException("REPORT_REFERENCE_RELEASE_INVALID");
+        }
+    }
+
     /** Compare-and-delete; returns false when the version changed or references remain. */
     boolean cleanup(Key key, long expectedVersion);
 

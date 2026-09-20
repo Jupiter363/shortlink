@@ -61,25 +61,21 @@ public final class JdbcReportLifecycleStore implements ReportLifecycleStore {
         ReportLifecycleStore.require(currentOwner, "REPORT_OWNER_INVALID");
         ReportLifecycleStore.require(capability, "REPORT_CAPABILITY_INVALID");
         return tx(() -> {
-            Published report = find(key, false).orElse(null);
-            if (report == null) return Optional.empty();
-            if (!READY.equals(status(key))) fail("REPORT_NOT_READY");
-            if (!report.owner().equals(currentOwner) || !report.capability().equals(capability))
-                throw new SecurityException("REPORT_ACCESS_DENIED");
-            long now = clock.millis();
-            if (report.evidenceRetainedUntil().toEpochMilli() <= now
-                    || report.retainedUntil().toEpochMilli() <= now
-                    || (mode == Mode.EXPORT && report.reuseExpiresAt().toEpochMilli() <= now))
-                fail(mode == Mode.EXPORT ? "REPORT_REUSE_EXPIRED" : "REPORT_DATA_EXPIRED");
-            return Optional.of(report);
+            return readable(key, currentOwner, capability, mode, false);
         });
     }
 
     @Override
     public long retain(Key key, String referenceId, String currentOwner, String capability) {
         ReportLifecycleStore.require(referenceId, "REPORT_REFERENCE_INVALID");
+        ReportLifecycleStore.require(currentOwner, "REPORT_OWNER_INVALID");
+        ReportLifecycleStore.require(capability, "REPORT_CAPABILITY_INVALID");
         return tx(() -> {
-            read(key, currentOwner, capability, Mode.HISTORY_VIEW).orElseThrow(() -> new IllegalStateException("REPORT_NOT_FOUND"));
+            // Lock the lifecycle row before the authorization/expiry check. This keeps retain in
+            // the same report-row lock order as trusted terminal cleanup and prevents a cleanup
+            // from racing a late reference insert after it has released the last reference.
+            readable(key, currentOwner, capability, Mode.HISTORY_VIEW, true)
+                    .orElseThrow(() -> new IllegalStateException("REPORT_NOT_FOUND"));
             int inserted = jdbc.update("INSERT INTO campaign_report_reference (report_id,revision,reference_id,created_at) VALUES (?,?,?,?)",
                     key.reportId(), key.revision(), referenceId, clock.millis());
             if (inserted == 1) jdbc.update("UPDATE campaign_report_lifecycle SET reference_count=reference_count+1,row_version=row_version+1,updated_at=? WHERE report_id=? AND revision=?",
@@ -92,6 +88,9 @@ public final class JdbcReportLifecycleStore implements ReportLifecycleStore {
     public long release(Key key, String referenceId) {
         ReportLifecycleStore.require(referenceId, "REPORT_REFERENCE_INVALID");
         return tx(() -> {
+            // Keep ordinary release serialized with retain and terminal cleanup as well. Missing
+            // lifecycle rows retain the historical version-query failure semantics.
+            find(key, true);
             int deleted = jdbc.update("DELETE FROM campaign_report_reference WHERE report_id=? AND revision=? AND reference_id=?",
                     key.reportId(), key.revision(), referenceId);
             if (deleted == 1) jdbc.update("UPDATE campaign_report_lifecycle SET reference_count=reference_count-1,row_version=row_version+1,updated_at=? WHERE report_id=? AND revision=? AND reference_count>0",
@@ -101,10 +100,43 @@ public final class JdbcReportLifecycleStore implements ReportLifecycleStore {
     }
 
     @Override
+    public ReferenceRelease releaseReferenceIfPresent(Key key, String referenceId) {
+        Objects.requireNonNull(key, "REPORT_KEY_REQUIRED");
+        ReportLifecycleStore.require(referenceId, "REPORT_REFERENCE_INVALID");
+        return tx(() -> {
+            Optional<VersionRow> existing = jdbc.query(
+                    "SELECT row_version,reference_count FROM campaign_report_lifecycle "
+                            + "WHERE report_id=? AND revision=? FOR UPDATE",
+                    (rs, row) -> new VersionRow(rs.getLong("row_version"), rs.getInt("reference_count")),
+                    key.reportId(), key.revision()).stream().findFirst();
+            if (existing.isEmpty()) return new ReferenceRelease(false, false, 0);
+
+            int deleted = jdbc.update("DELETE FROM campaign_report_reference WHERE report_id=? AND revision=? AND reference_id=?",
+                    key.reportId(), key.revision(), referenceId);
+            if (deleted == 1) {
+                if (existing.get().referenceCount() < 1)
+                    throw new IllegalStateException("REPORT_REFERENCE_COUNT_CORRUPTED");
+                jdbc.update("UPDATE campaign_report_lifecycle SET reference_count=reference_count-1,row_version=row_version+1,updated_at=? "
+                                + "WHERE report_id=? AND revision=? AND reference_count>0",
+                        clock.millis(), key.reportId(), key.revision());
+            }
+            Long version = jdbc.query("SELECT row_version FROM campaign_report_lifecycle WHERE report_id=? AND revision=?",
+                    (rs, row) -> rs.getLong("row_version"), key.reportId(), key.revision())
+                    .stream().findFirst().orElse(existing.get().rowVersion());
+            return new ReferenceRelease(true, deleted == 1, version);
+        });
+    }
+
+    @Override
     public boolean cleanup(Key key, long expectedVersion) {
         if (expectedVersion < 1) throw new IllegalArgumentException("REPORT_VERSION_INVALID");
-        return tx(() -> jdbc.update("DELETE FROM campaign_report_lifecycle WHERE report_id=? AND revision=? AND status='READY' AND row_version=? AND reference_count=0 AND retained_until<=?",
-                key.reportId(), key.revision(), expectedVersion, clock.millis()) == 1);
+        return tx(() -> {
+            // Establish the same lifecycle-row lock used by retain/release before evaluating the
+            // compare-and-delete predicate.
+            if (find(key, true).isEmpty()) return false;
+            return jdbc.update("DELETE FROM campaign_report_lifecycle WHERE report_id=? AND revision=? AND status='READY' AND row_version=? AND reference_count=0 AND retained_until<=?",
+                    key.reportId(), key.revision(), expectedVersion, clock.millis()) == 1;
+        });
     }
 
     private Optional<Published> find(Key key, boolean lock) {
@@ -112,6 +144,22 @@ public final class JdbcReportLifecycleStore implements ReportLifecycleStore {
                 + (lock ? " FOR UPDATE" : "");
         return jdbc.query(sql, this::map, key.reportId(), key.revision()).stream().findFirst();
     }
+
+    private Optional<Published> readable(Key key, String currentOwner, String capability, Mode mode, boolean lock) {
+        Published report = find(key, lock).orElse(null);
+        if (report == null) return Optional.empty();
+        if (!READY.equals(status(key))) fail("REPORT_NOT_READY");
+        if (!report.owner().equals(currentOwner) || !report.capability().equals(capability))
+            throw new SecurityException("REPORT_ACCESS_DENIED");
+        long now = clock.millis();
+        if (report.evidenceRetainedUntil().toEpochMilli() <= now
+                || report.retainedUntil().toEpochMilli() <= now
+                || (mode == Mode.EXPORT && report.reuseExpiresAt().toEpochMilli() <= now))
+            fail(mode == Mode.EXPORT ? "REPORT_REUSE_EXPIRED" : "REPORT_DATA_EXPIRED");
+        return Optional.of(report);
+    }
+
+    private record VersionRow(long rowVersion, int referenceCount) {}
 
     private Published map(ResultSet rs, int row) throws java.sql.SQLException {
         return new Published(new Key(rs.getString("report_id"), rs.getInt("revision")), rs.getString("run_id"),
