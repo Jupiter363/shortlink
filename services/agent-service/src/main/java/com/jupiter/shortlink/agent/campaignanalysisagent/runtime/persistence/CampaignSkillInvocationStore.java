@@ -12,7 +12,7 @@ import java.util.Set;
 
 /** Server-owned completion contract for one non-exploring Skill callback, not an execution plan. */
 public interface CampaignSkillInvocationStore {
-    enum State { RUNNING, WAITING, COMPLETED }
+    enum State { RUNNING, WAITING, DEFERRED, COMPLETED }
 
     /** Supplied by the registered server Skill, never decoded from model arguments. */
     record CompletionSpec(String finalLocalChildId, String outputContractRef, Map<String, OutputBinding> outputs) {
@@ -34,10 +34,13 @@ public interface CampaignSkillInvocationStore {
 
     InvocationRecord prepare(CallPermit permit, CompletionSpec spec, Approval sourceModel, ArtifactAuthorizer authorizer);
 
-    /** All actual pending children must be declared; unknown/live/capacity states cannot become an ordinary wait. */
+    /** All actual pending children must be declared; opt-in capacity waits require durable non-admission proof. */
     InvocationRecord awaitContinuation(CallPermit permit, Set<String> childIds);
 
-    /** Only the exact persisted WAITING invocation may admit a new callback attempt. */
+    /** Read-only readiness under current source/Artifact authority; never grants a callback permit. */
+    boolean continuationReady(RunToken token, String callId, Approval sourceModel, ArtifactAuthorizer authorizer);
+
+    /** Only the exact persisted WAITING/DEFERRED invocation may admit a new callback attempt. */
     CallPermit beginContinuation(StepPermit step, String callId, long expectedInvocationVersion,
                                  Approval sourceModel, ArtifactAuthorizer authorizer);
 

@@ -53,7 +53,8 @@ public final class DeclineSelectionExplorationSkill {
                         catch (RuntimeException denied) { throw denied; }
                         catch (Exception denied) { throw new IllegalStateException("DECLINE_NATIVE_DISPATCH_FENCED"); }
                     });
-                    if (result.state() == CampaignSkillInvocationStore.State.WAITING)
+                    if (result.state() == CampaignSkillInvocationStore.State.WAITING
+                            || result.state() == CampaignSkillInvocationStore.State.DEFERRED)
                         return NativeExplorationAdapter.Observation.skillPending(permit.callId()).json();
                     if (result.state() == CampaignSkillInvocationStore.State.COMPLETED)
                         return NativeExplorationAdapter.Observation.skillReady(permit.callId()).json();

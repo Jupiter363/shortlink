@@ -117,11 +117,15 @@ public final class DeclineSelectionCall {
                                         queries.get(period).target().artifactId()), shard, previous),
                         head -> publisher.finish(context, permit, head), () -> reauthorizeInputs(token, source));
                 requireLive(permit); reauthorizeInputs(token, source);
-                if (result.status() == CampaignStepStore.StepStatus.WAITING) {
-                    Set<String> waiting = new HashSet<>(jdbc.query("SELECT child_id FROM campaign_child_ledger WHERE run_id=? "
-                                    + "AND revision=? AND action_id=? AND child_state='WAITING' ORDER BY child_id",
+                if (result.status() == CampaignStepStore.StepStatus.WAITING
+                        || (result.status() == CampaignStepStore.StepStatus.BLOCKED && "REMOTE_CAPACITY".equals(result.reason()))) {
+                    // These are dependency candidates only. The Skill store checks every owned
+                    // child and its durable rejection proof before allowing a resumable return.
+                    Set<String> dependencies = new HashSet<>(jdbc.query("SELECT child_id FROM campaign_child_ledger WHERE run_id=? "
+                                    + "AND revision=? AND action_id=? AND (child_state='WAITING' OR "
+                                    + "(child_state='PREPARED' AND unresolved_reason='QUERY_CAPACITY_EXHAUSTED')) ORDER BY child_id",
                             (rs, row) -> rs.getString(1), definition.runId(), definition.revision(), permit.actionId()));
-                    return skills.awaitContinuation(permit, waiting);
+                    return skills.awaitContinuation(permit, dependencies);
                 }
                 require(result.status() == CampaignStepStore.StepStatus.SUCCEEDED, result.reason() == null ? "DECLINE_CALL_UNRESOLVED" : result.reason());
                 var sealed = selections.loadReceipt(token, selection.collectionId(), authorizer).orElseThrow();

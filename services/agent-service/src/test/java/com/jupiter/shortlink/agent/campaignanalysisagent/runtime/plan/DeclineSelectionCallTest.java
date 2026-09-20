@@ -23,9 +23,11 @@ import com.jupiter.shortlink.contract.FrozenQueryScope;
 import com.jupiter.shortlink.contract.GroupMembersPage;
 import java.math.BigInteger;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.core.io.ClassPathResource;
@@ -162,7 +164,8 @@ class DeclineSelectionCallTest {
 
     static final class CallFixture {
         final CampaignParentCoverageTest.Fixture base = new CampaignParentCoverageTest.Fixture();
-        final CampaignRunStore runs = base.runs;
+        final CampaignRunStore runs;
+        final Clock clock;
         final CampaignStepStore steps;
         final CampaignExplorationCallStore calls;
         final CampaignSkillInvocationStore invocations;
@@ -194,6 +197,12 @@ class DeclineSelectionCallTest {
 
         CallFixture(boolean prepareInitialModelCall, List<PlanSpec.CriterionUse> completionCriteria,
                     PlanSpec.Step downstream, Capability downstreamCapability) throws Exception {
+            this(prepareInitialModelCall, completionCriteria, downstream, downstreamCapability, CLOCK, false);
+        }
+
+        CallFixture(boolean prepareInitialModelCall, List<PlanSpec.CriterionUse> completionCriteria,
+                    PlanSpec.Step downstream, Capability downstreamCapability, Clock clock, boolean capacityWaits) throws Exception {
+            this.clock = Objects.requireNonNull(clock);
             if ((downstream == null) != (downstreamCapability == null) || (downstream != null && prepareInitialModelCall))
                 throw new IllegalArgumentException("Driver fixture requires an unstarted native model and a registered downstream step");
             new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919_3__campaign_run_owner.sql"),
@@ -201,8 +210,11 @@ class DeclineSelectionCallTest {
                     new ClassPathResource("sql/migration/V20260920_8__campaign_model_invocation.sql"),
                     new ClassPathResource("sql/migration/V20260920_9__campaign_exploration_call.sql"),
                     new ClassPathResource("sql/migration/V20260920_12__campaign_skill_invocation.sql")).execute(base.jdbc.getDataSource());
-            steps = new JdbcCampaignStepStore(base.jdbc, base.transactions, CLOCK);
-            calls = new JdbcCampaignExplorationCallStore(base.jdbc, base.transactions, CLOCK);
+            if (capacityWaits) new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260920_16__campaign_skill_capacity_wait.sql"))
+                    .execute(base.jdbc.getDataSource());
+            runs = clock == CLOCK ? base.runs : new JdbcCampaignRunStore(base.jdbc, base.transactions, clock);
+            steps = new JdbcCampaignStepStore(base.jdbc, base.transactions, clock);
+            calls = new JdbcCampaignExplorationCallStore(base.jdbc, base.transactions, clock);
             approvedRoot = new ClassPathResource("campaign-skills").getFile().toPath();
             String digest = RunPinnedSkills.contentDigest(new SkillScanner().loadSkill(approvedRoot.resolve("decline-selection/1"), "backend-test"));
             // This only derives a frozen reference; a real same-run authority receipt is published below.
@@ -258,7 +270,8 @@ class DeclineSelectionCallTest {
                             Set.of(new TypeRef("SelectedEntitiesArtifact", 1, Cardinality.ONE), new TypeRef("DeclineEvidenceArtifact", 1, Cardinality.ONE))));
                 }
             };
-            invocations = new JdbcCampaignSkillInvocationStore(base.jdbc, base.transactions, CLOCK, catalog, contracts);
+            invocations = capacityWaits ? new JdbcCampaignSkillInvocationStore(base.jdbc, base.transactions, clock, catalog, contracts, true)
+                    : new JdbcCampaignSkillInvocationStore(base.jdbc, base.transactions, clock, catalog, contracts);
             if (downstream == null) {
                 steps.initialize(token, List.of(new StepSpec(STEP, FrozenCampaignRun.encode(planStep), List.of(), OUTPUTS, OUTPUTS)));
                 step = steps.beginStep(token, STEP);
@@ -329,6 +342,8 @@ class DeclineSelectionCallTest {
     static final class Gateway implements ShortLinkBusinessGateway {
         final CallFixture f;
         final Map<String, Map<String, Object>> accepted = new LinkedHashMap<>();
+        final List<Map<String, Object>> submissionAttempts = new ArrayList<>();
+        Function<Map<String, Object>, ToolResult> submissionScript;
         int submits, recoveries, statuses, pageReads;
         Gateway(CallFixture f) { this.f = f; }
         int reads() { return statuses + pageReads; }
@@ -347,6 +362,11 @@ class DeclineSelectionCallTest {
                     Integer.class, RUN, current.definition().revision(), STEP, child.spec().actionId()));
             assertEquals(StatisticsJobResultProtocol.FROZEN_SUBMIT_PATH, child.spec().wire().path());
             assertEquals(FrozenCampaignRun.encode(request), child.spec().wire().bodyJson());
+            submissionAttempts.add(Map.copyOf(request));
+            if (submissionScript != null) {
+                ToolResult scripted = submissionScript.apply(Map.copyOf(request));
+                if (scripted != null) return scripted;
+            }
             assertTrue(accepted.values().stream().noneMatch(value -> value.get("requestId").equals(request.get("requestId"))));
             String job = "job-" + (accepted.size() + 1); accepted.put(job, Map.copyOf(request));
             return ToolResult.success(Map.of("jobId", job, "state", "SUCCEEDED"));
