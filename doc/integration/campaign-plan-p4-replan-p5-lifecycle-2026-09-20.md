@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66）
 
 记录日期：2026-09-20。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -80,6 +80,10 @@
 ### E65：耐久报告读取投影
 
 新增 `CampaignReportReadProjection`，把已授权的 durable report read 转为固定 `campaign-report-snapshot/v1` typed snapshot。读取继续唯一经过 `CampaignReportApplicationService`，`HISTORY_VIEW`/`EXPORT` 原样传给 lifecycle store；投影不暴露 owner/capability，也不把空结果回退成旧报告或重新查询。对持久 payload 的根字段、可选 payload schema、Draft schema、reportId/revision/run/planRevision 一致性和逐目标 assessment 做严格校验；未知字段、重复 goal、解析失败统一 fail closed 为 `REPORT_PAYLOAD_INVALID`。输出列表保持不可变，并保留报告留存元数据而不泄露主体授权信息。
+
+### E66：typed snapshot 到 legacy answer 兼容桥
+
+新增纯 `CampaignLegacyAnswerAdapter`，把已授权的 typed snapshot 与可信的 server-owned execution status 映射为固定 `campaign-legacy-view/v1`。只有 `SUCCEEDED`、至少一个目标、所有目标真实 `ANSWERED` 且存在报告 block 时才标记 `COMPLETE`；等待、未知、失败或取消不会从自由文本升级完成。无报告的空闲与不可用状态保持区分，成功但缺报告、报告与 `EMPTY` 状态矛盾、空白限制说明均 fail closed。兼容视图保留完整 typed snapshot、blocks、goal assessments、目标汇总和不可变 limitations，不引入 owner/capability、自由文本推断、Graph、HTTP 或 chat 接线。
 
 ## 定向验证
 
@@ -167,6 +171,14 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignReportReadProjectionTes
 
 结果：5 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖 HISTORY_VIEW/EXPORT 透传、稳定 snapshot schema、legacy payload 兼容、未知字段/身份错配/坏 goal fail closed、空 durable read 不回退和不可变输出。
 
+E66 定向验证：
+
+```text
+mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignLegacyAnswerAdapterTest -Dsurefire.failIfNoSpecifiedTests=false -Dnet.bytebuddy.experimental=true test
+```
+
+结果：5 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。覆盖 complete 与 partial/unknown 状态、无报告时 EMPTY/UNAVAILABLE 区分、完整 typed 内容和 blocks 保留且不可变，以及状态矛盾和不可信 limitation 的 fail-closed 校验。
+
 ## 未覆盖边界
 
 - `RevisionApplier` 是可信装配接口，本批次没有把它接入生产 `JdbcCampaignRunStore.revise` 和 `JdbcCampaignStatisticsConsumerStore.adopt`，因此不能宣称运行中 replan 已开放。
@@ -176,7 +188,7 @@ mvn.cmd -o -pl services/agent-service -am -Dtest=CampaignReportReadProjectionTes
 - E57 的运行时工厂与 E59 的报告应用服务仍是显式 typed 组合件；尚无 token resolver、业务 profile、Spring bean、HTTP/chat 接线或客户端历史/导出验收。
 - E63 只提供受 profile 保护的组合契约；默认生产 profile 不启用，当前仍没有可信 owner/capability resolver、PlanValidator/Catalog、EvidenceReader 或真实授权 provider，因此不能宣称业务入口已开放。context 测试使用 H2 迁移替身，不替代真实 MySQL 或跨服务验收。
 - E64 只提供不接 transport 的 typed adapter；resolver、owner/capability 解析仍由未来可信入口提供，尚无 HTTP/chat/tool 接线、远端取消或真实 MySQL/多实例 fencing 验收。
-- E65 只提供后端 typed read projection；尚未接 AgentRunResult、旧 answer adapter、HTTP/chat 或客户端历史/导出入口，真实 MySQL payload 演进和跨服务验收仍待完成。
+- E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥，但尚未接 AgentRunResult、HTTP/chat 或客户端历史/导出入口，真实 MySQL payload 演进和跨服务验收仍待完成。
 - `JdbcReportLifecycleStore` 尚未由 `CampaignReportPublisher` 或 Admin/Agent 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。
