@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E75 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E76 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -106,6 +106,7 @@
 | [E73：request-bound run-result adapter][E73] | 6 个 H2/JDBC 定向用例通过；`CampaignTrustedRunResultAdapter` 按请求校验 Caller/RunToken，并为每次调用创建独立 owner/capability verifier，复用 E72 共享事务；错误凭证、错误主体和过期 token 均不改变引用。 | 仍是显式 typed 组合件，尚未接 Graph/AgentRunHarness/HTTP/Spring 生产入口、客户端历史/导出或真实 MySQL。 |
 | [E74：终态 run-result 引用清理][E74] | 5 个新增 H2/JDBC 清理用例，加上 9 个受影响 lifecycle/coordinator 用例通过；精确终态 ledger/binding 锁、过期或已删除报告的幂等引用释放、活动/主体/reportRef 拒绝，以及 retain/release/cleanup 的 report 行锁顺序已验证。 | 仍是显式 typed 维护组件，尚未接 Graph/AgentRunHarness/HTTP/Spring 生产入口、客户端历史/导出、真实 MySQL 或跨服务清理调度。 |
 | [E75：报告发布与 run-result 绑定原子化][E75] | 8 个新增 H2/JDBC 用例，连同配置和受影响绑定/存储/adapter 用例共 24 个定向用例通过；另执行 E70–E75 联合回归 51 个用例通过。共享 writable REQUIRED 事务保证发布、retain 与 binding 同步提交或回滚；统一 run→binding→report 锁序；过期 token、授权/身份错配和状态矩阵冲突回滚；撤权后精确重放拒绝且不重复 retain；返回只含脱敏 reportRef/binding，trusted profile 显式装配 coordinator。 | 仍是显式 typed 组合件，尚未接 Graph/AgentRunHarness/HTTP/Spring 业务入口、客户端历史/导出、真实 MySQL 或浏览器；正式读取仍需走授权 read projection。 |
+| [E76：durable run-result 到兼容响应的 typed 组合][E76] | 20 个直接受影响后端用例通过；无 binding 返回空结果，projection 只按 typed 状态和目标/报告证据生成兼容 `AgentRunResult`，保留旧操作字段并冻结外层集合；成功必须有完整可交付报告，等待/运行中/失败/未知的部分证据映射为 PARTIAL，无报告失败/未知映射为 UNAVAILABLE；identity、目标/block 唯一性、rollup、过期终态报告、旧 adapter 伪造状态和敏感元数据均有 fail-closed 断言。 | 仍是无 Graph/AgentRunHarness/HTTP/Spring 接线的纯 adapter；`SUPERSEDED` 因旧响应 enum 无对应状态而拒绝，客户端状态消费、历史/导出、真实 MySQL 和浏览器验收仍待完成。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -426,6 +427,7 @@
 [E73]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E74]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E75]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E76]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
