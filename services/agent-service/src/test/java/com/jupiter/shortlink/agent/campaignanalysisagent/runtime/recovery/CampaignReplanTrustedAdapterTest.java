@@ -211,7 +211,8 @@ class CampaignReplanTrustedAdapterTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class ResolverProvider {
-        @Bean CampaignReplanTrustedAdapter.RunTokenResolver runTokenResolver() {
+        @Bean(name = "campaignReplanRunTokenResolver")
+        CampaignReplanTrustedAdapter.RunTokenResolver runTokenResolver() {
             return (owner, sessionId, runId) -> Optional.empty();
         }
     }
