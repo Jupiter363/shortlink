@@ -14,9 +14,11 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportPu
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunToken;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunResultStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
 import com.jupiter.shortlink.agent.infrastructure.config.CampaignTrustedAdapterConfiguration;
 import java.time.Clock;
 import java.time.Instant;
@@ -181,6 +183,30 @@ class CampaignReplanTrustedAdapterTest {
         }
 
         @Bean(name = "campaignReportCapability") String campaignReportCapability() { return "report/v1"; }
+
+        @Bean(name = "campaignDurableRunResultStore")
+        CampaignRunResultStore campaignDurableRunResultStore() {
+            return new CampaignRunResultStore() {
+                @Override
+                public Binding bind(RunToken token, BindingDraft draft) {
+                    throw new UnsupportedOperationException("READ_ONLY_TEST_STORE");
+                }
+
+                @Override
+                public Optional<Binding> read(Caller caller, String runId, int revision) {
+                    return Optional.empty();
+                }
+            };
+        }
+
+        @Bean(name = "campaignDurableRunReportReadProjection")
+        CampaignRunReportReadProjection campaignDurableRunReportReadProjection() {
+            return new CampaignRunReportReadProjection((caller, runId) -> {
+                throw new AssertionError("progress must not be read without a binding");
+            }, request -> {
+                throw new AssertionError("report must not be read without a binding");
+            });
+        }
     }
 
     @TestConfiguration(proxyBeanMethods = false)

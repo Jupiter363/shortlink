@@ -5,11 +5,16 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportAp
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportPublisher;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.GoalAssessor;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunResultStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignTrustedRunResultAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanApplicationService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanRuntimeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanTrustedAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableRunResponseDecorator;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignDurableRunResponseRuntimeFactory;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignResponseCapabilityGate;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignRunReportPublicationCoordinator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.ReportLifecycleStore;
@@ -74,6 +79,33 @@ public class CampaignTrustedAdapterConfiguration {
             JdbcReportLifecycleStore lifecycle, JdbcTemplate jdbc,
             @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions) {
         return new CampaignRunReportPublicationCoordinator(reports, results, lifecycle, jdbc, transactions);
+    }
+
+    /**
+     * Explicit read-only composition for the durable campaign response path. Providers are
+     * qualified because caller/report authorization is request-owned; this configuration never
+     * creates an allow-all store or projection.
+     */
+    @Bean
+    public CampaignDurableRunResponseRuntimeFactory campaignDurableRunResponseRuntimeFactory(
+            @Qualifier("campaignDurableRunResultStore") CampaignRunResultStore bindings,
+            @Qualifier("campaignDurableRunReportReadProjection") CampaignRunReportReadProjection reports) {
+        return new CampaignDurableRunResponseRuntimeFactory(bindings, reports);
+    }
+
+    /** Prototype boundary: each transport request gets a fresh E71/E76/E77 composition. */
+    @Bean
+    @org.springframework.context.annotation.Scope(
+            org.springframework.beans.factory.config.ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    public CampaignDurableRunResponseDecorator campaignDurableRunResponseDecorator(
+            CampaignDurableRunResponseRuntimeFactory factory) {
+        return new CampaignDurableRunResponseDecorator(factory.create());
+    }
+
+    /** Protocol selection only; authorization remains owned by the transport/read providers. */
+    @Bean
+    public CampaignResponseCapabilityGate campaignResponseCapabilityGate() {
+        return new CampaignResponseCapabilityGate();
     }
 
     @Bean
