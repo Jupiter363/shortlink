@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignLinkComparability.Result;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Period;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage.Definition;
@@ -22,9 +23,12 @@ public interface CampaignDeclineSelectionStore {
     }
 
     Receipt append(RunToken token, String childId, ArtifactAuthorizer authorizer);
+    /** Live exact parent admission; a token alone cannot publish a CALL-owned child. */
+    Receipt append(CallPermit permit, String childId, ArtifactAuthorizer authorizer);
     /** Current-token read of the verified committed prefix; never requires unfinished shards. */
     Optional<Receipt> loadReceipt(RunToken token, String collectionId, ArtifactAuthorizer authorizer);
     Receipt seal(RunToken token, String collectionId, String finalChildId, ArtifactAuthorizer authorizer);
+    Receipt seal(CallPermit permit, String collectionId, String finalChildId, ArtifactAuthorizer authorizer);
     SelectionPair inspectPair(Caller caller, String selectedId, String evidenceId, ArtifactAuthorizer authorizer);
     PageResult readSelectedPage(Caller caller, String selectedArtifactId, String cursor, int size, ArtifactAuthorizer authorizer);
     /** Exact selected membership in ascending link order; its cursor cannot be used by another ordering. */

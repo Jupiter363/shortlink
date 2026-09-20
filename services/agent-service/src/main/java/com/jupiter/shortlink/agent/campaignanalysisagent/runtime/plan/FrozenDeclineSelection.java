@@ -1,10 +1,17 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.Cardinality;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.Port;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.CapabilityCatalog.TypeRef;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanBinding;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.BoundInputs;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ArtifactMetadata;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.ChildMode;
@@ -44,6 +51,10 @@ public final class FrozenDeclineSelection {
     private static final Set<String> FIELDS_V2 = Set.of("schemaVersion", "periodsRef", "gid", "baseline", "target", "skillPin");
     private static final Set<String> PERIOD_FIELDS = Set.of("periodsRef", "startDate", "endDate", "timeZone");
     private static final Set<String> PIN_FIELDS = Set.of("name", "version", "relativeDirectory", "sha256");
+    private static final Set<String> CALL_BINDING_FIELDS = Set.of("source", "input", "artifactId", "stepId", "output");
+    private static final JsonMapper CALL_JSON = JsonMapper.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
 
     private FrozenDeclineSelection() {}
 
@@ -60,6 +71,126 @@ public final class FrozenDeclineSelection {
     public record BoundQuery(ChildSpec child, StatisticsJobResultReceiver.Target target,
                              Map<String, Object> request, String periodsRef) {
         public BoundQuery { request = Collections.unmodifiableMap(new TreeMap<>(request)); }
+    }
+
+    /** Pure frozen values for a genuine REACT callback; this record is not an authorization proof. */
+    public record CallBound(PlanSpec.Step step, CallSpec call, String scopeRef, String scopeArtifactId,
+                            String periodsRef, String gid, List<CampaignParentCoverage.Period> periods,
+                            CampaignLinkComparability.Metric metric, RunPinnedSkills.SkillPin skillPin,
+                            String collectionId, Map<String, Object> descriptor) {
+        public CallBound {
+            periods = List.copyOf(periods);
+            descriptor = copyDescriptor(descriptor);
+        }
+    }
+
+    /**
+     * Call only after resolveLocal has validated the source MODEL's visible artifacts and current
+     * rights. Recheck the exact v1 binding against the frozen run; retain no Artifact payload or
+     * metadata here. The adapter still verifies the actual CALL, source MODEL, scope and ACL.
+     */
+    public static CallBound prepareCall(RunDefinition definition, CallSpec call, BoundInputs inputs) {
+        require(inputs != null && inputs.values().keySet().equals(INPUTS.keySet())
+                && inputs.artifacts().keySet().equals(Set.of("scopeArtifact")));
+        CallBound bound = callDefinition(definition, call);
+        require(bound.scopeRef().equals(inputs.value("scope"))
+                && bound.periodsRef().equals(inputs.value("periods"))
+                && bound.descriptor().equals(inputs.value("definition")));
+        ArtifactMetadata scope = inputs.artifact("scopeArtifact").metadata();
+        require(scope != null && scope.ref() != null && bound.scopeArtifactId().equals(scope.ref().artifactId())
+                && "ScopeArtifact".equals(scope.ref().type()) && "campaign-scope/v1".equals(scope.ref().schemaVersion())
+                && bound.scopeRef().equals(scope.ref().scopeRef()) && "scope-enumeration".equals(scope.ref().periodsRef()));
+        return bound;
+    }
+
+    /**
+     * One real ASYNC child owned by the CALL's existing capability action. A caller must verify
+     * the published scope/shard and current authority before dispatching this data-only request.
+     */
+    public static BoundQuery queryCall(RunDefinition definition, CallBound bound, FrozenQueryScope shard, int periodIndex) {
+        require(bound != null && shard != null && periodIndex >= 0 && periodIndex < 2
+                && bound.equals(callDefinition(definition, bound.call()))
+                && bound.scopeRef().equals(shard.parentScopeRef()));
+        CampaignParentCoverage.Period period = bound.periods().get(periodIndex);
+        Map<String, Object> request = new TreeMap<>();
+        request.put("gid", bound.gid());
+        request.put("startDate", period.startDate());
+        request.put("endDate", period.endDate());
+        request.put("queryKind", "LINK_METRICS");
+        request.put("scope", shard.asMap());
+        // The immutable slot contains neither arguments nor attempts. A changed argument/body
+        // therefore conflicts with the original child instead of minting another child identity.
+        String slot = CampaignRunStore.sha256(FrozenCampaignRun.encode(List.of(
+                callIdentity("decline-call-statistics-slot/v1", definition, bound.call()), shard.shardIndex(), periodIndex)));
+        String requestId = "decline_stat_" + CampaignRunStore.sha256(FrozenCampaignRun.encode(List.of(
+                slot, bound.call().executor(), bound.call().arguments(), bound.descriptor(), bound.metric(), request)));
+        request.put("requestId", requestId);
+        ChildSpec child = new ChildSpec("stats-child-" + slot, bound.call().actionId(), ChildMode.ASYNC,
+                requestId, new WireRequest("POST", FrozenStatisticsJobQuery.FROZEN_SUBMIT_PATH,
+                FrozenCampaignRun.encode(request)));
+        return new BoundQuery(child, new StatisticsJobResultReceiver.Target("stats-result-" + slot,
+                bound.scopeRef(), period.periodsRef()), request, period.periodsRef());
+    }
+
+    private static CallBound callDefinition(RunDefinition definition, CallSpec call) {
+        require(definition != null && call != null && REF.equals(call.executor()));
+        FrozenCampaignRun frozen = FrozenCampaignRun.read(definition);
+        require(frozen.inputs().runId().equals(definition.runId())
+                && frozen.inputs().inputSetRef().equals(frozen.plan().inputSetRef()));
+        List<PlanSpec.Step> matching = frozen.plan().steps().stream()
+                .filter(step -> call.stepId().equals(step.stepId())).toList();
+        require(matching.size() == 1);
+        PlanSpec.Step step = matching.get(0);
+        require(step.executionMode() == PlanSpec.ExecutionMode.REACT && step.executor() == null
+                && step.explorationPolicy() != null && step.explorationPolicy().allowedExecutors().contains(REF));
+        var identity = CampaignExplorationCallStore.identity(definition, step.stepId(), call.modelChildId(), call.toolCallId());
+        require(identity.callId().equals(call.callId()) && identity.actionId().equals(call.actionId()));
+
+        Map<String, Object> arguments;
+        try { arguments = object(CALL_JSON.readValue(call.arguments(), Object.class)); }
+        catch (JsonProcessingException invalid) { throw invalid(); }
+        require(arguments.keySet().equals(Set.of("inputBindings", "parameters")));
+        Map<String, Object> bindings = object(arguments.get("inputBindings"));
+        Map<String, Object> parameters = object(arguments.get("parameters"));
+        require(bindings.keySet().equals(INPUTS.keySet()) && parameters.keySet().equals(Set.of("metric")));
+        Map<String, Object> values = new LinkedHashMap<>();
+        String scopeArtifactId = null;
+        for (String name : INPUTS.keySet()) {
+            Map<String, Object> binding = object(bindings.get(name));
+            require(CALL_BINDING_FIELDS.containsAll(binding.keySet()) && binding.get("stepId") == null
+                    && binding.get("output") == null);
+            if ("scopeArtifact".equals(name)) {
+                require("ARTIFACT".equals(binding.get("source")) && binding.get("input") == null);
+                scopeArtifactId = text(binding.get("artifactId"), 256);
+            } else {
+                require("INPUT".equals(binding.get("source")) && binding.get("artifactId") == null);
+                String input = text(binding.get("input"), 256);
+                // Only INPUT names already exposed by this actual exploration step are usable.
+                require(step.inputBindings().values().stream().anyMatch(outer -> outer != null
+                        && outer.source() == PlanBinding.Source.INPUT && input.equals(outer.input())
+                        && outer.stepId() == null && outer.output() == null && outer.artifactId() == null));
+                Port port = frozen.inputs().inputContracts().get(input);
+                require(port != null && INPUTS.get(name).type().equals(port.type()));
+                Object value = frozen.inputs().inputValues().get(input);
+                require(value != null); values.put(name, value);
+            }
+        }
+        String scopeRef = text(values.get("scope"), 256), periodsRef = text(values.get("periods"), 256);
+        require(scopeRef.equals(step.explorationPolicy().scopeRef()) && periodsRef.equals(step.explorationPolicy().periodsRef()));
+        Map<String, Object> descriptor = object(values.get("definition"));
+        require(descriptor.keySet().equals(FIELDS) && SCHEMA.equals(descriptor.get("schemaVersion"))
+                && scopeRef.equals(descriptor.get("scopeRef")) && periodsRef.equals(descriptor.get("periodsRef")));
+        String gid = text(descriptor.get("gid"), 64);
+        require(gid.matches("[A-Za-z0-9_-]{1,64}"));
+        String collection = "decline-collection-" + CampaignRunStore.sha256(FrozenCampaignRun.encode(
+                callIdentity("decline-call-collection/v1", definition, call)));
+        return new CallBound(step, call, scopeRef, scopeArtifactId, periodsRef, gid,
+                List.of(period(descriptor.get("baseline")), period(descriptor.get("target"))),
+                metric(parameters.get("metric")), pin(descriptor.get("skillPin")), collection, descriptor);
+    }
+
+    private static List<Object> callIdentity(String namespace, RunDefinition definition, CallSpec call) {
+        return List.of(identity(namespace, definition, call.stepId()), call.callId(), call.actionId());
     }
 
     /** Static v2 requirements only: neither scope identity nor an upstream artifact is guessed. */
