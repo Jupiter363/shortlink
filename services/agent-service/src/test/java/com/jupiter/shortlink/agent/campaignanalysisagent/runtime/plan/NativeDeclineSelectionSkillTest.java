@@ -36,7 +36,7 @@ import reactor.core.publisher.Flux;
 /** One actual native two-turn Skill journey; only authority/job responses and the ChatModel are scripted. */
 @Timeout(45)
 class NativeDeclineSelectionSkillTest {
-    private static final String PROMPT = "Find observed declines in the authorized frozen scope";
+    static final String PROMPT = "Find observed declines in the authorized frozen scope";
     private static final String TOOL_CALL_ID = "native-decline-call";
     private static final NativeExplorationAdapter.Limits LIMITS = new NativeExplorationAdapter.Limits(
             0, 4096, 32768, 32768, 8, Duration.ofSeconds(10));
@@ -148,35 +148,53 @@ class NativeDeclineSelectionSkillTest {
             assertEquals(0, f.base.jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE callback_active=TRUE", Integer.class));
     }
 
-    private static NativeExplorationAdapter nativeAdapter(CallFixture f, StepPermit step, SkillModel model) throws Exception {
+    static NativeExplorationAdapter nativeAdapter(CallFixture f, StepPermit step, ChatModel model) throws Exception {
+        return nativeAdapter(f, step, model, null);
+    }
+
+    static NativeExplorationAdapter nativeAdapter(CallFixture f, StepPermit step, ChatModel model,
+                                                  CampaignExplorationCandidateStore candidates) throws Exception {
         var tool = DeclineSelectionExplorationSkill.definition();
         var configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIGURATION, null,
                 List.of(new ModelInvocationRegistry.ToolDefinition(tool.name(), tool.description(), JSON.readTree(tool.inputSchema()))),
                 Map.of("scope", f.runs.inspectArtifact(OWNER, f.scopeArtifact, f.auth)), Instant.ofEpochMilli(EXPIRY));
-        var ledger = new JdbcExplorationLedger(f.base.jdbc, f.base.transactions, CLOCK,
+        var ledger = candidates == null ? new JdbcExplorationLedger(f.base.jdbc, f.base.transactions, CLOCK,
                 new JdbcCampaignRunStore(f.base.jdbc, f.base.transactions, CLOCK),
                 new JdbcCampaignStepStore(f.base.jdbc, f.base.transactions, CLOCK),
                 new JdbcCampaignExplorationCallStore(f.base.jdbc, f.base.transactions, CLOCK), step, f.models, configuration,
                 Map.of(FrozenDeclineSelection.REF.name(), FrozenDeclineSelection.REF), f.auth, ExplorationBudgetPolicy.defaults(),
                 new DeclineSelectionArtifactProjection(f.runs,
-                        new JdbcCampaignDeclineSelectionStore(f.base.jdbc, f.base.transactions, CLOCK, f.runs)), f.invocations);
+                        new JdbcCampaignDeclineSelectionStore(f.base.jdbc, f.base.transactions, CLOCK, f.runs)), f.invocations)
+                : new JdbcExplorationLedger(f.base.jdbc, f.base.transactions, CLOCK,
+                        new JdbcCampaignRunStore(f.base.jdbc, f.base.transactions, CLOCK),
+                        new JdbcCampaignStepStore(f.base.jdbc, f.base.transactions, CLOCK),
+                        new JdbcCampaignExplorationCallStore(f.base.jdbc, f.base.transactions, CLOCK), step, f.models, configuration,
+                        Map.of(FrozenDeclineSelection.REF.name(), FrozenDeclineSelection.REF), f.auth, ExplorationBudgetPolicy.defaults(),
+                        new DeclineSelectionArtifactProjection(f.runs,
+                                new JdbcCampaignDeclineSelectionStore(f.base.jdbc, f.base.transactions, CLOCK, f.runs)), f.invocations, candidates);
         var wrapper = new DeclineSelectionExplorationSkill(f.adapter());
         return new NativeExplorationAdapter(ledger.identity(), ledger, model, List.of(wrapper.registration()),
                 new MemorySaver(), Runnable::run, LIMITS, ledger);
     }
 
-    private static CallRecord onlyCall(CallFixture f, RunToken token) {
+    static CallRecord onlyCall(CallFixture f, RunToken token) {
         List<String> ids = f.base.jdbc.query("SELECT call_id FROM campaign_exploration_call WHERE run_id=? AND revision=?",
                 (rs, row) -> rs.getString(1), token.definition().runId(), token.definition().revision());
         assertEquals(1, ids.size()); return f.calls.call(token, ids.get(0)).orElseThrow();
     }
 
-    private static final class SkillModel implements ChatModel {
+    static final class SkillModel implements ChatModel {
         final CallFixture f;
         final AtomicInteger calls = new AtomicInteger();
         volatile InvocationRecord completion;
         volatile CallRecord call;
-        SkillModel(CallFixture fixture) { f = fixture; }
+        final java.util.function.Function<InvocationRecord, String> terminalText;
+        SkillModel(CallFixture fixture) {
+            this(fixture, ignored -> "The approved method produced selected members and their evidence; this remains a candidate analysis.");
+        }
+        SkillModel(CallFixture fixture, java.util.function.Function<InvocationRecord, String> terminalText) {
+            f = fixture; this.terminalText = terminalText;
+        }
         @Override public ChatResponse call(Prompt prompt) {
             int turn = calls.incrementAndGet();
             if (turn == 1) return response(AssistantMessage.builder().content("").toolCalls(List.of(
@@ -239,7 +257,7 @@ class NativeDeclineSelectionSkillTest {
             assertEquals(2, evidence.path("preview").path("rows").size());
             JsonNode increased = evidence.path("preview").path("rows").get(1);
             assertEquals(2, increased.path("linkId").asLong()); assertEquals(2, increased.path("delta").asLong());
-            return response(new AssistantMessage("The approved method produced selected members and their evidence; this remains a candidate analysis."));
+            return response(new AssistantMessage(terminalText.apply(completion)));
         }
         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.defer(() -> Flux.just(call(prompt))); }
         @Override public ChatOptions getDefaultOptions() { return ToolCallingChatOptions.builder().model("scripted-model").build(); }

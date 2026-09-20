@@ -185,6 +185,10 @@ class DeclineSelectionCallTest {
         CallFixture() throws Exception { this(true); }
 
         CallFixture(boolean prepareInitialModelCall) throws Exception {
+            this(prepareInitialModelCall, List.of(new PlanSpec.CriterionUse("supported-evidence", Map.of())));
+        }
+
+        CallFixture(boolean prepareInitialModelCall, List<PlanSpec.CriterionUse> completionCriteria) throws Exception {
             new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919_3__campaign_run_owner.sql"),
                     new ClassPathResource("sql/migration/V20260920_3__campaign_submission_deferral.sql"),
                     new ClassPathResource("sql/migration/V20260920_8__campaign_model_invocation.sql"),
@@ -207,7 +211,7 @@ class DeclineSelectionCallTest {
             }
             descriptor.put("skillPin", Map.of("name", "decline-selection", "version", "1", "relativeDirectory", "decline-selection/1", "sha256", digest));
             var policy = new PlanSpec.ExplorationPolicy("decline-explore", "1", List.of(FrozenDeclineSelection.REF), scopeRef, PAIR,
-                    List.of(new PlanSpec.CriterionUse("supported-evidence", Map.of())), "one-skill");
+                    completionCriteria, "one-skill");
             planStep = new PlanSpec.Step(STEP, List.of("goal"), PlanSpec.ExecutionMode.REACT, null, policy, List.of(),
                     Map.of("scope", PlanBinding.input("scope"), "periods", PlanBinding.input("periods"), "definition", PlanBinding.input("definition")),
                     Map.of(), FrozenDeclineSelection.OUTPUT_CONTRACT);

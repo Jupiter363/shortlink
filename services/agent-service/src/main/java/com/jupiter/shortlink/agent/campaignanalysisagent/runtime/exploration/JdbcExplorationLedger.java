@@ -14,6 +14,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignSkillInvocationStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCandidateStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignSkillInvocationStore.InvocationRecord;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStepStore.StepPermit;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcExplorationCallbackGate;
@@ -94,6 +95,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     private final ExplorationArtifactProjection artifactProjection;
     private final String projectionConfigurationId;
     private final CampaignSkillInvocationStore skills;
+    private final CampaignExplorationCandidateStore candidates;
 
     public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
@@ -127,6 +129,16 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
             Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
             ExplorationBudgetPolicy budgetPolicy, ExplorationArtifactProjection artifactProjection,
             CampaignSkillInvocationStore skills) {
+        this(jdbc, transactions, clock, runs, steps, calls, step, registry, configuration, executors, authorizer,
+                budgetPolicy, artifactProjection, skills, null);
+    }
+
+    public JdbcExplorationLedger(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            CampaignRunStore runs, CampaignStepStore steps, CampaignExplorationCallStore calls,
+            StepPermit step, ModelInvocationRegistry registry, ModelConfiguration configuration,
+            Map<String, PlanSpec.ExecutorRef> executors, ArtifactAuthorizer authorizer,
+            ExplorationBudgetPolicy budgetPolicy, ExplorationArtifactProjection artifactProjection,
+            CampaignSkillInvocationStore skills, CampaignExplorationCandidateStore candidates) {
         this.jdbc = Objects.requireNonNull(jdbc); this.transactions = Objects.requireNonNull(transactions);
         this.clock = Objects.requireNonNull(clock); this.runs = Objects.requireNonNull(runs);
         this.steps = Objects.requireNonNull(steps); this.calls = Objects.requireNonNull(calls);
@@ -136,6 +148,7 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         this.budgetPolicy = Objects.requireNonNull(budgetPolicy);
         this.artifactProjection = Objects.requireNonNull(artifactProjection);
         this.skills = skills;
+        this.candidates = candidates;
         this.projectionConfigurationId = Objects.requireNonNull(artifactProjection.configurationId());
         if (projectionConfigurationId.isBlank() || projectionConfigurationId.length() > 512)
             throw failure("EXPLORATION_PROJECTION_CONFIGURATION_INVALID");
@@ -162,8 +175,11 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         String previousConfigurationHash = artifactProjection == ExplorationArtifactProjection.references()
                 ? hash(List.of(configuration, new TreeMap<>(executors), stepJson))
                 : hash(List.of(configuration, new TreeMap<>(executors), stepJson, projectionConfigurationId));
-        this.configurationHash = skills == null ? previousConfigurationHash
+        String skillConfigurationHash = skills == null ? previousConfigurationHash
                 : hash(List.of("skill-observations/v1", previousConfigurationHash));
+        this.configurationHash = candidates == null ? skillConfigurationHash
+                : hash(List.of(ExplorationCandidate.SCHEMA_VERSION, skillConfigurationHash,
+                        candidates.configurationId(token.definition(), step.stepId())));
         if (skills != null) jdbc.query("SELECT receipt_kind,skill_completion_id,skill_outputs_hash FROM campaign_exploration_turn WHERE 1=0",
                 (rs, row) -> rs.getString(1));
         var definition = token.definition(); var owner = definition.caller();
@@ -401,7 +417,19 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         tx(() -> {
             requireCurrent(); Turn turn = turn(header().turn()).orElseThrow();
             if (!response(turn).toolCalls().isEmpty() || gate.hasActive(runId())) throw failure("EXPLORATION_CANDIDATE_INVALID");
-            updateTurn(turn.index(), "decision='FINAL'", new Object[0]); setStatus(Status.CANDIDATE, ""); return null;
+            updateTurn(turn.index(), "decision='FINAL'", new Object[0]); setStatus(Status.CANDIDATE, "");
+            if (candidates != null) {
+                var assessment = candidates.assess(step, turn.modelChildId());
+                String reason = switch (assessment.verdict()) {
+                    case COMPLETE -> null;
+                    case NEEDS_INPUT -> "EXPLORATION_NEEDS_INPUT";
+                    case REPLAN_REQUESTED -> "EXPLORATION_REPLAN_REQUESTED";
+                    case NO_PROGRESS_REPORTED -> "EXPLORATION_NO_PROGRESS_REPORTED";
+                    case REJECTED -> "EXPLORATION_CANDIDATE_REJECTED";
+                };
+                if (reason != null) setStatus(Status.BLOCKED, reason);
+            }
+            return null;
         });
     }
 
