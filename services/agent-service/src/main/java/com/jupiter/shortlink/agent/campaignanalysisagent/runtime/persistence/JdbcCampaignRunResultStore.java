@@ -29,6 +29,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** JDBC durable result binding.  This class is opt-in and has no Spring component registration. */
@@ -99,6 +100,25 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
     Optional<Binding> readCurrentBindingLocked(RunToken token) {
         validateToken(token);
         return readBinding(token.definition().runId(), token.definition().revision(), true);
+    }
+
+    /**
+     * Reads one exact caller-owned binding after locking its run and binding rows. The caller
+     * must already be inside the coordinator's writable transaction; this primitive never opens
+     * a nested transaction and never searches for another revision.
+     */
+    Optional<Binding> readCurrentBindingLocked(Caller caller, String runId, int revision) {
+        requireCurrentTransaction();
+        validateCaller(caller);
+        validateRunId(runId);
+        if (revision < 1) throw new IllegalArgumentException("RUN_RESULT_REVISION_INVALID");
+        Optional<LedgerRow> run = jdbc.query("SELECT tenant_id,subject_name,auth_version,session_id,plan_id,definition_hash,"
+                        + "run_status,row_version,advance_token FROM campaign_run_ledger "
+                        + "WHERE run_id=? AND revision=? FOR UPDATE",
+                (rs, row) -> ledger(rs), runId, revision).stream().findFirst();
+        if (run.isEmpty()) return Optional.empty();
+        if (!caller.equals(run.get().caller())) throw new SecurityException("RUN_RESULT_ACCESS_DENIED");
+        return readBinding(runId, revision, true);
     }
 
     /** Returns whether an already locked/retrieved binding is an exact replay of this request. */
@@ -350,6 +370,11 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
         if (caller == null || caller.tenantId() == null || caller.tenantId().isBlank()
                 || caller.subject() == null || caller.subject().isBlank() || caller.authVersion() < 1)
             throw new IllegalArgumentException("RUN_RESULT_CALLER_INVALID");
+    }
+
+    private static void requireCurrentTransaction() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("RUN_RESULT_TRANSACTION_REQUIRED");
     }
 
     private static void validateRunId(String runId) {

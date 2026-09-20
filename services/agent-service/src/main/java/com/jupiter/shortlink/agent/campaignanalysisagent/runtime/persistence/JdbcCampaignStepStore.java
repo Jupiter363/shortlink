@@ -31,6 +31,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -74,25 +75,50 @@ public final class JdbcCampaignStepStore implements CampaignStepStore {
 
     @Override
     public ProgressSnapshot snapshot(Caller caller, String runId) {
+        return transaction(() -> snapshotInCurrentTransaction(caller, runId));
+    }
+
+    /** Reads the same progress facts without opening a nested transaction. */
+    ProgressSnapshot snapshotInCurrentTransaction(Caller caller, String runId) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("PROGRESS_TRANSACTION_REQUIRED");
         Objects.requireNonNull(caller, "Current caller is required");
         id(runId, 96);
-        return transaction(() -> {
-            SnapshotRun locked = jdbc.query("SELECT revision,run_status,row_version,advance_token FROM campaign_run_ledger "
-                            + "WHERE run_id=? ORDER BY revision DESC LIMIT 1 FOR UPDATE",
-                    (rs, row) -> new SnapshotRun(rs.getInt("revision"), rs.getString("run_status"),
-                            rs.getLong("row_version"), rs.getString("advance_token")), runId)
-                    .stream().findFirst().orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
-            var run = runs.loadRun(caller, runId).orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
-            // A concurrent revision may have committed while the first locking read was waiting.
-            // Refuse a mixed result; do not turn this read into a polling or writer-acquisition loop.
-            if (run.definition().revision() != locked.revision() || run.version() != locked.version()
-                    || !run.status().name().equals(locked.status()) || !run.advanceToken().equals(locked.advanceToken()))
-                fail("PROGRESS_SNAPSHOT_CHANGED");
-            // Current locking reads also avoid an enclosing REPEATABLE_READ transaction's older step view.
-            var steps = jdbc.query("SELECT * FROM campaign_step_ledger WHERE run_id=? AND revision=? "
-                            + "ORDER BY ordinal_index FOR UPDATE", (rs, row) -> stored(rs).record(), runId, locked.revision());
-            return new ProgressSnapshot(run, steps);
-        });
+        SnapshotRun locked = jdbc.query("SELECT revision,run_status,row_version,advance_token FROM campaign_run_ledger "
+                        + "WHERE run_id=? ORDER BY revision DESC LIMIT 1 FOR UPDATE",
+                (rs, row) -> new SnapshotRun(rs.getInt("revision"), rs.getString("run_status"),
+                        rs.getLong("row_version"), rs.getString("advance_token")), runId)
+                .stream().findFirst().orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
+        return snapshotInCurrentTransaction(caller, runId, locked);
+    }
+
+    /** Reads one exact revision without falling back to the latest run. */
+    ProgressSnapshot snapshotInCurrentTransaction(Caller caller, String runId, int revision) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("PROGRESS_TRANSACTION_REQUIRED");
+        Objects.requireNonNull(caller, "Current caller is required");
+        id(runId, 96);
+        if (revision < 1) throw new IllegalArgumentException("RUN_REVISION_INVALID");
+        SnapshotRun locked = jdbc.query("SELECT revision,run_status,row_version,advance_token FROM campaign_run_ledger "
+                        + "WHERE run_id=? AND revision=? FOR UPDATE",
+                (rs, row) -> new SnapshotRun(rs.getInt("revision"), rs.getString("run_status"),
+                        rs.getLong("row_version"), rs.getString("advance_token")), runId, revision)
+                .stream().findFirst().orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
+        return snapshotInCurrentTransaction(caller, runId, locked);
+    }
+
+    private ProgressSnapshot snapshotInCurrentTransaction(Caller caller, String runId, SnapshotRun locked) {
+        var run = runs.loadRunAtRevision(caller, runId, locked.revision())
+                .orElseThrow(() -> new IllegalStateException("RUN_NOT_FOUND"));
+        // A concurrent revision may have committed while the first locking read was waiting.
+        // Refuse a mixed result; do not turn this read into a polling or writer-acquisition loop.
+        if (run.definition().revision() != locked.revision() || run.version() != locked.version()
+                || !run.status().name().equals(locked.status()) || !run.advanceToken().equals(locked.advanceToken()))
+            fail("PROGRESS_SNAPSHOT_CHANGED");
+        // Current locking reads also avoid an enclosing REPEATABLE_READ transaction's older step view.
+        var steps = jdbc.query("SELECT * FROM campaign_step_ledger WHERE run_id=? AND revision=? "
+                        + "ORDER BY ordinal_index FOR UPDATE", (rs, row) -> stored(rs).record(), runId, locked.revision());
+        return new ProgressSnapshot(run, steps);
     }
 
     @Override

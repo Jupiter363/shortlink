@@ -124,6 +124,18 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
         return Optional.of(rows.get(0));
     }
 
+    /** Reads one exact revision for a composed snapshot; the caller must already hold the outer transaction. */
+    Optional<RunRecord> loadRunAtRevision(Caller caller, String runId, int revision) {
+        validateCaller(caller);
+        id(runId, "runId", 96);
+        if (revision < 1) throw new IllegalArgumentException("RUN_REVISION_INVALID");
+        List<RunRecord> rows = jdbc.query("SELECT * FROM campaign_run_ledger WHERE run_id=? AND revision=? FOR UPDATE",
+                (rs, row) -> run(rs), runId, revision);
+        if (rows.isEmpty()) return Optional.empty();
+        sameCaller(caller, rows.get(0).definition().caller());
+        return Optional.of(rows.get(0));
+    }
+
     @Override
     public RunToken advance(RunToken token) {
         return transaction(() -> {

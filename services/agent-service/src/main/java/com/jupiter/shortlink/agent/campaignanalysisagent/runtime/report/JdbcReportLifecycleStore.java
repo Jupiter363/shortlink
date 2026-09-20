@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** JDBC implementation. All publication, reference and cleanup mutations share one database transaction. */
@@ -35,6 +36,18 @@ public final class JdbcReportLifecycleStore implements ReportLifecycleStore {
     /** Composition guard: trusted multi-store writes must use this exact transaction template. */
     public boolean usesTransactionTemplate(TransactionTemplate other) {
         return transactions == other;
+    }
+
+    /** Reads and locks one fixed report row in a trusted caller-owned transaction. */
+    public Optional<Published> readLockedInCurrentTransaction(Key key, String currentOwner,
+                                                               String capability, Mode mode) {
+        Objects.requireNonNull(key, "REPORT_KEY_REQUIRED");
+        Objects.requireNonNull(mode, "REPORT_MODE_REQUIRED");
+        ReportLifecycleStore.require(currentOwner, "REPORT_OWNER_INVALID");
+        ReportLifecycleStore.require(capability, "REPORT_CAPABILITY_INVALID");
+        if (!TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("REPORT_TRANSACTION_REQUIRED");
+        return readable(key, currentOwner, capability, mode, true);
     }
 
     @Override
