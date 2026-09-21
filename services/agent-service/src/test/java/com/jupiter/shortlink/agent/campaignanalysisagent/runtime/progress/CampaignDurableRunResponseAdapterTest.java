@@ -53,6 +53,31 @@ class CampaignDurableRunResponseAdapterTest {
     }
 
     @Test
+    void projectsSectionScopedModulesAtTheResponseBoundary() {
+        AgentRunResult base = base(List.of());
+        GoalAssessment goal = goal("goal-module", GoalAssessment.Status.ANSWERED);
+        ReportBlock metric = block("block-module", true);
+        CampaignRunResultProjection.ReportSummary summary = new CampaignRunResultProjection.ReportSummary(
+                new CampaignReportPublisher.ReportRef("report-run-1", 1), List.of(metric),
+                new CampaignRunResultProjection.CampaignLegacyRollup(1, 1, 0, 0),
+                Map.of("block-module", List.of("goal-module")));
+        CampaignRunResultProjection.Projection projection = new CampaignRunResultProjection.Projection(
+                CampaignRunResultProjection.SCHEMA, CampaignRunResultProjection.ExecutionStatus.SUCCEEDED,
+                "run-1", "plan-1", 1, List.of(goal), summary,
+                CampaignRunResultProjection.NextAction.none(), List.of());
+
+        AgentRunResult result = new CampaignDurableRunResponseAdapter().adapt(base, projection);
+
+        assertThat(result.report().modules()).isNotNull();
+        assertThat(result.report().modules().schemaVersion()).isEqualTo("campaign-report-modules/v1");
+        assertThat(result.report().modules().modules()).singleElement()
+                .satisfies(module -> {
+                    assertThat(module.goalId()).isEqualTo("goal-module");
+                    assertThat(module.status()).isEqualTo(GoalAssessment.Status.ANSWERED);
+                });
+    }
+
+    @Test
     void keepsWaitingAndUnknownPartialReportsPartial() {
         CampaignDurableRunResponseAdapter adapter = new CampaignDurableRunResponseAdapter();
         AgentRunResult base = base(List.of());

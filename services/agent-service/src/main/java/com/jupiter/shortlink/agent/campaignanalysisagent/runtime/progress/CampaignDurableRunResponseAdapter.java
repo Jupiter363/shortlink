@@ -4,6 +4,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignAgentRun
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignLegacyAnswerAdapter;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.GoalAssessment;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportBlock;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignReportModuleResponse;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignReportModuleSelector;
 import com.jupiter.shortlink.agent.harness.runtime.AgentRunResult;
 import java.util.HashSet;
 import java.util.List;
@@ -20,13 +22,20 @@ import java.util.Set;
  */
 public final class CampaignDurableRunResponseAdapter {
     private final CampaignAgentRunResultAdapter responseAdapter;
+    private final CampaignReportModuleSelector moduleSelector;
 
     public CampaignDurableRunResponseAdapter() {
-        this(new CampaignAgentRunResultAdapter());
+        this(new CampaignAgentRunResultAdapter(), new CampaignReportModuleSelector());
     }
 
     CampaignDurableRunResponseAdapter(CampaignAgentRunResultAdapter responseAdapter) {
+        this(responseAdapter, new CampaignReportModuleSelector());
+    }
+
+    CampaignDurableRunResponseAdapter(CampaignAgentRunResultAdapter responseAdapter,
+                                      CampaignReportModuleSelector moduleSelector) {
         this.responseAdapter = Objects.requireNonNull(responseAdapter, "AGENT_RESPONSE_ADAPTER_REQUIRED");
+        this.moduleSelector = Objects.requireNonNull(moduleSelector, "REPORT_MODULE_SELECTOR_REQUIRED");
     }
 
     /**
@@ -68,6 +77,7 @@ public final class CampaignDurableRunResponseAdapter {
                 ? new CampaignLegacyAnswerAdapter.GoalRollup(0, 0, 0, 0)
                 : toLegacyRollup(summary.goalRollup());
         String answer = answer(availability, summary, rollup);
+        CampaignReportModuleResponse modules = modules(projection, summary);
         AgentRunResult.Report report = new AgentRunResult.Report(
                 CampaignLegacyAnswerAdapter.SCHEMA,
                 availability,
@@ -77,8 +87,17 @@ public final class CampaignDurableRunResponseAdapter {
                 summary == null ? List.of() : summary.blocks(),
                 projection.goalAssessments(),
                 rollup,
-                projection.limitations());
+                projection.limitations(), modules);
         return responseAdapter.adapt(base, report);
+    }
+
+    private CampaignReportModuleResponse modules(CampaignRunResultProjection.Projection projection,
+                                                 CampaignRunResultProjection.ReportSummary summary) {
+        if (summary == null || summary.blockGoals().isEmpty()) return null;
+        return moduleSelector.select(new CampaignReportModuleSelector.Request(
+                projection.runId(), projection.planId(), projection.revision(),
+                projection.executionStatus(), projection.goalAssessments(), summary.blocks(),
+                summary.blockGoals(), projection.limitations()));
     }
 
     private static void requireBase(AgentRunResult base) {
