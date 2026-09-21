@@ -7,7 +7,10 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportBlock;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunStatus;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -50,11 +53,19 @@ public final class CampaignRunResultProjection {
     /** Safe report facts.  Payload, owner/capability and retention metadata are deliberately absent. */
     public record ReportSummary(CampaignReportPublisher.ReportRef reportRef,
                                 List<ReportBlock> blocks,
-                                CampaignLegacyRollup goalRollup) {
+                                CampaignLegacyRollup goalRollup,
+                                Map<String, List<String>> blockGoals) {
+        public ReportSummary(CampaignReportPublisher.ReportRef reportRef,
+                             List<ReportBlock> blocks,
+                             CampaignLegacyRollup goalRollup) {
+            this(reportRef, blocks, goalRollup, Map.of());
+        }
+
         public ReportSummary {
             Objects.requireNonNull(reportRef, "RUN_RESULT_REPORT_REF_REQUIRED");
             blocks = blocks == null ? List.of() : List.copyOf(blocks);
             Objects.requireNonNull(goalRollup, "RUN_RESULT_GOAL_ROLLUP_REQUIRED");
+            blockGoals = immutableBlockGoals(blockGoals);
         }
     }
 
@@ -97,7 +108,8 @@ public final class CampaignRunResultProjection {
         validateAction(request.executionStatus(), request.nextAction());
 
         ReportSummary summary = snapshot == null ? null : new ReportSummary(
-                snapshot.reportRef(), snapshot.draft().blocks(), rollup(snapshot.goalAssessments()));
+                snapshot.reportRef(), snapshot.draft().blocks(), rollup(snapshot.goalAssessments()),
+                blockGoals(snapshot));
         return new Projection(SCHEMA, request.executionStatus(), progress.runId(), progress.planId(),
                 progress.revision(), snapshot == null ? List.of() : snapshot.goalAssessments(), summary,
                 request.nextAction(), request.limitations());
@@ -213,6 +225,17 @@ public final class CampaignRunResultProjection {
                 && snapshot.draft().blocks().stream().anyMatch(ReportBlock::isDeliverable);
     }
 
+    private static Map<String, List<String>> blockGoals(
+            CampaignReportReadProjection.Snapshot snapshot) {
+        Map<String, LinkedHashSet<String>> owners = new LinkedHashMap<>();
+        snapshot.draft().sections().forEach(section -> section.blocks().forEach(block ->
+                owners.computeIfAbsent(block.blockId(), ignored -> new LinkedHashSet<>())
+                        .addAll(section.goalIds())));
+        Map<String, List<String>> result = new LinkedHashMap<>();
+        owners.forEach((blockId, goalIds) -> result.put(blockId, List.copyOf(goalIds)));
+        return Map.copyOf(result);
+    }
+
     private static CampaignLegacyRollup rollup(List<GoalAssessment> goals) {
         int answered = 0, partial = 0, unresolved = 0;
         for (GoalAssessment goal : goals) {
@@ -242,5 +265,18 @@ public final class CampaignRunResultProjection {
             copy.add(value);
         }
         return List.copyOf(copy);
+    }
+
+    private static Map<String, List<String>> immutableBlockGoals(Map<String, List<String>> values) {
+        if (values == null || values.isEmpty()) return Map.of();
+        Map<String, List<String>> copy = new LinkedHashMap<>();
+        values.forEach((blockId, goalIds) -> {
+            if (blockId == null || blockId.isBlank() || goalIds == null
+                    || goalIds.stream().anyMatch(goalId -> goalId == null || goalId.isBlank())) {
+                throw new IllegalArgumentException("RUN_RESULT_BLOCK_SCOPE_INVALID");
+            }
+            copy.put(blockId, List.copyOf(new LinkedHashSet<>(goalIds)));
+        });
+        return Map.copyOf(copy);
     }
 }

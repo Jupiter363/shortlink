@@ -5,6 +5,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignLegacyAn
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportPublisher;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.GoalAssessment;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportBlock;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignReportModuleResponse;
 import java.util.List;
 
 public record AgentRunResult(
@@ -50,7 +51,8 @@ public record AgentRunResult(
             List<ReportBlock> blocks,
             List<GoalAssessment> goalAssessments,
             CampaignLegacyAnswerAdapter.GoalRollup goalRollup,
-            List<String> limitations) {
+            List<String> limitations,
+            @JsonInclude(JsonInclude.Include.NON_NULL) CampaignReportModuleResponse modules) {
         public Report {
             if (!CampaignLegacyAnswerAdapter.SCHEMA.equals(schemaVersion)
                     || availability == null || executionStatus == null
@@ -76,6 +78,20 @@ public record AgentRunResult(
             blocks = immutable(blocks);
             goalAssessments = immutable(goalAssessments);
             limitations = immutable(limitations);
+        }
+
+        /** Backward-compatible report constructor; modules are optional for legacy callers. */
+        public Report(String schemaVersion,
+                      CampaignLegacyAnswerAdapter.Availability availability,
+                      CampaignLegacyAnswerAdapter.ExecutionStatus executionStatus,
+                      String answer,
+                      CampaignReportPublisher.ReportRef reportRef,
+                      List<ReportBlock> blocks,
+                      List<GoalAssessment> goalAssessments,
+                      CampaignLegacyAnswerAdapter.GoalRollup goalRollup,
+                      List<String> limitations) {
+            this(schemaVersion, availability, executionStatus, answer, reportRef, blocks,
+                    goalAssessments, goalRollup, limitations, null);
         }
 
         private static <T> List<T> immutable(List<T> values) {
