@@ -87,10 +87,10 @@ public final class GoalAssessor {
             }
         }
         if (requirement.kind() == PlanningAssessment.RequirementKind.CAUSAL_EVIDENCE
-                && verdict == RequirementAssessment.Verdict.MET && !draft.hasAnalysis(goalId)) {
+                && verdict == RequirementAssessment.Verdict.MET && !draft.hasCausalAnalysis(goalId)) {
             verdict = RequirementAssessment.Verdict.NOT_MET;
             reason = "ANALYSIS_MISSING";
-            limitations.add("A causal requirement needs a data-linked analysis block.");
+            limitations.add("A causal requirement needs a data-linked causal method block.");
         }
         return new RequirementAssessment(requirement.requirementId(), requirement.goalId(), requirement.kind(), verdict,
                 requirement.criterionRef(), requirement.criterionVersion(), reason, List.copyOf(refs), limitations);
