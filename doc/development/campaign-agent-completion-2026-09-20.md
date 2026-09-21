@@ -126,6 +126,8 @@
 | [E93：容量退避到期候选的有界发现][E93] | 5 个 H2/JDBC submission-deferral 用例通过；按 caller、ACTIVE revision、到期时间和容量拒绝状态筛选，稳定排序和 256 上限，校验 run/child/action/step/deferral 身份、请求摘要和 attempt fence，返回最小 DueCandidate，重复读取零写入。 | 只是只读到期候选索引，尚未接 scheduler、Graph、HTTP 或生产重试入口；调用方仍需重新解析 run token、容量门控和幂等条件，H2 不替代真实 MySQL 隔离。 |
 | [E94：受保护 response envelope 的 Spring 装配][E94] | 10 个直接受影响后端用例通过；联合 trusted/JDBC profile 下只从已装配的 durable transport 创建单一 envelope，profile 关闭无 bean，缺 protocol/grant provider 继续 fail-fast，并回归 legacy/upgrade/no-binding/durable 互斥输出。 | 仍未接 principal provider、Graph/AgentRunHarness、HTTP/chat 或客户端；没有默认授权实现，真实 MySQL、历史/导出和浏览器仍待验收。 |
 | [E95：权威重规划 RunToken resolver][E95] | 20 个 H2/JDBC/Spring 定向用例通过；resolver 每次按 owner/runId 读取当前 ACTIVE 最新 revision，精确核对 session/caller、advance token 和版本，advance/cancel 后无缓存重读，旧 revision、主体/会话不符与非法输入 fail closed；trusted profile 只接受具名 provider。 | 仍是 transport-neutral resolver，尚未接 Graph/AgentRunHarness/HTTP/chat 或生产身份入口；不支持调用方指定 revision，真实 MySQL 锁隔离和跨实例 fencing 仍待验收。 |
+| [E96：版本化 Plan runtime registry 与显式 saver 边界][E96] | 4 个定向后端用例通过；不可变 registry 固定 catalog、contract、FIXED/REACT executor、candidate 和版本元数据，open 精确校验 owner/session/ACTIVE/token/definition/frozen version，只有匹配 SaverKey 的显式 compile 才创建 driver/Graph；重复注册、版本漂移和 saver 错配 fail closed。 | 仍是纯 typed runtime seam，尚未接 Spring/Profile、Recovery、Graph/HTTP 生产入口、真实 React candidate、多实例 fencing 或真实 MySQL saver。 |
+| [E97：可信 response authority 的请求级组合][E97] | 3 个定向后端用例通过；组合可信 caller、protocol metadata、exact handle 和 opaque grant，校验身份、revision、metadata 与 mode 一致性，Bound 不暴露 grant/owner/capability/payload。 | 尚未接生产 principal provider、Spring/Graph/HTTP 或网络；只消费可信上游事实，不替代真实授权来源和 durable transport 验收。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -466,6 +468,8 @@
 [E93]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E94]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E95]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E96]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E97]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
