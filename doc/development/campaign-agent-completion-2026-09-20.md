@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-22，E65–E111 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-22，E65–E112 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -142,6 +142,7 @@
 | [E109：完整结果入口模块投影][E109] | 22 个受影响报告响应/投影后端用例通过；`ReportDraft.ResultEntry` 以稳定 `RESULT_LINK` 纳入模块交付门，绑定 artifact 引用，重复、未知 goal 或缺失引用 fail closed，旧构造保持兼容。 | 仍是 transport-neutral 脱敏投影，尚未接 HTTP、Graph、Spring、客户端或真实 MySQL。 |
 | [E110：统计复合 child 执行边界][E110] | 4 个新纯 Java 用例通过，并复用 CALL/统计执行器 11 个回归；稳定 child/request identity，READY/WAITING/失败结果分层，重复身份及安全围栏漂移 fail closed。 | 仍是 transport-neutral 编排 seam，尚未把 compare/rank/dimension Spring 工具接入真实 Graph/Run/HTTP 或生产数据库。 |
 | [E111：因果报告证据门][E111] | 15 个报告终评/投影后端用例通过；`CausalEvidenceGuard` 要求证据引用、明确非相关性因果方法、完整 coverage 和限制说明，联合分布/相关性不能满足 `CAUSAL_EVIDENCE`。 | 仍是纯 typed 报告终评门，真实模型质量、生产报告路由和客户端未验收。 |
+| [E112：查询计划稳定身份与续接绑定][E112] | `CampaignStatisticsQueryPlanTest` 4 个、`CampaignStatisticsToolsTest` 34 个定向后端用例通过；多对象/多期间组合生成稳定 canonical `planId` 和兼容 query key，结果与 continuation 携带 planId，带 planId 的任务引用必须属于同一计划，旧引用保持兼容。 | 仍只增强现有统计工具的身份边界，未接持久化 CALL、Graph、HTTP、客户端或真实 MySQL；rank/dimension 尚未接入该计划层。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -498,6 +499,7 @@
 [E109]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E110]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E111]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E112]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
