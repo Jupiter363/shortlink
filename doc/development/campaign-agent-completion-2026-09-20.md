@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E95 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E98 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -128,6 +128,7 @@
 | [E95：权威重规划 RunToken resolver][E95] | 20 个 H2/JDBC/Spring 定向用例通过；resolver 每次按 owner/runId 读取当前 ACTIVE 最新 revision，精确核对 session/caller、advance token 和版本，advance/cancel 后无缓存重读，旧 revision、主体/会话不符与非法输入 fail closed；trusted profile 只接受具名 provider。 | 仍是 transport-neutral resolver，尚未接 Graph/AgentRunHarness/HTTP/chat 或生产身份入口；不支持调用方指定 revision，真实 MySQL 锁隔离和跨实例 fencing 仍待验收。 |
 | [E96：版本化 Plan runtime registry 与显式 saver 边界][E96] | 4 个定向后端用例通过；不可变 registry 固定 catalog、contract、FIXED/REACT executor、candidate 和版本元数据，open 精确校验 owner/session/ACTIVE/token/definition/frozen version，只有匹配 SaverKey 的显式 compile 才创建 driver/Graph；重复注册、版本漂移和 saver 错配 fail closed。 | 仍是纯 typed runtime seam，尚未接 Spring/Profile、Recovery、Graph/HTTP 生产入口、真实 React candidate、多实例 fencing 或真实 MySQL saver。 |
 | [E97：可信 response authority 的请求级组合][E97] | 3 个定向后端用例通过；组合可信 caller、protocol metadata、exact handle 和 opaque grant，校验身份、revision、metadata 与 mode 一致性，Bound 不暴露 grant/owner/capability/payload。 | 尚未接生产 principal provider、Spring/Graph/HTTP 或网络；只消费可信上游事实，不替代真实授权来源和 durable transport 验收。 |
+| [E98：正式交付状态矩阵回归][E98] | 7 个定向后端用例通过；固定单 Tool 缺少分析、证据不得跨目标复用、等待/不可用/不支持状态不得 ANSWERED、无 requirement 保持 PENDING，以及 run/plan/revision 漂移 fail closed。 | 仅补 GoalAssessor 的确定性合同回归，尚未接报告路由、Graph、HTTP、客户端、真实 MySQL 或浏览器。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -470,6 +471,7 @@
 [E95]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E96]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E97]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E98]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
