@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -182,20 +181,9 @@ public class CampaignStatisticsTools {
                 return ToolResult.success(result);
             }
             var summary = summary(fetched.data);
-            if (!validMetrics(summary)) return incompleteRanking("整段期间的分组汇总缺失，无法确认完整排名", metric, limit);
             List<Map<String, Object>> items = maps(fetched.data.get("items"));
-            Set<String> identities = new LinkedHashSet<>();
-            BigDecimal totalPv = BigDecimal.ZERO;
-            for (var item : items) {
-                if (!validMetrics(item) || text(item.get("linkId")).isEmpty()
-                        || !identities.add(text(item.get("linkId"))))
-                    return incompleteRanking("短链统计缺失、无效或重复，未输出不完整排名", metric, limit);
-                totalPv = totalPv.add(number(item.get("pv")));
-            }
-            if (totalPv.compareTo(number(summary.get("pv"))) != 0)
-                return incompleteRanking("短链 PV 合计与冻结分组汇总不一致，未输出不完整排名", metric, limit);
-            items.sort(Comparator.<Map<String, Object>, BigDecimal>comparing(row -> number(row.get(metric))).reversed()
-                    .thenComparing(row -> text(row.get("linkId"))));
+            var ranking = CampaignStatisticsRankingCalculator.calculate(items, summary, query, metric, limit);
+            if (!ranking.complete()) return incompleteRanking(ranking.error(), metric, limit);
             var quality = map(fetched.data.get("meta"));
             // All frozen pages have been validated and collected before ranking.
             quality.remove("nextCursor");
@@ -205,15 +193,11 @@ public class CampaignStatisticsTools {
             // Shared provenance remains once in result.meta for the graph boundary.
             // Keep row quality and unknown extensions without repeating each build window.
             rowQuality.keySet().removeAll(List.of("sourceCut", "manifestVersion", "windowVersions"));
-            List<Map<String, Object>> rows = new ArrayList<>();
-            for (int index = 0; index < Math.min(limit, items.size()); index++) {
-                Map<String, Object> row = new LinkedHashMap<>(items.get(index));
-                row.putAll(query);
-                row.put("rank", index + 1);
-                row.put("pvShare", ratio(number(row.get("pv")), totalPv));
+            List<Map<String, Object>> rows = ranking.rows().stream().map(source -> {
+                Map<String, Object> row = new LinkedHashMap<>(source);
                 row.put("quality", rowQuality);
-                rows.add(row);
-            }
+                return row;
+            }).toList();
             var result = base("ranking", "READY", rows, warnings);
             result.put("columns", columns("rank", "fullShortUrl", "pv", "uv", "uip", "pvShare"));
             result.put("metrics", summary);
