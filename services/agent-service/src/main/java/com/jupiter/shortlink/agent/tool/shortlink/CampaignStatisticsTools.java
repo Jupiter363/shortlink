@@ -54,18 +54,22 @@ public class CampaignStatisticsTools {
             org.springframework.ai.chat.model.ToolContext trusted) {
         try {
             ToolContext context = trustedContext(trusted);
-            List<Map<String, Object>> objects = scopes(scopes);
-            List<Map<String, Object>> windows = periods(periods);
-            int combinations = objects.size() * windows.size();
-            require(combinations >= 2 && combinations <= 16, "Comparison requires two to sixteen object/period combinations");
-            Map<String, Map<String, Object>> references = references(jobs, objects, windows);
+            CampaignStatisticsQueryPlan.Plan queryPlan = CampaignStatisticsQueryPlan.create(scopes, periods);
+            List<Map<String, Object>> objects = queryPlan.scopes().stream()
+                    .map(CampaignStatisticsTools::scopeMap).toList();
+            List<Map<String, Object>> windows = queryPlan.periods().stream()
+                    .map(CampaignStatisticsTools::periodMap).toList();
+            int combinations = queryPlan.combinations();
+            Map<String, Map<String, Object>> references = references(jobs, objects, windows, queryPlan.planId());
             List<Map<String, Object>> rows = new ArrayList<>();
             List<Map<String, Object>> retainedJobs = new ArrayList<>();
             List<String> warnings = new ArrayList<>();
             boolean pending = false, failed = false;
-            for (var object : objects) for (var window : windows) {
-                Map<String, Object> query = query(object, window);
-                String key = key(query);
+            for (CampaignStatisticsQueryPlan.Query planned : queryPlan.queries()) {
+                Map<String, Object> query = new LinkedHashMap<>(planned.arguments());
+                String key = planned.key();
+                Map<String, Object> object = scopeMap(planned.scope());
+                Map<String, Object> window = periodMap(planned.period());
                 String jobId = text(references.getOrDefault(key, Map.of()).get("jobId"));
                 Fetch fetched = fetch(query, "METRICS", jobId, false, context);
                 Map<String, Object> row = new LinkedHashMap<>(query);
@@ -77,6 +81,7 @@ public class CampaignStatisticsTools {
                     Map<String, Object> reference = new LinkedHashMap<>(query);
                     reference.put("queryKind", "METRICS");
                     reference.put("jobId", fetched.jobId);
+                    reference.put("planId", queryPlan.planId());
                     retainedJobs.add(reference);
                 }
                 if ("READY".equals(fetched.status)) {
@@ -105,8 +110,9 @@ public class CampaignStatisticsTools {
             result.put("comparisons", comparisons(rows, objects, windows));
             result.put("metrics", Map.of("semantics", "每行对应独立的整段期间汇总，去重 UV、UIP 不可直接相加"));
             result.put("meta", Map.of("businessTimezone", "Asia/Shanghai", "queryCount", combinations,
-                    "resultComplete", "READY".equals(status), "rateUnit", "ratio"));
-            if (pending) result.put("continuation", Map.of("scopes", objects, "periods", windows, "jobs", retainedJobs));
+                    "planId", queryPlan.planId(), "resultComplete", "READY".equals(status), "rateUnit", "ratio"));
+            if (pending) result.put("continuation", Map.of("scopes", objects, "periods", windows,
+                    "planId", queryPlan.planId(), "jobs", retainedJobs));
             return ToolResult.success(result);
         } catch (IllegalArgumentException invalid) {
             return ToolResult.failure(invalid.getMessage());
@@ -440,7 +446,7 @@ public class CampaignStatisticsTools {
     }
 
     private static Map<String, Map<String, Object>> references(List<Map<String, Object>> jobs,
-            List<Map<String, Object>> scopes, List<Map<String, Object>> periods) {
+            List<Map<String, Object>> scopes, List<Map<String, Object>> periods, String planId) {
         Set<String> expected = new LinkedHashSet<>();
         for (var scope : scopes) for (var period : periods) expected.add(key(query(scope, period)));
         Map<String, Map<String, Object>> result = new LinkedHashMap<>();
@@ -448,6 +454,8 @@ public class CampaignStatisticsTools {
         require(jobs.size() <= 16, "Too many job references");
         for (var job : jobs) {
             require(job != null && expected.contains(key(job)), "Job reference does not match a requested scope and period");
+            if (job.get("planId") != null) require(planId.equals(text(job.get("planId"))),
+                    "Job reference belongs to a different comparison plan");
             require("METRICS".equals(text(job.get("queryKind"))) && text(job.get("jobId")).matches("[A-Za-z0-9_-]{1,128}"), "Invalid comparison job reference");
             require(result.putIfAbsent(key(job), job) == null, "Duplicate job reference for the same query");
         }
@@ -468,6 +476,22 @@ public class CampaignStatisticsTools {
 
     private static ToolContext bound(ToolContext context, Map<String, Object> arguments) {
         return new ToolContext(context.sessionId(), context.username(), arguments, context.principal());
+    }
+
+    private static Map<String, Object> scopeMap(CampaignStatisticsQueryPlan.Scope scope) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("gid", scope.gid());
+        if (!text(scope.fullShortUrl()).isEmpty()) result.put("fullShortUrl", scope.fullShortUrl());
+        if (!text(scope.label()).isEmpty()) result.put("label", scope.label());
+        return result;
+    }
+
+    private static Map<String, Object> periodMap(CampaignStatisticsQueryPlan.Period period) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("startDate", period.startDate().toString());
+        result.put("endDate", period.endDate().toString());
+        if (!text(period.label()).isEmpty()) result.put("label", period.label());
+        return result;
     }
 
     private static Map<String, Object> query(Map<String, Object> scope, Map<String, Object> period) {
