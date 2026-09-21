@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-21，E65–E104 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-21，E65–E106 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -135,6 +135,8 @@
 | [E102：重规划 typed planner handoff][E102] | 5 个纯 Java 定向用例通过；把 E99 PendingReplan 与服务端 baseline 绑定，校验 owner/session/run/plan/revision/step/reason、证据新鲜度和文本边界，再委托既有 ReplanRequest。 | 仍不持有 RunToken/definitionJson，不写 receipt/revision，不接 trusted planner 执行、Graph、HTTP 或真实数据库。 |
 | [E103：历史恢复动作分类][E103] | E103 3 个纯 Java 定向用例通过（`CampaignStatisticsHistoricalReleaseRecoveryActionTest`）；代码 `CampaignStatisticsHistoricalReleaseRecoveryAction` 将已通过 gate 的历史 release permit 映射为固定、不可变的动作分类和最小身份，逐操作复制 release/physical binding/child/job 事实，并拒绝过期、非法 clock 或不完整 trusted 输入。 | 仍是 transport-neutral action classification，不 claim、不写 release 状态、不接 scheduler/coordinator、Graph、HTTP 或真实 MySQL；与 E102/E104 合计 16 项定向用例通过，不代表历史恢复入口已上线。 |
 | [E104：重规划候选准入与身份快照][E104] | E104 8 个纯 Java 定向用例通过（`CampaignReplanCandidateAdmissionTest`）；代码 `CampaignReplanCandidateAdmission` 在 handoff 后校验 canonical candidate hash、owner/session/run/plan/revision/status、baseline 和 reason codes，输出不含 RunToken、definitionJson 或执行状态的不可变 admission snapshot；E102–E104 合计 16 项定向用例通过。 | 仍是 planner handoff 后的纯 typed admission，尚未创建 revision、receipt 或执行 coordinator，不接 trusted planner、Graph、HTTP、Spring、Docker 或真实数据库；等价 plan、身份漂移、hash/reason 不符均 fail closed。 |
+| [E105：投放报告模块投影][E105] | 5 个纯 Java 定向用例通过（`CampaignReportModuleSelectorTest`）；代码 `CampaignReportModuleSelector` 输出稳定 `campaign-report-modules/v1`，按 goalId 排序，只保留 evidence refs 和可渲染 block identity，缺证据或无结果 block 不得标记 ANSWERED，并拒绝跨目标/未知 block 归属。 | 仍是 transport-neutral 的报告模块投影，尚未接 durable response、Graph、HTTP、客户端或真实 MySQL；模块不携带 owner、token、capability 或 payload。 |
+| [E106：准入候选执行绑定][E106] | 3 个 E106 直接用例，加上 E102/E104 回归共 16 个纯 Java 定向用例通过（`CampaignReplanAdmissionBinderTest`）；代码 `CampaignReplanAdmissionBinder` 只在执行边界校验 token/capability/owner/session/run/plan/revision/hash 后构造既有 `CampaignReplanApplicationService.Request`。 | 仍是 transport-neutral typed bridge，尚未把请求接入 Graph/HTTP/Spring 生产入口或声称已开放 replan；不执行持久化、模型、工具或网络调用。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -484,6 +486,8 @@
 [E102]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E103]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E104]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E105]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E106]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
