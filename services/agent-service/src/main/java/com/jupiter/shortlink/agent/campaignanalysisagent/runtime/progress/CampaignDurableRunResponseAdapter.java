@@ -97,7 +97,7 @@ public final class CampaignDurableRunResponseAdapter {
         return moduleSelector.select(new CampaignReportModuleSelector.Request(
                 projection.runId(), projection.planId(), projection.revision(),
                 projection.executionStatus(), projection.goalAssessments(), summary.blocks(),
-                summary.blockGoals(), projection.limitations()));
+                summary.blockGoals(), summary.resultEntries(), projection.limitations()));
     }
 
     private static void requireBase(AgentRunResult base) {

@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.GoalAssessment;
+import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportDraft;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportBlock;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunResultProjection;
 import java.util.ArrayList;
@@ -38,6 +39,13 @@ public final class CampaignReportModuleSelector {
             String goalId = owners.get(0);
             blocks.computeIfAbsent(goalId, ignored -> new ArrayList<>()).add(block);
         }
+        Map<String, List<ReportDraft.ResultEntry>> resultEntries = new LinkedHashMap<>();
+        java.util.Set<String> entryIds = new java.util.HashSet<>();
+        for (ReportDraft.ResultEntry entry : request.resultEntries()) {
+            if (entry == null || !entryIds.add(entry.entryId()) || !knownGoals.contains(entry.goalId()))
+                throw new IllegalArgumentException("REPORT_MODULE_RESULT_ENTRY_INVALID");
+            resultEntries.computeIfAbsent(entry.goalId(), ignored -> new ArrayList<>()).add(entry);
+        }
         List<CampaignReportModuleResponse.Module> modules = new ArrayList<>();
         for (GoalAssessment assessment : request.goalAssessments()) {
             List<ReportBlock> owned = blocks.getOrDefault(assessment.goalId(), List.of());
@@ -48,12 +56,18 @@ public final class CampaignReportModuleSelector {
                 rendered.add(new CampaignReportModuleResponse.RenderableBlock(block.blockId(), block.kind(), block.title(),
                         block.evidenceArtifactIds(), block.completeResult()));
             }
+            for (ReportDraft.ResultEntry entry : resultEntries.getOrDefault(assessment.goalId(), List.of())) {
+                evidence.add(entry.artifactId());
+                rendered.add(new CampaignReportModuleResponse.RenderableBlock(entry.entryId(),
+                        ReportBlock.Kind.RESULT_LINK, "完整结果入口", List.of(entry.artifactId()), true));
+            }
             GoalAssessment.Status status = assessment.status();
             String reason = assessment.reasonCode();
             // An answer needs both scoped evidence and an actually renderable result block. A
             // GoalAssessor may have seen a draft before the transport projection was assembled;
             // the module boundary must not preserve ANSWERED when that deliverable is absent.
-            boolean hasDeliverable = owned.stream().anyMatch(CampaignReportModuleSelector::deliverable);
+            boolean hasDeliverable = owned.stream().anyMatch(CampaignReportModuleSelector::deliverable)
+                    || !resultEntries.getOrDefault(assessment.goalId(), List.of()).isEmpty();
             if (status == GoalAssessment.Status.ANSWERED && (evidence.isEmpty() || !hasDeliverable)) {
                 status = request.executionStatus() == CampaignRunResultProjection.ExecutionStatus.WAITING
                         ? GoalAssessment.Status.PARTIAL
@@ -79,7 +93,16 @@ public final class CampaignReportModuleSelector {
     public record Request(String runId, String planId, int revision,
                           CampaignRunResultProjection.ExecutionStatus executionStatus,
                           List<GoalAssessment> goalAssessments, List<ReportBlock> blocks,
-                          Map<String, List<String>> blockGoals, List<String> limitations) {
+                          Map<String, List<String>> blockGoals,
+                          List<ReportDraft.ResultEntry> resultEntries, List<String> limitations) {
+        public Request(String runId, String planId, int revision,
+                       CampaignRunResultProjection.ExecutionStatus executionStatus,
+                       List<GoalAssessment> goalAssessments, List<ReportBlock> blocks,
+                       Map<String, List<String>> blockGoals, List<String> limitations) {
+            this(runId, planId, revision, executionStatus, goalAssessments, blocks, blockGoals,
+                    List.of(), limitations);
+        }
+
         public Request {
             if (CampaignReportModuleResponse.blank(runId) || CampaignReportModuleResponse.blank(planId)
                     || revision < 1 || executionStatus == null)
@@ -87,6 +110,7 @@ public final class CampaignReportModuleSelector {
             goalAssessments = goalAssessments == null ? List.of() : List.copyOf(goalAssessments);
             blocks = blocks == null ? List.of() : List.copyOf(blocks);
             blockGoals = blockGoals == null ? Map.of() : copyBlockGoals(blockGoals);
+            resultEntries = resultEntries == null ? List.of() : List.copyOf(resultEntries);
             limitations = CampaignReportModuleResponse.nonblank(limitations);
         }
 
@@ -94,7 +118,8 @@ public final class CampaignReportModuleSelector {
                        CampaignRunResultProjection.ExecutionStatus executionStatus,
                        List<GoalAssessment> goalAssessments, List<ReportBlock> blocks,
                        Map<String, List<String>> blockGoals) {
-            this(runId, planId, revision, executionStatus, goalAssessments, blocks, blockGoals, List.of());
+            this(runId, planId, revision, executionStatus, goalAssessments, blocks, blockGoals,
+                    List.of(), List.of());
         }
 
         private List<String> goalIdsFor(ReportBlock block) {
