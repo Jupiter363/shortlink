@@ -89,7 +89,13 @@ public final class JdbcCampaignStatisticsHistoricalReleaseRecoveryGate
                         && candidate.runId().equals(binding.producerRunId())
                         && candidate.revision() == binding.producerRevision()
                         && candidate.childId().equals(binding.producerChildId())
-                        && candidate.jobId().equals(binding.jobId()), CORRUPTED);
+                        && candidate.jobId().equals(binding.jobId())
+                        && validId(binding.actionId(), 96)
+                        && validId(binding.jobId(), 128)
+                        && validId(binding.requestId(), 96)
+                        && validId(binding.artifactId(), 96)
+                        && validText(binding.scopeRef(), 256)
+                        && validText(binding.periodsRef(), 256), CORRUPTED);
         require(validHash(binding.producerDefinitionHash())
                         && Objects.equals(binding.producerDefinitionHash(), source.definitionHash()), CORRUPTED);
         if (!"NONE".equals(binding.cancelIntent()) || !binding.localOnly()
@@ -146,7 +152,9 @@ public final class JdbcCampaignStatisticsHistoricalReleaseRecoveryGate
                         && validId(release.requestId(), 96)
                         && validHash(release.requestHash())
                         && validHash(release.artifactHash())
-                        && validHash(release.chainHash()), CORRUPTED);
+                        && validHash(release.chainHash())
+                        && validId(release.artifactId(), 96), CORRUPTED);
+        require(release.bindingVersion() == 1, CORRUPTED);
 
         Optional<ActionRow> actionResult = row("SELECT run_id,revision,action_id,step_id,executor_kind,executor_name,"
                         + "executor_version,definition_hash,definition_json FROM campaign_action_ledger "
