@@ -51,10 +51,37 @@ public class CampaignStatisticsTools {
             @ToolParam(description = "Objects: each has gid and optional fullShortUrl and label.") List<Map<String, Object>> scopes,
             @ToolParam(description = "Inclusive calendar periods: startDate, endDate and optional label; first period is the current target.") List<Map<String, Object>> periods,
             @ToolParam(required = false, description = "Exact job references from continuation; never invent scope or jobId.") List<Map<String, Object>> jobs,
+            @ToolParam(required = false, description = "Server-issued planId from the continuation; must match the requested scopes and periods.") String planId,
             org.springframework.ai.chat.model.ToolContext trusted) {
         try {
             ToolContext context = trustedContext(trusted);
             CampaignStatisticsQueryPlan.Plan queryPlan = CampaignStatisticsQueryPlan.create(scopes, periods);
+            if (planId != null && !planId.isBlank() && !queryPlan.planId().equals(planId))
+                throw new IllegalArgumentException("Comparison continuation belongs to a different query plan");
+            return compareStatistics(context, queryPlan, jobs);
+        } catch (IllegalArgumentException invalid) {
+            return ToolResult.failure(invalid.getMessage());
+        }
+    }
+
+    /** Compatibility overload for direct callers that have no continuation plan id. */
+    public ToolResult compareStatistics(
+            @ToolParam(description = "Objects: each has gid and optional fullShortUrl and label.") List<Map<String, Object>> scopes,
+            @ToolParam(description = "Inclusive calendar periods: startDate, endDate and optional label; first period is the current target.") List<Map<String, Object>> periods,
+            @ToolParam(required = false, description = "Exact job references from continuation; never invent scope or jobId.") List<Map<String, Object>> jobs,
+            org.springframework.ai.chat.model.ToolContext trusted) {
+        try {
+            ToolContext context = trustedContext(trusted);
+            CampaignStatisticsQueryPlan.Plan queryPlan = CampaignStatisticsQueryPlan.create(scopes, periods);
+            return compareStatistics(context, queryPlan, jobs);
+        } catch (IllegalArgumentException invalid) {
+            return ToolResult.failure(invalid.getMessage());
+        }
+    }
+
+    private ToolResult compareStatistics(ToolContext context, CampaignStatisticsQueryPlan.Plan queryPlan,
+            List<Map<String, Object>> jobs) {
+        try {
             List<Map<String, Object>> objects = queryPlan.scopes().stream()
                     .map(CampaignStatisticsTools::scopeMap).toList();
             List<Map<String, Object>> windows = queryPlan.periods().stream()

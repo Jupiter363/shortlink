@@ -371,6 +371,15 @@ class CampaignStatisticsToolsTest {
     }
 
     @Test
+    void aContinuationPlanIdMustMatchBeforeAnyGatewayCall() {
+        var tool = tool(request -> ToolResult.success(Map.of()));
+        var result = tool.compareStatistics(GROUPS, List.of(WEEK), List.of(), "wrong-plan", TRUSTED);
+        assertThat(result.success()).isFalse();
+        assertThat(result.message()).contains("different query plan");
+        assertThat(calls).isEmpty();
+    }
+
+    @Test
     void generatedCallbacksConvertNestedScopesPeriodsAndOptionalJobsThroughTheRealRegistry() {
         var tool = tool(request -> ToolResult.success(envelope(counts(10, 1, 1), List.of(link(1, 10, 1, 1)), quality("snapshot"))));
         var registry = new AgentToolRegistry(MethodToolCallbackProvider.builder().toolObjects(tool).build());
@@ -381,6 +390,9 @@ class CampaignStatisticsToolsTest {
         var withJobs = new LinkedHashMap<>(arguments);
         withJobs.put("jobs", List.of());
         assertThat(compare.execute(new ToolContext("session", "alice", withJobs, ALICE)).success()).isTrue();
+        var withPlan = new LinkedHashMap<>(arguments);
+        withPlan.put("planId", map(first.get("meta")).get("planId"));
+        assertThat(compare.execute(new ToolContext("session", "alice", withPlan, ALICE)).success()).isTrue();
 
         var rank = registry.findByName("rank_short_links").orElseThrow();
         var ranked = data(rank.execute(new ToolContext("session", "alice", Map.of(
