@@ -123,6 +123,7 @@
 | [E90：受保护 authority provider 的显式装配][E90] | 44 个 E85–E90 联合定向后端用例通过；受保护 JDBC response profile 的 transport bean 必须显式注入具名 protocol metadata 与 report grant provider，缺任一 provider 直接 fail-fast；grant authority 先核对 opaque grant 与 exact handle，再由可信 resolver 重新签发后构造内部 E84 report access。 | 仍是 transport-neutral provider composition，尚未接生产 principal/metadata provider、Graph/AgentRunHarness、HTTP/chat 或客户端；旧二／三参数构造器仅保留兼容路径，真实 MySQL、客户端历史/导出和浏览器仍待验收。 |
 | [E91：exact response handle 身份边界回归][E91] | 7 个 H2/JDBC resolver 用例通过；subject/authVersion 不匹配、空 caller/subject 在 reference 构造时 fail-fast，SUPERSEDED revision 可按 exact key 作为事实读取；handle 仍不暴露 definition、row version 或 advance token。 | 仍是 transport-neutral identity seam，尚未接 intake 到 handle 的生产身份链、Graph/AgentRunHarness、HTTP/chat 或客户端；真实 MySQL 锁隔离、跨实例并发和浏览器仍待验收。 |
 | [E92：REQUESTED 释放意图的有界恢复读取][E92] | 5 个 H2/JDBC release-store 用例通过；按 tenant/subject/authVersion 与 ACTIVE run 过滤 REQUESTED，稳定排序和 256 上限，返回最小 PendingIntent；release/child/artifact/receipt 身份与 hash/spec 不一致时 fail closed，重复读取零写入。 | 只是只读恢复索引，尚未接 scheduler、Graph、HTTP 或生产恢复入口；调用方仍需重新解析 exact token 和释放门控，H2 不替代真实 MySQL 隔离。 |
+| [E93：容量退避到期候选的有界发现][E93] | 5 个 H2/JDBC submission-deferral 用例通过；按 caller、ACTIVE revision、到期时间和容量拒绝状态筛选，稳定排序和 256 上限，校验 run/child/action/step/deferral 身份、请求摘要和 attempt fence，返回最小 DueCandidate，重复读取零写入。 | 只是只读到期候选索引，尚未接 scheduler、Graph、HTTP 或生产重试入口；调用方仍需重新解析 run token、容量门控和幂等条件，H2 不替代真实 MySQL 隔离。 |
 | [E94：受保护 response envelope 的 Spring 装配][E94] | 10 个直接受影响后端用例通过；联合 trusted/JDBC profile 下只从已装配的 durable transport 创建单一 envelope，profile 关闭无 bean，缺 protocol/grant provider 继续 fail-fast，并回归 legacy/upgrade/no-binding/durable 互斥输出。 | 仍未接 principal provider、Graph/AgentRunHarness、HTTP/chat 或客户端；没有默认授权实现，真实 MySQL、历史/导出和浏览器仍待验收。 |
 | [E95：权威重规划 RunToken resolver][E95] | 20 个 H2/JDBC/Spring 定向用例通过；resolver 每次按 owner/runId 读取当前 ACTIVE 最新 revision，精确核对 session/caller、advance token 和版本，advance/cancel 后无缓存重读，旧 revision、主体/会话不符与非法输入 fail closed；trusted profile 只接受具名 provider。 | 仍是 transport-neutral resolver，尚未接 Graph/AgentRunHarness/HTTP/chat 或生产身份入口；不支持调用方指定 revision，真实 MySQL 锁隔离和跨实例 fencing 仍待验收。 |
 
@@ -462,6 +463,7 @@
 [E90]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E91]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E92]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E93]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E94]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E95]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
