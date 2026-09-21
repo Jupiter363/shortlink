@@ -54,6 +54,11 @@ public record ReportDraft(String schemaVersion, String reportId, int revision, S
         return resultEntries.stream().anyMatch(entry -> goalId.equals(entry.goalId()) && entry.complete());
     }
 
+    public boolean hasCausalAnalysis(String goalId) {
+        return sections.stream().filter(section -> section.goalIds().contains(goalId))
+                .flatMap(section -> section.blocks().stream())
+                .anyMatch(CausalEvidenceGuard::supports);
+    }
     public boolean hasAnalysis(String goalId) {
         return sections.stream().anyMatch(section -> section.goalIds().contains(goalId)
                 && section.blocks().stream().anyMatch(block -> block.kind() == ReportBlock.Kind.ANALYSIS));

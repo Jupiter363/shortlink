@@ -27,6 +27,37 @@ class GoalAssessorTest {
     }
 
     @Test
+    void jointDistributionCannotSatisfyACausalRequirement() {
+        PlanSpec plan = plan("goal-1");
+        PlanningAssessment assessment = assessment(requirement("causal", "goal-1",
+                PlanningAssessment.RequirementKind.CAUSAL_EVIDENCE));
+        ReportBlock joint = new ReportBlock("analysis", ReportBlock.Kind.ANALYSIS,
+                "联合分布", null, Map.of("claimType", "CAUSAL", "method", "joint_distribution",
+                        "coverage", Map.of("status", "COMPLETE"), "limitations", List.of("仅观察相关性")),
+                List.of("artifact-1"), true);
+        GoalAssessment result = assess(plan, assessment,
+                Map.of("causal", observation(RequirementAssessment.Verdict.MET, "artifact-1")), draft("goal-1", joint))
+                .goals().get(0);
+        assertThat(result.status()).isEqualTo(GoalAssessment.Status.PARTIAL);
+        assertThat(result.reasonCode()).isEqualTo("ANALYSIS_MISSING");
+    }
+
+    @Test
+    void causalMethodRequiresCompleteCoverageAndExplicitLimitations() {
+        PlanSpec plan = plan("goal-1");
+        PlanningAssessment assessment = assessment(requirement("causal", "goal-1",
+                PlanningAssessment.RequirementKind.CAUSAL_EVIDENCE));
+        ReportBlock causal = new ReportBlock("analysis", ReportBlock.Kind.ANALYSIS,
+                "因果估计", null, Map.of("claimType", "CAUSAL", "method", "difference_in_differences",
+                        "coverage", Map.of("status", "COMPLETE", "periods", 2),
+                        "limitations", List.of("需在实验前提下解释")), List.of("artifact-1"), true);
+        GoalAssessment result = assess(plan, assessment,
+                Map.of("causal", observation(RequirementAssessment.Verdict.MET, "artifact-1")), draft("goal-1", causal))
+                .goals().get(0);
+        assertThat(result.status()).isEqualTo(GoalAssessment.Status.ANSWERED);
+    }
+
+    @Test
     void partialEvidenceIsPartialAndEvidenceDoesNotCrossGoals() {
         PlanSpec plan = plan("goal-1", "goal-2");
         PlanningAssessment assessment = assessment(
