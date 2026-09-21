@@ -3,6 +3,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportPublisher;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.CampaignReportReadProjection;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.GoalAssessment;
+import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportDraft;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportBlock;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunStatus;
 import java.util.ArrayList;
@@ -54,11 +55,19 @@ public final class CampaignRunResultProjection {
     public record ReportSummary(CampaignReportPublisher.ReportRef reportRef,
                                 List<ReportBlock> blocks,
                                 CampaignLegacyRollup goalRollup,
-                                Map<String, List<String>> blockGoals) {
+                                Map<String, List<String>> blockGoals,
+                                List<ReportDraft.ResultEntry> resultEntries) {
         public ReportSummary(CampaignReportPublisher.ReportRef reportRef,
                              List<ReportBlock> blocks,
                              CampaignLegacyRollup goalRollup) {
-            this(reportRef, blocks, goalRollup, Map.of());
+            this(reportRef, blocks, goalRollup, Map.of(), List.of());
+        }
+
+        public ReportSummary(CampaignReportPublisher.ReportRef reportRef,
+                             List<ReportBlock> blocks,
+                             CampaignLegacyRollup goalRollup,
+                             Map<String, List<String>> blockGoals) {
+            this(reportRef, blocks, goalRollup, blockGoals, List.of());
         }
 
         public ReportSummary {
@@ -66,6 +75,7 @@ public final class CampaignRunResultProjection {
             blocks = blocks == null ? List.of() : List.copyOf(blocks);
             Objects.requireNonNull(goalRollup, "RUN_RESULT_GOAL_ROLLUP_REQUIRED");
             blockGoals = immutableBlockGoals(blockGoals);
+            resultEntries = resultEntries == null ? List.of() : List.copyOf(resultEntries);
         }
     }
 
@@ -109,7 +119,7 @@ public final class CampaignRunResultProjection {
 
         ReportSummary summary = snapshot == null ? null : new ReportSummary(
                 snapshot.reportRef(), snapshot.draft().blocks(), rollup(snapshot.goalAssessments()),
-                blockGoals(snapshot));
+                blockGoals(snapshot), snapshot.draft().resultEntries());
         return new Projection(SCHEMA, request.executionStatus(), progress.runId(), progress.planId(),
                 progress.revision(), snapshot == null ? List.of() : snapshot.goalAssessments(), summary,
                 request.nextAction(), request.limitations());

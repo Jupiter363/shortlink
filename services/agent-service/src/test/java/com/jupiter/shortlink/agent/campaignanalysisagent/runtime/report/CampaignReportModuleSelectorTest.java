@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.GoalAssessment;
+import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportDraft;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportBlock;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunResultProjection;
 import java.util.List;
@@ -46,6 +47,23 @@ class CampaignReportModuleSelectorTest {
                 List.of(goal("goal-a", GoalAssessment.Status.ANSWERED, List.of("e-a"))),
                 List.of(metric), Map.of("metric-1", List.of("goal-a"))));
         assertThat(complete.modules().get(0).status()).isEqualTo(GoalAssessment.Status.ANSWERED);
+    }
+
+    @Test
+    void completeResultEntryIsProjectedAsAReachableResultLink() {
+        ReportDraft.ResultEntry entry = new ReportDraft.ResultEntry(
+                "full-result-1", "goal-a", "HISTORY_VIEW", "artifact-full", true);
+        CampaignReportModuleResponse response = selector.select(new CampaignReportModuleSelector.Request(
+                "run-1", "plan-1", 1, CampaignRunResultProjection.ExecutionStatus.SUCCEEDED,
+                List.of(goal("goal-a", GoalAssessment.Status.ANSWERED, List.of())), List.of(), Map.of(),
+                List.of(entry), List.of()));
+
+        assertThat(response.modules().get(0).status()).isEqualTo(GoalAssessment.Status.ANSWERED);
+        assertThat(response.modules().get(0).blocks()).singleElement().satisfies(block -> {
+            assertThat(block.kind()).isEqualTo(ReportBlock.Kind.RESULT_LINK);
+            assertThat(block.blockId()).isEqualTo("full-result-1");
+            assertThat(block.evidenceArtifactIds()).containsExactly("artifact-full");
+        });
     }
 
     @Test
