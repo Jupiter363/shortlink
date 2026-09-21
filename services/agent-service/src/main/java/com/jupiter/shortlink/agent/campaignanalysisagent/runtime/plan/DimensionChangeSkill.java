@@ -270,15 +270,33 @@ public final class DimensionChangeSkill {
                     finish.finish(position.previousArtifactId()).artifactId()));
             List<BoundQuery> queries = queriesForShard.apply(position.shardIndex());
             if (queries.size() != 2) throw new IllegalArgumentException("DIMENSION_PERIODS_MISMATCH");
-            boolean pending = false, waiting = false, capacity = false;
-            for (BoundQuery query : queries) {
-                ChildRecord child;
-                try { child = context.child(query.child(), boundary -> submit.submit(query, boundary)); }
-                catch (StatisticsJobFixedExecutor.SubmissionUnresolved unknown) { pending = true; continue; }
-                if (child.state() == ChildState.READY) {
-                    if (!query.target().artifactId().equals(child.artifactId())) throw new IllegalArgumentException("DIMENSION_RESULT_BINDING_MISMATCH");
+            List<CampaignStatisticsCompositeCall.Request> requests = queries.stream()
+                    .map(query -> new CampaignStatisticsCompositeCall.Request(
+                            query.child().childId(), query.child().actionId(), query.child().mode(),
+                            query.child().requestId(), query.child().wire(),
+                            boundary -> submit.submit(query, boundary)))
+                    .toList();
+            CampaignStatisticsCompositeCall.Outcome outcome = new CampaignStatisticsCompositeCall().execute(
+                    requests, request -> context.child(request.spec(), request.call()));
+            boolean pending = !outcome.waitingChildIds().isEmpty(), waiting = pending, capacity = false;
+            for (CampaignStatisticsCompositeCall.Failure failure : outcome.failures()) {
+                if ("SUBMISSION_UNRESOLVED".equals(failure.code())) {
+                    pending = true;
+                } else if ("QUERY_CAPACITY_EXHAUSTED".equals(failure.code())) {
+                    pending = true; capacity = true;
                 } else {
-                    pending = true; waiting |= child.state() == ChildState.WAITING;
+                    throw new IllegalArgumentException(failure.code());
+                }
+            }
+            for (ChildRecord child : outcome.children()) {
+                if (child.state() == ChildState.READY) {
+                    BoundQuery query = queries.stream().filter(candidate -> candidate.child().equals(child.spec()))
+                            .findFirst().orElseThrow(() -> new IllegalArgumentException("DIMENSION_CHILD_CHANGED"));
+                    if (!query.target().artifactId().equals(child.artifactId()))
+                        throw new IllegalArgumentException("DIMENSION_RESULT_BINDING_MISMATCH");
+                } else {
+                    pending = true;
+                    waiting |= child.state() == ChildState.WAITING;
                     capacity |= child.state() == ChildState.PREPARED && child.reason() == UnresolvedReason.QUERY_CAPACITY_EXHAUSTED;
                 }
             }
