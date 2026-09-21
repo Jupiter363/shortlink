@@ -107,7 +107,7 @@ public class CampaignStatisticsTools {
             String status = failed ? "INCOMPLETE" : pending ? "PENDING" : "READY";
             var result = base("comparison", status, rows, warnings);
             result.put("columns", columns("gid", "startDate", "endDate", "pv", "uv", "uip"));
-            result.put("comparisons", comparisons(rows, objects, windows));
+            result.put("comparisons", CampaignStatisticsComparisonCalculator.calculate(rows, objects, windows, clock));
             result.put("metrics", Map.of("semantics", "每行对应独立的整段期间汇总，去重 UV、UIP 不可直接相加"));
             result.put("meta", Map.of("businessTimezone", "Asia/Shanghai", "queryCount", combinations,
                     "planId", queryPlan.planId(), "resultComplete", "READY".equals(status), "rateUnit", "ratio"));
@@ -343,70 +343,6 @@ public class CampaignStatisticsTools {
     private static boolean sameSnapshot(Map<String, Object> first, Map<String, Object> next) {
         return List.of("requestedStart", "requestedEnd", "effectiveEnd", "recoveryEpoch", "metricVersion", "sourceCut", "manifestVersion", "dimensions", "filters")
                 .stream().allMatch(key -> Objects.equals(first.get(key), next.get(key)));
-    }
-
-    private List<Map<String, Object>> comparisons(List<Map<String, Object>> rows,
-            List<Map<String, Object>> scopes, List<Map<String, Object>> periods) {
-        Map<String, Map<String, Object>> indexed = new LinkedHashMap<>();
-        rows.forEach(row -> indexed.put(text(row.get("key")), row));
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (var scope : scopes) for (int index = 1; index < periods.size(); index++)
-            differences(indexed.get(key(query(scope, periods.get(0)))), indexed.get(key(query(scope, periods.get(index)))), "PERIOD", result);
-        for (var period : periods) for (int index = 1; index < scopes.size(); index++)
-            differences(indexed.get(key(query(scopes.get(index), period))), indexed.get(key(query(scopes.get(0), period))), "OBJECT", result);
-        return result;
-    }
-
-    private void differences(Map<String, Object> target, Map<String, Object> baseline,
-            String kind, List<Map<String, Object>> output) {
-        if (target == null || baseline == null) return;
-        List<String> warnings = new ArrayList<>();
-        boolean comparable = "READY".equals(target.get("status")) && "READY".equals(baseline.get("status"));
-        if (!comparable) warnings.add("至少一个整段期间汇总不可用");
-        Map<String, Object> targetMeta = map(target.get("quality")), baselineMeta = map(baseline.get("quality"));
-        if (!complete(targetMeta) || !complete(baselineMeta)) {
-            comparable = false;
-            warnings.add("数据不完整或已过期，差值仅描述已观测记录，不据此推断增长率");
-        }
-        if (text(targetMeta.get("metricVersion")).isEmpty()
-                || !Objects.equals(targetMeta.get("metricVersion"), baselineMeta.get("metricVersion"))) {
-            comparable = false;
-            warnings.add("指标版本缺失或不一致");
-        }
-        LocalDate today = LocalDate.now(clock);
-        if (!LocalDate.parse(text(target.get("endDate"))).isBefore(today)
-                || !LocalDate.parse(text(baseline.get("endDate"))).isBefore(today)) {
-            comparable = false;
-            warnings.add("请求期间尚未结束，当前观测值不能作为完整期间对比");
-        }
-        if ("PERIOD".equals(kind)) {
-            LocalDate ts = LocalDate.parse(text(target.get("startDate"))), te = LocalDate.parse(text(target.get("endDate")));
-            LocalDate bs = LocalDate.parse(text(baseline.get("startDate"))), be = LocalDate.parse(text(baseline.get("endDate")));
-            if (ChronoUnit.DAYS.between(ts, te) != ChronoUnit.DAYS.between(bs, be)) {
-                comparable = false;
-                warnings.add("两个期间长度不同");
-            }
-            if (!(te.isBefore(bs) || be.isBefore(ts))) {
-                comparable = false;
-                warnings.add("两个期间存在重叠");
-            }
-        }
-        for (String metric : METRICS) {
-            Map<String, Object> comparison = new LinkedHashMap<>();
-            comparison.put("kind", kind);
-            comparison.put("targetKey", target.get("key"));
-            comparison.put("baselineKey", baseline.get("key"));
-            comparison.put("metric", metric);
-            BigDecimal current = optionalNumber(target.get(metric)), previous = optionalNumber(baseline.get(metric));
-            BigDecimal delta = current == null || previous == null ? null : current.subtract(previous);
-            comparison.put("delta", delta);
-            comparison.put("rate", comparable && delta != null ? ratio(delta, previous) : null);
-            comparison.put("comparable", comparable);
-            List<String> reasons = new ArrayList<>(warnings);
-            if (previous != null && previous.signum() == 0) reasons.add("基期为零，变化率无定义");
-            comparison.put("warnings", reasons);
-            output.add(comparison);
-        }
     }
 
     private static List<Map<String, Object>> scopes(List<Map<String, Object>> values) {
