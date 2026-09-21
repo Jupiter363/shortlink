@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72/E73/E74/E75/E76/E77/E78/E79/E80/E81/E82/E83/E84/E85/E86/E87/E88/E89/E90/E91/E92/E93/E94/E95/E96/E97/E98）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72/E73/E74/E75/E76/E77/E78/E79/E80/E81/E82/E83/E84/E85/E86/E87/E88/E89/E90/E91/E92/E93/E94/E95/E96/E97/E98/E99/E100）
 
 记录日期：2026-09-21。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -266,6 +266,14 @@ E84 的 `NO_BINDING` 被保留为独立 typed 状态，不能携带 Graph base r
 ### E98：正式交付状态矩阵回归
 
 新增 `GoalAssessorTest`，把报告发布前的目标判定边界固定为后端合同：单 Tool 缺少分析只能 `PARTIAL`，部分证据不能跨目标复用，`NEEDS_INPUT`/`UNAVAILABLE`/`UNSUPPORTED` 不得变成 `ANSWERED`，没有 requirement 的目标保持 `PENDING`，plan/assessment/draft 的 run、plan、revision 漂移必须 fail closed。该批只补确定性 assessor 回归，不接报告路由、Graph、HTTP 或客户端。
+
+### E99：重规划候选门禁
+
+新增 `CampaignReplanCandidateGate`，先通过现有权威 `RunTokenResolver` 精确解析 owner/session/run 的当前 token，再按 exact token + step 读取 exploration assessment；只有 `REPLAN_REQUESTED` 才形成脱敏 `PendingReplan`。输出只保留 server-owned handle、candidate hash 和不可变 reason codes，原始 `RunToken` 仅用于本次读取，不解析自由文本、不构造 `PlanSpec`/`ReplanRequest`，不写 receipt/revision，也不触发 Graph、coordinator 或 tool。
+
+### E100：历史 producer 释放候选读取
+
+新增 owner-scoped 的 `CampaignStatisticsHistoricalReleaseRecoveryReader`。JDBC 实现通过 release intent、物理 job binding、run/child、artifact/payload/receipt 的身份链，只读取 `SUPERSEDED`、`REQUESTED`、未过期、READY、无 callback、local-only 且无 active consumer 的候选；严格区分 release binding ID 与物理 job binding ID，并校验 action/plan/request/artifact/hash/spec/version/expiry。结果不包含 token、请求体或 artifact payload，仍只是 advisory fact，不是授权或执行许可。
 
 
 ## 定向验证
@@ -626,6 +634,22 @@ mvn.cmd -o -pl services/agent-service -am "-Dtest=GoalAssessorTest,CampaignRepor
 
 结果：7 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。仅使用纯 Java report assessor/publisher 和既有 typed fixtures，没有启动 Docker、应用、真实 MySQL、模型或浏览器。
 
+E99 定向验证：
+
+```text
+mvn.cmd -o -pl services/agent-service -am "-Dtest=CampaignReplanCandidateGateTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dnet.bytebuddy.experimental=true" "-Dmaven.compiler.useIncrementalCompilation=false" test
+```
+
+结果：8 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。仅使用 fake resolver/store，未写入 receipt/revision，也没有启动 Docker、应用、真实 MySQL、模型或浏览器。
+
+E100 定向验证：
+
+```text
+mvn.cmd -o -pl services/agent-service -am "-Dtest=JdbcCampaignStatisticsHistoricalReleaseRecoveryReaderTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dnet.bytebuddy.experimental=true" "-Dmaven.compiler.useIncrementalCompilation=false" test
+```
+
+结果：4 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。仅使用 H2/JDBC 只读 fixture，未注册 Spring、scheduler 或 recovery coordinator，也没有启动 Docker、应用、真实 MySQL、模型或浏览器。
+
 ## 未覆盖边界
 
 - `RevisionApplier` 是可信装配接口，本批次没有把它接入生产 `JdbcCampaignRunStore.revise` 和 `JdbcCampaignStatisticsConsumerStore.adopt`，因此不能宣称运行中 replan 已开放。
@@ -635,7 +659,7 @@ mvn.cmd -o -pl services/agent-service -am "-Dtest=GoalAssessorTest,CampaignRepor
 - E57 的运行时工厂与 E59 的报告应用服务仍是显式 typed 组合件；尚无 token resolver、业务 profile、Spring bean、HTTP/chat 接线或客户端历史/导出验收。
 - E63 只提供受 profile 保护的组合契约；默认生产 profile 不启用，当前仍没有可信 owner/capability resolver、PlanValidator/Catalog、EvidenceReader 或真实授权 provider，因此不能宣称业务入口已开放。context 测试使用 H2 迁移替身，不替代真实 MySQL 或跨服务验收。
 - E64 只提供不接 transport 的 typed adapter；resolver、owner/capability 解析仍由未来可信入口提供，尚无 HTTP/chat/tool 接线、远端取消或真实 MySQL/多实例 fencing 验收。
-- E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥；E67 只扩展 response 类型和纯 adapter；E68 增加纯 run-result projection；E69 增加授权的 run/report 读取组合；E70 增加受 token fencing 保护的 durable run-result 绑定；E71 增加按 revision 的授权读取组合和 report verifier；E72 增加共享事务的 retain/bind/release 协调器；E73 增加按请求解析身份的 adapter；E74 增加终态引用清理和 report 行锁协议；E75 增加报告发布与 run-result 绑定的共享事务及精确重放保护；E76 增加 durable projection 到兼容响应的纯 typed 组合和状态/脱敏校验；E77 增加一次精确 durable read 到兼容响应的 typed 服务边界；E78 增加无状态 runtime factory、三元身份核验和显式无绑定 outcome；E79 增加新响应协议的客户端能力门控；E80 增加受 `campaign-trusted-adapter` profile 保护的具名 provider 装配、prototype decorator 和能力 gate；E81 增加固定 report key 的 route-level 脱敏 facade；E82 增加同一 writable REQUIRED 事务内的 JDBC durable read 快照协调和 row-version 围栏；E83 增加事务内 typed projector 与 JDBC durable response bridge，禁止快照结束后的 E71 二次读取；E84 增加 conjunctive profile 下的 JDBC durable response factory、请求级报告凭证绑定及 step/run/artifact 同事务组合守卫；E85 增加先能力门控、后 durable factory 的 transport-neutral response route，区分 legacy、客户端升级、无绑定和绑定响应，禁止 durable 失败回退；E86 增加 exact revision 的 server-owned 脱敏 response handle resolver，并让 transport adapter 在 durable 路径上先解析 handle、禁止 latest/RunToken 误绑定和 fallback；E87 增加稳定的 transport-neutral response envelope，保留 legacy base 与 durable response 的互斥语义并固定 upgrade/no-binding wire code；E88 增加由 trusted metadata resolver 提供的协议/运行身份 authority seam，禁止调用方伪造已有运行的协议字段并在 exact handle 前 fail closed；E89 增加 principal-bound report access grant，固定 capability、绑定 exact handle 与 mode，并禁止 authority transport 接收 raw report credential；E90 将 metadata/grant resolver 作为受保护 Spring 组合的显式必需 provider，缺失即 fail fast，且 grant authority 必须重新由可信 resolver 签发后才可构造内部报告凭证；E91 补齐 exact handle 的 subject/authVersion/null caller 边界回归；E92 增加有界的 REQUESTED 释放意图恢复读取；E93 增加容量退避到期候选的有界发现；E94 补齐受保护 response envelope 的 Spring typed 组合；E95 增加 owner/session 绑定的 JDBC replan token resolver；E96 增加版本化 Plan runtime registry、显式 saver binding 与延迟 compile 工厂；E97 增加可信 response authority 的请求级身份组合；E98 增加 GoalAssessor 的正式交付状态矩阵回归。上述组件尚未由 Graph/AgentRunHarness/HTTP 生产路径调用，客户端历史/导出入口、生产 principal provider 和真实 MySQL payload 演进仍待验收。
+- E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥；E67 只扩展 response 类型和纯 adapter；E68 增加纯 run-result projection；E69 增加授权的 run/report 读取组合；E70 增加受 token fencing 保护的 durable run-result 绑定；E71 增加按 revision 的授权读取组合和 report verifier；E72 增加共享事务的 retain/bind/release 协调器；E73 增加按请求解析身份的 adapter；E74 增加终态引用清理和 report 行锁协议；E75 增加报告发布与 run-result 绑定的共享事务及精确重放保护；E76 增加 durable projection 到兼容响应的纯 typed 组合和状态/脱敏校验；E77 增加一次精确 durable read 到兼容响应的 typed 服务边界；E78 增加无状态 runtime factory、三元身份核验和显式无绑定 outcome；E79 增加新响应协议的客户端能力门控；E80 增加受 `campaign-trusted-adapter` profile 保护的具名 provider 装配、prototype decorator 和能力 gate；E81 增加固定 report key 的 route-level 脱敏 facade；E82 增加同一 writable REQUIRED 事务内的 JDBC durable read 快照协调和 row-version 围栏；E83 增加事务内 typed projector 与 JDBC durable response bridge，禁止快照结束后的 E71 二次读取；E84 增加 conjunctive profile 下的 JDBC durable response factory、请求级报告凭证绑定及 step/run/artifact 同事务组合守卫；E85 增加先能力门控、后 durable factory 的 transport-neutral response route，区分 legacy、客户端升级、无绑定和绑定响应，禁止 durable 失败回退；E86 增加 exact revision 的 server-owned 脱敏 response handle resolver，并让 transport adapter 在 durable 路径上先解析 handle、禁止 latest/RunToken 误绑定和 fallback；E87 增加稳定的 transport-neutral response envelope，保留 legacy base 与 durable response 的互斥语义并固定 upgrade/no-binding wire code；E88 增加由 trusted metadata resolver 提供的协议/运行身份 authority seam，禁止调用方伪造已有运行的协议字段并在 exact handle 前 fail closed；E89 增加 principal-bound report access grant，固定 capability、绑定 exact handle 与 mode，并禁止 authority transport 接收 raw report credential；E90 将 metadata/grant resolver 作为受保护 Spring 组合的显式必需 provider，缺失即 fail fast，且 grant authority 必须重新由可信 resolver 签发后才可构造内部报告凭证；E91 补齐 exact handle 的 subject/authVersion/null caller 边界回归；E92 增加有界的 REQUESTED 释放意图恢复读取；E93 增加容量退避到期候选的有界发现；E94 补齐受保护 response envelope 的 Spring typed 组合；E95 增加 owner/session 绑定的 JDBC replan token resolver；E96 增加版本化 Plan runtime registry、显式 saver binding 与延迟 compile 工厂；E97 增加可信 response authority 的请求级身份组合；E98 增加 GoalAssessor 的正式交付状态矩阵回归；E99 增加 owner/session/run/step 绑定的只读重规划候选门禁；E100 增加历史 SUPERSEDED producer 释放候选的 owner-scoped JDBC 读取和严格身份链校验。上述组件尚未由 Graph/AgentRunHarness/HTTP 生产路径调用，客户端历史/导出入口、生产 principal provider、scheduler/recovery coordinator 和真实 MySQL payload 演进仍待验收。
 - `JdbcReportLifecycleStore` 已通过 E75 的 trusted profile 由报告发布与 run-result 组合器显式复用，但尚未由 Graph/AgentRunHarness 或 Admin/Agent HTTP/chat 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。
