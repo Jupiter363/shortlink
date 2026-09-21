@@ -57,7 +57,8 @@ public final class CampaignReplanPlanningHandoff {
                 request.baseline().plan(), request.baseline().assessment(), request.baseline().evidenceIds(),
                 request.newEvidence(), request.unsatisfiedRequirements(), request.rationale());
         return new Result(replan, request.baseline().assessment(), request.pending().stepId(),
-                request.pending().candidateHash(), request.pending().reasonCodes());
+                request.pending().candidateHash(), request.pending().reasonCodes(),
+                request.baseline().owner(), request.baseline().sessionId());
     }
 
     /** Instance-shaped alias for callers that prefer an injectable-looking pure boundary. */
@@ -212,7 +213,18 @@ public final class CampaignReplanPlanningHandoff {
 
     /** Immutable typed output for the next planner stage; it carries no RunToken or definition JSON. */
     public record Result(ReplanRequest request, PlanningAssessment assessment, String stepId,
-                         String expectedCandidateHash, List<String> reasonCodes) {
+                         String expectedCandidateHash, List<String> reasonCodes,
+                         Caller baselineOwner, String baselineSessionId) {
+        /**
+         * Compatibility constructor for callers that only have the older sanitized payload.
+         * Such a result remains useful for local inspection but is intentionally rejected by
+         * the candidate admission boundary because owner/session provenance is unavailable.
+         */
+        public Result(ReplanRequest request, PlanningAssessment assessment, String stepId,
+                      String expectedCandidateHash, List<String> reasonCodes) {
+            this(request, assessment, stepId, expectedCandidateHash, reasonCodes, null, null);
+        }
+
         public Result {
             Objects.requireNonNull(request, "REPLAN_HANDOFF_REQUEST_RESULT_REQUIRED");
             Objects.requireNonNull(assessment, "REPLAN_HANDOFF_ASSESSMENT_RESULT_REQUIRED");
@@ -226,6 +238,17 @@ public final class CampaignReplanPlanningHandoff {
                     && stepId.equals(step.stepId()))) {
                 throw new IllegalArgumentException("REPLAN_HANDOFF_STEP_RESULT_MISMATCH");
             }
+            if ((baselineOwner == null) != (baselineSessionId == null)) {
+                throw new SecurityException("REPLAN_HANDOFF_IDENTITY_INCOMPLETE");
+            }
+            if (baselineOwner != null) {
+                validateOwner(baselineOwner);
+                requireId(baselineSessionId, "REPLAN_HANDOFF_SESSION_REQUIRED");
+            }
+        }
+
+        public boolean hasBaselineIdentity() {
+            return baselineOwner != null && baselineSessionId != null;
         }
     }
 
