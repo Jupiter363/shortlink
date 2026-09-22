@@ -14,6 +14,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class CampaignStatisticsCompositeCallTest {
@@ -81,6 +82,33 @@ class CampaignStatisticsCompositeCallTest {
                 UnresolvedReason.JOB_RESULT_UNKNOWN));
         assertEquals(List.of(new CampaignStatisticsCompositeCall.Failure("a", "JOB_RESULT_UNKNOWN")), outcome.failures());
         assertThrows(UnsupportedOperationException.class, () -> outcome.children().clear());
+    }
+
+    @Test
+    void capabilityEntryPointGatesEveryChildBeforeDurableDispatch() throws Exception {
+        var composite = new CampaignStatisticsCompositeCall();
+        var first = request("a", ChildMode.SYNC);
+        var second = request("b", ChildMode.SYNC);
+        var gates = new AtomicInteger();
+        CapabilityExecution capability = new CapabilityExecution() {
+            @Override public void requireCurrent() { gates.incrementAndGet(); }
+            @Override public ChildRecord child(CampaignRunStore.ChildSpec spec, CampaignStepExecution.ChildCall call) {
+                var request = spec.childId().equals("a") ? first : second;
+                return ready(request);
+            }
+            @Override public Map<String, CampaignRunStore.ArtifactRef> local(
+                    CampaignRunStore.ChildSpec spec,
+                    com.jupiter.shortlink.agent.campaignanalysisagent.runtime.local.LocalCalculationRegistry.Approval approval,
+                    CampaignRunStore.ArtifactAuthorizer authorizer,
+                    CampaignStepExecution.LocalCall calculation) { throw new AssertionError("LOCAL_NOT_EXPECTED"); }
+            @Override public void close() { }
+        };
+
+        var outcome = composite.execute(capability, List.of(first, second));
+
+        assertTrue(outcome.complete());
+        assertEquals(List.of("a", "b"), outcome.readyChildIds());
+        assertEquals(2, gates.get());
     }
 
     private static CampaignStatisticsCompositeCall.Request request(String id, ChildMode mode) {

@@ -64,8 +64,20 @@ public final class CampaignStatisticsCompositeCall {
 
     /** Runs each child through the durable CALL boundary; existing READY/WAITING receipts are reused. */
     public Outcome execute(CampaignCallExecution execution, List<Request> requests) throws Exception {
+        return execute((CapabilityExecution) execution, requests);
+    }
+
+    /**
+     * Runs each child through the durable capability boundary.  Both fixed Steps and admitted
+     * CALLs use this entry point so the composite cannot accidentally bypass the current-run gate
+     * when it is reused by a new adapter.
+     */
+    public Outcome execute(CapabilityExecution execution, List<Request> requests) throws Exception {
         Objects.requireNonNull(execution);
-        return execute(requests, request -> execution.child(request.spec(), request.call()));
+        return execute(requests, request -> {
+            execution.requireCurrent();
+            return execution.child(request.spec(), request.call());
+        });
     }
 
     /** Package-private seam keeps orchestration tests independent from a database fixture. */
