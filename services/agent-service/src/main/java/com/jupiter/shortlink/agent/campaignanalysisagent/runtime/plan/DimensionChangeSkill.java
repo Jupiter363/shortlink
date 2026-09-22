@@ -276,8 +276,7 @@ public final class DimensionChangeSkill {
                             query.child().requestId(), query.child().wire(),
                             boundary -> submit.submit(query, boundary)))
                     .toList();
-            CampaignStatisticsCompositeCall.Outcome outcome = new CampaignStatisticsCompositeCall().execute(
-                    requests, request -> context.child(request.spec(), request.call()));
+            CampaignStatisticsCompositeCall.Outcome outcome = new CampaignStatisticsCompositeCall().execute(context, requests);
             boolean pending = !outcome.waitingChildIds().isEmpty(), waiting = pending, capacity = false;
             for (CampaignStatisticsCompositeCall.Failure failure : outcome.failures()) {
                 if ("SUBMISSION_UNRESOLVED".equals(failure.code())) {
