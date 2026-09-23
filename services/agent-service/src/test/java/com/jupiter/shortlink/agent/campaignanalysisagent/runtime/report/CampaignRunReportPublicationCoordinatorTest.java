@@ -94,6 +94,36 @@ class CampaignRunReportPublicationCoordinatorTest {
     }
 
     @Test
+    void partialReportAdvancesToCompleteInTheSamePlanRevisionAndRetainsHistory() {
+        Fixture fixture = fixture("publication_partial_complete", true);
+        var complete = fixture.publication();
+        var original = complete.publisherRequest();
+        var partial = new CampaignReportApplicationService.PublishRequest(new CampaignReportPublisher.PublishRequest(
+                original.plan(), original.planningAssessment(), Map.of("data-1", new GoalAssessor.RequirementObservation(
+                        RequirementAssessment.Verdict.UNKNOWN, "EVIDENCE_NOT_ASSESSED", List.of("artifact-1"))),
+                original.draft(), CAPABILITY), OWNER, CAPABILITY, complete.retainedUntil(), complete.reuseExpiresAt());
+        fixture.coordinator.publishAndBind(fixture.caller, fixture.token, partial,
+                new BindingDraft(new ReportRef("report-1", 1), ExecutionStatus.WAITING,
+                        new NextAction(NextActionKind.CONTINUE, "REPORT_PARTIAL", List.of())));
+        ReportDraft finalDraft = new ReportDraft("report-1", 2, "run-1", "plan-1", 1,
+                original.draft().sections(), original.draft().resultEntries());
+        var finalPublication = new CampaignReportApplicationService.PublishRequest(new CampaignReportPublisher.PublishRequest(
+                original.plan(), original.planningAssessment(), original.observations(), finalDraft, CAPABILITY),
+                OWNER, CAPABILITY, complete.retainedUntil(), complete.reuseExpiresAt());
+        var result = fixture.coordinator.publishAndBind(fixture.caller, fixture.token, finalPublication,
+                new BindingDraft(new ReportRef("report-1", 2), ExecutionStatus.SUCCEEDED, NextAction.none()));
+        assertThat(result.binding().bindingVersion()).isEqualTo(2);
+        assertThat(result.binding().reportRef()).isEqualTo(new ReportRef("report-1", 2));
+        assertThat(fixture.jdbc.queryForList("SELECT reference_count FROM campaign_report_lifecycle ORDER BY revision", Integer.class))
+                .containsExactly(0, 1);
+        assertThat(fixture.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_report_lifecycle", Integer.class)).isEqualTo(2);
+        assertThatThrownBy(() -> fixture.coordinator.publishAndBind(fixture.caller, fixture.token, partial,
+                new BindingDraft(new ReportRef("report-1", 1), ExecutionStatus.WAITING,
+                        new NextAction(NextActionKind.CONTINUE, "REPORT_PARTIAL", List.of()))))
+                .hasMessage("RUN_RESULT_BINDING_CONFLICT");
+    }
+
+    @Test
     void exactReplayStillRequiresCurrentReportCredentials() {
         Fixture fixture = fixture("publication_replay_auth", true);
         fixture.coordinator.publishAndBind(fixture.caller, fixture.token, fixture.publication(), fixture.binding());

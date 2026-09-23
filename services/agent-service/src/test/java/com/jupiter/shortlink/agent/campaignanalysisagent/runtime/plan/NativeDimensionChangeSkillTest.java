@@ -54,10 +54,18 @@ class NativeDimensionChangeSkillTest {
 
     @Test
     void oneNativeReactStepConsumesItsOwnCompletedSelectionThenResumesDimensionSkillAndPublishesTypedObservedEvidence() throws Exception {
-        var f = new Fixture(Mode.DECLINES);
+        verifyCompletedChain(new Fixture(Mode.DECLINES));
+    }
+
+    @Test
+    void productionFactoryComposesBothSkillsWithOriginalJobsAndTheSameAdmittedScope() throws Exception {
+        verifyCompletedChain(new Fixture(Mode.DECLINES, true));
+    }
+
+    private void verifyCompletedChain(Fixture f) throws Exception {
         assertTrue(f.steps.steps(f.token).isEmpty());
         assertEquals(1, f.runtime().graph().advance().advancedSteps());
-        assertEquals(StepStatus.WAITING, f.step().status()); assertEquals(1, f.model.count.get());
+        assertEquals(StepStatus.WAITING, f.step().status(), () -> f.step().reason()); assertEquals(1, f.model.count.get());
         assertEquals(2, f.gateway.submits); assertEquals(0, f.gateway.submitted("DIMENSION_BREAKDOWN"));
         f.receiveAndResume("decline_selection");
         assertEquals(StepStatus.WAITING, f.step().status()); assertEquals(2, f.model.count.get());
@@ -160,14 +168,17 @@ class NativeDimensionChangeSkillTest {
         final AtomicBoolean allowed = new AtomicBoolean(true);
         final ArtifactAuthorizer auth = (caller, artifact) -> allowed.get() && OWNER.equals(caller) && OWNER.equals(artifact.owner());
         final Mode mode;
+        final boolean productionFactory;
         final Gateway gateway = new Gateway(this);
         final Model model = new Model(this);
         final Path approvedRoot;
         final String scopeRef, scopeArtifact, declineArguments;
         ArtifactMetadata selectedMetadata;
         RunToken token;
-        Fixture(Mode mode) throws Exception {
+        Fixture(Mode mode) throws Exception { this(mode, false); }
+        Fixture(Mode mode, boolean productionFactory) throws Exception {
             this.mode = mode;
+            this.productionFactory = productionFactory;
             new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919_3__campaign_run_owner.sql"),
                     new ClassPathResource("sql/migration/V20260920_3__campaign_submission_deferral.sql"),
                     new ClassPathResource("sql/migration/V20260920_8__campaign_model_invocation.sql"),
@@ -192,9 +203,15 @@ class NativeDimensionChangeSkillTest {
             var uses = List.of(new PlanSpec.CriterionUse("dimension-coverage", Map.of()));
             var policy = new PlanSpec.ExplorationPolicy("combined-explore", "1", List.of(FrozenDeclineSelection.REF, FrozenDimensionChange.REF_V3),
                     scopeRef, PAIR, uses, "two-approved-methods");
+            Map<String, Port> policyPorts = new LinkedHashMap<>(ports);
+            Map<String, PlanBinding> stepInputs = new LinkedHashMap<>(Map.of("scope", PlanBinding.input("scope"), "periods", PlanBinding.input("periods"),
+                    "selectionDefinition", PlanBinding.input("selectionDefinition"), "dimensionDefinition", PlanBinding.input("dimensionDefinition")));
+            if (productionFactory) {
+                policyPorts.put("scopeArtifact", new Port(new TypeRef("ScopeArtifact", 1, Cardinality.ONE), true));
+                stepInputs.put("scopeArtifact", PlanBinding.artifact("scope-artifact-" + CampaignRunStore.sha256("native-dimension-scope")));
+            }
             var planned = new PlanSpec.Step(STEP, List.of("goal"), PlanSpec.ExecutionMode.REACT, null, policy, List.of(),
-                    Map.of("scope", PlanBinding.input("scope"), "periods", PlanBinding.input("periods"),
-                            "selectionDefinition", PlanBinding.input("selectionDefinition"), "dimensionDefinition", PlanBinding.input("dimensionDefinition")),
+                    stepInputs,
                     Map.of(), FrozenDimensionChange.OUTPUT_CONTRACT);
             var plan = new PlanSpec(PlanSpec.SCHEMA_VERSION, "native-dimension-plan", 1, RUN, "native-dimension-inputs",
                     List.of(new PlanSpec.Goal("goal", "Examine observed changes for declined members", true, "Deliver scoped dimensional evidence with quality")), List.of(planned));
@@ -214,7 +231,7 @@ class NativeDimensionChangeSkillTest {
                     return FrozenDimensionChange.REF_V3.equals(ref) ? Optional.of(DimensionChangeSkill.capability(ref)) : Optional.empty();
                 }
                 public Optional<Policy> policy(String ref, String version) { return "combined-explore".equals(ref) && "1".equals(version)
-                        ? Optional.of(new Policy(ref, version, new Signature(ports, FrozenDimensionChange.OUTPUT_CONTRACT,
+                        ? Optional.of(new Policy(ref, version, new Signature(policyPorts, FrozenDimensionChange.OUTPUT_CONTRACT,
                                 Map.of("dimensionChanges", new Port(CHANGE_TYPE, true)), Parameters.none()),
                                 Set.of(FrozenDeclineSelection.REF, FrozenDimensionChange.REF_V3), uses, policy.terminationPolicyRef())) : Optional.empty(); }
                 public Optional<Criterion> criterion(String ref, String version) { return Optional.of(new Criterion(ref, version,
@@ -266,6 +283,7 @@ class NativeDimensionChangeSkillTest {
         DimensionChangeCall dimension() { return new DimensionChangeCall(base.jdbc, token.definition(), STEP, PRINCIPAL, approvedRoot, runs, steps,
                 calls, skills, selections, base.results, gateway, catalog, contracts, models, this::inputAllowed, auth, this::queryAllowed); }
         Runtime runtime() throws Exception {
+            if (productionFactory) return productionRuntime();
             RunToken current = token;
             var policy = new StepBindings.StepPolicy() {
                 public void validateInputs(PlanSpec.Step step, BoundInputs inputs) { assertEquals(scopeRef, inputs.value("scope")); assertEquals(PAIR, inputs.value("periods")); }
@@ -295,6 +313,22 @@ class NativeDimensionChangeSkillTest {
                     (caller, inputs) -> allowed.get() && OWNER.equals(caller), auth, this::inputAllowed,
                     List.of(new PersistentPlanDriver.ReactExecutor("combined-explore", "1", policy, execute)), candidates);
             return new Runtime(driver, driver.compile(new MemorySaver()));
+        }
+        Runtime productionRuntime() throws Exception {
+            var scope = new com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope();
+            var saver = new MemorySaver();
+            var factory = new CampaignExplorationRuntimeFactory(base.jdbc, base.transactions, CLOCK, runs, steps, calls,
+                    base.results, candidates, skills, base.scopes, selections, approvedRoot, gateway, models, model, saver,
+                    Runnable::run, new CampaignExplorationRuntimeFactory.Settings("scripted-model", "1", CONFIG,
+                        new NativeExplorationAdapter.Limits(0, 65536, 32768, 32768, 8, Duration.ofSeconds(10)),
+                        ExplorationBudgetPolicy.defaults(), ExplorationRepeatPolicy.disabled()));
+            var prepared = factory.open(token, PRINCIPAL, catalog, contracts, this::inputAllowed, auth, this::queryAllowed,
+                    scope, Instant.ofEpochMilli(EXPIRY));
+            assertEquals(1, prepared.registrations().size());
+            var driver = new PersistentPlanDriver(token, runs, steps, catalog, contracts, List.of(),
+                    (caller, inputs) -> allowed.get() && OWNER.equals(caller), auth, this::inputAllowed,
+                    prepared.registrations(), candidates, scope);
+            return new Runtime(driver, driver.compile(saver));
         }
         ExplorationArtifactProjection combinedProjection(RunToken run) {
             var selection = new DeclineSelectionArtifactProjection(runs, selections);

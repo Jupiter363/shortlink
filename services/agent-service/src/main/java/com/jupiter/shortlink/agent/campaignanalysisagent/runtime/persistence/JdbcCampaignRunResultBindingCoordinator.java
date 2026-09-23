@@ -53,8 +53,16 @@ public final class JdbcCampaignRunResultBindingCoordinator {
             // durable row before touching the report lifecycle.
             Binding existing = results.readCurrentBindingLocked(token).orElse(null);
             if (existing != null) {
-                if (!results.matchesBinding(existing, token, draft))
-                    throw new IllegalStateException("RUN_RESULT_BINDING_CONFLICT");
+                if (!results.matchesBinding(existing, token, draft)) {
+                    if (!results.mayAdvanceBinding(existing, token, draft))
+                        throw new IllegalStateException("RUN_RESULT_BINDING_CONFLICT");
+                    // New retain, exact pointer CAS and old reference release share the run lock
+                    // and publication transaction. Historical payloads remain immutable.
+                    reports.retain(draft.reportRef(), referenceId(token));
+                    Binding updated = results.bind(token, draft);
+                    if (existing.reportRef() != null) reports.release(existing.reportRef(), referenceId(token));
+                    return updated;
+                }
                 // An exact replay still has to prove that the current request may read/bind the
                 // report.  Idempotency must not turn a revoked or expired credential into a
                 // durable report reference oracle.

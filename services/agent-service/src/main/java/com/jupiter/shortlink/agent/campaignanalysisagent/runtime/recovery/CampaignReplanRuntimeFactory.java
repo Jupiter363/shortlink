@@ -54,6 +54,14 @@ public final class CampaignReplanRuntimeFactory {
             ProcessExecutionScope processScope,
             CampaignReplanApplicationService.CapabilityAuthorizer capabilityAuthorizer,
             CampaignStatisticsConsumerStore.Authorizer consumerAuthorizer) {
+        this(jdbc, transactions, clock, planValidator, processScope, capabilityAuthorizer, consumerAuthorizer, ignored -> {});
+    }
+
+    public CampaignReplanRuntimeFactory(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            PlanValidator planValidator, ProcessExecutionScope processScope,
+            CampaignReplanApplicationService.CapabilityAuthorizer capabilityAuthorizer,
+            CampaignStatisticsConsumerStore.Authorizer consumerAuthorizer,
+            java.util.function.Consumer<CampaignRunStore.RunToken> additionalCallbackGate) {
         this.jdbc = Objects.requireNonNull(jdbc, "REPLAN_JDBC_REQUIRED");
         this.transactions = Objects.requireNonNull(transactions, "REPLAN_TRANSACTION_REQUIRED");
         this.clock = Objects.requireNonNull(clock, "REPLAN_CLOCK_REQUIRED");
@@ -71,7 +79,7 @@ public final class CampaignReplanRuntimeFactory {
         this.consumers = new JdbcCampaignStatisticsConsumerStore(jdbc, transactions, clock, runs);
         this.receipts = new JdbcReplanReceiptStore(jdbc, transactions, clock);
         this.applier = new JdbcCampaignRevisionApplier(jdbc, transactions, runs, consumers, receipts,
-                consumerAuthorizer);
+                consumerAuthorizer, additionalCallbackGate);
     }
 
     /**

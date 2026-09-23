@@ -3,6 +3,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.planning;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -25,13 +26,20 @@ import java.util.TreeSet;
 public record ReplanRequest(String schemaVersion, Baseline baseline,
                             List<Evidence> newEvidence,
                             List<UnsatisfiedRequirement> unsatisfiedRequirements,
-                            String rationale) {
+                            String rationale,
+                            @JsonInclude(JsonInclude.Include.NON_NULL) ExplorationSignal explorationSignal) {
     public static final String SCHEMA_VERSION = "campaign-replan-request/v1";
     private static final String TOKEN = "[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}";
     private static final JsonMapper JSON = JsonMapper.builder()
             .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .build();
+
+    /** Existing evidence/gap requests retain their original serialized form. */
+    public ReplanRequest(String schemaVersion, Baseline baseline, List<Evidence> newEvidence,
+            List<UnsatisfiedRequirement> unsatisfiedRequirements, String rationale) {
+        this(schemaVersion, baseline, newEvidence, unsatisfiedRequirements, rationale, null);
+    }
 
     public ReplanRequest {
         require(SCHEMA_VERSION.equals(schemaVersion), "REPLAN_SCHEMA_INVALID");
@@ -40,7 +48,10 @@ public record ReplanRequest(String schemaVersion, Baseline baseline,
         unsatisfiedRequirements = List.copyOf(Objects.requireNonNull(unsatisfiedRequirements,
                 "REPLAN_REQUIREMENTS_REQUIRED"));
         text(rationale, "REPLAN_RATIONALE_REQUIRED");
-        require(!newEvidence.isEmpty() || !unsatisfiedRequirements.isEmpty(), "REPLAN_TRIGGER_MISSING");
+        require(!newEvidence.isEmpty() || !unsatisfiedRequirements.isEmpty() || explorationSignal != null, "REPLAN_TRIGGER_MISSING");
+        if (explorationSignal != null) require(baseline.plan().steps().stream().anyMatch(step ->
+                explorationSignal.stepId().equals(step.stepId()) && step.executionMode() == PlanSpec.ExecutionMode.REACT),
+                "REPLAN_SIGNAL_STEP_INVALID");
         uniqueEvidence(newEvidence);
         uniqueRequirements(unsatisfiedRequirements);
         Set<String> knownRequirements = new HashSet<>();
@@ -65,6 +76,22 @@ public record ReplanRequest(String schemaVersion, Baseline baseline,
                                        String rationale) {
         return new ReplanRequest(SCHEMA_VERSION, Baseline.of(plan, assessment, evidenceIds),
                 newEvidence, unsatisfiedRequirements, rationale);
+    }
+
+    /** The application must verify this exact signal against its real candidate/MODEL ledger before applying. */
+    public static ReplanRequest fromExploration(PlanSpec plan, PlanningAssessment assessment, Set<String> evidenceIds,
+            List<Evidence> newEvidence, List<UnsatisfiedRequirement> unsatisfiedRequirements, String rationale,
+            ExplorationSignal signal) {
+        return new ReplanRequest(SCHEMA_VERSION, Baseline.of(plan, assessment, evidenceIds), newEvidence,
+                unsatisfiedRequirements, rationale, Objects.requireNonNull(signal));
+    }
+
+    /** Evidence of a planning request, not a claim about business data or an Artifact identifier. */
+    public record ExplorationSignal(String stepId, String candidateHash) {
+        public ExplorationSignal {
+            requireToken(stepId, "REPLAN_SIGNAL_STEP_INVALID");
+            require(candidateHash != null && candidateHash.matches("[a-f0-9]{64}"), "REPLAN_SIGNAL_HASH_INVALID");
+        }
     }
 
     public String planId() { return baseline.plan().planId(); }
@@ -146,7 +173,7 @@ public record ReplanRequest(String schemaVersion, Baseline baseline,
         public Evidence {
             requireToken(evidenceId, "REPLAN_EVIDENCE_INVALID");
             requireToken(artifactId, "REPLAN_EVIDENCE_INVALID");
-            requireToken(outputContractRef, "REPLAN_EVIDENCE_INVALID");
+            require(outputContractRef != null && outputContractRef.matches("[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}"), "REPLAN_EVIDENCE_INVALID");
             requireToken(contentHash, "REPLAN_EVIDENCE_INVALID");
         }
     }

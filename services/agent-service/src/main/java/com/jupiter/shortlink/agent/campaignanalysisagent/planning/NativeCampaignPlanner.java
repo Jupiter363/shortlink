@@ -97,14 +97,20 @@ public final class NativeCampaignPlanner {
 
     public String generate(PlanningProposal.Request request, PlanningProposal.Limits proposalLimits) throws Exception {
         Objects.requireNonNull(proposalLimits);
+        return generateStructured(INSTRUCTIONS, requestText(request, proposalLimits), schemaJson());
+    }
+
+    /** One server-defined structured call using the same native/durable boundary as planning. */
+    public String generateStructured(String instructions, String prompt, String schema) throws Exception {
+        Objects.requireNonNull(instructions); Objects.requireNonNull(prompt); Objects.requireNonNull(schema);
+        if (!prompt.contains(schema)) throw new IllegalArgumentException("PLANNER_SCHEMA_NOT_IN_PROMPT");
         var responseBoundary = new ResponseBoundary();
         try (var ignored = scope.enter()) {
-            String prompt = requestText(request, proposalLimits);
             // Bound the original START input too, before the native graph can clone it.
             requireSize(prompt, limits.requestBytes(), "PLANNER_REQUEST_TOO_LARGE");
             var agent = ReactAgent.builder().name("campaign_native_planner")
-                    .model(model).systemPrompt(INSTRUCTIONS).tools(List.of())
-                    .outputSchema(schemaJson()).outputKey("planningProposal")
+                    .model(model).systemPrompt(instructions).tools(List.of())
+                    .outputSchema(schema).outputKey("planningProposal")
                     .parallelToolExecution(false).wrapSyncToolsAsAsync(false)
                     .interceptors(responseBoundary).releaseThread(true).enableLogging(false)
                     .stateSerializer(AgentStateSerializerFactory.create()).build();

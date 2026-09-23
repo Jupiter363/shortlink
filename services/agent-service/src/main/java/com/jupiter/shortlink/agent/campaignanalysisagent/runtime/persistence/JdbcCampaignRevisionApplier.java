@@ -46,18 +46,27 @@ public final class JdbcCampaignRevisionApplier implements ReplanCoordinator.Revi
     private final JdbcCampaignStatisticsConsumerStore consumers;
     private final JdbcReplanReceiptStore receipts;
     private final CampaignStatisticsConsumerStore.Authorizer authorizer;
+    private final java.util.function.Consumer<RunToken> additionalCallbackGate;
 
     public JdbcCampaignRevisionApplier(JdbcTemplate jdbc, TransactionTemplate transactions,
                                        JdbcCampaignRunStore runs,
                                        JdbcCampaignStatisticsConsumerStore consumers,
                                        JdbcReplanReceiptStore receipts,
                                        CampaignStatisticsConsumerStore.Authorizer authorizer) {
+        this(jdbc, transactions, runs, consumers, receipts, authorizer, ignored -> {});
+    }
+
+    public JdbcCampaignRevisionApplier(JdbcTemplate jdbc, TransactionTemplate transactions,
+                                       JdbcCampaignRunStore runs, JdbcCampaignStatisticsConsumerStore consumers,
+                                       JdbcReplanReceiptStore receipts, CampaignStatisticsConsumerStore.Authorizer authorizer,
+                                       java.util.function.Consumer<RunToken> additionalCallbackGate) {
         this.jdbc = Objects.requireNonNull(jdbc, "REPLAN_JDBC_REQUIRED");
         this.transactions = Objects.requireNonNull(transactions, "REPLAN_TRANSACTION_REQUIRED");
         this.runs = Objects.requireNonNull(runs, "REPLAN_RUN_STORE_REQUIRED");
         this.consumers = Objects.requireNonNull(consumers, "REPLAN_CONSUMER_STORE_REQUIRED");
         this.receipts = Objects.requireNonNull(receipts, "REPLAN_RECEIPT_STORE_REQUIRED");
         this.authorizer = Objects.requireNonNull(authorizer, "REPLAN_CONSUMER_AUTHORIZER_REQUIRED");
+        this.additionalCallbackGate = Objects.requireNonNull(additionalCallbackGate);
         if (!(transactions.getTransactionManager() instanceof DataSourceTransactionManager manager)
                 || manager.getDataSource() != jdbc.getDataSource()
                 || !runs.sharesTransactionDataSource(jdbc)
@@ -83,6 +92,7 @@ public final class JdbcCampaignRevisionApplier implements ReplanCoordinator.Revi
                 // The snapshot and all subsequent writes share this transaction.  activeConsumers
                 // locks the base row and therefore also fences a concurrent replan/cancel.
                 runs.requireReplanReady(request.baseRun());
+                additionalCallbackGate.accept(request.baseRun());
                 List<JdbcCampaignStatisticsConsumerStore.ActiveConsumer> active = consumers.activeConsumers(request.baseRun());
                 validateConsumers(request.baseRun(), candidate.definition(), active);
 

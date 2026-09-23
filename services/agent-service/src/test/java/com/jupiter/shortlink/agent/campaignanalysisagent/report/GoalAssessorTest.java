@@ -11,6 +11,19 @@ import org.junit.jupiter.api.Test;
 
 class GoalAssessorTest {
     @Test
+    void aCompletedStatisticCannotSatisfyAnotherTypedDeliveryRequirement() {
+        PlanSpec plan = plan("goal-1");
+        PlanningAssessment assessment = assessment(new PlanningAssessment.Requirement("dimensions", "goal-1",
+                PlanningAssessment.RequirementKind.DELIVERY, true, "dimension-change-delivery", "1", Map.of()));
+        ReportDraft draft = draft("goal-1", new ReportBlock("metric", ReportBlock.Kind.METRIC,
+                "Metric", null, Map.of("value", 1), List.of("statistics"), true));
+        GoalAssessment result = assess(plan, assessment, Map.of("dimensions", new GoalAssessor.RequirementObservation(
+                RequirementAssessment.Verdict.UNKNOWN, "EVIDENCE_NOT_ASSESSED", List.of())), draft).goals().get(0);
+        assertThat(result.status()).isEqualTo(GoalAssessment.Status.PARTIAL);
+        assertThat(result.reasonCode()).isEqualTo("DELIVERY_MISSING");
+    }
+
+    @Test
     void singleToolWithoutCausalAnalysisCannotBeAnswered() {
         PlanSpec plan = plan("goal-1");
         PlanningAssessment assessment = assessment(requirement("causal", "goal-1",

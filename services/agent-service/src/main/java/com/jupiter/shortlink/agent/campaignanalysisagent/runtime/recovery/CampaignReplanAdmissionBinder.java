@@ -53,7 +53,11 @@ public final class CampaignReplanAdmissionBinder {
         }
         if (!admission.candidate().planId().equals(baseline.planId())
                 || !admission.replanAssessment().accepted()
-                || !admission.candidatePlanHash().equals(admission.replanAssessment().candidatePlanHash())) {
+                || !admission.candidatePlanHash().equals(admission.replanAssessment().candidatePlanHash())
+                || !handoff.stepId().equals(admission.stepId())
+                || !handoff.expectedCandidateHash().equals(admission.expectedCandidateHash())
+                || !handoff.reasonCodes().equals(admission.reasonCodes())
+                || !handoff.request().assess(admission.candidate(), admission.candidateAssessment()).equals(admission.replanAssessment())) {
             throw new SecurityException("REPLAN_BIND_ADMISSION_MISMATCH");
         }
         return new CampaignReplanApplicationService.Request(owner, currentToken, capability,

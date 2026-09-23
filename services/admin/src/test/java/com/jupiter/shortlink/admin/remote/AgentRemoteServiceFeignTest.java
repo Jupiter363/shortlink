@@ -105,6 +105,22 @@ class AgentRemoteServiceFeignTest {
     }
 
     @Test
+    void reportPageSendsExactIdentityQueryAndServerOwnedHeaders() {
+        var result = agentRemoteService.campaignReportRows(Map.of(
+                        "X-Agent-Internal-Token", "internal-token", "X-Agent-Username", "trusted-user",
+                        "X-Agent-UserId", "1001", "X-Agent-Auth-Version", "7"),
+                "report-1", 3, "table-1", "session-1", "run-1", "plan-1", 2, "page-1", 25);
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(SERVER.lastRequest.path())
+                .isEqualTo("/internal/short-link-agent/v1/campaign/reports/report-1/revisions/3/blocks/table-1/rows");
+        assertThat(SERVER.lastRequest.query()).contains("sessionId=session-1", "runId=run-1", "planId=plan-1",
+                "planRevision=2", "cursor=page-1", "size=25");
+        assertThat(SERVER.lastRequest.header("X-Agent-UserId")).isEqualTo("1001");
+        assertThat(SERVER.lastRequest.header("X-Agent-Auth-Version")).isEqualTo("7");
+        assertThat(SERVER.lastRequest.body()).isEmpty();
+    }
+
+    @Test
     void agentChatHasAnIsolatedInferenceReadTimeout() {
         var client = AgentRemoteService.class.getAnnotation(FeignClient.class);
         var defaultConfig = feignClientProperties.getConfig().get("default");
@@ -169,6 +185,7 @@ class AgentRemoteServiceFeignTest {
                     new RecordedRequest(
                             exchange.getRequestMethod(),
                             exchange.getRequestURI().getPath(),
+                            exchange.getRequestURI().getRawQuery(),
                             headers,
                             new String(requestBody, StandardCharsets.UTF_8));
             byte[] responseBody =
@@ -191,7 +208,7 @@ class AgentRemoteServiceFeignTest {
     }
 
     private record RecordedRequest(
-            String method, String path, Map<String, String> headers, String body) {
+            String method, String path, String query, Map<String, String> headers, String body) {
 
         private String header(String name) {
             return headers.entrySet().stream()

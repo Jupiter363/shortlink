@@ -146,6 +146,17 @@ public final class StatisticsExplorationTool {
         return Map.copyOf(targets);
     }
 
+    /** One exact current CALL/MODEL/query check for Artifact gates; does not rescan other children. */
+    public StatisticsJobResultReceiver.Target resultTarget(RunToken token, String childId) {
+        requireToken(token);
+        List<IndexedCall> matches = indexedCalls(token, childId);
+        if (matches.size() != 1) throw rejected("STATISTICS_RESULT_TARGET_REQUIRED");
+        try (BoundCall bound = resolve(token, matches.get(0).callId(), null)) {
+            requireStoredChild(token, childId, bound);
+            return bound.prepared().target();
+        }
+    }
+
     /**
      * Recovery authorization deliberately does not require the old Step/CALL callback to be live.
      * The receiver/reconciler owns a fresh real child permit and repeats this gate for every I/O.

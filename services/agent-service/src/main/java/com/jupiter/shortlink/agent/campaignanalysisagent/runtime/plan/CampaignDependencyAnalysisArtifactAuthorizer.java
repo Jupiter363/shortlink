@@ -119,7 +119,7 @@ public final class CampaignDependencyAnalysisArtifactAuthorizer implements Artif
         return parsed;
     }
 
-    private static boolean statistics(ArtifactMetadata artifact, ChildRecord child, PlanSpec.Step step,
+    static boolean statistics(ArtifactMetadata artifact, ChildRecord child, PlanSpec.Step step,
             FrozenDeclineSelection.Template selection, FrozenDimensionChange.Template dimension) {
         if (!CampaignStatisticsResultStore.SCHEMA_VERSION.equals(artifact.ref().schemaVersion())
                 || child.spec().mode() != ChildMode.ASYNC || child.jobId() == null
@@ -127,8 +127,8 @@ public final class CampaignDependencyAnalysisArtifactAuthorizer implements Artif
                 || !"POST".equals(child.spec().wire().method())
                 || !FrozenStatisticsJobQuery.FROZEN_SUBMIT_PATH.equals(child.spec().wire().path())) return false;
         JsonNode request = tree(child.spec().wire().bodyJson());
-        boolean selecting = CampaignDependencyAnalysisPlanFactory.SELECT.equals(step.stepId());
-        if (!selecting && !CampaignDependencyAnalysisPlanFactory.DIMENSION.equals(step.stepId())) return false;
+        boolean selecting = FrozenDeclineSelection.REF_V2.equals(step.executor());
+        if (!selecting && !FrozenDimensionChange.REF_V2.equals(step.executor())) return false;
         String gid = selecting ? selection.gid() : dimension.gid();
         var periods = selecting ? selection.periods() : dimension.periods();
         if (!gid.equals(request.path("gid").asText())
@@ -142,7 +142,7 @@ public final class CampaignDependencyAnalysisArtifactAuthorizer implements Artif
                 && JSON.valueToTree(dimension.filters()).equals(request.path("filters")));
     }
 
-    private static boolean scope(ArtifactMetadata artifact, ChildRecord child, FrozenScopeCollection.Bound bound) {
+    static boolean scope(ArtifactMetadata artifact, ChildRecord child, FrozenScopeCollection.Bound bound) {
         var ref = artifact.ref();
         var collection = bound.definition();
         if (child.spec().mode() != ChildMode.SYNC || !ref.artifactId().equals(child.artifactId())
@@ -163,13 +163,13 @@ public final class CampaignDependencyAnalysisArtifactAuthorizer implements Artif
                 && ("scope-collection-" + CampaignRunStore.sha256(collection.collectionId())).equals(ref.scopeRef());
     }
 
-    private static boolean local(ArtifactMetadata artifact, ChildRecord child, PlanSpec.Step step) {
+    static boolean local(ArtifactMetadata artifact, ChildRecord child, PlanSpec.Step step) {
         var invocation = child.spec().localInvocation();
         if (child.spec().mode() != ChildMode.LOCAL || invocation == null || child.artifactId() != null
                 || !"1".equals(invocation.contractVersion())
                 || !artifact.ref().expiresAt().equals(invocation.expiresAt())) return false;
         Map<String, Contract> expected;
-        if (CampaignDependencyAnalysisPlanFactory.SELECT.equals(step.stepId())) {
+        if (FrozenDeclineSelection.REF_V2.equals(step.executor())) {
             expected = switch (invocation.contractName()) {
                 case "decline-selection-page" -> Map.of(
                         "comparisonPage", new Contract(DeclineSelectionPage.PAGE_TYPE, DeclineSelectionPage.PAGE_SCHEMA),
@@ -179,7 +179,7 @@ public final class CampaignDependencyAnalysisArtifactAuthorizer implements Artif
                         "selectionEvidence", new Contract(DeclineSelectionPublisher.EVIDENCE_TYPE, DeclineSelectionPublisher.EVIDENCE_SCHEMA));
                 default -> Map.of();
             };
-        } else if (CampaignDependencyAnalysisPlanFactory.DIMENSION.equals(step.stepId())) {
+        } else if (FrozenDimensionChange.REF_V2.equals(step.executor())) {
             expected = switch (invocation.contractName()) {
                 case "selected-scope" -> Map.of(CampaignSelectedScope.OUTPUT,
                         new Contract(CampaignSelectedScope.TYPE, CampaignSelectedScope.SCHEMA));
