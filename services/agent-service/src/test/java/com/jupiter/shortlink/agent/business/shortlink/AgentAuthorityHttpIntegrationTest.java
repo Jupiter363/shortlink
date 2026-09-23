@@ -98,6 +98,46 @@ class AgentAuthorityHttpIntegrationTest {
     }
 
     @Test
+    void currentPrincipalVerifiesExactAuthoritativeAccountWithoutSessionClaim() {
+        AtomicReference<String> path = new AtomicReference<>();
+        responder = (actualPath, request) -> {
+            path.set(actualPath);
+            return success(Map.of("tenantId", "1001", "username", "zhangsan", "authVersion", 7));
+        };
+        assertThat(authority.verifyCurrentPrincipal(StatsTestFixtures.PRINCIPAL))
+                .isEqualTo(StatsTestFixtures.PRINCIPAL);
+        assertThat(path).hasValue(AgentAuthorityClient.CURRENT_PRINCIPAL_PATH);
+        assertThat(requests).containsExactly(Map.of());
+        assertThat(headers.get(0))
+                .containsEntry("X-Agent-UserId", "1001")
+                .containsEntry("X-Agent-Auth-Version", "7")
+                .containsEntry("X-Agent-Username", "zhangsan")
+                .containsEntry("X-Agent-Internal-Token", StatsTestFixtures.SECRET)
+                .containsEntry("X-Agent-Principal-Mode", null);
+    }
+
+    @Test
+    void currentPrincipalRejectsChangedOrMalformedAuthorityBeforeUse() {
+        for (Object invalid : List.of(
+                success(Map.of("tenantId", "1002", "username", "zhangsan", "authVersion", 7)),
+                success(Map.of("tenantId", "1001", "username", "zhangsan", "authVersion", 8)),
+                success(Map.of("tenantId", "1001", "username", "zhangsan", "authVersion", 7,
+                        "sessionId", "forged")),
+                success(Map.of("tenantId", "1001", "username", "zhangsan", "authVersion", 7.0)),
+                Map.of("code", "FORBIDDEN"))) {
+            responder = (path, request) -> invalid;
+            assertThatThrownBy(() -> authority.verifyCurrentPrincipal(StatsTestFixtures.PRINCIPAL))
+                    .isInstanceOf(SecurityException.class);
+        }
+        assertThatThrownBy(() -> authority.verifyCurrentPrincipal(null))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> authority.verifyCurrentPrincipal(
+                com.jupiter.shortlink.agent.harness.security.AgentPrincipal.system("zhangsan")))
+                .isInstanceOf(SecurityException.class);
+        assertThat(requests).hasSize(5);
+    }
+
+    @Test
     void resolveCarriesCurrentPrincipalAndPreservesIdsAboveJavascriptPrecision() {
         long id = 9_007_199_254_740_999L;
         responder =

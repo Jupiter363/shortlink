@@ -18,6 +18,7 @@ import java.util.Set;
 @Component
 public class AgentAuthorityClient {
     public static final String GROUP_MEMBERS_PATH = "/internal/short-link-admin/v1/agent-tools/authorization/group-members-page";
+    public static final String CURRENT_PRINCIPAL_PATH = "/internal/short-link-admin/v1/agent-tools/authorization/current-principal";
     private static final Set<String> PAGE_FAILURES = Set.of("FORBIDDEN", "QUERY_SCOPE_CHANGED",
             "AUTHORITY_PAGE_PROTOCOL_UNAVAILABLE", "REMOTE_UNAVAILABLE");
     private final AgentProperties properties;
@@ -26,6 +27,34 @@ public class AgentAuthorityClient {
     public AgentAuthorityClient(AgentProperties properties, BoundedHttpTransport transport) {
         this.properties = properties;
         this.transport = transport;
+    }
+
+    /** Recheck the current account only; caller must independently prove Agent session ownership. */
+    public AgentPrincipal verifyCurrentPrincipal(AgentPrincipal expected) {
+        if (expected == null || expected.system())
+            throw new SecurityException("Current user principal is required");
+        Map<String, Object> response;
+        try {
+            response = transport.exchange("GET", URI.create(properties.getBusiness().getBaseUrl().replaceAll("/+$", "")
+                    + CURRENT_PRINCIPAL_PATH), headers(expected), null);
+        } catch (RuntimeException unavailable) {
+            throw new SecurityException("Current principal could not be authorized", unavailable);
+        }
+        if (response == null || !"0".equals(response.get("code"))
+                || !(response.get("data") instanceof Map<?, ?> data)
+                || !Set.of("tenantId", "username", "authVersion").equals(data.keySet())
+                || !(data.get("tenantId") instanceof String tenantId)
+                || !(data.get("username") instanceof String username)
+                || !(data.get("authVersion") instanceof Integer || data.get("authVersion") instanceof Long))
+            throw new SecurityException("Current principal response is invalid");
+        AgentPrincipal current;
+        try {
+            current = new AgentPrincipal(tenantId, username, ((Number) data.get("authVersion")).longValue(), false);
+        } catch (IllegalArgumentException invalid) {
+            throw new SecurityException("Current principal response is invalid", invalid);
+        }
+        if (!expected.equals(current)) throw new SecurityException("Current principal has changed");
+        return current;
     }
 
     /** One bounded current authority page. Collection, persistence and new generations belong to the caller. */

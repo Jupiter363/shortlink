@@ -73,6 +73,42 @@ class AgentToolInternalMvcTest {
                 .param("gid", "g1");
     }
 
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder currentPrincipalRequest() {
+        return get("/internal/short-link-admin/v1/agent-tools/authorization/current-principal")
+                .header("X-Agent-Internal-Token", TOKEN)
+                .header("X-Agent-Username", "zhangsan")
+                .header("X-Agent-UserId", "1001")
+                .header("X-Agent-Auth-Version", "7");
+    }
+
+    @Test
+    void currentPrincipalReturnsOnlyDatabaseVerifiedIdentity() throws Exception {
+        mvc.perform(currentPrincipalRequest().header("X-Agent-RealName", "forged name"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("0"))
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data.tenantId").value("1001"))
+                .andExpect(jsonPath("$.data.username").value("zhangsan"))
+                .andExpect(jsonPath("$.data.authVersion").value(7));
+        verify(accounts).selectOne(any(Wrapper.class));
+        verifyNoInteractions(groups, links, analytics);
+    }
+
+    @Test
+    void currentPrincipalRejectsExpiredDelegationAndSystemMode() throws Exception {
+        account.setAuthVersion(8L);
+        mvc.perform(currentPrincipalRequest())
+                .andExpect(status().isUnauthorized());
+        account.setUsername("system_agent");
+        mvc.perform(get("/internal/short-link-admin/v1/agent-tools/authorization/current-principal")
+                        .header("X-Agent-Internal-Token", TOKEN)
+                        .header("X-Agent-Username", "system_agent")
+                        .header("X-Agent-Principal-Mode", "SYSTEM"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("A000001"));
+        verifyNoInteractions(groups, links, analytics);
+    }
+
     @Test
     void trustedContextIncludesCurrentDbVersionAndMvcPagination() throws Exception {
         when(groups.count(any(Wrapper.class)))
