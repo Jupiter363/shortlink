@@ -367,6 +367,8 @@ E84 的 `NO_BINDING` 被保留为独立 typed 状态，不能携带 Graph base r
 
 ### E123：限定范围的公共比较／排名接线
 
+已合并：[PR #194](https://github.com/Jupiter363/shortlink/pull/194)。
+
 本批在 `campaign-statistics-fixed` profile 下将 Graph 规划出的 `compare_statistics`、`rank_short_links` 交给耐久 adapter。前端既有提交 UUID 沿 Admin、Agent harness 传至 Graph，Graph 为一次提交中的每个操作导出独立 requestKey；续接使用服务端 `workRef` 并核对当前 owner、session 与冻结 definition。耐久路径失败不会回退旧统计工具，已完成结果保留续接引用，前端把等待和不完整结果分别显示。此接线只覆盖 FIXED 比较／排名的数据阶段；通用 Plan/ReAct、维度下钻与报告发布仍未接入该路径。
 
 本批还增加 `campaign_advance_outcome` 持久账本与 `V20260923_2__campaign_advance_outcome.sql` 迁移：一条 intake request 保留一行最新推进尝试，按版本围栏更新 `RUNNING`、`SUCCEEDED` 或带固定安全原因的 `FAILED`。`RUNNING` 不证明 worker 仍存活，`SUCCEEDED` 只表示本次推进结束，不表示业务 Goal 完成。续接先检查完整、获授权的耐久证据；尚未 READY 时，已记录的失败尝试返回 `INCOMPLETE`、安全原因与原 `workRef` 供同一 Run 重试。容量同步拒绝也返回 `INCOMPLETE`，不会误报完成。启用 profile 前须应用这次迁移；profile 默认关闭。
@@ -374,6 +376,14 @@ E84 的 `NO_BINDING` 被保留为独立 typed 状态，不能携带 Graph base r
 outcome 只记录真正进入 admitted load 的 typed 推进：仍在排队、尚未进入 worker、进程崩溃或数据库不可写都可能没有终态记录。`RUNNING` 不能用来判定进程死亡，本批不声称覆盖全部异步调度失败或提供自动恢复。
 
 本批定向后端用例已通过，但 profile 默认关闭；局部比较／排名接线不等于全量 Plan/ReAct 或客户端报告交付。超过 500 条不同短链的分组排名仍不支持，真实 MySQL、Docker、应用服务、前端、浏览器和原浏览器 Redis token 存活性均未在本批验证。
+
+### E124：真实依赖分析的受信计划
+
+将已有范围采集、下降筛选 v2、维度变化 v2 组成确定性的服务端计划。两个必需目标分别要求下降实体及其证据、选中实体的维度变化证据；下游绑定上游具名输出，在上游完成前不预填成员或伪造 Artifact。Skill pin 由受信目录内容生成，用户不能指定方法路径、摘要或产物引用。
+
+工厂严格冻结分组、两期日期、指标、维度、筛选和有效期，输入检查重新核对完整 schema、合同、规范引用和方法摘要；当前授权门重新验证账号及分组归属。此批复用 v2 Skill，只支持省份×设备，其他维度明确拒绝。它提供真实依赖场景的计划及输入权限边界，尚未注册聊天入口、业务查询/产物权限门或生产运行装配，不能代替完整 Plan/ReAct 或报告交付。
+
+定向验证：`CampaignDependencyAnalysisPlanFactoryTest` 3 项和 `CampaignDependencyAnalysisAuthorizerTest` 2 项全部通过。覆盖双目标依赖、真实 v2 模板解析、稳定身份、错误期间/指标/维度/筛选/有效期拒绝、方法摘要及描述符漂移、当前账号撤权及分组不匹配。只运行这两个后端测试类，未重复运行旧批次用例，未启动服务、Docker 或浏览器。
 
 ## 定向验证
 
