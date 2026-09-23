@@ -9,6 +9,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanValidator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningAssessment;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunIntakeStore;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -16,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.ClassPathResource;
 
 class CampaignDependencyAnalysisPlanFactoryTest {
@@ -31,6 +34,35 @@ class CampaignDependencyAnalysisPlanFactoryTest {
     private static CampaignDependencyAnalysisPlanFactory.Request request() {
         return new CampaignDependencyAnalysisPlanFactory.Request("group-a", "2026-09-01", "2026-09-03",
                 "2026-09-04", "2026-09-06", "PV", List.of("province", "device"), List.of());
+    }
+
+    @Test
+    void parsedMethodSnapshotStillRejectsSameLengthSameTimestampContentChanges(@TempDir Path root) throws Exception {
+        Path originals = new ClassPathResource("campaign-skills").getFile().toPath();
+        for (String name : List.of("decline-selection", "dimension-change")) {
+            Path directory = Files.createDirectories(root.resolve(name).resolve("2"));
+            Files.copy(originals.resolve(name).resolve("2/SKILL.md"), directory.resolve("SKILL.md"));
+        }
+        var factory = new CampaignDependencyAnalysisPlanFactory(root, CLOCK);
+        var inputs = factory.prepare(OWNER, "session", "snapshot", request(), EXPIRY).frozen().inputs();
+        assertThat(factory.inspect(inputs)).isEqualTo(request());
+        Path file = root.resolve("dimension-change/2/SKILL.md");
+        byte[] original = Files.readAllBytes(file);
+        var timestamp = Files.getLastModifiedTime(file);
+        byte[] changed = original.clone();
+        changed[changed.length - 1] ^= 1;
+        Files.write(file, changed);
+        Files.setLastModifiedTime(file, timestamp);
+        assertThatThrownBy(() -> factory.inspect(inputs)).isInstanceOf(IllegalArgumentException.class);
+        // Evidence verification is tied to the already approved frozen pin. It executes no method;
+        // new planning/execution must still reject changed files even after this pure read succeeds.
+        assertThat(factory.inspectDefinition(inputs)).isEqualTo(request());
+        assertThatThrownBy(() -> factory.prepare(OWNER, "session", "changed", request(), EXPIRY))
+                .isInstanceOf(IllegalArgumentException.class);
+        Files.write(file, original);
+        assertThat(factory.inspect(inputs)).isEqualTo(request());
+        Files.delete(file);
+        assertThatThrownBy(() -> factory.inspect(inputs)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

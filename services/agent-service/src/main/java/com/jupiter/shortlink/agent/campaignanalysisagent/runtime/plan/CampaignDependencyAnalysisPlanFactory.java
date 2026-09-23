@@ -26,6 +26,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,7 +73,12 @@ public final class CampaignDependencyAnalysisPlanFactory {
     }
 
     private final Path approvedSkillsRoot;
+    private final Map<String, MethodSnapshot> methods;
     private final Clock clock;
+    private volatile InspectedInputs lastInspected;
+
+    private record MethodSnapshot(byte[] source, Map<String, Object> pin) { }
+    private record InspectedInputs(FrozenInputSet inputs, Request request, Instant expiresAt) { }
 
     public CampaignDependencyAnalysisPlanFactory(Path approvedSkillsRoot, Clock clock) {
         this.clock = Objects.requireNonNull(clock, "DEPENDENCY_CLOCK_REQUIRED");
@@ -80,6 +86,8 @@ public final class CampaignDependencyAnalysisPlanFactory {
             this.approvedSkillsRoot = Objects.requireNonNull(approvedSkillsRoot,
                     "DEPENDENCY_SKILLS_ROOT_REQUIRED").toRealPath();
             require(Files.isDirectory(this.approvedSkillsRoot));
+            this.methods = Map.of("decline-selection", snapshot("decline-selection"),
+                    "dimension-change", snapshot("dimension-change"));
         } catch (IOException unavailable) {
             throw new IllegalStateException("DEPENDENCY_SKILLS_UNAVAILABLE", unavailable);
         }
@@ -87,6 +95,7 @@ public final class CampaignDependencyAnalysisPlanFactory {
 
     public Prepared prepare(Caller owner, String sessionId, String requestKey,
                             Request request, Instant expiresAt) {
+        verifyMethods();
         var identity = JdbcCampaignRunIntakeStore.identity(owner, sessionId, requestKey);
         Request normalized = normalize(request);
         String expiry = expiry(expiresAt);
@@ -106,6 +115,19 @@ public final class CampaignDependencyAnalysisPlanFactory {
 
     /** Validate frozen inputs and recheck approved local methods; owner/group authority is separate. */
     public Request inspect(FrozenInputSet frozen) {
+        verifyMethods();
+        return inspectDefinition(frozen);
+    }
+
+    /** Reading existing evidence checks its approved frozen method identity, not executable files. */
+    Request inspectDefinition(FrozenInputSet frozen) {
+        InspectedInputs previous = lastInspected;
+        if (previous != null && previous.inputs().equals(frozen)) {
+            // Reuse only pure normalization. Expiry remains a live check;
+            // the single immutable entry cannot grow with the number of runs or grant authority.
+            expiry(previous.expiresAt());
+            return previous.request();
+        }
         require(frozen != null && frozen.runId() != null
                 && frozen.inputContracts().equals(INPUT_CONTRACTS)
                 && frozen.inputValues().keySet().equals(INPUT_CONTRACTS.keySet()));
@@ -130,6 +152,7 @@ public final class CampaignDependencyAnalysisPlanFactory {
                 strings(dimension.get("dimensions")), filters(dimension.get("filters"))));
         FrozenInputSet expected = inputs(frozen.runId(), request, expiry(expiresAt));
         require(frozen.equals(expected));
+        lastInspected = new InspectedInputs(frozen, request, expiresAt);
         return request;
     }
 
@@ -173,10 +196,10 @@ public final class CampaignDependencyAnalysisPlanFactory {
         Map<String, Object> target = period("target", request.targetStart(), request.targetEnd());
         Map<String, Object> selection = Map.of("schemaVersion", FrozenDeclineSelection.SCHEMA_V2,
                 "periodsRef", pair, "gid", request.gid(), "baseline", baseline, "target", target,
-                "skillPin", pin("decline-selection"));
+                "skillPin", methods.get("decline-selection").pin());
         Map<String, Object> dimension = Map.of("schemaVersion", FrozenDimensionChange.SCHEMA_V2,
                 "periodsRef", pair, "gid", request.gid(), "baseline", baseline, "target", target,
-                "dimensions", request.dimensions(), "filters", request.filters(), "skillPin", pin("dimension-change"));
+                "dimensions", request.dimensions(), "filters", request.filters(), "skillPin", methods.get("dimension-change").pin());
         Map<String, Object> values = Map.of(
                 "operation", Map.of("schemaVersion", OPERATION_SCHEMA, "metric", request.metric()),
                 "collectionDefinition", Map.of("schemaVersion", FrozenScopeCollection.SCHEMA,
@@ -187,22 +210,47 @@ public final class CampaignDependencyAnalysisPlanFactory {
         return new FrozenInputSet(inputSetRef, runId, INPUT_CONTRACTS, values);
     }
 
-    private Map<String, Object> pin(String name) {
-        Path directory = approvedSkillsRoot.resolve(name).resolve("2").normalize();
+    private void verifyMethods() {
         try {
-            require(directory.startsWith(approvedSkillsRoot) && directory.toRealPath().equals(directory)
-                    && Files.isDirectory(directory));
-            Path document = directory.resolve("SKILL.md");
-            require(document.toRealPath().equals(document) && Files.isRegularFile(document));
-            SkillMetadata metadata = new SkillScanner().loadSkill(directory, "approved-run-method");
-            require(metadata != null && name.equals(metadata.getName()) && metadata.getFullContent() != null);
-            String digest = RunPinnedSkills.contentDigest(metadata);
-            return Map.of("name", name, "version", "2", "relativeDirectory", name + "/2",
-                    "sha256", digest);
+            for (var entry : methods.entrySet())
+                require(Arrays.equals(entry.getValue().source(), Files.readAllBytes(document(entry.getKey()))));
         } catch (IOException unavailable) {
             throw new IllegalStateException("DEPENDENCY_SKILLS_UNAVAILABLE", unavailable);
         }
     }
+
+    private Path document(String name) throws IOException {
+        Path directory = approvedSkillsRoot.resolve(name).resolve("2").normalize();
+        require(directory.startsWith(approvedSkillsRoot) && directory.toRealPath().equals(directory)
+                && Files.isDirectory(directory));
+        Path document = directory.resolve("SKILL.md");
+        require(document.toRealPath().equals(document) && Files.isRegularFile(document));
+        return document;
+    }
+
+    private MethodSnapshot snapshot(String name) throws IOException {
+        byte[] source = Files.readAllBytes(document(name));
+        // The native scanner only accepts paths. Parse a private copy of these exact bytes so a
+        // concurrent deployment cannot bind one read's digest to another read's cached content.
+        // Only these two approved documents are retained; no run data or authorization is cached.
+        Path scratch = Files.createTempDirectory("campaign-method-");
+        Path directory = scratch.resolve(name);
+        Path copy = directory.resolve("SKILL.md");
+        try {
+            Files.createDirectory(directory);
+            Files.write(copy, source);
+            SkillMetadata metadata = new SkillScanner().loadSkill(directory, "approved-run-method");
+            require(metadata != null && name.equals(metadata.getName()) && metadata.getFullContent() != null);
+            require(Arrays.equals(source, Files.readAllBytes(document(name))));
+            return new MethodSnapshot(source, Map.of("name", name, "version", "2",
+                    "relativeDirectory", name + "/2", "sha256", RunPinnedSkills.contentDigest(metadata)));
+        } finally {
+            Files.deleteIfExists(copy);
+            Files.deleteIfExists(directory);
+            Files.deleteIfExists(scratch);
+        }
+    }
+
 
     private static PlanSpec plan(String planId, String runId, String inputSetRef, String metric) {
         PlanSpec.Step collect = new PlanSpec.Step(COLLECT, List.of(SELECT_GOAL, DIMENSION_GOAL),

@@ -24,9 +24,26 @@ public final class CampaignDependencyAnalysisAuthorizer implements PersistentPla
 
     @Override
     public boolean mayExecute(Caller caller, FrozenInputSet inputs) {
+        return mayExecute(caller, inputs, null);
+    }
+
+    /** Execution rechecks the live approved method files as well as current account/group authority. */
+    public boolean mayExecute(Caller caller, FrozenInputSet inputs, String expectedEnumerationVersion) {
+        return authorize(caller, inputs, expectedEnumerationVersion, true);
+    }
+
+    /** Reading frozen evidence grants no Skill execution; source membership must still be current. */
+    public boolean mayReadEvidence(Caller caller, FrozenInputSet inputs, String expectedEnumerationVersion) {
+        return authorize(caller, inputs, expectedEnumerationVersion, false);
+    }
+
+    private boolean authorize(Caller caller, FrozenInputSet inputs, String expectedEnumerationVersion,
+            boolean executing) {
         try {
-            if (caller == null || inputs == null) return false;
-            var request = plans.inspect(inputs);
+            if (caller == null || inputs == null || (!executing && expectedEnumerationVersion == null)
+                    || (expectedEnumerationVersion != null
+                    && !expectedEnumerationVersion.matches("[a-f0-9]{64}"))) return false;
+            var request = executing ? plans.inspect(inputs) : plans.inspectDefinition(inputs);
             AgentPrincipal expected = new AgentPrincipal(caller.tenantId(), caller.subject(),
                     caller.authVersion(), false);
             AgentPrincipal current = authority.verifyCurrentPrincipal(expected);
@@ -35,7 +52,8 @@ public final class CampaignDependencyAnalysisAuthorizer implements PersistentPla
             return page != null && current.tenantId().equals(page.tenantId())
                     && current.username().equals(page.subjectId())
                     && current.authVersion() == page.authVersion()
-                    && request.gid().equals(page.gid());
+                    && request.gid().equals(page.gid())
+                    && (expectedEnumerationVersion == null || expectedEnumerationVersion.equals(page.ownershipVersion()));
         } catch (RuntimeException denied) {
             return false;
         }

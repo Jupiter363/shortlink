@@ -7,6 +7,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.Proces
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignStatisticsFixedRuntime;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignStatisticsDurableToolAdapter;
 import java.time.Clock;
+import java.nio.file.Path;
 import java.util.Objects;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -52,9 +53,11 @@ public class CampaignStatisticsFixedConfiguration {
             @Value("${short-link.agent.campaign-statistics.active-advances:4}") int activeAdvances,
             @Value("${short-link.agent.campaign-statistics.models:4}") int models,
             @Value("${short-link.agent.campaign-statistics.large-payloads:4}") int largePayloads,
-            @Value("${short-link.agent.campaign-statistics.max-queued:128}") int maxQueued) {
+            @Value("${short-link.agent.campaign-statistics.max-queued:128}") int maxQueued,
+            @Value("${short-link.agent.campaign-statistics.dependency-skills-root:}") String dependencySkillsRoot) {
         return new CampaignStatisticsFixedRuntime(jdbc, transactions, clock, authority, gateway, saver,
                 trustedProcessDomain,
-                new ProcessCapacityExecutor.Limits(activeAdvances, models, largePayloads, maxQueued));
+                new ProcessCapacityExecutor.Limits(activeAdvances, models, largePayloads, maxQueued),
+                dependencySkillsRoot.isBlank() ? null : Path.of(dependencySkillsRoot));
     }
 }

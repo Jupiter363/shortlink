@@ -11,6 +11,9 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.Proces
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignAdvanceOutcomeStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignConversationSessionOwner;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignScopeStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignDeclineSelectionStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignStatisticsReleaseStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRecoveryStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunIntakeStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
@@ -18,10 +21,13 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Jdb
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignRecoveryCoordinator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsJobResultReceiver;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsJobResultReleaser;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.StatisticsSubmissionReconciler;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.process.LocalProcessLiveness;
 import com.jupiter.shortlink.agent.tool.shortlink.CampaignStatisticsDurableProjector;
 import java.time.Clock;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,12 +63,21 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
     private final CampaignStatisticsPlanFactory plans;
     private final CampaignStatisticsDurableProjector projector;
     private final CampaignRunIntake intake;
+    private final CampaignDependencyAnalysisPlanFactory dependencyPlans;
+    private final CampaignDependencyAnalysisProfile dependency;
     private final ThreadPoolExecutor executor;
 
     /** All JDBC stores must use this exact writable REQUIRED transaction template and data source. */
     public CampaignStatisticsFixedRuntime(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             AgentAuthorityClient authority, ShortLinkBusinessGateway gateway, BaseCheckpointSaver saver,
             String trustedProcessDomain, ProcessCapacityExecutor.Limits limits) {
+        this(jdbc, transactions, clock, authority, gateway, saver, trustedProcessDomain, limits, null);
+    }
+
+    /** Optional dependency Skills use this same intake, capacity pool and current-session resolver. */
+    public CampaignStatisticsFixedRuntime(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            AgentAuthorityClient authority, ShortLinkBusinessGateway gateway, BaseCheckpointSaver saver,
+            String trustedProcessDomain, ProcessCapacityExecutor.Limits limits, Path approvedDependencySkillsRoot) {
         Objects.requireNonNull(jdbc, "STATISTICS_JDBC_REQUIRED");
         Objects.requireNonNull(transactions, "STATISTICS_TRANSACTION_REQUIRED");
         Objects.requireNonNull(clock, "STATISTICS_CLOCK_REQUIRED");
@@ -111,6 +126,23 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
                     statistics.resultTargets());
         });
 
+        var profiles = new ArrayList<CampaignRunIntake.Profile>();
+        profiles.add(profile);
+        StatisticsJobResultReleaser releaser = null;
+        if (approvedDependencySkillsRoot == null) {
+            this.dependencyPlans = null;
+            this.dependency = null;
+        } else {
+            this.dependencyPlans = new CampaignDependencyAnalysisPlanFactory(approvedDependencySkillsRoot, clock);
+            this.dependency = new CampaignDependencyAnalysisProfile(runs, steps,
+                    new JdbcCampaignScopeStore(jdbc, transactions, clock, runs), results,
+                    new JdbcCampaignDeclineSelectionStore(jdbc, transactions, clock, runs), dependencyPlans,
+                    approvedDependencySkillsRoot, authority, gateway, saver);
+            profiles.add(dependency.profile());
+            releaser = new StatisticsJobResultReleaser(runs,
+                    new JdbcCampaignStatisticsReleaseStore(jdbc, transactions, clock), gateway);
+        }
+
         // The admission queue contains only WorkRefs. A second, short bounded queue covers the
         // handoff race between a completed worker releasing its permit and its pool thread idling.
         AtomicInteger threadNumber = new AtomicInteger();
@@ -125,8 +157,8 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
         try {
             this.intake = new CampaignRunIntake(requests, runs, recovery,
                     new StatisticsSubmissionReconciler(runs, gateway),
-                    new StatisticsJobResultReceiver(runs, results, gateway, clock), null,
-                    List.of(profile), principals, limits, executor, null, List.of(), outcomes);
+                    new StatisticsJobResultReceiver(runs, results, gateway, clock), releaser,
+                    profiles, principals, limits, executor, null, List.of(), outcomes);
         } catch (RuntimeException | Error failure) {
             executor.shutdown();
             throw failure;
@@ -142,6 +174,14 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
     public CampaignCurrentPrincipalResolver principals() { return principals; }
     public CampaignStatisticsArtifactAuthorizer artifactAuthorizer() { return artifactAuthorizer; }
     public CampaignStatisticsDurableProjector projector() { return projector; }
+    public CampaignDependencyAnalysisPlanFactory dependencyPlans() {
+        if (dependencyPlans == null) throw new IllegalStateException("DEPENDENCY_PROFILE_UNAVAILABLE");
+        return dependencyPlans;
+    }
+    public CampaignRunStore.ArtifactAuthorizer dependencyArtifactAuthorizer() {
+        if (dependency == null) throw new IllegalStateException("DEPENDENCY_PROFILE_UNAVAILABLE");
+        return dependency.artifactAuthorizer();
+    }
 
     /** Cancel admission before gracefully stopping its externally owned worker pool. */
     @Override

@@ -53,6 +53,60 @@ class LocalCalculationExecutionTest {
             null, List.of(), Map.of(), Map.of(), "local-pair/v1");
 
     @Test
+    void checksLocalPublicationBindingWithoutReadingPayloadsOrAuthorizingTheirContents() throws Exception {
+        Scenario scenario = scenario("binding-only");
+        Fixture fixture = scenario.fixture();
+        CampaignRunStore runs = fixture.runs();
+        CampaignStepStore steps = fixture.steps();
+        StepPermit permit = steps.beginStep(scenario.token(), STEP.stepId());
+        Map<String, ArtifactRef> published;
+        try (CampaignStepExecution context = context(scenario.token(), permit, runs, steps)) {
+            published = context.local(scenario.child(), scenario.approval(), ALLOW, boundary -> drafts(scenario.approval()));
+        } finally {
+            steps.callbackExited(permit);
+        }
+        ArtifactRef ref = published.get("selectedEntities");
+        assertTrue(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        assertFalse(runs.isLocalOutputBound(scenario.token(), "missing-child", ref));
+        assertFalse(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(),
+                new ArtifactRef(ref.artifactId(), ref.type(), ref.schemaVersion(), "0".repeat(64),
+                        ref.scopeRef(), ref.periodsRef(), ref.expiresAt())));
+
+        // Identity inspection must not trigger recursive source/output payload reads. Full reads
+        // retain their original corruption rejection and cannot use this predicate as authorization.
+        fixture.jdbc().update("UPDATE campaign_artifact_payload SET payload_json='corrupted' WHERE artifact_id IN (?,?)",
+                scenario.input().ref().artifactId(), ref.artifactId());
+        assertTrue(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        assertThrows(IllegalArgumentException.class,
+                () -> runs.localOutputs(scenario.token(), scenario.child().childId(), ALLOW));
+
+        fixture.jdbc().update("UPDATE campaign_child_ledger SET child_state='PREPARED' WHERE run_id=? AND child_id=?",
+                scenario.token().definition().runId(), scenario.child().childId());
+        assertFalse(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        fixture.jdbc().update("UPDATE campaign_child_ledger SET child_state='READY' WHERE run_id=? AND child_id=?",
+                scenario.token().definition().runId(), scenario.child().childId());
+        fixture.clock().current = EXPIRY;
+        assertFalse(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        fixture.clock().current = NOW;
+
+        fixture.jdbc().update("UPDATE campaign_artifact SET subject_name='other-owner' WHERE artifact_id=?", ref.artifactId());
+        assertFalse(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        fixture.jdbc().update("UPDATE campaign_artifact SET subject_name=? WHERE artifact_id=?", OWNER.subject(), ref.artifactId());
+        fixture.jdbc().update("UPDATE campaign_local_output SET artifact_id=? WHERE child_id=? AND output_name='selectedEntities'",
+                scenario.input().ref().artifactId(), scenario.child().childId());
+        assertFalse(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        fixture.jdbc().update("UPDATE campaign_local_output SET artifact_id=? WHERE child_id=? AND output_name='selectedEntities'",
+                ref.artifactId(), scenario.child().childId());
+        fixture.jdbc().update("DELETE FROM campaign_local_output WHERE child_id=? AND output_name='selectionEvidence'",
+                scenario.child().childId());
+        assertFalse(runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        RunToken next = runs.advance(scenario.token());
+        assertThrows(IllegalStateException.class,
+                () -> runs.isLocalOutputBound(scenario.token(), scenario.child().childId(), ref));
+        assertFalse(runs.isLocalOutputBound(next, scenario.child().childId(), ref));
+    }
+
+    @Test
     void rollsBackBothOutputsThenReplaysFrozenInputsAndReusesReadyOutputsAcrossParentRecovery() throws Exception {
         Scenario scenario = scenario("recovery");
         Fixture fixture = scenario.fixture();

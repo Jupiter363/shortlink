@@ -140,6 +140,9 @@ public interface CampaignRunStore {
 
     void prepareAction(RunToken token, ActionSpec action);
 
+    /** Read the exact persisted business action under the current run token. */
+    Optional<ActionSpec> inspectAction(RunToken token, String actionId);
+
     ChildRecord prepareChild(RunToken token, ChildSpec child);
 
     /** Trusted registered local calculation only; no HTTP request is synthesized. */
@@ -240,6 +243,12 @@ public interface CampaignRunStore {
 
     /** Read a READY local output binding with current authorization, expiry and payload verification. */
     Map<String, ArtifactRef> localOutputs(RunToken token, String childId, ArtifactAuthorizer authorizer);
+
+    /**
+     * Check a READY LOCAL publication's persisted binding and metadata under the current token.
+     * Does not authorize access or read/verify source and output payloads; callers retain those duties.
+     */
+    boolean isLocalOutputBound(RunToken token, String childId, ArtifactRef ref);
 
     void markUnresolved(DispatchPermit permit);
 

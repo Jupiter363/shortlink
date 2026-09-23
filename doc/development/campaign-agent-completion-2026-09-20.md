@@ -4,7 +4,7 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-23，E65–E124 已按批次补充实现与定向后端验证；本矩阵只把实际通过的局部组件标为部分已验，未将完整 Graph/HTTP、客户端、Docker 或真实 MySQL 的端到端验收写成完成。
+截至 2026-09-23，E65–E125 已按批次补充实现与定向后端验证；本矩阵只把实际通过的局部组件标为部分已验，未将完整 Graph/HTTP、客户端、Docker 或真实 MySQL 的端到端验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
@@ -155,6 +155,7 @@
 | [E122：固定统计运行装配][E122] | [PR #193](https://github.com/Jupiter363/shortlink/pull/193) 已合并；增加 `campaign-statistics-fixed` opt-in 配置，组合 JDBC Run/Step/结果账本、当前账号与 input/run/query/artifact 权限门、冻结计划、Graph checkpoint 和有界 worker；`CampaignStatisticsFixedRuntimeTest` 1 个 H2/MemorySaver 集成用例通过，覆盖排名 WAITING→接收→READY、重复提交与撤权／伪造证据拒绝。 | 仅后端内部装配，公共 chat/HTTP 和报告交付未注册；尚未进行真实 MySQL、Docker 或浏览器验收。 |
 | [E123：profile 限定的比较／排名公共接线][E123] | 本批将前端提交 UUID 作为稳定请求身份，经 Admin/Agent harness 到 Graph；在 `campaign-statistics-fixed` profile 下，比较／排名操作使用耐久 adapter、每操作独立 requestKey 与 `workRef` 续接。增加版本围栏的推进尝试结果账本，失败展示 `INCOMPLETE`，完成证据才投影 READY。transport 8、Graph 2、adapter 3、runtime 1、outcome 2，合计 16 个定向后端用例通过。 | 默认 profile 关闭；只覆盖 FIXED 比较／排名数据阶段，通用 Plan/ReAct、维度下钻、报告与客户端完整交付仍待完成。>500 不同短链排名、真实 MySQL、Docker、浏览器及原 Redis 登录 token 存活性未验收。 |
 | [E124：下降实体到维度变化的依赖计划][E124] | 服务端冻结真实三步 Skill 依赖与两个必需交付目标；复用 v2 方法和原生计划校验，生成受信 Skill pin，并以当前账号/分组归属门复核完整冻结输入。PlanFactory 3 项、Authorizer 2 项定向用例通过。 | 仅受信计划及输入授权，尚未装配运行时、查询/产物权限门或聊天入口；v2 仅支持省份×设备，不宣称完整 Plan/ReAct 或报告交付。 |
+| [E125：真实依赖运行与当前权限][E125] | 在同一 intake/容量队列内装配三个原生 Graph step，补充精确查询与产物授权、成员版本漂移拒绝、结果释放和完成后续接不重查。修复重复 payload 校验及 Windows 方法文件检查放大。分批去重 14 项后端用例通过，真实 H2/MemorySaver 依赖链约 12 秒完成。 | 依赖 profile 需显式配置方法目录，未注册公共聊天工具或报告投影；大集合重复扫描、真实 MySQL、模型及客户端仍待验收。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -524,6 +525,7 @@
 [E122]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E123]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E124]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E125]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
