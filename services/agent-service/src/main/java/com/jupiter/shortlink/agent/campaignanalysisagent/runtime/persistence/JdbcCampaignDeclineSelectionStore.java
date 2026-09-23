@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignExplorationCallStore.CallPermit;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignLinkComparability.Result;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignLinkComparability.Comparability;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignParentCoverage.Period;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage.*;
@@ -17,6 +18,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -185,6 +187,11 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     }
 
     @Override public SelectionPair inspectPair(Caller caller, String selectedId, String evidenceId, ArtifactAuthorizer authorizer) {
+        return inspectPair(caller, selectedId, evidenceId, authorizer, null);
+    }
+
+    private SelectionPair inspectPair(Caller caller, String selectedId, String evidenceId,
+            ArtifactAuthorizer authorizer, Consumer<VerifiedSelectionPage> verifiedPage) {
         id(selectedId); id(evidenceId); Objects.requireNonNull(authorizer);
         return transaction(() -> {
             Artifact selected = runs.readArtifact(caller, selectedId, authorizer);
@@ -198,16 +205,18 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
             Stored stored = required(keys.get(0), true); matchOwner(token, stored);
             require(stored.receipt().sealed(), "SELECTION_NOT_SEALED");
             requireCompletePages(stored.receipt());
+            Artifact scope = scope(caller, stored.receipt().definition(), authorizer);
             List<List<Period>> sourcePeriods = new ArrayList<>(1);
             Chain head = verifyPrefix(token, stored, authorizer, page -> {
                 List<Period> actual = sourcePeriods(page);
                 if (sourcePeriods.isEmpty()) sourcePeriods.add(actual);
                 else require(sourcePeriods.get(0).equals(actual), "SELECTION_PERIODS_MISMATCH");
+                if (verifiedPage != null) verifiedPage.accept(new VerifiedSelectionPage(token,
+                        List.of(selected.metadata(), evidence.metadata(), scope.metadata()), page.page()));
             });
             require(sourcePeriods.size() == 1, "SELECTION_PERIODS_MISSING");
             FinalPair actual = finalPair(token, stored, stored.finalChildId(), head, authorizer);
             require(selected.equals(actual.selected()) && evidence.equals(actual.evidence()), "SELECTION_PAIR_MISMATCH");
-            Artifact scope = scope(caller, stored.receipt().definition(), authorizer);
             // A long source-chain check must not return permission or expiry captured only at entry.
             require(selected.metadata().equals(runs.inspectArtifact(caller, selectedId, authorizer))
                     && evidence.metadata().equals(runs.inspectArtifact(caller, evidenceId, authorizer))
@@ -221,6 +230,77 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
 
     @Override public PageResult readSelectedPage(Caller caller, String artifactId, String cursor, int size, ArtifactAuthorizer authorizer) {
         return read(caller, artifactId, cursor, size, authorizer, ReadOrder.SELECTED_DELTA);
+    }
+
+    @Override public SelectionPair scanSelectedByLinkId(Caller caller, String selectedId, String evidenceId,
+            int pageSize, ArtifactAuthorizer authorizer, Consumer<List<Result>> visitor) {
+        id(selectedId); id(evidenceId); Objects.requireNonNull(authorizer); Objects.requireNonNull(visitor);
+        if (pageSize < 1 || pageSize > 500) throw new IllegalArgumentException("SELECTION_PAGE_SIZE_INVALID");
+        return transaction(() -> {
+            // Stream the just-verified immutable source rows, never a second read of the SQL index.
+            // This avoids relying on repeatable-read isolation or retaining the complete selection.
+            SelectionScan scan = new SelectionScan(caller, pageSize, authorizer, visitor);
+            SelectionPair pair = inspectPair(caller, selectedId, evidenceId, authorizer, scan::page);
+            scan.finish(pair);
+            return pair;
+        });
+    }
+
+    private void requireScanCurrent(Caller caller, RunToken token, List<ArtifactMetadata> metadata,
+                                    ArtifactAuthorizer authorizer) {
+        requireRun(token, false);
+        for (ArtifactMetadata expected : metadata)
+            require(expected.equals(runs.inspectArtifact(caller, expected.ref().artifactId(), authorizer)),
+                    "SELECTION_FINAL_CHANGED");
+        requireRun(token, false);
+    }
+
+    private final class SelectionScan {
+        private final Caller caller;
+        private final int pageSize;
+        private final ArtifactAuthorizer authorizer;
+        private final Consumer<List<Result>> visitor;
+        private final List<Result> pending;
+        private RunToken token;
+        private List<ArtifactMetadata> metadata;
+        private long previous, selected;
+
+        private SelectionScan(Caller caller, int pageSize, ArtifactAuthorizer authorizer, Consumer<List<Result>> visitor) {
+            this.caller = caller; this.pageSize = pageSize; this.authorizer = authorizer; this.visitor = visitor;
+            this.pending = new ArrayList<>(pageSize);
+        }
+
+        private void page(VerifiedSelectionPage verified) {
+            if (token == null) { token = verified.token(); metadata = verified.metadata(); }
+            require(token.equals(verified.token()) && metadata.equals(verified.metadata()), "SELECTION_FINAL_CHANGED");
+            requireScanCurrent(caller, token, metadata, authorizer);
+            // Canonical FrozenCampaignScope shards have strictly increasing disjoint ID ranges.
+            // Individual comparison pages may use another order, so sort only this bounded page.
+            for (Result row : verified.page().rows().stream().sorted(Comparator.comparingLong(Result::linkId)).toList()) {
+                require(row.linkId() > previous, "SELECTION_SOURCE_ORDER_INVALID");
+                previous = row.linkId();
+                if (row.comparability() != Comparability.VERIFIED || row.delta().signum() >= 0) continue;
+                selected = Math.addExact(selected, 1);
+                require(selected <= verified.page().definition().memberCount(), "SELECTION_INDEX_CORRUPTED");
+                pending.add(row);
+                if (pending.size() == pageSize) emit();
+            }
+            requireScanCurrent(caller, token, metadata, authorizer);
+        }
+
+        private void emit() {
+            requireScanCurrent(caller, token, metadata, authorizer);
+            visitor.accept(List.copyOf(pending));
+            requireScanCurrent(caller, token, metadata, authorizer);
+            pending.clear();
+        }
+
+        private void finish(SelectionPair pair) {
+            require(token != null && metadata.equals(List.of(pair.selectedEntities(), pair.selectionEvidence(), pair.scopeArtifact()))
+                    && selected == pair.selectedCount(), "SELECTION_INDEX_CORRUPTED");
+            if (!pending.isEmpty()) emit();
+            requireScanCurrent(caller, token, metadata, authorizer);
+        }
     }
 
     @Override public PageResult readSelectedByLinkId(Caller caller, String artifactId, String cursor, int size, ArtifactAuthorizer authorizer) {
@@ -644,6 +724,7 @@ public final class JdbcCampaignDeclineSelectionStore implements CampaignDeclineS
     }
     private record Stored(Receipt receipt, String runId, int revision, String stepId, String executorVersion, String finalChildId) {}
     private record Pair(ChildRecord child, String stepId, Artifact pageArtifact, Artifact chainArtifact, Page page, Chain chain) {}
+    private record VerifiedSelectionPage(RunToken token, List<ArtifactMetadata> metadata, Page page) {}
     private record SavedPage(int ordinal, String childId, String pageId, String pageHash, String chainId, String chainHash) {}
     private record Indexed(long id, int ordinal, long delta, boolean selected, String json) {}
     private record FinalPair(Artifact selected, Artifact evidence) {}

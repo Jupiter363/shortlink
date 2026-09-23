@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50–E125）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50–E126）
 
 记录日期：2026-09-21。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -387,7 +387,7 @@ outcome 只记录真正进入 admitted load 的 typed 推进：仍在排队、�
 
 ### E125：依赖 Skill 的真实运行与当前权限
 
-在既有 `CampaignStatisticsFixedRuntime` 中装配范围采集 → 下降筛选 v2 → 省份×设备变化 v2，复用同一个 intake、容量队列、JDBC 账本及原生 Graph。配置 `short-link.agent.campaign-statistics.dependency-skills-root` 后注册内部依赖 profile；空值保持禁用，既有比较／排名路径保持原行为。
+[PR #196](https://github.com/Jupiter363/shortlink/pull/196) 在既有 `CampaignStatisticsFixedRuntime` 中装配范围采集 → 下降筛选 v2 → 省份×设备变化 v2，复用同一个 intake、容量队列、JDBC 账本及原生 Graph。配置 `short-link.agent.campaign-statistics.dependency-skills-root` 后注册内部依赖 profile；空值保持禁用，既有比较／排名路径保持原行为。
 
 查询门在统计 I/O 前校验冻结期间、查询字段、维度及筛选，并按固定成员版本重新授权实际 ID 集合。产物门检查当前 run、精确 action/child、发布绑定与当前账号权限；冻结集合的成员版本改变后，即使账号仍拥有该分组，也不能继续读取旧证据。下游范围只包含上游真正筛出的下降短链，维度变化仅描述观测结果，不作为因果证据。
 
@@ -398,6 +398,16 @@ outcome 只记录真正进入 admitted load 的 typed 推进：仍在排队、�
 分批去重共 14 项定向后端用例通过：QueryAuthorizer 3、ArtifactAuthorizer 2、Authorizer 2、PlanFactory 4、LOCAL 发布绑定 1、依赖 Runtime 1、既有 FixedRuntime 1。H2/MemorySaver 集成验证两个源成员仅选中一个下降实体、四个统计任务的完整结果接收和释放、三个真实 Graph step 完成、完成后续接零重复提数、撤权拒绝。集成用例约 12.19 秒完成，保持单次推进 15 秒超时；不是生产性能基准。
 
 本批没有新增聊天工具或报告投影，尚不能通过公共聊天直接调用该依赖场景；不宣称通用 Plan/ReAct 或客户端交付完成。未启动 Docker、应用服务、浏览器、真实 MySQL 或模型。大集合的选中范围重建和维度 progress 仍有重复前缀扫描，尚未做大集合验收。
+
+### E126：选中范围的单次来源扫描
+
+`CampaignSelectedScope` 原先先验证成对产物，再按选中成员翻页；每一页都会重复校验全部来源链。新增内部 `scanSelectedByLinkId`，在同一事务的一次来源链验证中，从已校验的原始页流式计算成员摘要与指定分片，不再按选中页重复扫描整条来源链，也不在校验后重新读取另一份索引行。
+
+只接受真实采集/筛选生产者生成的规范分片顺序：页内按短链 ID 排序、跨页必须严格递增；原独立分页 API 保持原语义。回调仅用于可信、局部内存计算，整个扫描正常返回前不能发布结果；产物、成员数、当前权限与 token 的返回前检查仍保留。来源页和输出批次均至多 500 条，不把全部成员放入内存。
+
+此批只优化选中范围重建，维度 progress 的重复前缀扫描、公共聊天及报告接线仍待后续处理。
+
+定向验证 5 项通过：`DeclineSelectionPublicationTest` 两个新增 scan 用例、`CampaignSelectedScopeTest` 两项既有 501 成员/空结果/权限边界用例，以及 `CampaignDependencyAnalysisRuntimeTest` 一项真实依赖链。501 成员经两个来源页输出四个批次，来源页授权读取次数与单次 `inspectPair` 完全相同；覆盖后续来源损坏、回调中撤权、计算异常和旧分页兼容。本次完整依赖用例 16.03 秒，单次推进 15 秒期限保持不变；耗时不作为生产性能基准。未启动 Docker、应用服务、浏览器、真实 MySQL 或模型。
 
 ## 定向验证
 

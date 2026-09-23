@@ -20,6 +20,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongBinaryOperator;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
@@ -29,6 +31,73 @@ class DeclineSelectionPublicationTest {
     private static final PlanSpec.Step STEP = new PlanSpec.Step("select-declines", List.of("goal"),
             PlanSpec.ExecutionMode.FIXED, new PlanSpec.ExecutorRef(PlanSpec.ExecutorKind.SKILL, "decline-selection", "1"),
             null, List.of(), Map.of(), Map.of(), "selection-pages/v1");
+
+    @Test
+    void selectedScanStreamsCanonicalPagesWithOnlyOneSourceChainVerification() throws Exception {
+        try (Scenario s = new Scenario(501, (id, period) -> period == 0 ? id : 0, (period, meta) -> {})) {
+            Receipt first = s.shard(0, null, false);
+            Receipt second = s.shard(1, first.chainArtifactId(), false);
+            Receipt done = s.publisher.finish(s.context, s.f.token, second.chainArtifactId());
+            AtomicInteger sourceReads = new AtomicInteger();
+            ArtifactAuthorizer counting = (caller, artifact) -> {
+                if (DeclineSelectionPage.PAGE_TYPE.equals(artifact.ref().type())) sourceReads.incrementAndGet();
+                return OWNER.equals(caller) && OWNER.equals(artifact.owner());
+            };
+            var expected = s.index.inspectPair(OWNER, done.selectedArtifactId(), done.evidenceArtifactId(), counting);
+            int singleChainReads = sourceReads.getAndSet(0);
+            assertTrue(singleChainReads > 0);
+            List<Integer> sizes = new ArrayList<>();
+            long[] previous = {0};
+            var actual = s.index.scanSelectedByLinkId(OWNER, done.selectedArtifactId(), done.evidenceArtifactId(),
+                    137, counting, page -> {
+                        assertFalse(page.isEmpty());
+                        assertTrue(page.size() <= 137);
+                        sizes.add(page.size());
+                        for (Result row : page) {
+                            assertEquals(++previous[0], row.linkId());
+                            assertEquals(CampaignLinkComparability.Comparability.VERIFIED, row.comparability());
+                            assertTrue(row.delta().signum() < 0);
+                        }
+                    });
+            assertEquals(expected, actual);
+            assertEquals(501, previous[0]);
+            assertEquals(List.of(137, 137, 137, 90), sizes);
+            assertEquals(singleChainReads, sourceReads.get(), "Each callback page must not replay the source chain");
+
+            // A failure in a later source page cannot turn the already-visited prefix into success.
+            s.f.jdbc.update("UPDATE campaign_decline_row SET delta_value=-999 WHERE collection_id=? AND link_id=501",
+                    s.definition.collectionId());
+            AtomicInteger partial = new AtomicInteger();
+            assertThrows(IllegalStateException.class, () -> s.index.scanSelectedByLinkId(OWNER,
+                    done.selectedArtifactId(), done.evidenceArtifactId(), 137, ALLOW, page -> partial.incrementAndGet()));
+            assertTrue(partial.get() > 0, "The trusted visitor must discard all scratch state after a failed scan");
+        }
+    }
+
+    @Test
+    void selectedScanRejectsPageTimeRevocationVisitorFailureAndCorruptIndex() throws Exception {
+        try (Scenario s = new Scenario(3, (id, period) -> period == 0 ? id : 0, (period, meta) -> {})) {
+            Receipt first = s.shard(0, null, false);
+            Receipt done = s.publisher.finish(s.context, s.f.token, first.chainArtifactId());
+            AtomicBoolean allowed = new AtomicBoolean(true);
+            AtomicInteger visited = new AtomicInteger();
+            ArtifactAuthorizer revocable = (caller, artifact) -> allowed.get() && OWNER.equals(caller);
+            assertThrows(SecurityException.class, () -> s.index.scanSelectedByLinkId(OWNER,
+                    done.selectedArtifactId(), done.evidenceArtifactId(), 1, revocable, page -> {
+                        visited.incrementAndGet();
+                        allowed.set(false);
+                    }));
+            assertEquals(1, visited.get(), "Revocation after a callback must stop before another page is delivered");
+            IllegalStateException stopped = new IllegalStateException("stop-calculation");
+            assertSame(stopped, assertThrows(IllegalStateException.class, () -> s.index.scanSelectedByLinkId(OWNER,
+                    done.selectedArtifactId(), done.evidenceArtifactId(), 1, ALLOW, page -> { throw stopped; })));
+            s.f.jdbc.update("UPDATE campaign_decline_row SET selected=FALSE WHERE collection_id=? AND link_id=2",
+                    s.definition.collectionId());
+            assertThrows(IllegalStateException.class, () -> s.index.scanSelectedByLinkId(OWNER,
+                    done.selectedArtifactId(), done.evidenceArtifactId(), 1, ALLOW,
+                    page -> fail("A corrupted source/index page cannot reach the visitor")));
+        }
+    }
 
     @Test
     void allFiveHundredAndOneCandidatesProduceGloballySortedSelectionAndSourceCheckedResumablePages() throws Exception {
