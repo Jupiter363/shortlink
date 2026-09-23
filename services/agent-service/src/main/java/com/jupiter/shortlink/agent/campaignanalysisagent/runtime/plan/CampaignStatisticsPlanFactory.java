@@ -93,7 +93,7 @@ public final class CampaignStatisticsPlanFactory {
 
     public Prepared ranking(Caller owner, String sessionId, String requestKey,
                             String gid, String startDate, String endDate, String metric, Integer limit) {
-        String group = required(gid, 128, "STATISTICS_RANKING_GID_INVALID");
+        String group = groupId(gid, "STATISTICS_RANKING_GID_INVALID");
         LocalDate start = date(startDate), end = date(endDate);
         long days = ChronoUnit.DAYS.between(start, end) + 1;
         if (start.isBefore(LocalDate.of(1970, 1, 1)) || days < 1 || days > 180)
@@ -125,8 +125,8 @@ public final class CampaignStatisticsPlanFactory {
             String scopeInput = "scope-" + (index + 1);
             String periodsInput = "periods-" + (index + 1);
             String queryInput = "query-" + (index + 1);
-            String scopeRef = "scope-" + digest("scope/v1", identity.runId(), query.gid(), query.fullShortUrl());
-            String periodsRef = "periods-" + digest("periods/v1", identity.runId(), query.startDate(), query.endDate());
+            String scopeRef = "current-group.v1:" + groupId(query.gid(), "STATISTICS_SCOPE_GID_INVALID");
+            String periodsRef = periodRef(query.startDate(), query.endDate());
             Map<String, Object> descriptor = new LinkedHashMap<>();
             descriptor.put("schemaVersion", FrozenStatisticsJobQuery.SCHEMA);
             descriptor.put("scopeRef", scopeRef);
@@ -173,23 +173,31 @@ public final class CampaignStatisticsPlanFactory {
                 operation.get("queryPlanId").toString(), boundQueries);
     }
 
-    private static String digest(Object... parts) {
-        return CampaignRunStore.sha256(FrozenCampaignRun.encode(List.of(parts)));
-    }
-
-    private static String required(String value, int limit, String code) {
-        if (value == null || value.isBlank() || value.length() > limit || !value.equals(value.trim())
-                || value.chars().anyMatch(Character::isISOControl))
+    private static String groupId(String value, String code) {
+        if (value == null || !value.matches("[A-Za-z0-9_-]{1,64}"))
             throw new IllegalArgumentException(code);
         return value;
     }
 
+    private static String periodRef(String startDate, String endDate) {
+        LocalDate start = date(startDate, "STATISTICS_PERIOD_INVALID");
+        LocalDate end = date(endDate, "STATISTICS_PERIOD_INVALID");
+        long days = ChronoUnit.DAYS.between(start, end) + 1;
+        if (start.isBefore(LocalDate.of(1970, 1, 1)) || days < 1 || days > 180)
+            throw new IllegalArgumentException("STATISTICS_PERIOD_INVALID");
+        return "period.v1:" + start + ":" + end;
+    }
+
     private static LocalDate date(String value) {
+        return date(value, "STATISTICS_RANKING_PERIOD_INVALID");
+    }
+
+    private static LocalDate date(String value, String code) {
         if (value == null || !value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}"))
-            throw new IllegalArgumentException("STATISTICS_RANKING_PERIOD_INVALID");
+            throw new IllegalArgumentException(code);
         try { return LocalDate.parse(value); }
         catch (DateTimeException invalid) {
-            throw new IllegalArgumentException("STATISTICS_RANKING_PERIOD_INVALID", invalid);
+            throw new IllegalArgumentException(code, invalid);
         }
     }
 }

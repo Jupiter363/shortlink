@@ -52,6 +52,12 @@ class CampaignStatisticsPlanFactoryTest {
                 .containsOnly("METRICS");
         assertThat(prepared.queries().get(0).scopeRef()).isEqualTo(prepared.queries().get(1).scopeRef());
         assertThat(prepared.queries().get(0).periodsRef()).isEqualTo(prepared.queries().get(2).periodsRef());
+        assertThat(prepared.queries().get(0).scopeRef()).isEqualTo("current-group.v1:alpha");
+        assertThat(prepared.queries().get(0).periodsRef())
+                .isEqualTo("period.v1:2026-09-01:2026-09-07");
+        assertThat(prepared.queries().get(3).scopeRef()).isEqualTo("current-group.v1:beta");
+        assertThat(prepared.queries().get(3).periodsRef())
+                .isEqualTo("period.v1:2026-09-08:2026-09-14");
         assertThat(prepared.frozen().inputs().inputValues()).containsKey("operation");
         new PlanValidator(catalog).validate(prepared.frozen().plan(), prepared.frozen().inputs(),
                 prepared.frozen().assessment());
@@ -95,6 +101,9 @@ class CampaignStatisticsPlanFactoryTest {
         var changedMetric = factory.ranking(OWNER, SESSION, "request-3", "alpha",
                 "2026-09-01", "2026-09-14", "pv", 20);
         assertThat(ranking.queries()).hasSize(1);
+        assertThat(ranking.queries().get(0).scopeRef()).isEqualTo("current-group.v1:alpha");
+        assertThat(ranking.queries().get(0).periodsRef())
+                .isEqualTo("period.v1:2026-09-01:2026-09-14");
         assertThat(ranking.queries().get(0).request()).containsEntry("queryKind", "LINK_METRICS")
                 .containsEntry("gid", "alpha");
         assertThat(ranking.frozen().inputs().inputValues().get("operation"))
@@ -105,6 +114,22 @@ class CampaignStatisticsPlanFactoryTest {
                 .hasSize(1);
         assertThat(changedMetric.definition().runId()).isEqualTo(ranking.definition().runId());
         assertThat(changedMetric.definition().definitionHash()).isNotEqualTo(ranking.definition().definitionHash());
+    }
+
+    @Test
+    void linkSpecificQueriesKeepTheSameParseableGroupRefWithoutExposingUrls() {
+        var prepared = factory.comparison(OWNER, SESSION, "request-links",
+                List.of(Map.of("gid", "alpha", "fullShortUrl", "https://go.example/one"),
+                        Map.of("gid", "alpha", "fullShortUrl", "https://go.example/two")),
+                List.of(period("2026-09-01", "2026-09-07")));
+        assertThat(prepared.queries()).hasSize(2);
+        assertThat(prepared.queries()).extracting(CampaignStatisticsPlanFactory.StepQuery::scopeRef)
+                .containsOnly("current-group.v1:alpha");
+        assertThat(FrozenStatisticsJobQuery.resolve(prepared.definition(), StatisticsJobFixedExecutor.REF)
+                .values()).extracting(bound -> bound.child().requestId())
+                .doesNotHaveDuplicates();
+        assertThat(prepared.queries().get(0).request().get("fullShortUrl"))
+                .isNotEqualTo(prepared.queries().get(1).request().get("fullShortUrl"));
     }
 
     @Test
@@ -125,6 +150,19 @@ class CampaignStatisticsPlanFactoryTest {
         assertThatThrownBy(() -> factory.ranking(OWNER, SESSION, "bad-5", "alpha",
                 "2026-09-14", "2026-09-01", "pv", 10))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> factory.comparison(OWNER, SESSION, "bad-6",
+                List.of(Map.of("gid", "alpha:other"), Map.of("gid", "beta")),
+                List.of(period("2026-09-01", "2026-09-07"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("STATISTICS_SCOPE_GID_INVALID");
+        assertThatThrownBy(() -> factory.ranking(OWNER, SESSION, "bad-7", " alpha",
+                "2026-09-01", "2026-09-07", "pv", 10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("STATISTICS_RANKING_GID_INVALID");
+        assertThatThrownBy(() -> factory.ranking(OWNER, SESSION, "bad-8", "alpha",
+                "2026-9-01", "2026-09-07", "pv", 10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("STATISTICS_RANKING_PERIOD_INVALID");
     }
 
     private static Map<String, Object> period(String start, String end) {
