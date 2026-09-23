@@ -97,6 +97,37 @@ public final class CampaignRunIntake implements AutoCloseable {
     private final JdbcCampaignPlanningStore planning;
     private final Map<ProfileKey, PlanningProfile> planners;
     private final JdbcCampaignAdvanceOutcomeStore outcomes;
+    private volatile PreparationHandler preparation;
+    @FunctionalInterface public interface AfterAdvance {
+        void accept(Caller caller, String runId, ProcessExecutionScope scope);
+    }
+    @FunctionalInterface public interface RevisionResolver {
+        RunDefinition resolve(RunDefinition initial, RunRecord current);
+    }
+    private volatile AfterAdvance afterAdvance = (caller,runId,scope) -> {};
+    private volatile RevisionResolver revisions;
+
+    public void observeAdvances(AfterAdvance observer) {
+        afterAdvance=Objects.requireNonNull(observer);
+    }
+
+    /** Trusted composition only; proposals cannot replace the original intake identity. */
+    public synchronized void installRevisionResolver(RevisionResolver resolver) {
+        if (revisions != null) throw new IllegalStateException("CAMPAIGN_REVISION_RESOLVER_ALREADY_INSTALLED");
+        revisions = Objects.requireNonNull(resolver);
+    }
+
+    /** Public requirement extraction shares this intake's real callback lifetime and capacity. */
+    public interface PreparationHandler {
+        boolean recognizes(WorkRef reference);
+        void authorize(AgentPrincipal principal, WorkRef reference);
+        AdmittedCampaignAdvance.Operation load(WorkRef reference, ProcessExecutionScope scope);
+    }
+
+    public synchronized void installPreparation(PreparationHandler handler) {
+        if (preparation != null) throw new IllegalStateException("CAMPAIGN_PREPARATION_ALREADY_INSTALLED");
+        preparation = Objects.requireNonNull(handler);
+    }
 
     public CampaignRunIntake(JdbcCampaignRunIntakeStore requests, CampaignRunStore runs,
             CampaignRecoveryStore recovery, StatisticsSubmissionReconciler submissions,
@@ -164,9 +195,23 @@ public final class CampaignRunIntake implements AutoCloseable {
     /** Enqueue only after the registration transaction committed; a Future is not a Goal verdict. */
     public Future<Void> submit(AgentPrincipal current, WorkRef reference) {
         requireTopLevel();
-        if (planningReference(reference)) planningReceipt(current, reference);
+        if (preparation != null && preparation.recognizes(reference)) preparation.authorize(current, reference);
+        else if (planningReference(reference)) planningReceipt(current, reference);
         else receipt(current, reference);
         return admitted.submit(reference);
+    }
+
+    /** Trusted due-work scanner only; loadAdmitted still re-resolves current owner and session. */
+    public Future<Void> submitBackground(WorkRef reference) {
+        requireTopLevel();
+        return admitted.submit(Objects.requireNonNull(reference));
+    }
+
+    /** Continue a just-registered plan inside the already admitted scope, without nested queues. */
+    public void advancePrepared(WorkRef reference, ProcessExecutionScope scope) throws Exception {
+        if (scope == null || scope.isClosed() || scope.activeCount() < 1)
+            throw new IllegalStateException("CAMPAIGN_ADMITTED_SCOPE_REQUIRED");
+        loadAdmitted(reference, scope).run();
     }
 
     /** Trusted typed requirements are immutable. This entry does not perform natural-language goal extraction. */
@@ -197,6 +242,7 @@ public final class CampaignRunIntake implements AutoCloseable {
     @Override public void close() { admitted.close(); }
 
     private AdmittedCampaignAdvance.Operation loadAdmitted(WorkRef reference, ProcessExecutionScope scope) {
+        if (preparation != null && preparation.recognizes(reference)) return preparation.load(reference, scope);
         if (planningReference(reference)) return loadPlanning(reference, scope);
         if (outcomes == null) return loadTyped(reference, scope);
         // Observation starts before principal/plan validation, which can fail before a Run exists.
@@ -236,8 +282,8 @@ public final class CampaignRunIntake implements AutoCloseable {
         Header header = requests.header(reference);
         AgentPrincipal principal = currentPrincipal(header);
         Profile profile = profile(header.profileRef(), header.profileVersion());
-        RunDefinition definition = requests.definition(header);
-        FrozenCampaignRun frozen = FrozenCampaignRun.read(definition);
+        RunDefinition initial = requests.definition(header);
+        FrozenCampaignRun initialFrozen = FrozenCampaignRun.read(initial);
         PersistentPlanDriver.RunAuthorizer runGate = (caller, inputs) -> header.caller().equals(caller)
                 && principalCurrent(header) && profile.runAuthorizer().mayExecute(caller, inputs)
                 && inputsAuthorized(profile, caller, inputs);
@@ -245,16 +291,30 @@ public final class CampaignRunIntake implements AutoCloseable {
                 && principalCurrent(header) && profile.artifactAuthorizer().mayRead(caller, artifact);
         StepBindings.CurrentInputAuthorizer inputGate = (caller, type, value) -> header.caller().equals(caller)
                 && principalCurrent(header) && profile.inputAuthorizer().mayUse(caller, type, value);
-        if (!runGate.mayExecute(header.caller(), frozen.inputs())) throw new SecurityException("CAMPAIGN_INPUT_ACCESS_DENIED");
+        if (!runGate.mayExecute(header.caller(), initialFrozen.inputs())) throw new SecurityException("CAMPAIGN_INPUT_ACCESS_DENIED");
         var validator = new PlanValidator(profile.catalog(), id -> Optional.of(profile.contracts().typeOf(
                 runs.inspectArtifact(header.caller(), id, artifactGate))));
-        validator.validate(frozen.plan(), frozen.inputs(), frozen.assessment());
-        if (!runGate.mayExecute(header.caller(), frozen.inputs())) throw new SecurityException("CAMPAIGN_INPUT_ACCESS_DENIED");
-        requests.freeze(header, definition);
+        if (header.state() == JdbcCampaignRunIntakeStore.State.PENDING)
+            validator.validate(initialFrozen.plan(), initialFrozen.inputs(), initialFrozen.assessment());
+        requests.freeze(header, initial);
         var run = runs.loadRun(header.caller(), header.runId()).orElseThrow(
                 () -> new IllegalStateException("CAMPAIGN_FROZEN_RUN_MISSING"));
         if (run.status() != RunStatus.ACTIVE) throw new IllegalStateException("CAMPAIGN_RUN_" + run.status().name());
-        if (!sameDefinition(header, run.definition())) throw new IllegalStateException("CAMPAIGN_REQUEST_REVISION_CHANGED");
+        RunDefinition definition;
+        if (sameDefinition(header, run.definition())) definition = initial;
+        else {
+            var resolver = revisions;
+            if (resolver == null) throw new IllegalStateException("CAMPAIGN_REQUEST_REVISION_CHANGED");
+            definition = Objects.requireNonNull(resolver.resolve(initial, run));
+            if (!definition.equals(run.definition()) || !header.caller().equals(definition.caller())
+                    || !header.sessionId().equals(definition.sessionId()) || !header.runId().equals(definition.runId())
+                    || !header.planId().equals(definition.planId())) throw new SecurityException("CAMPAIGN_REVISION_BINDING_CHANGED");
+        }
+        FrozenCampaignRun frozen = FrozenCampaignRun.read(definition);
+        if (!initialFrozen.inputs().equals(frozen.inputs())) throw new SecurityException("CAMPAIGN_REVISION_INPUTS_CHANGED");
+        if (header.state() != JdbcCampaignRunIntakeStore.State.PENDING || !initial.equals(definition))
+            validator.validate(frozen.plan(), frozen.inputs(), frozen.assessment());
+        if (!runGate.mayExecute(header.caller(), frozen.inputs())) throw new SecurityException("CAMPAIGN_INPUT_ACCESS_DENIED");
 
         var coordinator = new CampaignRecoveryCoordinator(recovery, runs, submissions, (token, current) -> {
             if (!definition.equals(token.definition()) || !principal.equals(current)
@@ -273,6 +333,7 @@ public final class CampaignRunIntake implements AutoCloseable {
             var result = coordinator.resume(run.token(), principal);
             if (result.outcome() != CampaignRecoveryCoordinator.Outcome.SCANNED)
                 throw new IllegalStateException("CAMPAIGN_ADVANCE_STOPPED:" + result.reason());
+            afterAdvance.accept(header.caller(),header.runId(),scope);
         };
     }
 

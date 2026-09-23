@@ -76,7 +76,15 @@ public final class GoalAssessor {
             reason = observation.reasonCode();
         }
         if (requirement.kind() == PlanningAssessment.RequirementKind.DELIVERY) {
-            if (draft.hasDeliverable(goalId)) {
+            boolean typedDelivery = Set.of("statistics-evidence-delivery", "selected-entities-delivery",
+                    "dimension-change-delivery", "unresolved-analysis-delivery").contains(requirement.criterionRef());
+            boolean matchingDelivery = !typedDelivery || (gap == null && observation != null
+                    && observation.verdict() == RequirementAssessment.Verdict.MET
+                    && !observation.evidenceArtifactIds().isEmpty()
+                    && observation.evidenceArtifactIds().stream().allMatch(id -> draft.sections().stream()
+                        .filter(section -> section.goalIds().contains(goalId)).flatMap(section -> section.blocks().stream())
+                        .anyMatch(block -> block.isDeliverable() && block.evidenceArtifactIds().contains(id))));
+            if (draft.hasDeliverable(goalId) && matchingDelivery) {
                 verdict = RequirementAssessment.Verdict.MET;
                 reason = null;
                 limitations.removeIf(value -> value.equals("No server-side observation was recorded for this requirement."));

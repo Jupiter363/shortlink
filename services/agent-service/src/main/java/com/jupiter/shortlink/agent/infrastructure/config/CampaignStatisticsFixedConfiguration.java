@@ -22,7 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Opt-in FIXED statistics runtime and adapter for the existing campaign chat Graph. */
 @Configuration(proxyBeanMethods = false)
-@Profile("campaign-statistics-fixed")
+@Profile({"campaign-statistics-fixed","campaign-plan-v2"})
 public class CampaignStatisticsFixedConfiguration {
     @Bean
     public CampaignStatisticsDurableToolAdapter campaignStatisticsDurableToolAdapter(
@@ -54,10 +54,11 @@ public class CampaignStatisticsFixedConfiguration {
             @Value("${short-link.agent.campaign-statistics.models:4}") int models,
             @Value("${short-link.agent.campaign-statistics.large-payloads:4}") int largePayloads,
             @Value("${short-link.agent.campaign-statistics.max-queued:128}") int maxQueued,
-            @Value("${short-link.agent.campaign-statistics.dependency-skills-root:}") String dependencySkillsRoot) {
+            @Value("${short-link.agent.campaign-statistics.dependency-skills-root:}") String dependencySkillsRoot,
+            org.springframework.beans.factory.ObjectProvider<CampaignStatisticsFixedRuntime.ExtensionFactory> extension) {
         return new CampaignStatisticsFixedRuntime(jdbc, transactions, clock, authority, gateway, saver,
                 trustedProcessDomain,
                 new ProcessCapacityExecutor.Limits(activeAdvances, models, largePayloads, maxQueued),
-                dependencySkillsRoot.isBlank() ? null : Path.of(dependencySkillsRoot));
+                dependencySkillsRoot.isBlank() ? null : Path.of(dependencySkillsRoot), extension.getIfAvailable());
     }
 }

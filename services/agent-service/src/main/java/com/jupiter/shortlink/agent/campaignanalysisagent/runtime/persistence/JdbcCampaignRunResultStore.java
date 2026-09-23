@@ -129,6 +129,20 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
         return sameFacts(existing, token, draft);
     }
 
+    /** Only the current run may move its result pointer forward within one report lineage. */
+    boolean mayAdvanceBinding(Binding existing, RunToken token, BindingDraft draft) {
+        return existing.runId().equals(token.definition().runId())
+                && existing.planId().equals(token.definition().planId())
+                && existing.revision() == token.definition().revision()
+                && existing.sourceRowVersion() <= token.version()
+                && existing.executionStatus() != ExecutionStatus.SUCCEEDED
+                && existing.executionStatus() != ExecutionStatus.CANCELLED
+                && existing.executionStatus() != ExecutionStatus.SUPERSEDED
+                && draft.reportRef() != null
+                && (existing.reportRef() == null || (existing.reportRef().reportId().equals(draft.reportRef().reportId())
+                    && draft.reportRef().revision() > existing.reportRef().revision()));
+    }
+
     /**
      * Locks an exact terminal run and its result binding for a trusted cleanup composition.
      *
@@ -174,9 +188,21 @@ public final class JdbcCampaignRunResultStore implements CampaignRunResultStore 
 
             Optional<Binding> existing = readBinding(token.definition().runId(), token.definition().revision(), true);
             if (existing.isPresent()) {
-                if (!sameFacts(existing.get(), token, draft))
-                    throw new IllegalStateException("RUN_RESULT_BINDING_CONFLICT");
-                return existing.get();
+                Binding current = existing.get();
+                if (sameFacts(current, token, draft)) return current;
+                if (!mayAdvanceBinding(current, token, draft)) throw new IllegalStateException("RUN_RESULT_BINDING_CONFLICT");
+                if (!reportVerifier.mayBind(token.definition(), draft.reportRef()))
+                    throw new SecurityException("RUN_RESULT_REPORT_NOT_AUTHORIZED");
+                if (reportAlreadyBound(draft.reportRef(), token)) throw new IllegalStateException("RUN_RESULT_REPORT_ALREADY_BOUND");
+                int changed = jdbc.update("UPDATE campaign_run_result_binding SET report_id=?,report_revision=?,execution_status=?,"
+                                + "next_action_kind=?,next_action_reason=?,required_inputs_json=?,limitations_json=?,source_row_version=?,"
+                                + "source_advance_token=?,binding_version=binding_version+1,updated_at=? WHERE run_id=? AND revision=? AND binding_version=?",
+                        draft.reportRef().reportId(), draft.reportRef().revision(), draft.executionStatus().name(),
+                        draft.nextAction().kind().name(), draft.nextAction().reasonCode(), encode(draft.nextAction().requiredInputs()),
+                        encode(draft.limitations()), token.version(), token.advanceToken(), clock.millis(), token.definition().runId(),
+                        token.definition().revision(), current.bindingVersion());
+                if (changed != 1) throw new IllegalStateException("RUN_RESULT_BINDING_CONFLICT");
+                return readBinding(token.definition().runId(), token.definition().revision(), false).orElseThrow();
             }
 
             if (draft.reportRef() != null && !reportVerifier.mayBind(token.definition(), draft.reportRef()))

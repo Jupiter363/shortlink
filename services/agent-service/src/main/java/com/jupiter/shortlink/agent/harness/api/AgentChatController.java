@@ -40,7 +40,11 @@ public class AgentChatController {
                         username,
                         request.message(),
                         principal,
-                        request.requestKey());
+                        request.requestKey(),
+                        request.clientCapabilities(),
+                        request.operation(),
+                        request.continuation(),
+                        request.previousRunId());
         return Result.success(agentRunHarness.run(runRequest));
     }
 
@@ -49,7 +53,9 @@ public class AgentChatController {
     }
 
     public record AgentChatRequest(
-            String sessionId, String username, String agentType, String message, String requestKey) {
+            String sessionId, String username, String agentType, String message, String requestKey,
+            java.util.Set<String> clientCapabilities, AgentRunRequest.Operation operation,
+            AgentRunRequest.Continuation continuation, String previousRunId) {
         public AgentChatRequest {
             if (requestKey != null && !requestKey.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}"))
                 throw new IllegalArgumentException("Invalid campaign request key");
@@ -57,6 +63,11 @@ public class AgentChatController {
 
         public AgentChatRequest(String sessionId, String username, String agentType, String message) {
             this(sessionId, username, agentType, message, null);
+        }
+
+        public AgentChatRequest(String sessionId, String username, String agentType, String message, String requestKey) {
+            this(sessionId, username, agentType, message, requestKey, java.util.Set.of(),
+                    AgentRunRequest.Operation.NEW, null, null);
         }
     }
 }

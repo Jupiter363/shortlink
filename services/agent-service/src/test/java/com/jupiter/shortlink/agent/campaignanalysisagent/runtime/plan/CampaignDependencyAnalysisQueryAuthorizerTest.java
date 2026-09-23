@@ -13,18 +13,22 @@ import static org.mockito.Mockito.when;
 import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient;
 import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.AuthorizedScope;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.Caller;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunDefinition;
 import com.jupiter.shortlink.agent.harness.security.AgentPrincipal;
 import com.jupiter.shortlink.contract.FrozenQueryScope;
 import com.jupiter.shortlink.contract.GroupMembersPage;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.ClassPathResource;
 
 class CampaignDependencyAnalysisQueryAuthorizerTest {
@@ -85,21 +89,48 @@ class CampaignDependencyAnalysisQueryAuthorizerTest {
         }
     }
 
+    @Test
+    void frozenEvidenceReadsDoNotExecuteChangedMethodsButStillRejectRevokedOrChangedMembers(@TempDir Path root) throws Exception {
+        Path originals = new ClassPathResource("campaign-skills").getFile().toPath();
+        for (String name : List.of("decline-selection", "dimension-change")) {
+            Path directory = Files.createDirectories(root.resolve(name).resolve("2"));
+            Files.copy(originals.resolve(name).resolve("2/SKILL.md"), directory.resolve("SKILL.md"));
+        }
+        var f = new Fixture(root);
+        assertThat(f.gate.mayUse(OWNER, f.original.parentScopeRef(), "baseline", f.links())).isTrue();
+        Files.writeString(root.resolve("dimension-change/2/SKILL.md"), "changed approved method");
+        var reader = new CampaignDependencyAnalysisQueryAuthorizer(f.authority, f.plans, f.definition);
+        assertThat(reader.mayReadEvidence(OWNER, f.original.parentScopeRef(), "baseline", f.links())).isTrue();
+        assertThat(reader.mayUse(OWNER, f.original.parentScopeRef(), "baseline", f.links())).isFalse();
+        assertThat(reader.mayReadEvidence(OWNER, f.original.parentScopeRef(), "target", f.links())).isFalse();
+        for (String failure : List.of("ids", "version", "revoked")) {
+            f.failure.set(failure);
+            assertThat(reader.mayReadEvidence(OWNER, f.original.parentScopeRef(), "baseline", f.links()))
+                    .as(failure).isFalse();
+        }
+    }
+
     private static final class Fixture {
         final AgentAuthorityClient authority = mock(AgentAuthorityClient.class);
         final AtomicReference<String> failure = new AtomicReference<>("");
         final FrozenQueryScope original;
         final FrozenQueryScope selected;
         final CampaignDependencyAnalysisQueryAuthorizer gate;
+        final CampaignDependencyAnalysisPlanFactory plans;
+        final RunDefinition definition;
 
         Fixture() throws Exception {
-            var plans = new CampaignDependencyAnalysisPlanFactory(
-                    new ClassPathResource("campaign-skills").getFile().toPath(), CLOCK);
+            this(new ClassPathResource("campaign-skills").getFile().toPath());
+        }
+
+        Fixture(Path root) throws Exception {
+            plans = new CampaignDependencyAnalysisPlanFactory(root, CLOCK);
             var prepared = plans.prepare(new Caller(OWNER.tenantId(), OWNER.username(), OWNER.authVersion()),
                     "dependency-session", "query-invocation", new CampaignDependencyAnalysisPlanFactory.Request(
                             GID, "2026-09-01", "2026-09-01", "2026-09-02", "2026-09-02",
                             "PV", List.of("province", "device"), FILTERS), CLOCK.instant().plusSeconds(3600));
-            gate = new CampaignDependencyAnalysisQueryAuthorizer(authority, plans, prepared.definition());
+            definition = prepared.definition();
+            gate = new CampaignDependencyAnalysisQueryAuthorizer(authority, plans, definition);
             original = FrozenCampaignScope.freeze(OWNER, GID, List.of(new FrozenCampaignScope.AuthorityPage(
                     OWNER, GID, null, VERSION, List.of(1L, 2L), null))).shards().get(0);
             String selectedRef = "selected-scope-" + "c".repeat(64);

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.jupiter.shortlink.admin.common.biz.user.UserContext;
 import com.jupiter.shortlink.admin.common.biz.user.UserInfoDTO;
@@ -94,5 +95,36 @@ class AgentControllerTest {
                 .doesNotContain("username");
         assertThat(request.getSessionId()).isEqualTo("session-1");
         assertThat(request.getMessage()).isEqualTo("analyze campaign");
+    }
+
+    @Test
+    void reportReadsForwardExactVersionAndOnlyTrustedCurrentAccountHeaders() {
+        AgentRemoteService remote = mock(AgentRemoteService.class);
+        var configuration = new AgentAdminConfiguration();
+        configuration.setInternalToken("internal-token");
+        var controller = new AgentController(remote, configuration);
+        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name", 7L));
+        var headers = Map.of("X-Agent-Internal-Token", "internal-token", "X-Agent-Username", "trusted-user",
+                "X-Agent-UserId", "1001", "X-Agent-Auth-Version", "7");
+        Result<Object> expected = Results.success(Map.of("nextCursor", "page-2"));
+        when(remote.campaignReportRows(headers, "report-1", 3, "table-1", "session-1", "run-1", "plan-1",
+                2, "page-1", 25)).thenReturn(expected);
+
+        assertThat(controller.campaignReportRows("report-1", 3, "table-1", "session-1", "run-1", "plan-1",
+                2, "page-1", 25)).isSameAs(expected);
+        verify(remote).campaignReportRows(headers, "report-1", 3, "table-1", "session-1", "run-1", "plan-1",
+                2, "page-1", 25);
+        controller.campaignProgress("run-1", "session-1", "intake-1");
+        verify(remote).campaignProgress(headers, "run-1", "session-1", "intake-1");
+    }
+
+    @Test
+    void readRoutesRejectMissingAuthVersionBeforeCallingAgent() {
+        AgentRemoteService remote = mock(AgentRemoteService.class);
+        var controller = new AgentController(remote, new AgentAdminConfiguration());
+        UserContext.setUser(new UserInfoDTO("1001", "trusted-user", "Trusted Name", null));
+        assertThatThrownBy(() -> controller.campaignReportHistory("session-1", null, 20))
+                .isInstanceOf(ClientException.class).hasMessage("Agent request requires current authenticated account");
+        verifyNoInteractions(remote);
     }
 }

@@ -38,7 +38,8 @@ public final class CampaignAgentRunResultAdapter {
         if (report == null) throw new IllegalArgumentException("AGENT_RESULT_REPORT_REQUIRED");
         return new AgentRunResult(base.sessionId(), base.traceId(), report.answer(),
                 copy(base.cards()), copy(base.pendingActions()), copy(base.toolCalls()),
-                copy(base.dataSources()), copy(base.traceEvents()), copy(base.warnings()), report);
+                copy(base.dataSources()), copy(base.traceEvents()), copy(base.warnings()), report,
+                base.continuation(), base.progress());
     }
 
     private static void validateConsistency(CampaignLegacyAnswerAdapter.LegacyView view) {

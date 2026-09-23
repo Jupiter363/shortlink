@@ -61,6 +61,23 @@ public final class CampaignReplanPlanningHandoff {
                 request.baseline().owner(), request.baseline().sessionId());
     }
 
+    /** A native terminal candidate hash identifies the replan signal, never the not-yet-created successor Plan. */
+    public static Result fromExploration(Request request) {
+        Objects.requireNonNull(request, "REPLAN_HANDOFF_REQUEST_REQUIRED");
+        verifyPendingBinding(request.pending(), request.baseline());
+        validateEvidence(request.newEvidence(), request.baseline().evidenceIds());
+        validateRequirements(request.unsatisfiedRequirements(), request.baseline().assessment());
+        validateRationale(request.rationale());
+        if (!request.pending().candidateHash().matches("[a-f0-9]{64}"))
+            throw new SecurityException("REPLAN_EXPLORATION_SIGNAL_HASH_INVALID");
+        var signal = new ReplanRequest.ExplorationSignal(request.pending().stepId(), request.pending().candidateHash());
+        var replan = ReplanRequest.fromExploration(request.baseline().plan(), request.baseline().assessment(),
+                request.baseline().evidenceIds(), request.newEvidence(), request.unsatisfiedRequirements(), request.rationale(), signal);
+        return new Result(replan, request.baseline().assessment(), request.pending().stepId(),
+                "exploration-signal:" + signal.candidateHash(), request.pending().reasonCodes(),
+                request.baseline().owner(), request.baseline().sessionId());
+    }
+
     /** Instance-shaped alias for callers that prefer an injectable-looking pure boundary. */
     public Result prepare(Request request) {
         return create(request);
@@ -134,7 +151,8 @@ public final class CampaignReplanPlanningHandoff {
         }
         for (ReplanRequest.Evidence value : values) {
             if (value == null || !id(value.evidenceId()) || !id(value.artifactId())
-                    || !id(value.outputContractRef()) || !id(value.contentHash())) {
+                    || value.outputContractRef() == null || !value.outputContractRef().matches("[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}")
+                    || !id(value.contentHash())) {
                 throw new IllegalArgumentException("REPLAN_HANDOFF_EVIDENCE_INVALID");
             }
         }

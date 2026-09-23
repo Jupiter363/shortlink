@@ -33,13 +33,26 @@ public final class CampaignDependencyAnalysisQueryAuthorizer implements Statisti
         if (!definition.runId().equals(frozen.inputs().runId())
                 || !frozen.plan().inputSetRef().equals(frozen.inputs().inputSetRef()))
             throw new IllegalArgumentException("DEPENDENCY_QUERY_DEFINITION_INVALID");
-        this.request = Objects.requireNonNull(plans).inspect(frozen.inputs());
+        // Construction only parses the frozen query. Actual execution checks the current method
+        // files below; inspecting a published artifact must not repeatedly resolve executable paths.
+        this.request = Objects.requireNonNull(plans).inspectDefinition(frozen.inputs());
         this.runAuthorizer = new CampaignDependencyAnalysisAuthorizer(authority, plans);
     }
 
     @Override
     public boolean mayUse(AgentPrincipal current, String scopeRef, String periodsRef,
                           Map<String, Object> frozenRequest) {
+        return authorize(current, scopeRef, periodsRef, frozenRequest, true);
+    }
+
+    /** Published evidence is not permission to execute the Skill again. Membership stays live. */
+    public boolean mayReadEvidence(AgentPrincipal current, String scopeRef, String periodsRef,
+                                  Map<String, Object> frozenRequest) {
+        return authorize(current, scopeRef, periodsRef, frozenRequest, false);
+    }
+
+    private boolean authorize(AgentPrincipal current, String scopeRef, String periodsRef,
+                              Map<String, Object> frozenRequest, boolean executing) {
         try {
             if (current == null || current.system() || frozenRequest == null
                     || !new AgentPrincipal(definition.caller().tenantId(), definition.caller().subject(),
@@ -68,8 +81,10 @@ public final class CampaignDependencyAnalysisQueryAuthorizer implements Statisti
                         || !request.filters().equals(frozenRequest.get("filters"))) return false;
             } else return false;
 
-            // Revalidates expiry, approved method pins, current account and group on every use.
-            if (!runAuthorizer.mayExecute(definition.caller(), frozen.inputs())) return false;
+            // Both paths revalidate expiry, account and group. Only execution needs live method
+            // files; evidence reads keep checking the exact published enumeration version.
+            if (!(executing ? runAuthorizer.mayExecute(definition.caller(), frozen.inputs())
+                    : runAuthorizer.mayReadEvidence(definition.caller(), frozen.inputs(), scope.enumerationVersion()))) return false;
             var resolved = authority.resolvePage(current, request.gid(), null, scope.linkIds(), null,
                     scope.enumerationVersion());
             if (resolved == null || !current.tenantId().equals(resolved.tenantId())

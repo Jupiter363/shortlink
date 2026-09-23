@@ -165,4 +165,27 @@ class AgentChatControllerTest {
 
         assertThat(capturedRequest.get().agentType()).isEqualTo("security-risk");
     }
+
+    @Test
+    void progressOperationCarriesExactLookupAndCapabilitiesWithoutTrustingBodyIdentity() throws Exception {
+        mockMvc.perform(post("/internal/short-link-agent/v1/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Agent-Username", "trusted-user")
+                        .header("X-Agent-UserId", "1001")
+                        .header("X-Agent-Auth-Version", "7")
+                        .content("""
+                                {"sessionId":"session-1","agentType":"campaign-analysis",
+                                 "username":"spoofed-user","operation":"PROGRESS",
+                                 "clientCapabilities":["campaign-response/v2"],
+                                 "continuation":{"runId":"campaign-run-1","requestId":"intake-1"}}
+                                """))
+                .andExpect(status().isOk());
+        AgentRunRequest request = capturedRequest.get();
+        assertThat(request.operation()).isEqualTo(AgentRunRequest.Operation.PROGRESS);
+        assertThat(request.clientCapabilities()).containsExactly("campaign-response/v2");
+        assertThat(request.continuation().workRef().runId()).isEqualTo("campaign-run-1");
+        assertThat(request.continuation().workRef().workId()).isEqualTo("intake-1");
+        assertThat(request.principal().username()).isEqualTo("trusted-user");
+        assertThat(request.message()).isNull();
+    }
 }

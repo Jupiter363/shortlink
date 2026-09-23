@@ -5,7 +5,6 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportDraft;
 import com.jupiter.shortlink.agent.campaignanalysisagent.report.ReportBlock;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.CampaignRunResultProjection;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +76,7 @@ public final class CampaignReportModuleSelector {
             modules.add(new CampaignReportModuleResponse.Module(assessment.goalId(), status, reason,
                     evidence, rendered, assessment.limitations()));
         }
-        modules.sort(Comparator.comparing(CampaignReportModuleResponse.Module::goalId));
+        // GoalAssessor supplies original Plan order; lexical IDs are not presentation order.
         return new CampaignReportModuleResponse(CampaignReportModuleResponse.SCHEMA,
                 request.executionStatus(), request.runId(), request.planId(), request.revision(), modules,
                 request.limitations());

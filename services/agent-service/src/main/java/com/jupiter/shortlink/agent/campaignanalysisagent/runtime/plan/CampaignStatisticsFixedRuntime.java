@@ -17,6 +17,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Jdb
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRecoveryStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunIntakeStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignPlanningStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignStatisticsResultStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignStepStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignRecoveryCoordinator;
@@ -66,6 +68,14 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
     private final CampaignDependencyAnalysisPlanFactory dependencyPlans;
     private final CampaignDependencyAnalysisProfile dependency;
     private final ThreadPoolExecutor executor;
+    private final Extension extension;
+
+    public record ExtensionContext(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            JdbcCampaignRunStore runs, JdbcCampaignStepStore steps, JdbcCampaignStatisticsResultStore results,
+            AgentAuthorityClient authority, ShortLinkBusinessGateway gateway, BaseCheckpointSaver saver) {}
+    public record Extension(CampaignRunIntake.Profile profile, CampaignRunIntake.PlanningProfile planning,
+            CampaignPublicRequestService.PlannerInput inputs) {}
+    @FunctionalInterface public interface ExtensionFactory { Extension create(ExtensionContext context); }
 
     /** All JDBC stores must use this exact writable REQUIRED transaction template and data source. */
     public CampaignStatisticsFixedRuntime(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
@@ -78,6 +88,13 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
     public CampaignStatisticsFixedRuntime(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
             AgentAuthorityClient authority, ShortLinkBusinessGateway gateway, BaseCheckpointSaver saver,
             String trustedProcessDomain, ProcessCapacityExecutor.Limits limits, Path approvedDependencySkillsRoot) {
+        this(jdbc,transactions,clock,authority,gateway,saver,trustedProcessDomain,limits,approvedDependencySkillsRoot,null);
+    }
+
+    public CampaignStatisticsFixedRuntime(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
+            AgentAuthorityClient authority, ShortLinkBusinessGateway gateway, BaseCheckpointSaver saver,
+            String trustedProcessDomain, ProcessCapacityExecutor.Limits limits, Path approvedDependencySkillsRoot,
+            ExtensionFactory extensionFactory) {
         Objects.requireNonNull(jdbc, "STATISTICS_JDBC_REQUIRED");
         Objects.requireNonNull(transactions, "STATISTICS_TRANSACTION_REQUIRED");
         Objects.requireNonNull(clock, "STATISTICS_CLOCK_REQUIRED");
@@ -128,6 +145,9 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
 
         var profiles = new ArrayList<CampaignRunIntake.Profile>();
         profiles.add(profile);
+        this.extension = extensionFactory == null ? null : Objects.requireNonNull(extensionFactory.create(
+                new ExtensionContext(jdbc,transactions,clock,runs,steps,results,authority,gateway,saver)));
+        if (extension != null) profiles.add(extension.profile());
         StatisticsJobResultReleaser releaser = null;
         if (approvedDependencySkillsRoot == null) {
             this.dependencyPlans = null;
@@ -158,7 +178,11 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
             this.intake = new CampaignRunIntake(requests, runs, recovery,
                     new StatisticsSubmissionReconciler(runs, gateway),
                     new StatisticsJobResultReceiver(runs, results, gateway, clock), releaser,
-                    profiles, principals, limits, executor, null, List.of(), outcomes);
+                    profiles, principals, limits, executor,
+                    extension == null ? null : new JdbcCampaignPlanningStore(jdbc,transactions,clock,requests,
+                            com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningProposal.Limits.defaults().requestBytes(),
+                            ModelInvocationRegistry.Limits.defaults()),
+                    extension == null ? List.of() : List.of(extension.planning()), outcomes);
         } catch (RuntimeException | Error failure) {
             executor.shutdown();
             throw failure;
@@ -166,6 +190,10 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
     }
 
     public CampaignRunIntake intake() { return intake; }
+    public Extension extension() {
+        if (extension == null) throw new IllegalStateException("CAMPAIGN_BUSINESS_PROFILE_UNAVAILABLE");
+        return extension;
+    }
     public CampaignStatisticsPlanFactory plans() { return plans; }
     public JdbcCampaignRunStore runs() { return runs; }
     public JdbcCampaignStepStore steps() { return steps; }
