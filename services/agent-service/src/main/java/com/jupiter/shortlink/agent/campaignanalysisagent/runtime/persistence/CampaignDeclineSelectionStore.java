@@ -7,6 +7,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignPa
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.DeclineSelectionPage.Definition;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /** An authorized read index of genuine LOCAL outputs, not a calculation or task runner. */
 public interface CampaignDeclineSelectionStore {
@@ -30,6 +31,16 @@ public interface CampaignDeclineSelectionStore {
     Receipt seal(RunToken token, String collectionId, String finalChildId, ArtifactAuthorizer authorizer);
     Receipt seal(CallPermit permit, String collectionId, String finalChildId, ArtifactAuthorizer authorizer);
     SelectionPair inspectPair(Caller caller, String selectedId, String evidenceId, ArtifactAuthorizer authorizer);
+    /**
+     * Visit verified source rows once, in canonical shard/link order, within one transaction.
+     * Source shards must have strictly ascending disjoint link ranges; historical custom ordering
+     * remains available through the independent paging APIs. Current metadata, access and run
+     * token are rechecked around every bounded page. The visitor is a trusted pure calculation:
+     * no database/external side effects, no retention of all members, and no publication of partial
+     * results. Discard its result unless this method completes the final chain checks and returns.
+     */
+    SelectionPair scanSelectedByLinkId(Caller caller, String selectedId, String evidenceId, int pageSize,
+                                     ArtifactAuthorizer authorizer, Consumer<List<Result>> visitor);
     PageResult readSelectedPage(Caller caller, String selectedArtifactId, String cursor, int size, ArtifactAuthorizer authorizer);
     /** Exact selected membership in ascending link order; its cursor cannot be used by another ordering. */
     PageResult readSelectedByLinkId(Caller caller, String selectedArtifactId, String cursor, int size, ArtifactAuthorizer authorizer);

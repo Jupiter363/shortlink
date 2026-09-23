@@ -173,36 +173,32 @@ public final class CampaignSelectedScope {
 
     private Snapshot snapshot(Caller caller, String selectedId, String evidenceId,
                               List<Period> expectedPeriods, Integer shardIndex) {
-        SelectionPair pair = selections.inspectPair(caller, selectedId, evidenceId, authorizer);
+        MessageDigest digest = digest();
+        digest.update("analytics-members/v1\n".getBytes(StandardCharsets.UTF_8));
+        long[] position = {0, 0}; // Member count and previous ID; no complete member list is retained.
+        long from = shardIndex == null ? -1 : (long) shardIndex * FrozenQueryScope.SHARD_SIZE;
+        List<Long> selectedShard = new ArrayList<>(FrozenQueryScope.SHARD_SIZE);
+        SelectionPair pair = selections.scanSelectedByLinkId(caller, selectedId, evidenceId,
+                FrozenQueryScope.SHARD_SIZE, authorizer, rows -> {
+            require(rows.size() <= FrozenQueryScope.SHARD_SIZE, "SELECTED_SCOPE_PAGE_INVALID");
+            for (CampaignLinkComparability.Result row : rows) {
+                require(row.linkId() > position[1] && row.comparability() == CampaignLinkComparability.Comparability.VERIFIED
+                        && row.delta() != null && row.delta().signum() < 0, "SELECTED_SCOPE_MEMBER_INVALID");
+                position[1] = row.linkId();
+                digest.update((position[1] + "\n").getBytes(StandardCharsets.UTF_8));
+                if (from >= 0 && position[0] >= from && position[0] < from + FrozenQueryScope.SHARD_SIZE)
+                    selectedShard.add(position[1]);
+                position[0] = Math.addExact(position[0], 1);
+            }
+        });
+        long count = position[0];
+        require(count == pair.selectedCount(), "SELECTED_SCOPE_COUNT_MISMATCH");
         require(expectedPeriods == null || pair.periods().equals(expectedPeriods), "SELECTED_SCOPE_PERIODS_MISMATCH");
         Artifact sourceScope = runs.readArtifact(caller, pair.scopeArtifact().ref().artifactId(), authorizer);
         require(pair.scopeArtifact().equals(sourceScope.metadata()), "SELECTED_SCOPE_SOURCE_CHANGED");
         JsonNode source = tree(sourceScope.payloadJson());
         String gid = text(source, "gid"), version = text(source, "enumerationVersion");
         require(version.matches("[a-f0-9]{64}"), "SELECTED_SCOPE_SOURCE_VERSION_INVALID");
-        MessageDigest digest = digest();
-        digest.update("analytics-members/v1\n".getBytes(StandardCharsets.UTF_8));
-        long count = 0, previous = 0;
-        long from = shardIndex == null ? -1 : (long) shardIndex * FrozenQueryScope.SHARD_SIZE;
-        List<Long> selectedShard = new ArrayList<>(FrozenQueryScope.SHARD_SIZE);
-        String cursor = null;
-        do {
-            var page = selections.readSelectedByLinkId(caller, selectedId, cursor, FrozenQueryScope.SHARD_SIZE, authorizer);
-            require(page.rows().size() <= FrozenQueryScope.SHARD_SIZE, "SELECTED_SCOPE_PAGE_INVALID");
-            for (CampaignLinkComparability.Result row : page.rows()) {
-                require(row.linkId() > previous && row.comparability() == CampaignLinkComparability.Comparability.VERIFIED
-                        && row.delta() != null && row.delta().signum() < 0, "SELECTED_SCOPE_MEMBER_INVALID");
-                previous = row.linkId();
-                digest.update((previous + "\n").getBytes(StandardCharsets.UTF_8));
-                if (from >= 0 && count >= from && count < from + FrozenQueryScope.SHARD_SIZE) selectedShard.add(previous);
-                count = Math.addExact(count, 1);
-                require(count <= pair.selectedCount(), "SELECTED_SCOPE_COUNT_MISMATCH");
-            }
-            require(page.nextCursor() == null || (!page.rows().isEmpty() && !page.nextCursor().equals(cursor)),
-                    "SELECTED_SCOPE_CURSOR_INVALID");
-            cursor = page.nextCursor();
-        } while (cursor != null);
-        require(count == pair.selectedCount(), "SELECTED_SCOPE_COUNT_MISMATCH");
         String memberHash = HexFormat.of().formatHex(digest.digest());
         // Source artifact hashes make this a distinct derived set even if every original member was selected.
         String scopeRef = "selected-scope-" + CampaignRunStore.sha256(json(List.of(caller,
