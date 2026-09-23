@@ -61,11 +61,26 @@ public final class CampaignStatisticsQueryPlan {
             String key = scope.key() + "|" + period.startDate() + "|" + period.endDate();
             queries.add(new Query(scope, period, key, query(scope, period)));
         }
-        List<String> canonical = new ArrayList<>();
-        scopes.stream().map(Scope::key).sorted().forEach(value -> canonical.add("S:" + value));
-        periods.stream().map(Period::key).sorted().forEach(value -> canonical.add("P:" + value));
-        String planId = CampaignRunStore.sha256(String.join("|", canonical));
+        // The first period and first scope are comparison baselines. Their order therefore
+        // belongs to the continuation identity even when the set of queries is unchanged.
+        // Length prefixes keep arbitrary gid/URL text from colliding with field separators.
+        StringBuilder canonical = new StringBuilder("comparison-query-plan/v2");
+        append(canonical, Integer.toString(scopes.size()));
+        for (Scope scope : scopes) {
+            append(canonical, scope.gid());
+            append(canonical, scope.fullShortUrl());
+        }
+        append(canonical, Integer.toString(periods.size()));
+        for (Period period : periods) {
+            append(canonical, period.startDate().toString());
+            append(canonical, period.endDate().toString());
+        }
+        String planId = CampaignRunStore.sha256(canonical.toString());
         return new Plan(planId, scopes, periods, queries);
+    }
+
+    private static void append(StringBuilder canonical, String value) {
+        canonical.append(value.length()).append(':').append(value);
     }
 
     private static List<Scope> scopes(List<Map<String, Object>> values) {

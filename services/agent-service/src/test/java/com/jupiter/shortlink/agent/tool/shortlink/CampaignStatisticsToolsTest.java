@@ -376,6 +376,11 @@ class CampaignStatisticsToolsTest {
         var result = tool.compareStatistics(GROUPS, List.of(WEEK), List.of(), "wrong-plan", TRUSTED);
         assertThat(result.success()).isFalse();
         assertThat(result.message()).contains("different query plan");
+        String original = CampaignStatisticsQueryPlan.create(GROUPS, List.of(WEEK)).planId();
+        var reordered = tool.compareStatistics(List.of(GROUPS.get(1), GROUPS.get(0)),
+                List.of(WEEK), List.of(), original, TRUSTED);
+        assertThat(reordered.success()).isFalse();
+        assertThat(reordered.message()).contains("different query plan");
         assertThat(calls).isEmpty();
     }
 
