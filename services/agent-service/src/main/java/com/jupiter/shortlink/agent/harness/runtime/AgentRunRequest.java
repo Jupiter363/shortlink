@@ -5,8 +5,14 @@ public record AgentRunRequest(
         String agentType,
         String username,
         String message,
-        com.jupiter.shortlink.agent.harness.security.AgentPrincipal principal) {
+        com.jupiter.shortlink.agent.harness.security.AgentPrincipal principal,
+        String requestKey) {
+    public AgentRunRequest(String sessionId, String agentType, String username, String message,
+                           com.jupiter.shortlink.agent.harness.security.AgentPrincipal principal) {
+        this(sessionId, agentType, username, message, principal, null);
+    }
+
     public AgentRunRequest(String sessionId, String agentType, String username, String message) {
-        this(sessionId, agentType, username, message, null);
+        this(sessionId, agentType, username, message, null, null);
     }
 }

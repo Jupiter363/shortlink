@@ -197,7 +197,12 @@ export function buildChatBody(input) {
   if (!sessionId) throw new Error('会话尚未准备好，请新建会话。')
   if (!message) throw new Error('请输入问题。')
   if (message.length > 2000) throw new Error('问题与分析范围合计不能超过 2000 字。')
-  return { sessionId, agentType: input.agentType, message }
+  const requestKey = input.requestKey == null ? '' : String(input.requestKey)
+  if (requestKey && !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$/.test(requestKey))
+    throw new Error('请求标识无效，请重新提交。')
+  return requestKey
+    ? { sessionId, agentType: input.agentType, message, requestKey }
+    : { sessionId, agentType: input.agentType, message }
 }
 
 export function compileMessage(prompt, group) {

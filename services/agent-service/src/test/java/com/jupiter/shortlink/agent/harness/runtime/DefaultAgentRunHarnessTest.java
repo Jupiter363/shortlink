@@ -23,7 +23,9 @@ class DefaultAgentRunHarnessTest {
                 "session-1",
                 null,
                 "zhangsan",
-                "analyze recent campaign data"
+                "analyze recent campaign data",
+                null,
+                "turn-123"
         ));
 
         assertThat(result.sessionId()).isEqualTo("session-1");
@@ -33,6 +35,7 @@ class DefaultAgentRunHarnessTest {
         assertThat(campaignGraphExecutor.request.sessionId()).isEqualTo("session-1");
         assertThat(campaignGraphExecutor.request.username()).isEqualTo("zhangsan");
         assertThat(campaignGraphExecutor.request.message()).isEqualTo("analyze recent campaign data");
+        assertThat(campaignGraphExecutor.request.requestKey()).isEqualTo("turn-123");
         assertThat(securityRiskGraphExecutor.request).isNull();
     }
 

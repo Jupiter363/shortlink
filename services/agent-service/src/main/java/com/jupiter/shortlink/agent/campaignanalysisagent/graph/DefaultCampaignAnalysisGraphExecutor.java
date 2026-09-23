@@ -28,6 +28,8 @@ import com.jupiter.shortlink.agent.infrastructure.llm.LlmApiKeyNotConfiguredExce
 import com.jupiter.shortlink.agent.infrastructure.llm.LlmChatClient;
 import com.jupiter.shortlink.agent.infrastructure.llm.LlmChatClientException;
 import com.jupiter.shortlink.agent.tool.registry.AgentToolRegistry;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignStatisticsDurableToolAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
@@ -155,6 +157,14 @@ Insight explanation contract:
     private final CompiledGraph graph;
 
     private final CampaignAnalysisPlanner planner;
+
+    private CampaignStatisticsDurableToolAdapter durableStatistics;
+
+    /** Installed only when the explicit durable statistics profile is enabled. */
+    @Autowired(required = false)
+    void setDurableStatistics(CampaignStatisticsDurableToolAdapter adapter) {
+        this.durableStatistics = Objects.requireNonNull(adapter);
+    }
 
     private final ConcurrentMap<String, List<Object>> inFlightTraceEvents =
             new ConcurrentHashMap<>();
@@ -305,6 +315,7 @@ Insight explanation contract:
                 request.principal() == null ? Map.of() : request.principal().toState());
         input.put("message", request.message());
         input.put("traceId", request.traceId());
+        input.put("requestKey", Objects.toString(request.requestKey(), ""));
         input.put("toolExecutions", List.of());
         input.put("derivedInsightCards", List.of());
         input.put("traceEvents", List.of());
@@ -528,8 +539,16 @@ Insight explanation contract:
                 } else warnings.add("Agent tool not registered: list_groups");
             }
             warnings.addAll(plan.warnings());
+            int invocationIndex = 0;
             if (!plan.needsGroups()) for (var invocation : plan.invocations()) {
+                int operationIndex = invocationIndex++;
                 if ("list_groups".equals(invocation.name()) && !executions.isEmpty()) continue;
+                if (durableStatistics != null
+                        && Set.of("compare_statistics", "rank_short_links").contains(invocation.name())) {
+                    executions.add(executeDurableStatistics(new ToolInvocation(invocation.name(), invocation.arguments()),
+                            sessionId, username, principal, state.value("requestKey", ""), operationIndex));
+                    continue;
+                }
                 Optional<AgentTool> tool = toolRegistry.findByName(invocation.name());
                 if (tool.isEmpty()) { warnings.add("Agent tool not registered: " + invocation.name()); continue; }
                 var toolArguments = new LinkedHashMap<>(invocation.arguments());
@@ -599,6 +618,31 @@ Insight explanation contract:
         return execution;
     }
 
+    private Map<String, Object> executeDurableStatistics(ToolInvocation invocation, String sessionId,
+            String username, AgentPrincipal principal, String requestKey, int operationIndex) {
+        Map<String, Object> execution = new LinkedHashMap<>();
+        execution.put("name", invocation.name());
+        execution.put("arguments", invocation.arguments());
+        try {
+            String operationKey = null;
+            if (requestKey != null && !requestKey.isBlank()) {
+                if (!requestKey.matches("[A-Za-z0-9][A-Za-z0-9._:-]{0,255}"))
+                    throw new IllegalArgumentException("STATISTICS_REQUEST_KEY_INVALID");
+                operationKey = "chat-stat-" + CampaignRunStore.sha256("chat-statistics/v1:"
+                        + requestKey.length() + ":" + requestKey + ":" + operationIndex + ":" + invocation.name());
+            }
+            ToolResult result = durableStatistics.execute(invocation.name(),
+                    new ToolContext(sessionId, username, invocation.arguments(), principal), operationKey);
+            execution.put("success", result.success());
+            if (result.success()) execution.put("data", CampaignEvidenceContext.compact(result.data()));
+            else execution.put("message", result.message());
+        } catch (RuntimeException failed) {
+            execution.put("success", false);
+            execution.put("message", Objects.toString(failed.getMessage(), "STATISTICS_DURABLE_EXECUTION_FAILED"));
+        }
+        return execution;
+    }
+
     private Map<String, Object> analyzeWithLlm(OverAllState state) {
         List<String> warnings = new ArrayList<>(state.value("toolWarnings", List.of()));
         warnings.addAll(failedToolWarnings(state.value("toolExecutions", List.of())));
@@ -613,7 +657,7 @@ Insight explanation contract:
                 "get_dimension_breakdown").contains(textValue(e.get("name")))).toList();
         if (!analyses.isEmpty() && analyses.stream().allMatch(e -> toolSucceeded(e)
                 && "PENDING".equals(mapValue(e.get("data")).get("status"))))
-            return Map.of("answer", "统计任务正在处理中，当前尚无完整分析结果。输入“查看分析结果”可继续读取本次任务。",
+            return Map.of("answer", "统计任务已登记，当前尚无完整分析结果。输入“查看分析结果”可继续读取本次任务。",
                     "llmDataSource", llmDataSource, "warnings", warnings,
                     "visitedNodes", List.of(INTAKE_NODE, TOOL_CALL_NODE, INSIGHT_COMPUTE_NODE, LLM_ANALYSIS_NODE));
         var jobAnswer =

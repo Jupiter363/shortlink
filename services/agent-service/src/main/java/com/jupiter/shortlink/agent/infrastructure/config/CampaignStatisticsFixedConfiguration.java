@@ -5,6 +5,7 @@ import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient;
 import com.jupiter.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessCapacityExecutor;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignStatisticsFixedRuntime;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignStatisticsDurableToolAdapter;
 import java.time.Clock;
 import java.util.Objects;
 import javax.sql.DataSource;
@@ -18,10 +19,16 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Opt-in FIXED statistics runtime. No chat or HTTP route is registered by this configuration. */
+/** Opt-in FIXED statistics runtime and adapter for the existing campaign chat Graph. */
 @Configuration(proxyBeanMethods = false)
 @Profile("campaign-statistics-fixed")
 public class CampaignStatisticsFixedConfiguration {
+    @Bean
+    public CampaignStatisticsDurableToolAdapter campaignStatisticsDurableToolAdapter(
+            CampaignStatisticsFixedRuntime runtime, @Qualifier("campaignStatisticsClock") Clock clock) {
+        return new CampaignStatisticsDurableToolAdapter(runtime, clock);
+    }
+
     @Bean("campaignStatisticsClock")
     public Clock campaignStatisticsClock() {
         return Clock.systemUTC();

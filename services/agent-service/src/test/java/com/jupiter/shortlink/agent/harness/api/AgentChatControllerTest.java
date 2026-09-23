@@ -70,6 +70,7 @@ class AgentChatControllerTest {
                 {
                   "sessionId": "session-1",
                   "username": "zhangsan",
+                  "requestKey": "turn-123",
                   "message": "analyze recent short link performance"
                 }
                 """;
@@ -93,6 +94,7 @@ class AgentChatControllerTest {
                 .andExpect(jsonPath("$.data.traceEvents").isArray())
                 .andExpect(jsonPath("$.data.traceEvents[0].nodeName").value("intake"))
                 .andExpect(jsonPath("$.data.warnings").isArray());
+        assertThat(capturedRequest.get().requestKey()).isEqualTo("turn-123");
     }
 
     @Test

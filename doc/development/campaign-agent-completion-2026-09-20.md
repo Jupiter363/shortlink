@@ -4,11 +4,11 @@
 
 后续实现更新：E11 记录冻结范围首批实现及 40 项定向后端测试；相关行已更新为部分已验。上述“只读”指完成矩阵初始审计，不包含后续实现批次。
 
-截至 2026-09-23，E65–E122 已按批次补充实现与定向后端验证；本矩阵仍只把实际通过的组件标为部分已验，未将 Graph、HTTP、客户端、Docker 或真实 MySQL 等未执行验收写成完成。
+截至 2026-09-23，E65–E123 已按批次补充实现与定向后端验证；本矩阵只把实际通过的局部组件标为部分已验，未将完整 Graph/HTTP、客户端、Docker 或真实 MySQL 的端到端验收写成完成。
 
 目标保持 [Issue #62](https://github.com/Jupiter363/shortlink/issues/62) 的全部 P0–P5，以及总计划中的客户端与完整图文输出范围。主线程已实时核验 Issue 正文与本地已知正文快照一致。本清单不纳入其他项目或旧 Issue #27 的任务，不以某个分批 PR 或若干组件测试通过代替整个目标完成。
 
-**基线结论：P0 原生机制组件门槛已有验收；P1 多个耐久运行、恢复、分页接收及固定统计执行组件已有后端验收，但完整接线和用户入口未交付；P2–P5 与客户端正式交付仍待完成。新入口应继续关闭。** 本文的“待完成”是任务，不是删除或降低原验收条件。
+**基线结论：P0 原生机制组件门槛已有验收；P1 多个耐久运行、恢复、分页接收及固定统计执行组件已有后端验收；E123 只在显式 profile 下接通比较／排名的 FIXED 取数入口，完整 Plan/ReAct、报告和客户端正式交付仍待完成。新增 profile 默认关闭。** 本文的“待完成”是任务，不是删除或降低原验收条件。
 
 ## 1. 阅读规则与证据范围
 
@@ -152,7 +152,8 @@
 | [E119：比较／排名冻结取数与耐久结果投影][E119] | [PR #190](https://github.com/Jupiter363/shortlink/pull/190) 已合并；比较按对象×期间生成 FIXED 统计 Step，排名冻结分组、期间和选项；投影器逐页校验耐久结果身份、范围、快照与分页链，再复用纯计算器。`CampaignStatisticsPlanFactoryTest` 4 个、`CampaignStatisticsDurableProjectorTest` 3 个定向用例通过。 | 尚未切换公共 Graph/chat 或交付报告；超过 500 条不同短链的分组排名仍受范围枚举协议限制。 |
 | [E120：当前账号与会话归属复核][E120] | [PR #191](https://github.com/Jupiter363/shortlink/pull/191) 已合并；Admin 内部只读 current-principal、持久会话归属与 `CampaignRunIntake.CurrentPrincipalResolver` 组合，后台续接复核账号状态、authVersion 和已绑定会话。Admin MVC 7 个、Agent HTTP 7 个、JDBC 会话归属 4 个定向用例通过。 | 公共 Graph/chat 仍未接 intake；当前账号接口不复核原浏览器 Redis 登录 token 是否仍存活，真实 MySQL 与跨服务运行未验收。 |
 | [E121：冻结统计的当前权限门][E121] | [PR #192](https://github.com/Jupiter363/shortlink/pull/192) 已合并；组与日期使用有界、可解析的规范版本化引用；input、run、query 三层重新核对当前账号、组所有权、短链成员、查询期间和比较／排名约束，异常或权限缺失 fail closed。PlanFactory 5 个、CurrentInput 3 个、Run 5 个、Query 4 个定向用例通过。 | 旧不透明 scope/period 引用不能通过新权限门；内部 intake 由 E122 装配，公共 Graph/chat、报告交付及真实 MySQL 仍未接线验收。 |
-| [E122：固定统计运行装配][E122] | 本批增加 `campaign-statistics-fixed` opt-in 配置，组合 JDBC Run/Step/结果账本、当前账号与 input/run/query/artifact 权限门、冻结计划、Graph checkpoint 和有界 worker；`CampaignStatisticsFixedRuntimeTest` 1 个 H2/MemorySaver 集成用例通过，覆盖排名 WAITING→接收→READY、重复提交与撤权／伪造证据拒绝。 | 仅后端内部装配，公共 chat/HTTP 和报告交付未注册；尚未进行真实 MySQL、Docker 或浏览器验收。 |
+| [E122：固定统计运行装配][E122] | [PR #193](https://github.com/Jupiter363/shortlink/pull/193) 已合并；增加 `campaign-statistics-fixed` opt-in 配置，组合 JDBC Run/Step/结果账本、当前账号与 input/run/query/artifact 权限门、冻结计划、Graph checkpoint 和有界 worker；`CampaignStatisticsFixedRuntimeTest` 1 个 H2/MemorySaver 集成用例通过，覆盖排名 WAITING→接收→READY、重复提交与撤权／伪造证据拒绝。 | 仅后端内部装配，公共 chat/HTTP 和报告交付未注册；尚未进行真实 MySQL、Docker 或浏览器验收。 |
+| [E123：profile 限定的比较／排名公共接线][E123] | 本批将前端提交 UUID 作为稳定请求身份，经 Admin/Agent harness 到 Graph；在 `campaign-statistics-fixed` profile 下，比较／排名操作使用耐久 adapter、每操作独立 requestKey 与 `workRef` 续接。增加版本围栏的推进尝试结果账本，失败展示 `INCOMPLETE`，完成证据才投影 READY。transport 8、Graph 2、adapter 3、runtime 1、outcome 2，合计 16 个定向后端用例通过。 | 默认 profile 关闭；只覆盖 FIXED 比较／排名数据阶段，通用 Plan/ReAct、维度下钻、报告与客户端完整交付仍待完成。>500 不同短链排名、真实 MySQL、Docker、浏览器及原 Redis 登录 token 存活性未验收。 |
 
 源码核对入口：[`planning`][CODE-PLAN]、[`runtime`][CODE-RUNTIME]、[`skills`][CODE-SKILLS]及[对应测试][TEST-CAMPAIGN]。`ExplorationLedger` 的 Javadoc 明确为 P0 可信边界、无 Spring 实现注册；[`PersistentPlanDriver`][CODE-DRIVER]、[`StatisticsJobFixedExecutor`][CODE-FIXED]与[`CampaignProgressService`][CODE-PROGRESS]目前是可组合组件。以上存在性只能辅助定位，不能替代报告的运行证据。
 
@@ -520,6 +521,7 @@
 [E120]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E121]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E122]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
+[E123]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills

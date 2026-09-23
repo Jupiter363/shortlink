@@ -61,7 +61,8 @@ class CampaignStatisticsFixedRuntimeTest {
                 migration("V20260920__campaign_statistics_result.sql"),
                 migration("V20260920_3__campaign_submission_deferral.sql"),
                 migration("V20260920_17__campaign_run_intake.sql"),
-                migration("V20260923__campaign_conversation_session_owner.sql")).execute(dataSource);
+                migration("V20260923__campaign_conversation_session_owner.sql"),
+                migration("V20260923_2__campaign_advance_outcome.sql")).execute(dataSource);
         var jdbc = new JdbcTemplate(dataSource);
         var tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         var live = new AtomicBoolean(true);

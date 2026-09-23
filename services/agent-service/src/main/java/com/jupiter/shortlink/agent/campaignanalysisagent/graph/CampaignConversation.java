@@ -185,6 +185,7 @@ final class CampaignConversation {
         Map<String, Object> result = new LinkedHashMap<>(arguments);
         result.remove("jobs");
         result.remove("jobId");
+        result.remove("workRef");
         return result;
     }
 

@@ -107,7 +107,32 @@ const selectedGroup = computed(() =>
 )
 const compiled = computed(() => compileMessage(session.value.prompt, selectedGroup.value))
 const result = computed(() => session.value.result)
-const historyEntries = computed(() => agentHistoryEntries(session.value))
+function campaignResultState(result) {
+  const cards = (Array.isArray(result?.cards) ? result.cards : []).filter((card) =>
+    ['comparison', 'ranking', 'dimension_breakdown'].includes(card?.type)
+  )
+  if (cards.some((card) => card.status === 'PENDING')) return 'WAITING'
+  if (cards.some((card) => card.status === 'INCOMPLETE')) return 'INCOMPLETE'
+  return 'SUCCESS'
+}
+const historyEntries = computed(() => {
+  const entries = agentHistoryEntries(session.value)
+  if (agentType.value !== 'campaign-analysis') return entries
+  return entries.map((entry) => {
+    const state = campaignResultState(entry.result)
+    if (state === 'SUCCESS') return entry
+    const prefix =
+      entry.key !== 'current'
+        ? '历史结果'
+        : ['RUNNING', 'ERROR'].includes(session.value.runState)
+          ? '上一次结果'
+          : '当前结果'
+    return {
+      ...entry,
+      label: `${prefix} · ${state === 'WAITING' ? '等待统计结果' : '分析尚未完成'}`
+    }
+  })
+})
 const historyEntry = computed(
   () =>
     historyEntries.value.find((entry) => entry.key === historyKey.value) || historyEntries.value[0]
@@ -118,6 +143,8 @@ const sessionStatus = computed(
     ({
       READY: '等待提问',
       RUNNING: '分析中',
+      WAITING: '等待统计结果',
+      INCOMPLETE: '分析尚未完成',
       SUCCESS: '已返回结果',
       ERROR: '上次未完成'
     })[session.value.runState] || '状态未知'
@@ -290,7 +317,8 @@ async function run() {
   relay.state.agentBusy = true
   try {
     const raw = await agentApi.chat(
-      { sessionId: originalSessionId, agentType: type, message },
+      { sessionId: originalSessionId, agentType: type, message,
+        ...(type === 'campaign-analysis' ? { requestKey: id } : {}) },
       controller.signal
     )
     if (
@@ -318,7 +346,7 @@ async function run() {
     entry.lastScopeLabel = submittedScopeLabel
     entry.completedAt = new Date().toLocaleString('zh-CN')
     if (typeof response.sessionId === 'string' && response.sessionId) entry.id = response.sessionId
-    entry.runState = 'SUCCESS'
+    entry.runState = type === 'campaign-analysis' ? campaignResultState(response) : 'SUCCESS'
   } catch (error) {
     if (disposed || activeRun?.id !== id || entry.runId !== id) return
     entry.error = errorMessage(error)
