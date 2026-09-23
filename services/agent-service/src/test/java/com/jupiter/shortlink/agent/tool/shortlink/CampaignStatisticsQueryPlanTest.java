@@ -9,15 +9,18 @@ import org.junit.jupiter.api.Test;
 
 class CampaignStatisticsQueryPlanTest {
     @Test
-    void planIsStableAcrossInputOrderAndLabelsDoNotChangeIdentity() {
+    void planIdentityBindsScopeOrderButNotDisplayLabels() {
         var first = CampaignStatisticsQueryPlan.create(
                 List.of(Map.of("gid", "alpha", "label", "A"), Map.of("gid", "beta")),
                 List.of(period("2026-09-07", "2026-09-13", "本周")));
+        var relabeled = CampaignStatisticsQueryPlan.create(
+                List.of(Map.of("gid", "alpha", "label", "changed"), Map.of("gid", "beta")),
+                List.of(period("2026-09-07", "2026-09-13", "changed")));
         var reordered = CampaignStatisticsQueryPlan.create(
                 List.of(Map.of("gid", "beta"), Map.of("gid", "alpha", "label", "changed")),
                 List.of(period("2026-09-07", "2026-09-13", "changed")));
 
-        assertThat(first.planId()).isEqualTo(reordered.planId());
+        assertThat(first.planId()).isEqualTo(relabeled.planId()).isNotEqualTo(reordered.planId());
         assertThat(first.combinations()).isEqualTo(2);
         assertThat(first.queries()).extracting(CampaignStatisticsQueryPlan.Query::key)
                 .containsExactly("alpha||2026-09-07|2026-09-13", "beta||2026-09-07|2026-09-13");
@@ -32,6 +35,21 @@ class CampaignStatisticsQueryPlanTest {
         assertThat(plan.queries().get(0).arguments()).containsEntry("fullShortUrl", "example.test/a");
         assertThatThrownBy(() -> plan.queries().get(0).arguments().put("gid", "foreign"))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void planIdentityBindsPeriodOrderAndUnambiguouslySeparatesScopeFields() {
+        var first = CampaignStatisticsQueryPlan.create(
+                List.of(Map.of("gid", "alpha", "fullShortUrl", "a|b")),
+                List.of(period("2026-09-01", "2026-09-01"), period("2026-09-02", "2026-09-02")));
+        var reordered = CampaignStatisticsQueryPlan.create(
+                List.of(Map.of("gid", "alpha", "fullShortUrl", "a|b")),
+                List.of(period("2026-09-02", "2026-09-02"), period("2026-09-01", "2026-09-01")));
+        var differentFields = CampaignStatisticsQueryPlan.create(
+                List.of(Map.of("gid", "alpha|a", "fullShortUrl", "b")),
+                List.of(period("2026-09-01", "2026-09-01"), period("2026-09-02", "2026-09-02")));
+
+        assertThat(first.planId()).isNotEqualTo(reordered.planId()).isNotEqualTo(differentFields.planId());
     }
 
     @Test
