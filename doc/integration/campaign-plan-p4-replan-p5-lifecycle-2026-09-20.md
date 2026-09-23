@@ -1,4 +1,4 @@
-# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50/E51/E52/E53/E54/E55/E56/E57/E58/E59/E60/E61/E62/E63/E64/E65/E66/E67/E68/E69/E70/E71/E72/E73/E74/E75/E76/E77/E78/E79/E80/E81/E82/E83/E84/E85/E86/E87/E88/E89/E90/E91/E92/E93/E94/E95/E96/E97/E98/E99/E100/E101/E102/E103/E104/E105/E106/E107/E108/E109/E110/E111/E112/E113/E114/E115/E116）
+# P4/P5：重规划编排、原子发布与报告生命周期持久化（E50–E117）
 
 记录日期：2026-09-21。此批次只做后端合同、JDBC 持久化和 H2 定向验证；没有启动 Docker、应用、真实 MySQL、真实模型或浏览器。
 
@@ -338,6 +338,10 @@ E84 的 `NO_BINDING` 被保留为独立 typed 状态，不能携带 Graph base r
 ### E116：排名结果纯计算边界
 
 将短链排名的整段汇总校验、linkId 去重、PV 合计、排序、排名和 PV 占比抽到 `CampaignStatisticsRankingCalculator`。`rank_short_links` 保留授权取数、分页快照和质量封装，纯计算只接收已收集的完整窗口数据，公开工具协议不变，为后续 durable CALL/报告聚合复用提供稳定边界。
+
+### E117：共享持久化复合能力边界
+
+为 `CampaignStatisticsCompositeCall` 增加 `CapabilityExecution` 入口，固定 Step 与真实 CALL 在每个 child 派发前校验当前运行围栏，再复用持久化 child 账本。维度下钻改用统一入口，READY、WAITING、查询容量拒绝、提交未确定和 child 身份校验语义保持不变。compare/rank 公共 Spring 工具仍未接入该生产路径。
 
 
 ## 定向验证
@@ -849,6 +853,9 @@ mvn.cmd -o -q -pl services/agent-service -am "-Dtest=CampaignStatisticsToolsTest
 ```
 
 结果：`CampaignStatisticsToolsTest` 35 tests，0 failures，0 errors，0 skipped；覆盖拆分后的排名校验、排序、tie-break、PV 占比和不完整结果拒绝；未启动 Docker、应用、前端、真实 MySQL 或模型。
+
+E117 定向验证：`CampaignStatisticsCompositeCallTest` 5 tests、`DimensionChangeSkillTest` 2 tests，0 failures，0 errors，0 skipped；`BUILD SUCCESS`。未启动 Docker、应用、前端、真实 MySQL 或模型。
+
 ## 未覆盖边界
 
 - `RevisionApplier` 是可信装配接口，本批次没有把它接入生产 `JdbcCampaignRunStore.revise` 和 `JdbcCampaignStatisticsConsumerStore.adopt`，因此不能宣称运行中 replan 已开放。
@@ -861,5 +868,5 @@ mvn.cmd -o -q -pl services/agent-service -am "-Dtest=CampaignStatisticsToolsTest
 - E65 只提供后端 typed read projection；E66 增加纯 legacy answer 兼容桥；E67 只扩展 response 类型和纯 adapter；E68 增加纯 run-result projection；E69 增加授权的 run/report 读取组合；E70 增加受 token fencing 保护的 durable run-result 绑定；E71 增加按 revision 的授权读取组合和 report verifier；E72 增加共享事务的 retain/bind/release 协调器；E73 增加按请求解析身份的 adapter；E74 增加终态引用清理和 report 行锁协议；E75 增加报告发布与 run-result 绑定的共享事务及精确重放保护；E76 增加 durable projection 到兼容响应的纯 typed 组合和状态/脱敏校验；E77 增加一次精确 durable read 到兼容响应的 typed 服务边界；E78 增加无状态 runtime factory、三元身份核验和显式无绑定 outcome；E79 增加新响应协议的客户端能力门控；E80 增加受 `campaign-trusted-adapter` profile 保护的具名 provider 装配、prototype decorator 和能力 gate；E81 增加固定 report key 的 route-level 脱敏 facade；E82 增加同一 writable REQUIRED 事务内的 JDBC durable read 快照协调和 row-version 围栏；E83 增加事务内 typed projector 与 JDBC durable response bridge，禁止快照结束后的 E71 二次读取；E84 增加 conjunctive profile 下的 JDBC durable response factory、请求级报告凭证绑定及 step/run/artifact 同事务组合守卫；E85 增加先能力门控、后 durable factory 的 transport-neutral response route，区分 legacy、客户端升级、无绑定和绑定响应，禁止 durable 失败回退；E86 增加 exact revision 的 server-owned 脱敏 response handle resolver，并让 transport adapter 在 durable 路径上先解析 handle、禁止 latest/RunToken 误绑定和 fallback；E87 增加稳定的 transport-neutral response envelope，保留 legacy base 与 durable response 的互斥语义并固定 upgrade/no-binding wire code；E88 增加由 trusted metadata resolver 提供的协议/运行身份 authority seam，禁止调用方伪造已有运行的协议字段并在 exact handle 前 fail closed；E89 增加 principal-bound report access grant，固定 capability、绑定 exact handle 与 mode，并禁止 authority transport 接收 raw report credential；E90 将 metadata/grant resolver 作为受保护 Spring 组合的显式必需 provider，缺失即 fail fast，且 grant authority 必须重新由可信 resolver 签发后才可构造内部报告凭证；E91 补齐 exact handle 的 subject/authVersion/null caller 边界回归；E92 增加有界的 REQUESTED 释放意图恢复读取；E93 增加容量退避到期候选的有界发现；E94 补齐受保护 response envelope 的 Spring typed 组合；E95 增加 owner/session 绑定的 JDBC replan token resolver；E96 增加版本化 Plan runtime registry、显式 saver binding 与延迟 compile 工厂；E97 增加可信 response authority 的请求级身份组合；E98 增加 GoalAssessor 的正式交付状态矩阵回归；E99 增加 owner/session/run/step 绑定的只读重规划候选门禁；E100 增加历史 SUPERSEDED producer 释放候选的 owner-scoped JDBC 读取和严格身份链校验；E101 增加历史 producer release 的二次事实锁定 permit gate；E102 增加 PendingReplan 与 server baseline 绑定的 typed planner handoff；E103 增加历史恢复动作分类；E104 增加重规划候选准入与身份快照；E105 增加稳定的投放报告模块投影；E106 增加准入候选到既有执行请求的可信 typed 绑定；E107 增加 admitted candidate 到可信重规划 runtime 的窄执行边界；E108 将模块投影作为可选脱敏响应字段。上述组件尚未由 Graph/AgentRunHarness/HTTP 生产路径调用，客户端历史/导出入口、生产 principal provider、scheduler/recovery coordinator、trusted planner/执行接线和真实 MySQL payload 演进仍待验收。
 - `JdbcReportLifecycleStore` 已通过 E75 的 trusted profile 由报告发布与 run-result 组合器显式复用，但尚未由 Graph/AgentRunHarness 或 Admin/Agent HTTP/chat 路由自动调用；真实 MySQL 方言、跨服务 HTTP 和客户端历史/导出仍待验。
 - E53 只提供显式 durable publisher API，尚未注册到现有自然语言 chat 或 HTTP 路由；调用方仍需在可信运行装配中提供生命周期 store。
-- E103–E116 仍是 transport-neutral typed 组件：E103 分类历史恢复动作，E104 形成重规划 admission，E105 投影报告模块，E106 绑定执行请求，E107 只允许 admitted candidate 进入可信 runtime，E108 把模块投影带入通用响应，E109 将完整结果入口投影为 RESULT_LINK，E110 提供统计复合 child 边界，E111 增加因果报告证据门，E112 稳定统计查询计划与 continuation 身份，E113 将维度下钻双期间 child 接入复合边界，E114 抽出比较纯计算边界，E115 校验 compare continuation planId，E116 抽出排名纯计算边界；均不接生产 Graph、HTTP、Spring 或真实 MySQL，不宣称新入口已开放。
+- E103–E117 仍以 typed 组件为主：E103 分类历史恢复动作，E104 形成重规划 admission，E105 投影报告模块，E106 绑定执行请求，E107 只允许 admitted candidate 进入可信 runtime，E108 把模块投影带入通用响应，E109 将完整结果入口投影为 RESULT_LINK，E110 提供统计复合 child 边界，E111 增加因果报告证据门，E112 稳定统计查询计划与 continuation 身份，E113 将维度下钻双期间 child 接入复合边界，E114 抽出比较纯计算边界，E115 校验 compare continuation planId，E116 抽出排名纯计算边界，E117 统一 Step/CALL 复合执行入口；compare/rank 公共工具仍未接持久化 CALL、Graph、HTTP 或真实 MySQL，不宣称新入口已开放。
 - 本批次没有改变旧 Graph、模型循环、Docker 资源或前端行为。
