@@ -188,6 +188,15 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
     }
 
     @Override
+    public Optional<ActionSpec> inspectAction(RunToken token, String actionId) {
+        id(actionId, "actionId", 96);
+        return transaction(() -> {
+            lockRun(token, false);
+            return action(token, actionId);
+        });
+    }
+
+    @Override
     public void prepareAction(RunToken token, ActionSpec action) {
         validateAction(action);
         transaction(() -> {
@@ -779,6 +788,41 @@ public final class JdbcCampaignRunStore implements CampaignRunStore {
                 conflict("LOCAL_OUTPUTS_REQUIRE_READY");
             verifyLocalInputs(token.definition().caller(), child.spec().localInvocation(), authorizer);
             return verifiedLocalOutputs(token, child, authorizer);
+        });
+    }
+
+    @Override
+    public boolean isLocalOutputBound(RunToken token, String childId, ArtifactRef ref) {
+        id(childId, "childId", 96);
+        Objects.requireNonNull(ref, "Artifact reference is required");
+        id(ref.artifactId(), "artifactId", 96);
+        return transaction(() -> {
+            lockRun(token, false);
+            ChildRecord child = findChild(token.definition(), childId, true).orElse(null);
+            if (child == null || child.spec().mode() != ChildMode.LOCAL || child.state() != ChildState.READY
+                    || child.spec().localInvocation() == null || child.jobId() != null || child.artifactId() != null)
+                return false;
+            InvocationSpec invocation = child.spec().localInvocation();
+            if (!clock.instant().isBefore(invocation.expiresAt())) return false;
+            Map<String, String> bindings = localBindings(token, childId);
+            if (!bindings.keySet().equals(invocation.outputs().keySet())) return false;
+            for (var entry : invocation.outputs().entrySet()) {
+                if (!entry.getValue().artifactId().equals(bindings.get(entry.getKey()))) return false;
+            }
+            var expected = invocation.outputs().values().stream()
+                    .filter(output -> output.artifactId().equals(ref.artifactId())).findFirst().orElse(null);
+            if (expected == null || !expected.type().equals(ref.type())
+                    || !expected.schemaVersion().equals(ref.schemaVersion())
+                    || !expected.scopeRef().equals(ref.scopeRef()) || !expected.periodsRef().equals(ref.periodsRef())
+                    || !invocation.expiresAt().equals(ref.expiresAt())) return false;
+            ArtifactMetadata metadata = findArtifact(ref.artifactId()).orElse(null);
+            ActionSpec action = action(token, child.spec().actionId()).orElse(null);
+            var definition = token.definition();
+            return metadata != null && action != null && ref.equals(metadata.ref())
+                    && definition.caller().equals(metadata.owner()) && definition.runId().equals(metadata.runId())
+                    && definition.planId().equals(metadata.planId()) && definition.revision() == metadata.revision()
+                    && child.spec().actionId().equals(metadata.actionId()) && childId.equals(metadata.childId())
+                    && action.executorVersion().equals(metadata.executorVersion());
         });
     }
 
