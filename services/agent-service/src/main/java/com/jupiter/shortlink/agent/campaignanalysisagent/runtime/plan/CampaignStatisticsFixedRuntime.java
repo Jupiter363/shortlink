@@ -9,6 +9,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningAssess
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.ArtifactContractRegistry;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessCapacityExecutor;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignAdvanceOutcomeStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignConversationSessionOwner;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRecoveryStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunIntakeStore;
@@ -50,6 +51,7 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
     private final JdbcCampaignRunStore runs;
     private final JdbcCampaignStepStore steps;
     private final JdbcCampaignStatisticsResultStore results;
+    private final JdbcCampaignAdvanceOutcomeStore outcomes;
     private final CampaignCurrentPrincipalResolver principals;
     private final CampaignStatisticsArtifactAuthorizer artifactAuthorizer;
     private final CampaignStatisticsPlanFactory plans;
@@ -73,6 +75,7 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
         this.runs = new JdbcCampaignRunStore(jdbc, transactions, clock);
         this.steps = new JdbcCampaignStepStore(jdbc, transactions, clock);
         this.results = new JdbcCampaignStatisticsResultStore(jdbc, transactions, clock);
+        this.outcomes = new JdbcCampaignAdvanceOutcomeStore(jdbc, transactions, clock);
         JdbcCampaignRunIntakeStore requests = new JdbcCampaignRunIntakeStore(jdbc, transactions, clock,
                 runs, CampaignRunStore.Limits.defaults().definitionBytes());
         JdbcCampaignRecoveryStore recovery = new JdbcCampaignRecoveryStore(jdbc, transactions, clock,
@@ -123,7 +126,7 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
             this.intake = new CampaignRunIntake(requests, runs, recovery,
                     new StatisticsSubmissionReconciler(runs, gateway),
                     new StatisticsJobResultReceiver(runs, results, gateway, clock), null,
-                    List.of(profile), principals, limits, executor);
+                    List.of(profile), principals, limits, executor, null, List.of(), outcomes);
         } catch (RuntimeException | Error failure) {
             executor.shutdown();
             throw failure;
@@ -135,6 +138,7 @@ public final class CampaignStatisticsFixedRuntime implements AutoCloseable {
     public JdbcCampaignRunStore runs() { return runs; }
     public JdbcCampaignStepStore steps() { return steps; }
     public JdbcCampaignStatisticsResultStore results() { return results; }
+    public JdbcCampaignAdvanceOutcomeStore outcomes() { return outcomes; }
     public CampaignCurrentPrincipalResolver principals() { return principals; }
     public CampaignStatisticsArtifactAuthorizer artifactAuthorizer() { return artifactAuthorizer; }
     public CampaignStatisticsDurableProjector projector() { return projector; }

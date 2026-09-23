@@ -50,7 +50,8 @@ public class DefaultAgentRunHarness implements AgentRunHarness {
                         request.username(),
                         request.message(),
                         traceId,
-                        request.principal()));
+                        request.principal(),
+                        request.requestKey()));
     }
 
     private String normalizedAgentType(String agentType) {

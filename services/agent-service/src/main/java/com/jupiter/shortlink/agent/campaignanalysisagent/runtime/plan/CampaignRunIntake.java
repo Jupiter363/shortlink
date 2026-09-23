@@ -15,6 +15,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunIntakeStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignAdvanceOutcomeStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunIntakeStore.Header;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignPlanningStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
@@ -95,6 +96,7 @@ public final class CampaignRunIntake implements AutoCloseable {
     private final AdmittedCampaignAdvance admitted;
     private final JdbcCampaignPlanningStore planning;
     private final Map<ProfileKey, PlanningProfile> planners;
+    private final JdbcCampaignAdvanceOutcomeStore outcomes;
 
     public CampaignRunIntake(JdbcCampaignRunIntakeStore requests, CampaignRunStore runs,
             CampaignRecoveryStore recovery, StatisticsSubmissionReconciler submissions,
@@ -110,6 +112,16 @@ public final class CampaignRunIntake implements AutoCloseable {
             List<Profile> profiles, CurrentPrincipalResolver principals,
             ProcessCapacityExecutor.Limits limits, Executor executor, JdbcCampaignPlanningStore planning,
             List<PlanningProfile> planners) {
+        this(requests, runs, recovery, submissions, receiver, releaser, profiles, principals,
+                limits, executor, planning, planners, null);
+    }
+
+    public CampaignRunIntake(JdbcCampaignRunIntakeStore requests, CampaignRunStore runs,
+            CampaignRecoveryStore recovery, StatisticsSubmissionReconciler submissions,
+            StatisticsJobResultReceiver receiver, StatisticsJobResultReleaser releaser,
+            List<Profile> profiles, CurrentPrincipalResolver principals,
+            ProcessCapacityExecutor.Limits limits, Executor executor, JdbcCampaignPlanningStore planning,
+            List<PlanningProfile> planners, JdbcCampaignAdvanceOutcomeStore outcomes) {
         this.requests = Objects.requireNonNull(requests);
         this.runs = Objects.requireNonNull(runs);
         if (!requests.usesRunStore(runs)) throw new IllegalArgumentException("CAMPAIGN_INTAKE_STORE_CHANGED");
@@ -121,6 +133,7 @@ public final class CampaignRunIntake implements AutoCloseable {
                 profile -> new ProfileKey(profile.ref(), profile.version()), profile -> profile));
         this.principals = Objects.requireNonNull(principals);
         this.planning = planning;
+        this.outcomes = outcomes;
         if (planning != null && !planning.usesIntakeStore(requests))
             throw new IllegalArgumentException("CAMPAIGN_PLANNING_STORE_CHANGED");
         this.planners = planners.stream().collect(Collectors.toUnmodifiableMap(
@@ -185,7 +198,38 @@ public final class CampaignRunIntake implements AutoCloseable {
 
     private AdmittedCampaignAdvance.Operation loadAdmitted(WorkRef reference, ProcessExecutionScope scope) {
         if (planningReference(reference)) return loadPlanning(reference, scope);
-        return loadTyped(reference, scope);
+        if (outcomes == null) return loadTyped(reference, scope);
+        // Observation starts before principal/plan validation, which can fail before a Run exists.
+        // A RUNNING observation conveys no process liveness or execution authority.
+        var attempt = outcomes.begin(requests.header(reference));
+        AdmittedCampaignAdvance.Operation operation;
+        try {
+            operation = loadTyped(reference, scope);
+        } catch (RuntimeException | Error failure) {
+            recordFailure(attempt, failure);
+            throw failure;
+        }
+        return () -> {
+            try {
+                operation.run();
+                outcomes.succeeded(attempt);
+            } catch (Exception | Error failure) {
+                recordFailure(attempt, failure);
+                throw failure;
+            }
+        };
+    }
+
+    private void recordFailure(JdbcCampaignAdvanceOutcomeStore.Attempt attempt, Throwable failure) {
+        String reason = failure instanceof SecurityException ? "ACCESS_DENIED"
+                : failure instanceof IllegalArgumentException ? "INVALID_PLAN"
+                : failure.getMessage() != null && failure.getMessage().startsWith("CAMPAIGN_ADVANCE_STOPPED:")
+                    ? "ADVANCE_BLOCKED" : "RUNTIME_UNAVAILABLE";
+        try {
+            outcomes.failed(attempt, reason);
+        } catch (RuntimeException | Error persistenceFailure) {
+            if (failure != persistenceFailure) failure.addSuppressed(persistenceFailure);
+        }
     }
 
     private AdmittedCampaignAdvance.Operation loadTyped(WorkRef reference, ProcessExecutionScope scope) {
