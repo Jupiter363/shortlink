@@ -4,6 +4,14 @@ import { buildReviewBody, buildDisableBody } from '../domain/riskModel.js'
 
 const base = '/api/short-link/admin/v1'
 const segment = (value) => encodeURIComponent(String(value))
+const reportPath = (input) =>
+  `${base}/agent/campaign/reports/${segment(input.reportId)}/revisions/${segment(input.revision)}`
+const reportQuery = (input) => ({
+  sessionId: input.sessionId,
+  runId: input.runId,
+  planId: input.planId,
+  planRevision: input.planRevision
+})
 
 export const agentApi = {
   health: (signal) => request(`${base}/agent/health`, { signal, timeoutMs: 15000 }),
@@ -13,6 +21,25 @@ export const agentApi = {
       body: buildChatBody(input),
       signal,
       timeoutMs: 60000
+    }),
+  progress: (input, signal) =>
+    request(`${base}/agent/campaign/runs/${segment(input.runId)}/progress`, {
+      query: { sessionId: input.sessionId, requestId: input.requestId },
+      signal,
+      timeoutMs: 20000
+    }),
+  report: (input, signal) => request(reportPath(input), { query: reportQuery(input), signal }),
+  reportRows: (input, signal) =>
+    request(`${reportPath(input)}/blocks/${segment(input.blockId)}/rows`, {
+      query: { ...reportQuery(input), cursor: input.cursor, size: input.size || 25 },
+      signal
+    }),
+  reportExport: (input, signal) =>
+    request(`${reportPath(input)}/export`, { query: reportQuery(input), signal, timeoutMs: 30000 }),
+  reportHistory: (input, signal) =>
+    request(`${base}/agent/campaign/sessions/${segment(input.sessionId)}/reports`, {
+      query: { cursor: input.cursor, size: input.size || 20 },
+      signal
     })
 }
 

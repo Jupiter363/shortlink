@@ -1,4 +1,5 @@
 import { toAccessRecordRow } from '../../utils/agentAccessRecords.js'
+import { normalizeCampaignReport } from './campaignReport.js'
 
 export const AGENT_TYPES = ['campaign-analysis', 'security-risk']
 export const array = (value) => (Array.isArray(value) ? value : [])
@@ -194,15 +195,40 @@ export function buildChatBody(input) {
   if (!AGENT_TYPES.includes(input.agentType)) throw new Error('请选择有效的 Agent。')
   const sessionId = String(input.sessionId || '').trim()
   const message = String(input.message || '').trim()
+  const cancelling = input.agentType === 'campaign-analysis' && input.operation === 'CANCEL'
   if (!sessionId) throw new Error('会话尚未准备好，请新建会话。')
-  if (!message) throw new Error('请输入问题。')
-  if (message.length > 2000) throw new Error('问题与分析范围合计不能超过 2000 字。')
+  if (!cancelling && !message) throw new Error('请输入问题。')
+  if (!cancelling && message.length > 2000) throw new Error('问题与分析范围合计不能超过 2000 字。')
+  if (cancelling && !input.continuation) throw new Error('停止操作需要本次分析的续接标识。')
   const requestKey = input.requestKey == null ? '' : String(input.requestKey)
   if (requestKey && !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$/.test(requestKey))
     throw new Error('请求标识无效，请重新提交。')
-  return requestKey
-    ? { sessionId, agentType: input.agentType, message, requestKey }
-    : { sessionId, agentType: input.agentType, message }
+  const body = {
+    sessionId,
+    agentType: input.agentType,
+    ...(cancelling ? {} : { message }),
+    ...(requestKey ? { requestKey } : {})
+  }
+  if (input.agentType === 'campaign-analysis') {
+    if (input.clientCapabilities) body.clientCapabilities = ['campaign-response/v2']
+    if (input.operation) {
+      if (!['NEW', 'CONTINUE', 'PROGRESS', 'CANCEL'].includes(input.operation))
+        throw new Error('分析操作无效。')
+      body.operation = input.operation
+    }
+    if (input.continuation) {
+      const { runId, requestId } = input.continuation
+      if (
+        ![runId, requestId].every(
+          (value) => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)
+        )
+      )
+        throw new Error('续接标识不完整，请重新读取本次分析。')
+      body.continuation = { runId, requestId }
+    }
+    if (!cancelling && input.previousRunId) body.previousRunId = String(input.previousRunId)
+  }
+  return body
 }
 
 export function compileMessage(prompt, group) {
@@ -231,6 +257,25 @@ export function normalizeAgentResult(raw) {
     throw new Error('Agent 返回了无法识别的结果；未将本次响应标记为成功。')
   }
   const result = sanitize(raw)
+  if (raw.report?.view) {
+    try {
+      result.report.view = normalizeCampaignReport(result.report.view)
+      const view = result.report.view
+      if (
+        (result.report.reportRef &&
+          (result.report.reportRef.reportId !== view.reportRef.reportId ||
+            result.report.reportRef.revision !== view.reportRef.revision)) ||
+        (result.progress &&
+          (result.progress.runId !== view.runId ||
+            result.progress.planId !== view.planId ||
+            result.progress.planRevision !== view.planRevision))
+      )
+        throw new Error('报告与当前分析版本不一致，请重新读取。')
+    } catch (error) {
+      result.report.view = null
+      result.reportError = error.message
+    }
+  }
   result.cards = array(raw.cards).map((card, index) => {
     const clean = sanitize(card)
     const normalized = analyticTypes.has(card?.type) ? analyticCard(clean) : object(clean)

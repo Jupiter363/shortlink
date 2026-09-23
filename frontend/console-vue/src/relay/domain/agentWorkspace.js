@@ -1,4 +1,5 @@
 import { array, object, pretty, safeText, sanitize } from './agentModel.js'
+import { campaignResultState, campaignStatus, displayValue } from './campaignReport.js'
 
 function freezeTree(value) {
   if (value && typeof value === 'object') {
@@ -19,7 +20,12 @@ export function agentHistoryEntries(session) {
   if (hasResult(source.result)) {
     entries.push({
       key: 'current',
-      label: source.runState === 'SUCCESS' ? '当前完整结果' : '上一次完整结果',
+      label:
+        source.result.report || source.result.progress
+          ? `当前报告 · ${campaignStatus(campaignResultState(source.result)).label}`
+          : source.runState === 'SUCCESS'
+            ? '当前完整结果'
+            : '上一次完整结果',
       result: sanitize(source.result),
       message: preferredMessage(source.lastPrompt, source.lastMessage),
       scopeLabel: text(source.lastScopeLabel),
@@ -32,7 +38,10 @@ export function agentHistoryEntries(session) {
     if (!hasResult(entry.result)) continue
     entries.push({
       key: `history-${index}`,
-      label: `历史完整结果 ${index + 1}`,
+      label:
+        entry.result.report || entry.result.progress
+          ? `历史报告 ${index + 1} · ${campaignStatus(campaignResultState(entry.result)).label}`
+          : `历史完整结果 ${index + 1}`,
       result: sanitize(entry.result),
       message: preferredMessage(entry.prompt, entry.message),
       scopeLabel: text(entry.scopeLabel),
@@ -72,6 +81,7 @@ function hasContent(value) {
 export function buildAgentReport(title, entry) {
   const source = object(entry)
   const result = object(source.result)
+  if (result.report?.view) return buildCampaignReport(title, source)
   const lines = [
     `# ${text(title).replace(/[\r\n]+/g, ' ') || 'Agent 分析报告'}`,
     '',
@@ -102,6 +112,74 @@ export function buildAgentReport(title, entry) {
   for (const [field, label] of sections) {
     const value = result[field]
     lines.push('', `## ${label}`, '', hasContent(value) ? fencedJson(value) : `未提供${label}。`)
+  }
+  return lines.join('\n') + '\n'
+}
+
+/** Complete narrative with matching visible numbers; paged previews are explicitly labelled. */
+function buildCampaignReport(title, entry) {
+  const view = entry.result.report.view
+  const lines = [
+    `# ${text(title)}`,
+    '',
+    `报告版本：${view.reportRef.revision}`,
+    '',
+    `状态：${campaignStatus(campaignResultState(entry.result)).label}`,
+    '',
+    `分析问题：${text(entry.message)}`,
+    '',
+    `分析范围：${text(entry.scopeLabel) || '以报告证据为准'}`
+  ]
+  const cell = (value) => displayValue(value).replaceAll('|', '\\|').replaceAll('\n', '<br>')
+  function table(columns, rows) {
+    if (!columns.length) return
+    lines.push(
+      '',
+      `| ${columns.map((column) => cell(column.label)).join(' | ')} |`,
+      `| ${columns.map(() => '---').join(' | ')} |`,
+      ...rows.map((row) => `| ${columns.map((column) => cell(row[column.key])).join(' | ')} |`)
+    )
+  }
+  for (const module of view.modules) {
+    lines.push('', `## ${module.title}`, '', `目标状态：${campaignStatus(module.status).label}`)
+    for (const block of module.blocks) {
+      lines.push('', `### ${block.title}`)
+      const payload = block.payload || {}
+      if (block.kind === 'METRIC')
+        for (const item of array(payload.items))
+          lines.push(
+            '',
+            `- ${item.label}：${displayValue(item.value)}${item.unit || ''}${item.note ? `（${item.note}）` : ''}`
+          )
+      if (block.kind === 'TABLE') {
+        table(array(payload.columns), array(payload.rows))
+        if (payload.nextCursor || !block.completeResult)
+          lines.push('', '当前为数据预览，完整明细以本版报告的数据入口为准。')
+      }
+      if (block.kind === 'CHART') {
+        const series = array(payload.series)
+        table(
+          [
+            { key: 'label', label: '项目' },
+            ...series.map((item, index) => ({ key: String(index), label: item.name }))
+          ],
+          array(payload.labels).map((label, index) => ({
+            label,
+            ...Object.fromEntries(
+              series.map((item, seriesIndex) => [String(seriesIndex), array(item.values)[index]])
+            )
+          }))
+        )
+      }
+      if (block.kind === 'RESULT_LINK')
+        lines.push(
+          '',
+          `${payload.label || '完整数据'}：${displayValue(payload.rowCount)} 条，在线按本版报告读取。`
+        )
+      if (block.text) lines.push('', block.text)
+    }
+    if (module.limitations?.length)
+      lines.push('', '分析边界：', ...module.limitations.map((item) => `- ${item}`))
   }
   return lines.join('\n') + '\n'
 }
