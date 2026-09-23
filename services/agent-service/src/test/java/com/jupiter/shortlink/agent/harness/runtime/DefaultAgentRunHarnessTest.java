@@ -125,7 +125,8 @@ class DefaultAgentRunHarnessTest {
         new ResourceDatabasePopulator(
                 new ClassPathResource("sql/migration/V20260923__campaign_conversation_session_owner.sql"),
                 new ClassPathResource("sql/migration/V20260923_3__campaign_conversation_turn.sql"),
-                new ClassPathResource("sql/migration/V20260924_3__campaign_public_request.sql")).execute(source);
+                new ClassPathResource("sql/migration/V20260924_3__campaign_public_request.sql"),
+                new ClassPathResource("sql/migration/V20260924_6__campaign_public_request_cancellation.sql")).execute(source);
         var jdbc = new JdbcTemplate(source);
         var transactions = new TransactionTemplate(new DataSourceTransactionManager(source));
         var clock = Clock.fixed(Instant.parse("2026-09-24T00:00:00Z"), ZoneOffset.UTC);
@@ -228,7 +229,8 @@ class DefaultAgentRunHarnessTest {
         assertThat(campaign.calls).isEqualTo(1);
         verifyNoInteractions(authority);
 
-        new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260924_3__campaign_public_request.sql")).execute(source);
+        new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260924_3__campaign_public_request.sql"),
+                new ClassPathResource("sql/migration/V20260924_6__campaign_public_request_cancellation.sql")).execute(source);
         var store = new CampaignPublicRequestStore(jdbc, new TransactionTemplate(new DataSourceTransactionManager(source)), clock);
         store.register(new Caller(principal.tenantId(), principal.username(), principal.authVersion()), "session-1",
                 "same-key", request.message(), clock.instant().plusSeconds(3600));

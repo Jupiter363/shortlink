@@ -179,6 +179,7 @@ export function campaignResultState(result) {
   if (action === 'NEEDS_INPUT') return 'NEEDS_INPUT'
   const execution = result?.progress?.executionStatus || report?.executionStatus
   if (['FAILED', 'CANCELLED', 'SUPERSEDED'].includes(execution)) return execution
+  if (report?.availability === 'PARTIAL' && !result.reportError) return 'PARTIAL'
   if (['RUNNING', 'WAITING', 'EMPTY'].includes(execution)) return 'WAITING'
   if (execution === 'UNKNOWN') return 'UNKNOWN'
   if (report) {
@@ -230,38 +231,68 @@ export function campaignStatus(value) {
 
 export function canCancelCampaignResult(result) {
   const progress = result?.progress
+  const planningStopped = [
+    'PLANNING_UNRESOLVED',
+    'REQUIREMENTS_INVALID',
+    'REQUIREMENTS_UNSUPPORTED'
+  ].includes(progress?.nextAction?.reasonCode)
   return Boolean(
+    !planningStopped &&
     result?.continuation?.requestId &&
     result.continuation.runId === progress?.runId &&
-    reference(progress?.planId) &&
-    revision(progress?.planRevision) &&
+    ((progress?.planId == null && progress?.planRevision === 0) ||
+      (reference(progress?.planId) && revision(progress?.planRevision))) &&
     ['RUNNING', 'WAITING', 'UNKNOWN', 'BLOCKED', 'FAILED'].includes(progress.executionStatus)
   )
 }
 
-/** Pair only adjacent data/text blocks; never move an explanation away from its report order. */
+/** Pair adjacent runs of data and text, retaining every block and its original reading order. */
 export function reportRows(blocks) {
   const visual = new Set(['METRIC', 'CHART', 'TABLE', 'RESULT_LINK'])
-  const narrative = new Set(['ANALYSIS', 'LIMITATION', 'RECOMMENDATION'])
+  const runs = []
+  for (const block of blocks) {
+    const isVisual = visual.has(block.kind)
+    const previous = runs.at(-1)
+    if (previous?.visual === isVisual) previous.blocks.push(block)
+    else runs.push({ visual: isVisual, blocks: [block] })
+  }
   const rows = []
-  for (let index = 0; index < blocks.length; index += 1) {
-    const block = blocks[index],
-      next = blocks[index + 1]
-    if (
-      next &&
-      ((visual.has(block.kind) && narrative.has(next.kind)) ||
-        (narrative.has(block.kind) && visual.has(next.kind)))
-    ) {
-      rows.push({
-        key: block.blockId,
-        blocks: [block, next],
-        paired: true,
-        textFirst: narrative.has(block.kind)
-      })
-      index += 1
-    } else rows.push({ key: block.blockId, blocks: [block], paired: false })
+  for (let index = 0; index < runs.length; index += 2) {
+    const columns = runs.slice(index, index + 2)
+    rows.push({
+      key: columns[0].blocks[0].blockId,
+      blocks: columns.flatMap((column) => column.blocks),
+      columns,
+      paired: columns.length === 2,
+      textFirst: !columns[0].visual
+    })
   }
   return rows
+}
+
+/** Presentation only: share exact IDs within this revision; never merge by values or evidence IDs. */
+export function projectReportModules(view) {
+  const firstOccurrences = new Map()
+  return list(view?.modules).map((module, index) => {
+    const groups = []
+    for (const block of module.blocks) {
+      const sharedFrom = firstOccurrences.get(block.blockId) || null
+      if (!sharedFrom)
+        firstOccurrences.set(block.blockId, { goalId: module.goalId, number: index + 1 })
+      const previous = groups.at(-1)
+      if (previous && previous.sharedFrom?.goalId === sharedFrom?.goalId)
+        previous.blocks.push(block)
+      else groups.push({ key: block.blockId, sharedFrom, blocks: [block] })
+    }
+    return {
+      ...module,
+      displayGroups: groups.map((group) => ({
+        ...group,
+        key: JSON.stringify([module.goalId, group.key]),
+        rows: reportRows(group.blocks)
+      }))
+    }
+  })
 }
 
 export function displayValue(value) {

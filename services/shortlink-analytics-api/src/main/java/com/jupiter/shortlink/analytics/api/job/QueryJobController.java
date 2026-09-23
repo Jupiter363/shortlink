@@ -5,6 +5,7 @@ import com.jupiter.shortlink.analytics.api.*;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.http.*;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.*;
@@ -217,6 +218,12 @@ public class QueryJobController {
         return ResponseEntity.status(
                         error.code.equals("FORBIDDEN") ? HttpStatus.FORBIDDEN : HttpStatus.OK)
                 .body(body);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> invalidBody(HttpMessageNotReadableException error) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("code", "INVALID_QUERY", "message", "Query request body is invalid"));
     }
 
     @ExceptionHandler(Exception.class)

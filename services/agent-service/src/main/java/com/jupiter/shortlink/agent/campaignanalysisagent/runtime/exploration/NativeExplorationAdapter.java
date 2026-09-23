@@ -58,12 +58,17 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.model.tool.DefaultToolCallingChatOptions;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.chat.prompt.DefaultChatOptions;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.metadata.ToolMetadata;
+import reactor.core.publisher.Flux;
 
 /**
  * Opt-in native ReactAgent adapter. Deliberately has no Spring annotation or production entry point.
@@ -191,6 +196,7 @@ public final class NativeExplorationAdapter {
     private final DurableExplorationSession durableSession;
     private final ProcessExecutionScope processExecutionScope;
     private final List<ToolCallback> registeredCallbacks;
+    private final ModelInvocationRegistry.GenerationOptions approvedGenerationOptions;
     private final AtomicBoolean modelBoundaryFailed = new AtomicBoolean();
     private final AtomicReference<String> durableBoundaryFailure = new AtomicReference<>();
     private final ThreadLocal<String> acceptedToolCall = new ThreadLocal<>();
@@ -235,7 +241,8 @@ public final class NativeExplorationAdapter {
         }
         registeredNames = Set.copyOf(names);
         registeredCallbacks = List.copyOf(guarded);
-        agent = ReactAgent.builder().name("campaign_exploration_p0").model(Objects.requireNonNull(model))
+        approvedGenerationOptions = generationOptions(Objects.requireNonNull(model).getDefaultOptions());
+        agent = ReactAgent.builder().name("campaign_exploration_p0").model(new FrozenOptionsChatModel(model, approvedGenerationOptions))
                 .tools(guarded).parallelToolExecution(false).wrapSyncToolsAsAsync(false)
                 .hooks(new AdmissionHook(), new ProtocolHook()).interceptors(new ResponseBoundary(), new DispatchInterceptor())
                 .saver(Objects.requireNonNull(saver)).releaseThread(false)
@@ -593,7 +600,7 @@ public final class NativeExplorationAdapter {
 
         private ModelResponse persistentModel(ModelRequest request, ModelCallHandler handler) {
             try {
-                var projected = projectRequest(request, registeredCallbacks);
+                var projected = projectRequest(request, registeredCallbacks, approvedGenerationOptions);
                 var response = Objects.requireNonNull(modelCallBoundary.call(projected, () -> {
                     requireProcessOpen();
                     if (!ledger.mayCallModel()) throw new IllegalStateException("MODEL_EXECUTION_REVOKED");
@@ -640,12 +647,17 @@ public final class NativeExplorationAdapter {
     }
 
     /**
-     * Closed projection of the request that native 1.1.2.3 sends to ChatClient. Runtime generation
-     * options, named resolvers, dynamic callbacks, media and unknown message properties are not
-     * supported by this first durable boundary. ModelRequest.context is native control state and
+     * Closed projection of the request that native 1.1.2.3 sends to ChatClient. Only an exact
+     * server-approved generation snapshot is accepted. Named resolvers, dynamic callbacks, media
+     * and unknown message properties are not supported. ModelRequest.context is native control state and
      * is not forwarded by AgentLlmNode's ChatClient request builder; it is never serialized here.
      */
     public static ModelInvocationRegistry.Request projectRequest(ModelRequest request, List<ToolCallback> registeredTools) {
+        return projectRequest(request, registeredTools, null);
+    }
+
+    public static ModelInvocationRegistry.Request projectRequest(ModelRequest request, List<ToolCallback> registeredTools,
+            ModelInvocationRegistry.GenerationOptions approved) {
         Objects.requireNonNull(request, "MODEL_REQUEST_REQUIRED");
         Objects.requireNonNull(registeredTools, "MODEL_TOOLS_REQUIRED");
         if (request.getDynamicToolCallbacks() != null && !request.getDynamicToolCallbacks().isEmpty())
@@ -658,10 +670,7 @@ public final class NativeExplorationAdapter {
         ToolCallingChatOptions options = request.getOptions();
         List<ToolCallback> callbacks = List.of();
         if (options != null) {
-            if (options.getClass() != DefaultToolCallingChatOptions.class || options.getModel() != null
-                    || options.getFrequencyPenalty() != null || options.getMaxTokens() != null
-                    || options.getPresencePenalty() != null || options.getStopSequences() != null
-                    || options.getTemperature() != null || options.getTopK() != null || options.getTopP() != null
+            if (options.getClass() != DefaultToolCallingChatOptions.class
                     || !Boolean.FALSE.equals(options.getInternalToolExecutionEnabled())
                     || !options.getToolNames().isEmpty() || !options.getToolContext().isEmpty())
                 throw new IllegalArgumentException("MODEL_RUNTIME_OPTIONS_UNSUPPORTED");
@@ -673,6 +682,8 @@ public final class NativeExplorationAdapter {
                     throw new IllegalArgumentException("MODEL_TOOL_CALLBACK_UNAPPROVED");
             }
         }
+        if (!Objects.equals(approved, readGenerationOptions(options)))
+            throw new IllegalArgumentException("MODEL_GENERATION_OPTIONS_CHANGED");
         List<String> selected = request.getTools();
         if (selected != null && (!registered.keySet().containsAll(selected)
                 || new HashSet<>(selected).size() != selected.size()))
@@ -695,7 +706,67 @@ public final class NativeExplorationAdapter {
         if (request.getSystemMessage() != null) projectMessage(request.getSystemMessage(), messages);
         if (request.getMessages() == null) throw new IllegalArgumentException("MODEL_MESSAGES_REQUIRED");
         for (Message message : request.getMessages()) projectMessage(message, messages);
-        return new ModelInvocationRegistry.Request(ModelInvocationRegistry.REQUEST_SCHEMA, messages, tools);
+        return new ModelInvocationRegistry.Request(ModelInvocationRegistry.REQUEST_SCHEMA, messages, tools, approved);
+    }
+
+    /** Snapshot only the registered model's closed defaults; default tools cannot bypass the catalog. */
+    public static ModelInvocationRegistry.GenerationOptions generationOptions(ChatOptions options) {
+        if (options instanceof ToolCallingChatOptions tools && (!tools.getToolCallbacks().isEmpty()
+                || !tools.getToolNames().isEmpty() || !tools.getToolContext().isEmpty()))
+            throw new IllegalArgumentException("MODEL_RUNTIME_OPTIONS_UNSUPPORTED");
+        return readGenerationOptions(options);
+    }
+
+    private static ModelInvocationRegistry.GenerationOptions readGenerationOptions(ChatOptions options) {
+        if (options == null) return null;
+        if (options.getClass() != DefaultToolCallingChatOptions.class && options.getClass() != DefaultChatOptions.class)
+            throw new IllegalArgumentException("MODEL_RUNTIME_OPTIONS_UNSUPPORTED");
+        if (options.getModel() == null && options.getMaxTokens() == null && options.getTemperature() == null
+                && options.getTopP() == null && options.getTopK() == null && options.getFrequencyPenalty() == null
+                && options.getPresencePenalty() == null && options.getStopSequences() == null) return null;
+        return new ModelInvocationRegistry.GenerationOptions(options.getModel(), options.getMaxTokens(), options.getTemperature(),
+                options.getTopP(), options.getTopK(), options.getFrequencyPenalty(), options.getPresencePenalty(), options.getStopSequences());
+    }
+
+    /** Rebuild closed defaults as the facade's single configuration source for SAA. */
+    public static ToolCallingChatOptions chatOptions(ModelInvocationRegistry.GenerationOptions snapshot) {
+        var options = new DefaultToolCallingChatOptions();
+        options.setInternalToolExecutionEnabled(false);
+        if (snapshot != null) {
+            options.setModel(snapshot.model()); options.setMaxTokens(snapshot.maxTokens());
+            options.setTemperature(snapshot.temperature()); options.setTopP(snapshot.topP()); options.setTopK(snapshot.topK());
+            options.setFrequencyPenalty(snapshot.frequencyPenalty()); options.setPresencePenalty(snapshot.presencePenalty());
+            options.setStopSequences(snapshot.stopSequences());
+        }
+        return options;
+    }
+
+    /**
+     * SAA reflects public getDefaultOptions. A single frozen source also avoids its merge of
+     * DefaultToolCallingChatOptions, which has no @JsonProperty fields required by AI 1.1.2.
+     * This facade never invokes tools or changes the durable model-call boundary.
+     */
+    public static final class FrozenOptionsChatModel implements ChatModel {
+        private final ChatModel delegate;
+        private final ModelInvocationRegistry.GenerationOptions snapshot;
+        public FrozenOptionsChatModel(ChatModel delegate, ModelInvocationRegistry.GenerationOptions snapshot) {
+            this.delegate = Objects.requireNonNull(delegate);
+            this.snapshot = snapshot;
+            if (!Objects.equals(snapshot, generationOptions(delegate.getDefaultOptions())))
+                throw new IllegalArgumentException("MODEL_GENERATION_OPTIONS_CHANGED");
+        }
+        @Override public ChatOptions getDefaultOptions() { return chatOptions(snapshot); }
+        @Override public ChatResponse call(Prompt prompt) {
+            requireFrozenOptions(prompt);
+            return delegate.call(prompt);
+        }
+        @Override public Flux<ChatResponse> stream(Prompt prompt) {
+            return Flux.defer(() -> { requireFrozenOptions(prompt); return delegate.stream(prompt); });
+        }
+        private void requireFrozenOptions(Prompt prompt) {
+            if (prompt == null || !Objects.equals(snapshot, readGenerationOptions(prompt.getOptions())))
+                throw new IllegalArgumentException("MODEL_GENERATION_OPTIONS_CHANGED");
+        }
     }
 
     private static void projectMessage(Message message, List<ModelInvocationRegistry.Message> messages) {

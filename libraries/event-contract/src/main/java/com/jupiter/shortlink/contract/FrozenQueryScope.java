@@ -1,12 +1,17 @@
 package com.jupiter.shortlink.contract;
 
-import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
 
 /** Closed cross-service proof of one deterministic shard, never a claim that the parent was read. */
+@JsonDeserialize(using = FrozenQueryScope.Deserializer.class)
 public record FrozenQueryScope(String schemaVersion, String scopeKind, String parentScopeRef,
         String parentMemberHash, long parentMemberCount, String enumerationVersion,
         String shardId, int shardIndex, int shardCount, String shardMemberHash, List<Long> linkIds) {
@@ -27,8 +32,6 @@ public record FrozenQueryScope(String schemaVersion, String scopeKind, String pa
         require(shardIdFor(parentScopeRef, shardIndex, shardMemberHash).equals(shardId));
         if (shardCount == 1) require(parentMemberHash.equals(shardMemberHash));
     }
-
-    @JsonAnySetter public void rejectUnknown(String name, Object value) { throw invalid(); }
 
     /** Ascending unique IDs; an empty selection is valid for authorization but never creates a job shard. */
     public static List<Long> validatedMembers(List<Long> values) {
@@ -78,7 +81,6 @@ public record FrozenQueryScope(String schemaVersion, String scopeKind, String pa
         return Collections.unmodifiableMap(result);
     }
 
-    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public static FrozenQueryScope fromMap(Map<?, ?> values) {
         require(values != null && FIELDS.equals(values.keySet()));
         Object rawIds = values.get("linkIds");
@@ -88,6 +90,17 @@ public record FrozenQueryScope(String schemaVersion, String scopeKind, String pa
                 string(values.get("parentScopeRef")), string(values.get("parentMemberHash")), integer(values.get("parentMemberCount")),
                 string(values.get("enumerationVersion")), string(values.get("shardId")),
                 exactInt(values.get("shardIndex")), exactInt(values.get("shardCount")), string(values.get("shardMemberHash")), ids);
+    }
+
+    /** Bypass record creator discovery with ParameterNamesModule; retain the exact raw-value contract. */
+    public static final class Deserializer extends JsonDeserializer<FrozenQueryScope> {
+        @Override public FrozenQueryScope deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            Map<String, Object> values = parser.readValueAs(new TypeReference<Map<String, Object>>() {});
+            try { return fromMap(values); }
+            catch (IllegalArgumentException invalid) {
+                return context.reportInputMismatch(FrozenQueryScope.class, "FROZEN_SCOPE_INVALID");
+            }
+        }
     }
 
     public static FrozenQueryScope fromProof(Map<?, ?> proof) {

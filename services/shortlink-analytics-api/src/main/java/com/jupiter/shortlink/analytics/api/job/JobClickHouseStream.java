@@ -18,6 +18,10 @@ import java.util.function.Consumer;
 /** Bounded POST streaming avoids query strings and unbounded response/line materialization. */
 @Component
 public class JobClickHouseStream implements AutoCloseable {
+    static final int PROOF_BATCH_SIZE = 64;
+    private static final String RAW_PROOF_FIELDS = "receipt_id,payload_hash,validation_result";
+    private static final String GEO_PROOF_FIELDS = RAW_PROOF_FIELDS
+            + ",country,province,city,network,geo_status,geo_version";
     private final ApiSettings settings;
     private final ObjectMapper json;
     private final HttpClient http =
@@ -146,11 +150,18 @@ public class JobClickHouseStream implements AutoCloseable {
     }
 
     public String verify(ManifestPlan plan, long deadline) {
+        if (plan.windows().size() > ManifestPlan.MAX_RANGE / ManifestPlan.WINDOW + 1)
+            throw new QueryFailure("TOO_LARGE", "Frozen proof selection exceeds the query range");
         Map<String, Map<String, Object>> expected = new LinkedHashMap<>();
         try {
             for (var w : plan.windows()) {
+                if (w.build() == null || w.build().isBlank() || w.build().length() > 64
+                        || w.proof() == null || w.proof().length() > 65_536)
+                    throw new IllegalArgumentException();
                 Map<String, Object> proof =
                         json.readValue(w.proof(), new TypeReference<Map<String, Object>>() {});
+                if (proof == null || proof.get("n") == null || proof.get("digest") == null)
+                    throw new IllegalArgumentException();
                 var old = expected.putIfAbsent(w.build(), proof);
                 if (old != null && !old.equals(proof))
                     throw new QueryFailure("NOT_READY", "Conflicting immutable build proofs");
@@ -163,25 +174,10 @@ public class JobClickHouseStream implements AutoCloseable {
         for (String replica : plan.replicas()) {
             try {
                 List<String> builds = new ArrayList<>(expected.keySet());
-                for (int start = 0; start < builds.size(); start += 64) {
-                    List<String> batch = builds.subList(start, Math.min(start + 64, builds.size()));
-                    Map<String, Map<String, Object>> actual = new HashMap<>();
-                    query(
-                            replica,
-                            "SELECT build_id,count()"
-                                + " n,toString(groupBitXor(cityHash64(receipt_id,payload_hash,validation_result)))"
-                                + " digest FROM (SELECT"
-                                + " build_id,receipt_id,payload_hash,validation_result FROM"
-                                + " rebuild_input WHERE build_id IN ("
-                                    + batch.stream()
-                                            .map(ClickHouseReader::quote)
-                                            .collect(java.util.stream.Collectors.joining(","))
-                                    + ") GROUP BY"
-                                    + " build_id,receipt_id,payload_hash,validation_result) GROUP"
-                                    + " BY build_id",
-                            64,
-                            deadline,
-                            r -> actual.put(r.get("build_id").toString(), r));
+                for (int start = 0; start < builds.size(); start += PROOF_BATCH_SIZE) {
+                    List<String> batch = builds.subList(start, Math.min(start + PROOF_BATCH_SIZE, builds.size()));
+                    Map<String, Map<String, Object>> actual = proofRows(
+                            replica, batch, RAW_PROOF_FIELDS, "digest", deadline);
                     for (String build : batch) {
                         Map<String, Object>
                                 a = actual.getOrDefault(build, Map.of("n", 0, "digest", "0")),
@@ -191,13 +187,15 @@ public class JobClickHouseStream implements AutoCloseable {
                                         .equals(Objects.toString(a.get("digest"))))
                             throw new QueryFailure(
                                     "NOT_READY", "Frozen build unavailable on replica");
-                        if (DimensionProof.required(e)) {
-                            List<Map<String, Object>> dimensions = new ArrayList<>();
-                            query(replica, DimensionProof.sql(build), 1, deadline, dimensions::add);
-                            if (dimensions.size() != 1)
-                                throw new QueryFailure("NOT_READY", "Missing frozen dimension proof");
-                            DimensionProof.verify(e, dimensions.get(0));
-                        }
+                    }
+                    List<String> dimensionBuilds = batch.stream()
+                            .filter(build -> DimensionProof.required(expected.get(build))).toList();
+                    if (!dimensionBuilds.isEmpty()) {
+                        Map<String, Map<String, Object>> dimensions = proofRows(
+                                replica, dimensionBuilds, GEO_PROOF_FIELDS, "dimensionDigest", deadline);
+                        for (String build : dimensionBuilds)
+                            DimensionProof.verify(expected.get(build), dimensions.getOrDefault(
+                                    build, Map.of("n", 0, "dimensionDigest", "0")));
                     }
                 }
                 return replica;
@@ -206,6 +204,23 @@ public class JobClickHouseStream implements AutoCloseable {
             }
         }
         throw new QueryFailure("NOT_READY", "No replica currently proves the frozen builds");
+    }
+
+    private Map<String, Map<String, Object>> proofRows(
+            String replica, List<String> builds, String fields, String digest, long deadline) {
+        Set<String> selected = Set.copyOf(builds);
+        Map<String, Map<String, Object>> rows = new HashMap<>();
+        String sql = "SELECT build_id,count() n,toString(groupBitXor(cityHash64(" + fields + "))) "
+                + digest + " FROM (SELECT build_id," + fields + " FROM rebuild_input WHERE build_id IN ("
+                + builds.stream().map(ClickHouseReader::quote).collect(java.util.stream.Collectors.joining(","))
+                + ") GROUP BY build_id," + fields + ") GROUP BY build_id";
+        query(replica, sql, builds.size() + 1, deadline, row -> {
+            String build = row == null ? "" : Objects.toString(row.get("build_id"), "");
+            if (!selected.contains(build) || row.get("n") == null || row.get(digest) == null
+                    || rows.putIfAbsent(build, row) != null)
+                throw new QueryFailure("NOT_READY", "Invalid immutable build proof response");
+        });
+        return rows;
     }
 
     @jakarta.annotation.PreDestroy

@@ -104,12 +104,12 @@ defineExpose({ focus: () => input.value?.focus() })
   </details>
   <div class="aw-session-summary">
     <div>
-      <span>本会话完整回答</span><strong>{{ answerCount }} <small>次</small></strong>
+      <span>本会话分析记录</span><strong>{{ answerCount }} <small>次</small></strong>
     </div>
     <p>
       {{
         session.completedAt
-          ? '最近完成 · ' + session.completedAt
+          ? '最近返回 · ' + session.completedAt
           : '分析完成后，可查看证据、历史与导出报告。'
       }}
     </p>

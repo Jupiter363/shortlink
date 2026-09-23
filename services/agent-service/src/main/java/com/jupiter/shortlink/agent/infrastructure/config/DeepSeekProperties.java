@@ -15,6 +15,9 @@ public class DeepSeekProperties {
 
     private int maxOutputTokens = 2000;
 
+    /** Used only by the explicitly selected campaign-plan-v2 model instance. */
+    private int campaignPlanMaxOutputTokens = 8192;
+
     /** Generous transport ceiling, independent of the analysis or answer token budget. */
     private int maxResponseBytes = 16 * 1024 * 1024;
 
@@ -65,6 +68,16 @@ public class DeepSeekProperties {
 
     public void setMaxOutputTokens(int maxOutputTokens) {
         this.maxOutputTokens = maxOutputTokens;
+    }
+
+    public int getCampaignPlanMaxOutputTokens() {
+        return campaignPlanMaxOutputTokens;
+    }
+
+    public void setCampaignPlanMaxOutputTokens(int campaignPlanMaxOutputTokens) {
+        if (campaignPlanMaxOutputTokens < 1)
+            throw new IllegalArgumentException("Campaign model output token limit must be positive");
+        this.campaignPlanMaxOutputTokens = campaignPlanMaxOutputTokens;
     }
 
     public int getMaxResponseBytes() {

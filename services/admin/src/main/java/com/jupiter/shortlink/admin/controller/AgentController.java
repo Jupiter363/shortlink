@@ -57,6 +57,19 @@ public class AgentController {
         return agentRemoteService.campaignProgress(trustedHeaders(), runId, sessionId, requestId);
     }
 
+    @GetMapping("/api/short-link/admin/v1/agent/campaign/workspace")
+    public Result<Object> campaignWorkspace(@RequestParam(value="sessionId", required=false) String sessionId,
+            @RequestParam(value="cursor", required=false) String cursor,
+            @RequestParam(value="size", defaultValue="20") int size) {
+        return agentRemoteService.campaignWorkspace(trustedHeaders(), sessionId, cursor, size);
+    }
+
+    @GetMapping("/api/short-link/admin/v1/agent/campaign/sessions")
+    public Result<Object> campaignSessions(@RequestParam(value="cursor", required=false) String cursor,
+            @RequestParam(value="size", defaultValue="20") int size) {
+        return agentRemoteService.campaignSessions(trustedHeaders(), cursor, size);
+    }
+
     @GetMapping("/api/short-link/admin/v1/agent/campaign/reports/{reportId}/revisions/{revision}")
     public Result<Object> campaignReport(@PathVariable("reportId") String reportId,
             @PathVariable("revision") int revision, @RequestParam("sessionId") String sessionId,

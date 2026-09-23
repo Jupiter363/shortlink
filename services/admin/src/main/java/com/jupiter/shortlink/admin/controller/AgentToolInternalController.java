@@ -17,13 +17,18 @@ import com.jupiter.shortlink.admin.remote.dto.req.*;
 import com.jupiter.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
 import com.jupiter.shortlink.admin.service.GroupService;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.jupiter.shortlink.contract.FrozenQueryScope;
 import com.jupiter.shortlink.contract.GroupMembersPage;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -405,10 +410,10 @@ public class AgentToolInternalController {
         }
     }
 
+    @JsonDeserialize(using = FrozenStatisticsJobRequestDeserializer.class)
     public record FrozenStatisticsJobRequest(String requestId, String gid,
             String startDate, String endDate, String queryKind, List<String> dimensions,
             List<Map<String, Object>> filters, FrozenQueryScope scope) {
-        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
         public static FrozenStatisticsJobRequest from(Map<String, Object> values) {
             closed(values, Set.of("requestId", "gid", "startDate", "endDate", "queryKind",
                     "dimensions", "filters", "scope"));
@@ -424,8 +429,8 @@ public class AgentToolInternalController {
         }
     }
 
+    @JsonDeserialize(using = SelectedScopeRequestDeserializer.class)
     public record SelectedScopeRequest(String gid, List<Long> linkIds, String ownershipVersion) {
-        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
         public static SelectedScopeRequest from(Map<String, Object> values) {
             closed(values, Set.of("gid", "linkIds", "ownershipVersion"));
             if (!(values.get("linkIds") instanceof List<?> ids)) throw new IllegalArgumentException("Explicit members required");
@@ -440,6 +445,19 @@ public class AgentToolInternalController {
         }
         @JsonAnySetter public void rejectUnknown(String name, Object value) {
             throw new IllegalArgumentException("Unexpected selected scope field");
+        }
+    }
+
+    // Explicit deserializers keep strict wire validation independent of record creator/parameter-name discovery.
+    public static final class FrozenStatisticsJobRequestDeserializer extends JsonDeserializer<FrozenStatisticsJobRequest> {
+        @Override public FrozenStatisticsJobRequest deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            return FrozenStatisticsJobRequest.from(parser.readValueAs(new TypeReference<Map<String, Object>>() {}));
+        }
+    }
+
+    public static final class SelectedScopeRequestDeserializer extends JsonDeserializer<SelectedScopeRequest> {
+        @Override public SelectedScopeRequest deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            return SelectedScopeRequest.from(parser.readValueAs(new TypeReference<Map<String, Object>>() {}));
         }
     }
 

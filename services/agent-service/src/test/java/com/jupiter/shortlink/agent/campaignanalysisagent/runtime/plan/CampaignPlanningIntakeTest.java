@@ -62,7 +62,7 @@ class CampaignPlanningIntakeTest {
 
     @Test
     void durablePlanningResponseSurvivesAtomicAcceptanceFailureThenExecutesItsDependencyPlanOnceAndPreservesRequiredGaps() throws Exception {
-        try (var f = new Fixture("VALID")) {
+        try (var f = new Fixture("FENCED_VALID")) {
             // The same trusted menu can validate a local REACT choice without claiming this
             // test executes that policy; the actual native graph below is Tool -> fixed Skill.
             var exploratory = new PlanSpec.Step("explore", List.of("data-goal"), PlanSpec.ExecutionMode.REACT, null,
@@ -91,6 +91,7 @@ class CampaignPlanningIntakeTest {
             assertEquals(0, f.count("campaign_run_intake")); assertEquals(0, f.count("campaign_run_ledger"));
             var originalResponse = f.planning.response(saved, f.models.approve(f.planning.invocation(saved)));
             assertEquals(f.responseText, originalResponse.text());
+            assertTrue(originalResponse.text().startsWith("```json\n"), "Keep the provider receipt unchanged for exact replay");
             f.jdbc.execute("ALTER TABLE campaign_run_intake DROP CONSTRAINT reject_planning_accept");
 
             f.advance(reference); // Reuses the real READY planning response after the failed acceptance transaction.
@@ -167,6 +168,121 @@ class CampaignPlanningIntakeTest {
         }
     }
 
+    @Test
+    void domainInvalidStructuredCandidateIsRejectedBeforeAcceptanceAndNeverReissuesItsCompletedModelCall() throws Exception {
+        try (var f = new Fixture("VALID")) {
+            // This candidate satisfies the generic type/port contract; the profile's existing
+            // business rule is an additional acceptance condition, not runtime construction.
+            var materialized = PlanningProposal.parse(f.responseText).materialize(f.request,
+                    f.identity.planId(), 1, f.catalog, f.contracts);
+            f.definitionValidator = definition -> {
+                assertEquals(materialized.definition(OWNER, SESSION), definition);
+                assertEquals(0, f.count("campaign_run_intake"));
+                assertEquals(0, f.count("campaign_run_ledger"));
+                assertEquals(0, f.runtimeCalls.get());
+                throw new IllegalArgumentException("BUSINESS_GOAL_BINDING_CHANGED");
+            };
+            WorkRef reference = f.register();
+            assertEquals("PLANNING_UNRESOLVED", f.failedAdvance(reference).getMessage());
+            var rejected = f.planning.header(reference);
+            assertEquals(JdbcCampaignPlanningStore.State.REJECTED, rejected.state());
+            assertNotNull(rejected.responseHash()); assertFalse(rejected.callbackActive());
+            assertNull(rejected.intakeRequestId()); assertNull(rejected.definitionHash());
+            assertEquals(1, f.definitionValidations.get()); assertEquals(1, f.model.calls.get());
+            assertEquals(0, f.count("campaign_run_intake")); assertEquals(0, f.count("campaign_run_ledger"));
+            assertEquals(0, f.count("campaign_step_ledger")); assertEquals(0, f.count("campaign_child_ledger"));
+            assertEquals(0, f.runtimeCalls.get()); assertEquals(0, f.submits.get()); assertEquals(0, f.gatewayCalls.get());
+
+            assertEquals("PLANNING_UNRESOLVED", f.failedAdvance(reference).getMessage());
+            assertEquals(rejected, f.planning.header(reference));
+            assertEquals(1, f.model.calls.get(), "A rejected durable response does not grant a new model attempt");
+            assertEquals(1, f.definitionValidations.get());
+            assertEquals(0, f.count("campaign_run_ledger")); f.assertExited();
+        }
+    }
+
+    @Test
+    void typedPendingDefinitionAlsoPassesDomainValidationBeforeCreatingAnyRun() throws Exception {
+        try (var f = new Fixture("VALID")) {
+            var definition = candidate().materialize(f.request, f.identity.planId(), 1, f.catalog, f.contracts)
+                    .definition(OWNER, SESSION);
+            f.definitionValidator = actual -> {
+                assertEquals(definition, actual);
+                assertEquals(0, f.count("campaign_run_ledger"));
+                throw new IllegalArgumentException("BUSINESS_GOAL_BINDING_CHANGED");
+            };
+            var reference = f.intake.register(PRINCIPAL, SESSION, KEY, PROFILE, "1", definition);
+            assertEquals("BUSINESS_GOAL_BINDING_CHANGED", f.failedAdvance(reference).getMessage());
+            assertEquals(JdbcCampaignRunIntakeStore.State.PENDING, f.intake.receipt(PRINCIPAL, reference).state());
+            assertEquals(definition, f.requests.definition(f.requests.header(reference)));
+            assertEquals(1, f.definitionValidations.get());
+            assertEquals(0, f.count("campaign_run_ledger")); assertEquals(0, f.count("campaign_child_ledger"));
+            assertEquals(0, f.model.calls.get()); assertEquals(0, f.runtimeCalls.get()); assertEquals(0, f.submits.get());
+            f.assertExited();
+        }
+    }
+
+    @Test
+    void normalizerRepairsSelectedEvidenceDependencyBeforeValidationWithoutChangingTheDurableModelReceipt() throws Exception {
+        try (var f = new Fixture("MISSING_DEPENDENCY")) {
+            var raw = PlanningProposal.parse(f.responseText);
+            assertThrows(IllegalArgumentException.class, () -> raw.materialize(f.request,
+                    f.identity.planId(), 1, f.catalog, f.contracts));
+            f.proposalNormalizer = (caller, request, candidate) -> {
+                assertEquals(OWNER, caller); assertEquals(f.request, request); assertEquals(raw, candidate);
+                assertEquals(0, f.count("campaign_run_intake")); assertEquals(0, f.count("campaign_run_ledger"));
+                return selectedEvidenceDependency(candidate);
+            };
+            f.definitionValidator = definition -> assertEquals(List.of("query"),
+                    FrozenCampaignRun.read(definition).plan().steps().get(1).dependsOn());
+            WorkRef reference = f.register();
+            f.advance(reference);
+            var accepted = f.planning.header(reference);
+            assertEquals(JdbcCampaignPlanningStore.State.ACCEPTED, accepted.state());
+            assertEquals(f.responseText, f.planning.response(accepted, f.models.approve(f.planning.invocation(accepted))).text());
+            assertEquals(List.of(), PlanningProposal.parse(f.responseText).steps().get(1).dependsOn());
+            assertEquals(List.of("query"), FrozenCampaignRun.read(f.current(reference).definition()).plan().steps().get(1).dependsOn());
+            assertEquals(1, f.normalizations.get()); assertEquals(1, f.model.calls.get()); assertEquals(1, f.submits.get());
+            assertTrue(f.definitionValidations.get() > 0, "Normalized proposals still pass the domain gate");
+            f.advance(reference);
+            assertEquals(accepted, f.planning.header(reference));
+            assertEquals(1, f.normalizations.get(), "An accepted plan resumes its frozen definition");
+            assertEquals(1, f.model.calls.get()); assertEquals(1, f.submits.get()); f.assertExited();
+        }
+    }
+
+    @Test
+    void normalizerDoesNotBypassStrictParsingCapabilityValidationOrUnknownModelProtection() throws Exception {
+        for (String variant : List.of("REWRITE_GOALS", "UNKNOWN_EXECUTOR", "MODEL_UNKNOWN")) {
+            try (var f = new Fixture(variant)) {
+                f.proposalNormalizer = (caller, request, candidate) -> selectedEvidenceDependency(candidate);
+                var reference = f.register();
+                f.failedAdvance(reference);
+                var saved = f.planning.header(reference);
+                assertEquals("MODEL_UNKNOWN".equals(variant) ? JdbcCampaignPlanningStore.State.UNKNOWN
+                        : JdbcCampaignPlanningStore.State.REJECTED, saved.state());
+                assertEquals("UNKNOWN_EXECUTOR".equals(variant) ? 1 : 0, f.normalizations.get());
+                assertEquals(0, f.definitionValidations.get());
+                assertEquals(0, f.count("campaign_run_intake")); assertEquals(0, f.count("campaign_run_ledger"));
+                assertEquals(0, f.runtimeCalls.get()); assertEquals(0, f.submits.get());
+                f.failedAdvance(reference);
+                assertEquals(saved, f.planning.header(reference)); assertEquals(1, f.model.calls.get());
+                assertEquals("UNKNOWN_EXECUTOR".equals(variant) ? 1 : 0, f.normalizations.get()); f.assertExited();
+            }
+        }
+    }
+
+    private static PlanningProposal selectedEvidenceDependency(PlanningProposal candidate) {
+        var normalized = candidate.steps().stream().map(step -> {
+            if (!CONSUME.equals(step.executor()) || !PlanBinding.output("query", "evidence").equals(step.inputBindings().get("upstream")))
+                return step;
+            var dependencies = new LinkedHashSet<>(step.dependsOn()); dependencies.add("query");
+            return new PlanSpec.Step(step.stepId(), step.goalIds(), step.executionMode(), step.executor(), step.explorationPolicy(),
+                    List.copyOf(dependencies), step.inputBindings(), step.parameters(), step.outputContractRef());
+        }).toList();
+        return new PlanningProposal(candidate.schemaVersion(), normalized, candidate.coverageBindings(), candidate.gaps());
+    }
+
     private static PlanSpec.Step query(Map<String, Object> parameters) {
         return new PlanSpec.Step("query", List.of("data-goal"), PlanSpec.ExecutionMode.FIXED, QUERY, null, List.of(),
                 Map.of("scope", PlanBinding.input("scope"), "periods", PlanBinding.input("periods")), parameters, "evidence/v1");
@@ -195,6 +311,10 @@ class CampaignPlanningIntakeTest {
         final ExecutorService workers = Executors.newSingleThreadExecutor();
         final BlockingQueue<Boolean> consumed = new LinkedBlockingQueue<>();
         final AtomicInteger runtimeCalls = new AtomicInteger(), submits = new AtomicInteger(), consumptions = new AtomicInteger(), gatewayCalls = new AtomicInteger();
+        final AtomicInteger definitionValidations = new AtomicInteger();
+        CampaignRunIntake.DefinitionValidator definitionValidator = definition -> {};
+        final AtomicInteger normalizations = new AtomicInteger();
+        CampaignRunIntake.ProposalNormalizer proposalNormalizer = (caller, request, candidate) -> candidate;
         final ModelInvocationRegistry models = new ModelInvocationRegistry(List.of(
                 new ModelInvocationRegistry.Contract("scripted-planner", "1", CONFIG, invocation -> true)));
         final ModelInvocationRegistry.Limits modelLimits = ModelInvocationRegistry.Limits.defaults();
@@ -224,6 +344,13 @@ class CampaignPlanningIntakeTest {
             request = new PlanningProposal.Request("Inspect the traffic change and assess the limits of a causal explanation.",
                     goals, requirements, inputs, Map.of(), menu);
             String answer = candidate().encode();
+            if ("MISSING_DEPENDENCY".equals(variant)) {
+                var consume = consumer();
+                var detached = new PlanSpec.Step(consume.stepId(), consume.goalIds(), consume.executionMode(), consume.executor(),
+                        consume.explorationPolicy(), List.of(), consume.inputBindings(), consume.parameters(), consume.outputContractRef());
+                answer = new PlanningProposal(PlanningProposal.SCHEMA_VERSION, List.of(query(Map.of()), detached), coverage("query"), GAPS).encode();
+            }
+            if ("FENCED_VALID".equals(variant)) answer = "```json\n" + answer + "\n```";
             if ("REWRITE_GOALS".equals(variant)) answer = answer.substring(0, answer.length() - 1) + ",\"goals\":[]}";
             if ("DROP_REQUIRED_COVERAGE".equals(variant)) answer = new PlanningProposal(PlanningProposal.SCHEMA_VERSION,
                     candidate().steps(), List.of(), GAPS).encode();
@@ -261,7 +388,9 @@ class CampaignPlanningIntakeTest {
             var profile = new CampaignRunIntake.Profile(PROFILE, "1", catalog, contracts,
                     (caller, frozen) -> OWNER.equals(caller), ALLOW,
                     (caller, type, value) -> OWNER.equals(caller) && ("ScopeRef".equals(type.name()) ? SCOPE_REF.equals(value)
-                            : "PeriodsRef".equals(type.name()) && PERIOD_REF.equals(value)), this::runtime);
+                            : "PeriodsRef".equals(type.name()) && PERIOD_REF.equals(value)), this::runtime,
+                    definition -> { definitionValidations.incrementAndGet(); definitionValidator.validate(definition); },
+                    (caller, current, candidate) -> { normalizations.incrementAndGet(); return proposalNormalizer.normalize(caller, current, candidate); });
             var planner = new CampaignRunIntake.PlanningProfile(PROFILE, "1", menu, model, models,
                     "scripted-planner", "1", CONFIG, modelLimits, proposalLimits);
             intake = new CampaignRunIntake(requests, runs, recovery, new StatisticsSubmissionReconciler(runs, gateway), null, null,

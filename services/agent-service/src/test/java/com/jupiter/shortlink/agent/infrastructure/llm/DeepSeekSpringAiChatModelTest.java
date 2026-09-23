@@ -35,6 +35,39 @@ class DeepSeekSpringAiChatModelTest {
     }
 
     @Test
+    void campaignBudgetIsSeparateConfigurableAndFrozenWhileSharedModelKeeps2000() throws Exception {
+        var campaign = model.forCampaignPlan();
+        assertThat(campaign.getDefaultOptions().getMaxTokens()).isEqualTo(8192);
+        assertThat(model.getDefaultOptions().getMaxTokens()).isEqualTo(2000);
+        properties.setCampaignPlanMaxOutputTokens(12_288);
+        var configuredCampaign = model.forCampaignPlan();
+        assertThat(configuredCampaign.getDefaultOptions().getMaxTokens()).isEqualTo(12_288);
+        assertThat(campaign.getDefaultOptions().getMaxTokens()).isEqualTo(8192);
+        assertThat(properties.getMaxOutputTokens()).isEqualTo(2000);
+
+        for (int expected : new int[] {8192, 12_288, 2000})
+            server.expect(requestTo("https://api.deepseek.com/chat/completions"))
+                    .andExpect(jsonPath("$.max_tokens").value(expected))
+                    .andRespond(withSuccess(response("stop", "Complete answer", null), MediaType.APPLICATION_JSON));
+
+        campaign.call(new Prompt("Compare and explain", ChatOptions.builder().temperature(0.2).build()));
+        configuredCampaign.call(new Prompt("Analyze the selected scope"));
+        model.call(new Prompt("Existing agent request"));
+        server.verify();
+    }
+
+    @Test
+    void nonpositiveCampaignBudgetIsRejectedWithoutChangingSharedConfiguration() {
+        assertThatThrownBy(() -> properties.setCampaignPlanMaxOutputTokens(0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Campaign model output token limit must be positive");
+        assertThatThrownBy(() -> properties.setCampaignPlanMaxOutputTokens(-1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(properties.getCampaignPlanMaxOutputTokens()).isEqualTo(8192);
+        assertThat(properties.getMaxOutputTokens()).isEqualTo(2000);
+    }
+
+    @Test
     void explanationDisablesThinkingAndKeepsBudgetWhenPromptOverridesOtherOptions() throws Exception {
         server.expect(requestTo("https://api.deepseek.com/chat/completions"))
                 .andExpect(jsonPath("$.thinking.type").value("disabled"))

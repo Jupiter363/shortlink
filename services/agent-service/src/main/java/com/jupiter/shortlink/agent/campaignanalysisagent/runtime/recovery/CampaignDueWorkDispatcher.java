@@ -2,15 +2,19 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessCapacityExecutor.WorkRef;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessCapacityExecutor.CapacityRejectedException;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.diagnostics.CampaignFailureDiagnostics;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** One bounded timer tick re-enters the shared intake. No timer, executor, model loop or takeover logic is owned here. */
 public final class CampaignDueWorkDispatcher {
+    private static final Logger LOG = LoggerFactory.getLogger(CampaignDueWorkDispatcher.class);
     @FunctionalInterface public interface Submit { Future<Void> submit(WorkRef reference); }
     @FunctionalInterface public interface WorkState { Decision inspect(WorkRef reference); }
     public enum Decision { CONTINUE, DONE, BLOCKED }
@@ -86,7 +90,10 @@ public final class CampaignDueWorkDispatcher {
         // Proven admission rejection may retry. Unknown execution/model errors require explicit recovery.
         if (failure instanceof CapacityRejectedException)
             store.finish(claim, CampaignDueWorkStore.State.READY, "LOCAL_ADMISSION_REJECTED");
-        else store.finish(claim, CampaignDueWorkStore.State.BLOCKED,
-                failure instanceof SecurityException ? "ACCESS_DENIED" : "ADVANCE_REQUIRES_ATTENTION");
+        else {
+            String reason = failure instanceof SecurityException ? "ACCESS_DENIED" : "ADVANCE_REQUIRES_ATTENTION";
+            LOG.warn("Campaign advance blocked reason={} diagnostic={}", reason, CampaignFailureDiagnostics.describe(failure));
+            store.finish(claim, CampaignDueWorkStore.State.BLOCKED, reason);
+        }
     }
 }

@@ -278,7 +278,8 @@ class ProcessAdmittedExplorationTest {
             run.historyLoads.incrementAndGet();
             var tool = new ModelInvocationRegistry.ToolDefinition(run.toolName, "Read approved evidence", JSON.readTree(SCHEMA));
             var configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIG, null,
-                    List.of(tool), Map.of("source", source.metadata()), EXPIRY);
+                    List.of(tool), Map.of("source", source.metadata()), EXPIRY,
+                    NativeExplorationAdapter.generationOptions(run.model.getDefaultOptions()));
             var ledger = new JdbcExplorationLedger(jdbc, tx, CLOCK, new JdbcCampaignRunStore(jdbc, tx, CLOCK),
                     new JdbcCampaignStepStore(jdbc, tx, CLOCK), new JdbcCampaignExplorationCallStore(jdbc, tx, CLOCK), permit,
                     models, configuration, Map.of(run.toolName, run.planned.explorationPolicy().allowedExecutors().get(0)), ALLOW);

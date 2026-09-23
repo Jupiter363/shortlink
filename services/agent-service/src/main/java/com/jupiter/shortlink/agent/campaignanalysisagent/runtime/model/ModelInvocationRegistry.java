@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -165,7 +166,11 @@ public final class ModelInvocationRegistry {
     }
 
     /** Closed model request projection. Tool schemas are data, never loaded or executed here. */
-    public record Request(String schemaVersion, List<Message> messages, List<ToolDefinition> tools) {
+    public record Request(String schemaVersion, List<Message> messages, List<ToolDefinition> tools,
+                          @JsonInclude(JsonInclude.Include.NON_NULL) GenerationOptions generationOptions) {
+        public Request(String schemaVersion, List<Message> messages, List<ToolDefinition> tools) {
+            this(schemaVersion, messages, tools, null);
+        }
         public Request {
             require(REQUEST_SCHEMA.equals(schemaVersion), "MODEL_REQUEST_SCHEMA_INVALID");
             require(messages != null && !messages.isEmpty() && messages.stream().allMatch(value -> value != null),
@@ -176,6 +181,31 @@ public final class ModelInvocationRegistry {
             Set<String> names = new HashSet<>();
             for (ToolDefinition tool : tools) require(names.add(tool.name()), "MODEL_TOOL_DEFINITION_DUPLICATE");
             validateMessages(messages, names);
+        }
+    }
+
+    /** Closed server configuration, included in the request hash; no provider extensions or credentials. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GenerationOptions(String model, Integer maxTokens, Double temperature, Double topP, Integer topK,
+                                    Double frequencyPenalty, Double presencePenalty, List<String> stopSequences) {
+        public GenerationOptions {
+            require(model == null || (!model.isBlank() && model.length() <= 256
+                    && model.chars().noneMatch(Character::isISOControl)), "MODEL_GENERATION_OPTIONS_INVALID");
+            require(maxTokens == null || maxTokens > 0, "MODEL_GENERATION_OPTIONS_INVALID");
+            require(topK == null || topK > 0, "MODEL_GENERATION_OPTIONS_INVALID");
+            require(valid(temperature, 0, 2) && valid(topP, 0, 1)
+                    && valid(frequencyPenalty, -2, 2) && valid(presencePenalty, -2, 2), "MODEL_GENERATION_OPTIONS_INVALID");
+            if (stopSequences != null) {
+                require(stopSequences.size() <= 32 && stopSequences.stream().allMatch(value -> value != null
+                        && !value.isEmpty() && value.length() <= 4096), "MODEL_GENERATION_OPTIONS_INVALID");
+                stopSequences = List.copyOf(stopSequences);
+            }
+            require(model != null || maxTokens != null || temperature != null || topP != null || topK != null
+                    || frequencyPenalty != null || presencePenalty != null || stopSequences != null,
+                    "MODEL_GENERATION_OPTIONS_EMPTY");
+        }
+        private static boolean valid(Double value, double minimum, double maximum) {
+            return value == null || Double.isFinite(value) && value >= minimum && value <= maximum;
         }
     }
 
@@ -338,7 +368,7 @@ public final class ModelInvocationRegistry {
     }
 
     private static Request parseRequest(JsonNode value) {
-        fields(value, Set.of("schemaVersion", "messages", "tools"), Set.of("schemaVersion", "messages", "tools"));
+        fields(value, Set.of("schemaVersion", "messages", "tools", "generationOptions"), Set.of("schemaVersion", "messages", "tools"));
         require(value.path("schemaVersion").isTextual() && value.path("messages").isArray()
                 && value.path("tools").isArray(), "MODEL_REQUEST_INVALID");
         List<Message> messages = new ArrayList<>();
@@ -360,7 +390,38 @@ public final class ModelInvocationRegistry {
             require(tool.path("name").isTextual() && tool.path("description").isTextual(), "MODEL_TOOL_DEFINITION_INVALID");
             tools.add(new ToolDefinition(tool.get("name").textValue(), tool.get("description").textValue(), tool.get("inputSchema")));
         }
-        return new Request(value.get("schemaVersion").textValue(), messages, tools);
+        return new Request(value.get("schemaVersion").textValue(), messages, tools,
+                value.has("generationOptions") ? parseGenerationOptions(value.get("generationOptions")) : null);
+    }
+
+    private static GenerationOptions parseGenerationOptions(JsonNode value) {
+        Set<String> names = Set.of("model", "maxTokens", "temperature", "topP", "topK", "frequencyPenalty", "presencePenalty", "stopSequences");
+        fields(value, names, Set.of());
+        for (String name : names) if (value.has(name)) require(!value.get(name).isNull(), "MODEL_GENERATION_OPTIONS_INVALID");
+        require(!value.has("model") || value.get("model").isTextual(), "MODEL_GENERATION_OPTIONS_INVALID");
+        List<String> stops = null;
+        if (value.has("stopSequences")) {
+            require(value.get("stopSequences").isArray(), "MODEL_GENERATION_OPTIONS_INVALID");
+            stops = new ArrayList<>();
+            for (JsonNode stop : value.get("stopSequences")) {
+                require(stop.isTextual(), "MODEL_GENERATION_OPTIONS_INVALID"); stops.add(stop.textValue());
+            }
+        }
+        return new GenerationOptions(value.has("model") ? value.get("model").textValue() : null,
+                optionInteger(value, "maxTokens"), optionDouble(value, "temperature"), optionDouble(value, "topP"),
+                optionInteger(value, "topK"), optionDouble(value, "frequencyPenalty"), optionDouble(value, "presencePenalty"), stops);
+    }
+
+    private static Integer optionInteger(JsonNode value, String field) {
+        if (!value.has(field)) return null;
+        require(value.get(field).isIntegralNumber() && value.get(field).canConvertToInt(), "MODEL_GENERATION_OPTIONS_INVALID");
+        return value.get(field).intValue();
+    }
+
+    private static Double optionDouble(JsonNode value, String field) {
+        if (!value.has(field)) return null;
+        require(value.get(field).isNumber(), "MODEL_GENERATION_OPTIONS_INVALID");
+        return value.get(field).doubleValue();
     }
 
     private static void validateMessages(List<Message> messages, Set<String> tools) {

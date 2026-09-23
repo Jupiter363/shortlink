@@ -56,7 +56,14 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
     /** Trusted server profile. The registry predicate still approves each exact evolving request. */
     public record ModelConfiguration(String modelRef, String modelVersion, String configurationHash,
                                      String systemPrompt, List<ToolDefinition> tools,
-                                     Map<String, ArtifactMetadata> inputs, Instant expiresAt) {
+                                     Map<String, ArtifactMetadata> inputs, Instant expiresAt,
+                                     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                                     GenerationOptions generationOptions) {
+        public ModelConfiguration(String modelRef, String modelVersion, String configurationHash,
+                                  String systemPrompt, List<ToolDefinition> tools,
+                                  Map<String, ArtifactMetadata> inputs, Instant expiresAt) {
+            this(modelRef, modelVersion, configurationHash, systemPrompt, tools, inputs, expiresAt, null);
+        }
         public ModelConfiguration {
             Objects.requireNonNull(modelRef); Objects.requireNonNull(modelVersion); Objects.requireNonNull(configurationHash);
             tools = List.copyOf(tools); inputs = Map.copyOf(inputs); Objects.requireNonNull(expiresAt);
@@ -765,7 +772,9 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
         return ExplorationCandidate.instructions() + "\n\nFrozen server completion contract:\n" + write(contract);
     }
 
-    private Request request(List<Message> messages) { return new Request(ModelInvocationRegistry.REQUEST_SCHEMA, messages, configuration.tools()); }
+    private Request request(List<Message> messages) {
+        return new Request(ModelInvocationRegistry.REQUEST_SCHEMA, messages, configuration.tools(), configuration.generationOptions());
+    }
     private void sameRequest(Request expected, Request actual) {
         requireContext(expected);
         if (actual == null || !expected.equals(actual))
@@ -804,8 +813,14 @@ public final class JdbcExplorationLedger implements DurableExplorationSession {
 
     private final class ContextMessages {
         private final List<Message> messages = new ArrayList<>();
-        private long bytes = encodedSize(Map.of("schemaVersion", ModelInvocationRegistry.REQUEST_SCHEMA,
-                "messages", List.of(), "tools", configuration.tools()), budgetPolicy.maxContextBytes());
+        private long bytes = emptyRequestBytes();
+
+        private long emptyRequestBytes() {
+            Map<String, Object> header = new LinkedHashMap<>(Map.of("schemaVersion", ModelInvocationRegistry.REQUEST_SCHEMA,
+                    "messages", List.of(), "tools", configuration.tools()));
+            if (configuration.generationOptions() != null) header.put("generationOptions", configuration.generationOptions());
+            return encodedSize(header, budgetPolicy.maxContextBytes());
+        }
 
         private void add(Message message) {
             long comma = messages.isEmpty() ? 0 : 1;

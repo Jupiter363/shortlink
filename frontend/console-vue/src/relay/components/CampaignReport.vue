@@ -1,12 +1,12 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import AgentAnswer from './AgentAnswer.vue'
 import CampaignReportBlock from './CampaignReportBlock.vue'
 import {
   campaignResultState,
   campaignStatus,
   canCancelCampaignResult,
-  reportRows
+  projectReportModules
 } from '../domain/campaignReport.js'
 
 const props = defineProps({
@@ -20,6 +20,30 @@ const props = defineProps({
 })
 defineEmits(['followup', 'copy', 'export', 'details', 'refresh', 'continue', 'cancel'])
 const view = computed(() => props.result.report?.view)
+const modules = computed(() => projectReportModules(view.value))
+const expandedTitles = ref(new Set())
+const expandedShared = ref(new Set())
+const blockLabels = {
+  METRIC: '指标',
+  CHART: '图表',
+  TABLE: '明细',
+  ANALYSIS: '分析',
+  LIMITATION: '分析边界',
+  RECOMMENDATION: '建议',
+  RESULT_LINK: '完整数据'
+}
+function toggleTitle(goalId) {
+  if (expandedTitles.value.has(goalId)) expandedTitles.value.delete(goalId)
+  else expandedTitles.value.add(goalId)
+}
+function toggleShared(key, event) {
+  if (event.target !== event.currentTarget) return
+  if (event.target.open) expandedShared.value.add(key)
+  else expandedShared.value.delete(key)
+}
+function sharedKinds(blocks) {
+  return [...new Set(blocks.map((block) => blockLabels[block.kind]))].join(' · ')
+}
 const state = computed(() => campaignResultState(props.result))
 const status = computed(() => campaignStatus(state.value))
 const nextAction = computed(() => props.result.progress?.nextAction)
@@ -60,7 +84,9 @@ const limitations = computed(() => [
           </p>
           <h2>投放分析报告</h2>
         </div>
-        <RBadge :tone="status.tone">{{ status.label }}</RBadge>
+        <RBadge :tone="historical && view ? 'info' : status.tone">{{
+          historical && view ? '已保存报告' : status.label
+        }}</RBadge>
       </div>
       <div class="cr-report-actions">
         <RButton kind="secondary" @click="$emit('copy')"
@@ -136,32 +162,72 @@ const limitations = computed(() => [
         </button>
       </div>
       <section
-        v-for="(module, index) in view.modules"
+        v-for="(module, index) in modules"
         :key="module.goalId"
         class="cr-module"
         :aria-label="module.title"
       >
         <header class="cr-module-heading">
           <span class="cr-module-number">{{ String(index + 1).padStart(2, '0') }}</span>
-          <h3>{{ module.title }}</h3>
+          <div class="cr-module-title">
+            <h3 :class="{ 'is-expanded': expandedTitles.has(module.goalId) }">
+              {{ module.title }}
+            </h3>
+            <button
+              type="button"
+              :aria-expanded="expandedTitles.has(module.goalId)"
+              @click="toggleTitle(module.goalId)"
+            >
+              {{ expandedTitles.has(module.goalId) ? '收起目标原文' : '查看完整目标' }}
+            </button>
+          </div>
           <RBadge :tone="campaignStatus(module.status).tone">{{
             campaignStatus(module.status).label
           }}</RBadge>
         </header>
-        <div
-          v-for="row in reportRows(module.blocks)"
-          :key="row.key"
-          class="cr-block-row"
-          :class="{ 'is-paired': row.paired, 'is-text-first': row.textFirst }"
+        <component
+          :is="group.sharedFrom ? 'details' : 'div'"
+          v-for="group in module.displayGroups"
+          :key="group.key"
+          :class="group.sharedFrom ? 'cr-shared-content' : 'cr-module-content'"
+          @toggle="toggleShared(group.key, $event)"
         >
-          <CampaignReportBlock
-            v-for="block in row.blocks"
-            :key="block.blockId"
-            :block="block"
-            :view="view"
-            :session-id="sessionId"
-          />
-        </div>
+          <summary v-if="group.sharedFrom" class="cr-shared-summary">
+            <RIcon name="database" :size="18" />
+            <span>
+              <strong
+                >沿用目标 {{ String(group.sharedFrom.number).padStart(2, '0') }} 的
+                {{ group.blocks.length }} 项内容</strong
+              >
+              <small>{{ sharedKinds(group.blocks) }}</small>
+            </span>
+            <span class="cr-shared-toggle">{{
+              expandedShared.has(group.key) ? '收起内容' : '展开查看'
+            }}</span>
+          </summary>
+          <template v-if="!group.sharedFrom || expandedShared.has(group.key)">
+            <div
+              v-for="row in group.rows"
+              :key="row.key"
+              class="cr-block-row"
+              :class="{ 'is-paired': row.paired, 'is-text-first': row.textFirst }"
+            >
+              <div
+                v-for="column in row.columns"
+                :key="column.blocks[0].blockId"
+                class="cr-block-column"
+              >
+                <CampaignReportBlock
+                  v-for="block in column.blocks"
+                  :key="block.blockId"
+                  :block="block"
+                  :view="view"
+                  :session-id="sessionId"
+                />
+              </div>
+            </div>
+          </template>
+        </component>
         <p v-if="!module.blocks.length" class="cr-module-empty">此目标还没有可展示的分析内容。</p>
         <ul v-if="module.limitations.length" class="cr-module-limitations">
           <li v-for="(limitation, limitIndex) in module.limitations" :key="limitIndex">

@@ -154,15 +154,16 @@ class NativeDeclineSelectionSkillTest {
 
     static NativeExplorationAdapter nativeAdapter(CallFixture f, StepPermit step, ChatModel model,
                                                   CampaignExplorationCandidateStore candidates) throws Exception {
-        return nativeAdapter(f, nativeLedger(f, step, candidates), model);
+        return nativeAdapter(f, nativeLedger(f, step, candidates, model), model);
     }
 
     static JdbcExplorationLedger nativeLedger(CallFixture f, StepPermit step,
-                                               CampaignExplorationCandidateStore candidates) throws Exception {
+                                               CampaignExplorationCandidateStore candidates, ChatModel model) throws Exception {
         var tool = DeclineSelectionExplorationSkill.definition();
         var configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIGURATION, null,
                 List.of(new ModelInvocationRegistry.ToolDefinition(tool.name(), tool.description(), JSON.readTree(tool.inputSchema()))),
-                Map.of("scope", f.runs.inspectArtifact(OWNER, f.scopeArtifact, f.auth)), Instant.ofEpochMilli(EXPIRY));
+                Map.of("scope", f.runs.inspectArtifact(OWNER, f.scopeArtifact, f.auth)), Instant.ofEpochMilli(EXPIRY),
+                NativeExplorationAdapter.generationOptions(model.getDefaultOptions()));
         return candidates == null ? new JdbcExplorationLedger(f.base.jdbc, f.base.transactions, CLOCK,
                 new JdbcCampaignRunStore(f.base.jdbc, f.base.transactions, CLOCK),
                 new JdbcCampaignStepStore(f.base.jdbc, f.base.transactions, CLOCK),

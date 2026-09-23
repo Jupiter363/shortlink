@@ -196,7 +196,8 @@ public final class CampaignExplorationRuntimeFactory {
                 Map<String, ArtifactMetadata> artifacts = new TreeMap<>();
                 inputs.artifacts().forEach((name, artifact) -> artifacts.put(name, artifact.metadata()));
                 var config = new JdbcExplorationLedger.ModelConfiguration(settings.modelRef(), settings.modelVersion(),
-                        settings.configurationHash(), null, tools.definitions(), artifacts, frozenExpiresAt);
+                        settings.configurationHash(), null, tools.definitions(), artifacts, frozenExpiresAt,
+                        NativeExplorationAdapter.generationOptions(model.getDefaultOptions()));
                 var ledger = new JdbcExplorationLedger(jdbc, transactions, clock, runs, steps, calls, permit,
                         models, config, tools.executors(), artifactAuthorizer, settings.budget(), projection,
                         skills, candidates, settings.repeatPolicy());

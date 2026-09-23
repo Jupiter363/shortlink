@@ -33,6 +33,22 @@ public final class JdbcCampaignRunIntakeStore {
     private final Clock clock;
     private final JdbcCampaignRunStore runs;
     private final int maxDefinitionBytes;
+    @FunctionalInterface public interface CommitGuard {
+        void requireActive(Caller caller, String sessionId, String runId);
+    }
+    private volatile CommitGuard commitGuard = (caller, sessionId, runId) -> {};
+    private boolean guardInstalled;
+
+    /** Installed only by the public preparation assembly; typed-only runtimes remain independent. */
+    public synchronized void installCommitGuard(CommitGuard guard) {
+        if (guardInstalled) throw new IllegalStateException("INTAKE_COMMIT_GUARD_ALREADY_INSTALLED");
+        commitGuard = Objects.requireNonNull(guard);
+        guardInstalled = true;
+    }
+
+    void guardCommit(Caller caller, String sessionId, String runId) {
+        commitGuard.requireActive(caller, sessionId, runId);
+    }
 
     public JdbcCampaignRunIntakeStore(JdbcTemplate jdbc, TransactionTemplate transactions, Clock clock,
                                      JdbcCampaignRunStore runs, int maxDefinitionBytes) {
@@ -73,6 +89,7 @@ public final class JdbcCampaignRunIntakeStore {
                 requestHash(identity.requestId(), caller, sessionId, requestKey, profileRef, profileVersion,
                         identity.runId(), identity.planId(), definitionHash), State.PENDING);
         return tx(() -> {
+            guardCommit(caller, sessionId, identity.runId());
             // A no-op duplicate-key update obtains the existing row lock without throwing a unique
             // violation inside a REQUIRED transaction. Never overwrite the original request fields.
             jdbc.update("INSERT INTO campaign_run_intake (" + HEADER_COLUMNS + ",proposal_json,created_at,frozen_at) "
@@ -113,6 +130,7 @@ public final class JdbcCampaignRunIntakeStore {
         validateDefinition(definition, expected.caller(), expected.sessionId(), expected.runId(), expected.planId());
         require(expected.definitionHash().equals(definition.definitionHash()), "INTAKE_DEFINITION_CHANGED");
         return tx(() -> {
+            guardCommit(expected.caller(), expected.sessionId(), expected.runId());
             Header stored = required(expected.requestId(), true);
             sameRequest(expected, stored);
             require(readDefinition(stored).equals(definition), "INTAKE_DEFINITION_CHANGED");

@@ -132,6 +132,7 @@
 }
 .cr-module-heading {
   margin-bottom: 14px;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 9px;
 }
@@ -149,13 +150,36 @@
   font-variant-numeric: tabular-nums;
   transform: rotate(-3deg);
 }
+.cr-module-title {
+  flex: 1 1 240px;
+  min-width: 0;
+}
 .cr-module-heading h3 {
-  flex: 1;
-  min-width: min(180px, 100%);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   margin: 0;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.6;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.cr-module-heading h3.is-expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+.cr-module-title > button {
+  min-height: 28px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
 }
 .cr-block-row {
   display: grid;
@@ -170,6 +194,62 @@
 }
 .cr-block-row.is-paired.is-text-first {
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+.cr-block-column {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+.cr-shared-content {
+  min-width: 0;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+}
+.cr-shared-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.cr-shared-summary::-webkit-details-marker {
+  display: none;
+}
+.cr-shared-summary > .r-icon {
+  flex: none;
+  color: var(--blue);
+}
+.cr-shared-summary > span:not(.cr-shared-toggle) {
+  flex: 1;
+  min-width: 0;
+}
+.cr-shared-summary strong,
+.cr-shared-summary small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.cr-shared-summary strong {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.cr-shared-summary small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.cr-shared-toggle {
+  flex: none;
+  color: var(--blue);
+  font-size: 11px;
+}
+.cr-shared-content[open] > .cr-block-row {
+  margin: 0 12px 12px;
 }
 .cr-block {
   min-width: 0;
@@ -272,6 +352,26 @@
 .cr-evidence-refs code {
   overflow-wrap: anywhere;
 }
+.cr-column-toggle {
+  display: inline-flex;
+  margin: 0 0 9px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.cr-column-toggle:hover {
+  text-decoration: underline;
+}
+.cr-column-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
 .cr-table-wrap {
   min-width: 0;
   max-width: 100%;
@@ -281,7 +381,8 @@
   overscroll-behavior-x: contain;
 }
 .cr-table-wrap table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 12px;
   text-align: left;
@@ -289,13 +390,61 @@
 }
 .cr-table-wrap th,
 .cr-table-wrap td {
-  min-width: 82px;
+  min-width: 104px;
   max-width: 280px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
+}
+.cr-table-wrap .cr-structured-column {
+  min-width: 180px;
+}
+.cr-cell-facts {
+  display: grid;
+  gap: 5px;
+  min-width: 156px;
+  margin: 0;
+}
+.cr-cell-facts > div {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+}
+.cr-cell-facts dt {
+  color: var(--muted);
+}
+.cr-cell-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.cr-cell-details {
+  margin-top: 8px;
+}
+.cr-cell-details summary {
+  width: fit-content;
+  min-height: 28px;
+  padding-block: 4px;
+  color: var(--blue);
+  cursor: pointer;
+}
+.cr-cell-details .cr-raw-content {
+  max-width: 256px;
+  max-height: 260px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--raised);
+  overscroll-behavior: contain;
+}
+.cr-cell-details .cr-raw-content:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
 }
 .cr-table-wrap thead th {
   background: var(--raised);

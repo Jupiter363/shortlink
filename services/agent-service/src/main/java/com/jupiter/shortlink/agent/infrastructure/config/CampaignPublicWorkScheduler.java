@@ -19,6 +19,7 @@ public final class CampaignPublicWorkScheduler implements AutoCloseable {
         dispatcher=new CampaignDueWorkDispatcher(due,intake::submitBackground,reference->{
             if (reference.workId().startsWith("request-")) {
                 var request=requests.read(reference);
+                if (request.cancelled()) return CampaignDueWorkDispatcher.Decision.DONE;
                 if (request.callbackActive() || java.util.Set.of("UNKNOWN","DISPATCHING","NEEDS_INPUT").contains(request.state()))
                     return CampaignDueWorkDispatcher.Decision.BLOCKED;
             } else if (!jdbc.query("SELECT request_id FROM campaign_public_request WHERE run_id=? LIMIT 1",
