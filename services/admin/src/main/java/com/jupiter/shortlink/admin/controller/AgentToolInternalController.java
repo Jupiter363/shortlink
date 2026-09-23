@@ -254,6 +254,19 @@ public class AgentToolInternalController {
                         request.ownershipVersion()));
     }
 
+    /** Account identity only; this endpoint does not establish Agent session ownership. */
+    @GetMapping("/internal/short-link-admin/v1/agent-tools/authorization/current-principal")
+    public Result<Map<String, Object>> currentPrincipal(
+            @RequestHeader(value = "X-Agent-Principal-Mode", required = false) String principalMode) {
+        if (principalMode != null && !principalMode.isBlank())
+            throw new ClientException("Current user principal is required");
+        requirePrincipal();
+        return Results.success(Map.of(
+                "tenantId", UserContext.getUserId(),
+                "username", UserContext.getUsername(),
+                "authVersion", UserContext.getAuthVersion()));
+    }
+
     @PostMapping("/internal/short-link-admin/v1/agent-tools/authorization/group-members-page")
     public Result<GroupMembersPage> groupMembersPage(@RequestBody GroupMembersPage.Request request) {
         try { requireOwnedGid(request.gid()); }

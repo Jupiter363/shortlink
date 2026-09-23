@@ -8,6 +8,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.Proces
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunResultStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignStatisticsConsumerStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignTrustedRunResultAdapter;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignConversationSessionOwner;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignCurrentPrincipalResolver;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanApplicationService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanRuntimeFactory;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignReplanTrustedAdapter;
@@ -18,6 +20,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.progress.Campai
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignRunReportPublicationCoordinator;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcReportLifecycleStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.ReportLifecycleStore;
+import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient;
 import java.time.Clock;
 import java.util.Objects;
 import javax.sql.DataSource;
@@ -38,6 +41,18 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration(proxyBeanMethods = false)
 @Profile("campaign-trusted-adapter")
 public class CampaignTrustedAdapterConfiguration {
+    @Bean
+    public JdbcCampaignConversationSessionOwner campaignConversationSessionOwner(JdbcTemplate jdbc,
+            @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions, Clock clock) {
+        return new JdbcCampaignConversationSessionOwner(jdbc, transactions, clock);
+    }
+
+    @Bean
+    public CampaignCurrentPrincipalResolver campaignCurrentPrincipalResolver(AgentAuthorityClient authority,
+            JdbcCampaignConversationSessionOwner sessions) {
+        return new CampaignCurrentPrincipalResolver(authority, sessions);
+    }
+
     @Bean
     public JdbcReportLifecycleStore campaignReportLifecycleStore(JdbcTemplate jdbc,
                                                                   @Qualifier("campaignTrustedTransactionTemplate") TransactionTemplate transactions,
