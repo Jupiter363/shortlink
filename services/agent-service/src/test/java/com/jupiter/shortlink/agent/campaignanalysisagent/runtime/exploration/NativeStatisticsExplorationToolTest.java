@@ -399,7 +399,7 @@ class NativeStatisticsExplorationToolTest {
             var definition = StatisticsExplorationTool.definition();
             configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIG, null,
                     List.of(new ModelInvocationRegistry.ToolDefinition(definition.name(), definition.description(), tree(definition.inputSchema()))),
-                    Map.of(), EXPIRY);
+                    Map.of(), EXPIRY, NativeExplorationAdapter.generationOptions(new ScriptedExplorationChatModel().getDefaultOptions()));
         }
 
         StatisticsExplorationTool tool(RunToken writer) {

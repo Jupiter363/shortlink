@@ -1,7 +1,12 @@
 package com.jupiter.shortlink.contract;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -12,6 +17,7 @@ import java.util.Set;
 
 /** A current, version-pinned authority page. The version is not a historical MVCC snapshot. */
 @JsonInclude(JsonInclude.Include.ALWAYS)
+@JsonDeserialize(using = GroupMembersPage.PageDeserializer.class)
 public record GroupMembersPage(String schemaVersion, String tenantId, String subjectId, long authVersion,
                                String gid, String ownershipVersion, Long afterLinkId,
                                List<Long> linkIds, Long nextCursor) {
@@ -39,7 +45,6 @@ public record GroupMembersPage(String schemaVersion, String tenantId, String sub
                 "Nonterminal authority page requires 500 members and the last member cursor");
     }
 
-    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
     public static GroupMembersPage fromMap(Map<?, ?> value) {
         require(value != null && value.keySet().equals(FIELDS), "Authority page fields changed");
         require(value.get("linkIds") instanceof List<?>, "Authority members are required");
@@ -70,6 +75,7 @@ public record GroupMembersPage(String schemaVersion, String tenantId, String sub
 
     /** No principal, arbitrary URLs or caller-supplied member lists are accepted by this endpoint. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonDeserialize(using = GroupMembersPage.RequestDeserializer.class)
     public record Request(String gid, Long afterLinkId, String ownershipVersion) {
         public Request {
             group(gid);
@@ -80,7 +86,6 @@ public record GroupMembersPage(String schemaVersion, String tenantId, String sub
             }
         }
 
-        @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
         public static Request fromMap(Map<?, ?> value) {
             require(value != null && value.containsKey("gid")
                     && Set.of("gid", "afterLinkId", "ownershipVersion").containsAll(value.keySet()),
@@ -95,6 +100,27 @@ public record GroupMembersPage(String schemaVersion, String tenantId, String sub
             value.put("gid", gid);
             if (afterLinkId != null) { value.put("afterLinkId", afterLinkId); value.put("ownershipVersion", ownershipVersion); }
             return java.util.Collections.unmodifiableMap(value);
+        }
+    }
+
+    /** Avoid record/ParameterNamesModule creator collisions without allowing numeric coercion. */
+    public static final class PageDeserializer extends JsonDeserializer<GroupMembersPage> {
+        @Override public GroupMembersPage deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            Map<String, Object> value = parser.readValueAs(new TypeReference<Map<String, Object>>() {});
+            try { return fromMap(value); }
+            catch (IllegalArgumentException invalid) {
+                return context.reportInputMismatch(GroupMembersPage.class, "AUTHORITY_PAGE_INVALID");
+            }
+        }
+    }
+
+    public static final class RequestDeserializer extends JsonDeserializer<Request> {
+        @Override public Request deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            Map<String, Object> value = parser.readValueAs(new TypeReference<Map<String, Object>>() {});
+            try { return Request.fromMap(value); }
+            catch (IllegalArgumentException invalid) {
+                return context.reportInputMismatch(Request.class, "AUTHORITY_REQUEST_INVALID");
+            }
         }
     }
 

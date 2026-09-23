@@ -53,9 +53,26 @@ public final class DeepSeekSpringAiChatModel implements ChatModel {
 
     private final RestTemplate restTemplate;
 
+    private final Integer frozenMaxOutputTokens;
+
     public DeepSeekSpringAiChatModel(DeepSeekProperties properties, RestTemplate restTemplate) {
+        this(properties, restTemplate, null);
+    }
+
+    private DeepSeekSpringAiChatModel(
+            DeepSeekProperties properties, RestTemplate restTemplate, Integer frozenMaxOutputTokens) {
         this.properties = Objects.requireNonNull(properties, "properties");
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
+        this.frozenMaxOutputTokens = frozenMaxOutputTokens;
+    }
+
+    /** Separate campaign budget without mutating the shared model or its transport configuration. */
+    public DeepSeekSpringAiChatModel forCampaignPlan() {
+        return new DeepSeekSpringAiChatModel(properties, restTemplate, properties.getCampaignPlanMaxOutputTokens());
+    }
+
+    private int defaultMaxOutputTokens() {
+        return frozenMaxOutputTokens == null ? properties.getMaxOutputTokens() : frozenMaxOutputTokens;
     }
 
     @Override
@@ -97,7 +114,7 @@ public final class DeepSeekSpringAiChatModel implements ChatModel {
         // required for the primary, tool-enabled ChatClient bean.
         return ToolCallingChatOptions.builder()
                 .model(properties.getModel())
-                .maxTokens(properties.getMaxOutputTokens())
+                .maxTokens(defaultMaxOutputTokens())
                 .build();
     }
 
@@ -122,7 +139,7 @@ public final class DeepSeekSpringAiChatModel implements ChatModel {
             body.put("temperature", options.getTemperature());
         }
         Integer maxTokens = options.getMaxTokens();
-        body.put("max_tokens", maxTokens == null ? properties.getMaxOutputTokens() : maxTokens);
+        body.put("max_tokens", maxTokens == null ? defaultMaxOutputTokens() : maxTokens);
         if (options.getTopP() != null) {
             body.put("top_p", options.getTopP());
         }

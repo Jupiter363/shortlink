@@ -95,7 +95,8 @@ class NativeExplorationBudgetTest {
         var f = new Fixture(false);
         String input = "统计".repeat(128);
         var request = new ModelInvocationRegistry.Request(ModelInvocationRegistry.REQUEST_SCHEMA,
-                List.of(new ModelInvocationRegistry.Message("user", input, null, null, null)), f.configuration.tools());
+                List.of(new ModelInvocationRegistry.Message("user", input, null, null, null)), f.configuration.tools(),
+                f.configuration.generationOptions());
         String encoded = ModelInvocationRegistry.encodeRequest(request);
         int characters = encoded.length(), bytes = encoded.getBytes(StandardCharsets.UTF_8).length;
         long maximumBytes = (characters + bytes) / 2L;

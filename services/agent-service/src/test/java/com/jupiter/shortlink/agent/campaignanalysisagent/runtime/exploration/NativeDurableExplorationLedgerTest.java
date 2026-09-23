@@ -48,6 +48,48 @@ class NativeDurableExplorationLedgerTest {
     private static final NativeExplorationAdapter.Limits LIMITS = new NativeExplorationAdapter.Limits(0, 4096, 4096, 32768, 8, Duration.ofSeconds(5));
 
     @Test
+    void serverGenerationOptionsAreFrozenAcrossDurableToolTurnsAndConfigurationChangesCannotResume() throws Exception {
+        var defaults = org.springframework.ai.model.tool.ToolCallingChatOptions.builder()
+                .model("approved-model").maxTokens(4096).temperature(0.2).build();
+        var generation = NativeExplorationAdapter.generationOptions(defaults);
+        var f = new Fixture(false, generation);
+        var scripted = new ScriptedExplorationChatModel(
+                prompt -> toolCall("approved-call", "read_first", "{}"),
+                prompt -> ScriptedExplorationChatModel.text("Evidence received."));
+        var model = new org.springframework.ai.chat.model.ChatModel() {
+            @Override public org.springframework.ai.chat.prompt.ChatOptions getDefaultOptions() { return defaults; }
+            @Override public org.springframework.ai.chat.model.ChatResponse call(Prompt prompt) {
+                assertEquals("approved-model", prompt.getOptions().getModel());
+                assertEquals(4096, prompt.getOptions().getMaxTokens());
+                assertEquals(0.2, prompt.getOptions().getTemperature());
+                return scripted.call(prompt);
+            }
+        };
+        try {
+            assertEquals("CANDIDATE", f.adapter(f.ledger(f.token, f.step), model, new InspectingSaver(f, false))
+                    .invoke(PROMPT).get("status"));
+            assertEquals(2, scripted.callCount()); assertEquals(1, f.firstCalls.get());
+            var envelopes = f.jdbc.queryForList("SELECT model_invocation_json FROM campaign_child_ledger WHERE child_mode='MODEL'", String.class);
+            assertEquals(2, envelopes.size());
+            for (String envelope : envelopes) {
+                var frozenRequest = ModelInvocationRegistry.decodeRequest(tree(envelope).path("requestJson").asText(),
+                        ModelInvocationRegistry.Limits.defaults());
+                assertEquals(generation, frozenRequest.generationOptions());
+            }
+            var original = f.configuration;
+            var changed = new JdbcExplorationLedger.ModelConfiguration(original.modelRef(), original.modelVersion(),
+                    original.configurationHash(), original.systemPrompt(), original.tools(), original.inputs(), original.expiresAt(),
+                    NativeExplorationAdapter.generationOptions(org.springframework.ai.model.tool.ToolCallingChatOptions.builder()
+                            .model("changed-model").maxTokens(4096).temperature(0.2).build()));
+            var failure = assertThrows(IllegalStateException.class, () -> new JdbcExplorationLedger(f.jdbc, f.transactions,
+                    CLOCK, f.runs, f.steps, f.calls, f.step, f.models, changed, f.executors, f.authorizer));
+            assertEquals("EXPLORATION_CONFIGURATION_CHANGED", failure.getMessage());
+            assertEquals(2, scripted.callCount()); assertEquals(1, f.firstCalls.get());
+        } finally { f.steps.callbackExited(f.step); }
+        f.exited();
+    }
+
+    @Test
     void emptyCheckpointRecoveryReusesCommittedModelTurnAndCompletedToolBeforeContinuingDependentAnalysis() throws Exception {
         var f = new Fixture(false);
         var model = new ScriptedExplorationChatModel(
@@ -212,6 +254,9 @@ class NativeDurableExplorationLedgerTest {
         final boolean async;
 
         Fixture(boolean async) {
+            this(async, NativeExplorationAdapter.generationOptions(new ScriptedExplorationChatModel().getDefaultOptions()));
+        }
+        Fixture(boolean async, ModelInvocationRegistry.GenerationOptions generation) {
             this.async = async;
             var source = new DriverManagerDataSource("jdbc:h2:mem:durable_explore_" + UUID.randomUUID()
                     + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1", "sa", "");
@@ -243,7 +288,7 @@ class NativeDurableExplorationLedgerTest {
             step = steps.beginStep(token, planStep.stepId());
             List<ModelInvocationRegistry.ToolDefinition> tools = refs.keySet().stream().map(name -> new ModelInvocationRegistry.ToolDefinition(
                     name, "Read approved evidence", tree("read_second".equals(name) ? DEPENDENCY_SCHEMA : EMPTY_SCHEMA))).toList();
-            configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIG, null, tools, Map.of(), EXPIRY);
+            configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIG, null, tools, Map.of(), EXPIRY, generation);
             models = new ModelInvocationRegistry(List.of(new Contract("scripted-model", "1", CONFIG, invocation -> true)));
         }
         JdbcExplorationLedger ledger(RunToken writer, StepPermit permit) {
@@ -252,7 +297,7 @@ class NativeDurableExplorationLedgerTest {
                     new JdbcCampaignStepStore(jdbc, transactions, CLOCK), new JdbcCampaignExplorationCallStore(jdbc, transactions, CLOCK),
                     permit, models, configuration, executors, authorizer);
         }
-        NativeExplorationAdapter adapter(JdbcExplorationLedger ledger, ScriptedExplorationChatModel model, InspectingSaver saver) {
+        NativeExplorationAdapter adapter(JdbcExplorationLedger ledger, org.springframework.ai.chat.model.ChatModel model, InspectingSaver saver) {
             List<NativeExplorationAdapter.RegisteredTool> registered = new ArrayList<>();
             for (var definition : configuration.tools()) {
                 String name = definition.name();

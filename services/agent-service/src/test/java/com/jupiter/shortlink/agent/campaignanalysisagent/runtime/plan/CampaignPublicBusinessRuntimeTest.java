@@ -198,7 +198,8 @@ class CampaignPublicBusinessRuntimeTest {
                     "V20260920_19__campaign_statistics_consumers.sql",
                     "V20260920_22__campaign_report_lifecycle.sql", "V20260921__campaign_run_result_binding.sql",
                     "V20260923__campaign_conversation_session_owner.sql", "V20260923_2__campaign_advance_outcome.sql",
-                    "V20260923_3__campaign_conversation_turn.sql", "V20260924_3__campaign_public_request.sql");
+                    "V20260923_3__campaign_conversation_turn.sql", "V20260924_3__campaign_public_request.sql",
+                    "V20260924_6__campaign_public_request_cancellation.sql");
             new ResourceDatabasePopulator(migrations.stream().map(name -> new ClassPathResource("sql/migration/" + name))
                     .toArray(ClassPathResource[]::new)).execute(source);
             jdbc = new JdbcTemplate(source); tx = new TransactionTemplate(new DataSourceTransactionManager(source));
@@ -238,7 +239,7 @@ class CampaignPublicBusinessRuntimeTest {
             String text = prompt.getInstructions().toString();
             String result;
             if (number == 1) {
-                assertThat(text).contains(QUESTION, CampaignInterpretedRequest.SCHEMA);
+                assertThat(text).contains(QUESTION, CampaignInterpretedRequest.WIRE_SCHEMA);
                 result = FrozenCampaignRun.encode(new CampaignInterpretedRequest(CampaignInterpretedRequest.SCHEMA, QUESTION,
                         List.of(new CampaignInterpretedRequest.Goal("下降短链及其省份设备变化", 0, QUESTION.length(), "DECLINE_DIMENSIONS", "PV",
                                 List.of(query("group-a", "2026-09-01"), query("group-a", "2026-09-02")), false, List.of(), false, false),

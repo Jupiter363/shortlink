@@ -184,7 +184,7 @@ public record PlanningProposal(String schemaVersion, List<PlanSpec.Step> steps,
 
     public static PlanningProposal parse(String encoded) { return parse(encoded, Limits.defaults()); }
     public static PlanningProposal parse(String encoded, Limits limits) {
-        JsonNode root = read(encoded, limits.proposalBytes(), limits);
+        JsonNode root = read(proposalJson(encoded, limits.proposalBytes()), limits.proposalBytes(), limits);
         fields(root, Set.of("schemaVersion", "steps", "coverageBindings", "gaps"), Set.of());
         require(SCHEMA_VERSION.equals(string(root.get("schemaVersion"))), INVALID);
         array(root.get("steps")).forEach(PlanningProposal::stepShape);
@@ -199,6 +199,16 @@ public record PlanningProposal(String schemaVersion, List<PlanSpec.Step> steps,
             string(gap.get("requirementId")); string(gap.get("reason")); string(gap.get("explanation"));
         }
         return convert(root, PlanningProposal.class);
+    }
+
+    /** Presentation-only normalization after the original provider response has been persisted. */
+    private static String proposalJson(String encoded, int maximum) {
+        // Bound the original response, including its wrapper, before making another String.
+        utf8(encoded, maximum);
+        // The unchanged strict JSON reader rejects prose, multiple objects/fences, duplicate keys,
+        // and unknown fields. Never extract a plausible object from an otherwise invalid answer.
+        try { return StrictStructuredJson.unwrapSingleFence(encoded); }
+        catch (IllegalArgumentException invalid) { throw invalid(INVALID); }
     }
 
     public String encode() { return encode(Limits.defaults()); }

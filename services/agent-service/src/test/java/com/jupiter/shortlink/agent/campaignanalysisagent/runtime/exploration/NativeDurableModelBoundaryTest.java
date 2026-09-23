@@ -41,9 +41,9 @@ class NativeDurableModelBoundaryTest {
     private static final String CONFIG = "b".repeat(64), INPUT_BODY = "{\"pv\":13,\"collectionQuality\":\"UNKNOWN\"}";
     private static final NativeExplorationAdapter.Limits LIMITS =
             new NativeExplorationAdapter.Limits(0, 4096, 1024, 16384, 8, Duration.ofSeconds(5));
-    private static final String REQUEST = "{\"schemaVersion\":\"campaign-model-request/v1\",\"messages\":[{\"role\":\"user\",\"text\":\""
+    private static final String REQUEST = requestWithGenerationOptions("{\"schemaVersion\":\"campaign-model-request/v1\",\"messages\":[{\"role\":\"user\",\"text\":\""
             + PROMPT + "\"}],\"tools\":[{\"name\":\"inspect_metrics\",\"description\":\"Read approved evidence\","
-            + "\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}]}";
+            + "\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}]}");
     private static final PlanSpec.Step STEP = new PlanSpec.Step("explore", List.of("goal"), PlanSpec.ExecutionMode.REACT, null,
             new PlanSpec.ExplorationPolicy("campaign-explore", "1", List.of(new PlanSpec.ExecutorRef(PlanSpec.ExecutorKind.TOOL, "inspect_metrics", "1")),
                     "scope-frozen", "periods-frozen", List.of(new PlanSpec.CriterionUse("evidence-supported", Map.of())), "single-turn"),
@@ -174,6 +174,11 @@ class NativeDurableModelBoundaryTest {
     private static String stepJson() {
         try { return new ObjectMapper().writeValueAsString(STEP); }
         catch (com.fasterxml.jackson.core.JsonProcessingException invalid) { throw new IllegalStateException(invalid); }
+    }
+    private static String requestWithGenerationOptions(String value) {
+        var request = ModelInvocationRegistry.decodeRequest(value);
+        return ModelInvocationRegistry.encodeRequest(new Request(request.schemaVersion(), request.messages(), request.tools(),
+                NativeExplorationAdapter.generationOptions(new ScriptedExplorationChatModel().getDefaultOptions())));
     }
 
     private static final class Fixture {

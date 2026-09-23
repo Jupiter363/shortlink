@@ -86,6 +86,7 @@ public final class JdbcCampaignPlanningStore {
                         modelVersion, configurationHash, inputHash, expiry), expiry, State.PREPARED,
                 false, null, null, null, null, null);
         return tx(() -> {
+            intake.guardCommit(caller, sessionId, identity.runId());
             requireCurrent(expected);
             jdbc.update("INSERT INTO campaign_planning_request (request_id,tenant_id,subject_name,auth_version,"
                             + "session_id,request_key,profile_ref,profile_version,run_id,plan_id,model_ref,model_version,"
@@ -131,6 +132,7 @@ public final class JdbcCampaignPlanningStore {
         String encoded = ModelInvocationRegistry.encode(invocation);
         bounded(encoded, limits.invocationBytes(), "PLANNING_INVOCATION_TOO_LARGE");
         return tx(() -> {
+            guardCommit(expected);
             Stored stored = matching(expected);
             Header header = stored.header();
             requireCurrent(header);
@@ -151,6 +153,7 @@ public final class JdbcCampaignPlanningStore {
 
     public boolean mayDispatch(Permit permit) {
         return tx(() -> {
+            guardCommit(required(permit.requestId(), false).header());
             Stored stored = permitted(permit);
             Header header = stored.header();
             return header.state() == State.DISPATCHING && header.callbackActive()
@@ -166,6 +169,7 @@ public final class JdbcCampaignPlanningStore {
         String encoded = ModelInvocationRegistry.encodeResponse(response);
         bounded(encoded, limits.responseBytes(), "PLANNING_RESPONSE_TOO_LARGE");
         tx(() -> {
+            guardCommit(required(permit.requestId(), false).header());
             Stored stored = permitted(permit);
             Header header = stored.header();
             requireCurrent(header);
@@ -235,6 +239,7 @@ public final class JdbcCampaignPlanningStore {
     public JdbcCampaignRunIntakeStore.Header accept(Header expected, RunDefinition definition) {
         Objects.requireNonNull(definition);
         return tx(() -> {
+            guardCommit(expected);
             Stored stored = readable(expected);
             Header header = stored.header();
             requireSource(expected, header);
@@ -286,6 +291,10 @@ public final class JdbcCampaignPlanningStore {
         if (expected.responseHash() != null)
             require(expected.responseHash().equals(header.responseHash()), "PLANNING_RESPONSE_CHANGED");
         return stored;
+    }
+
+    private void guardCommit(Header header) {
+        intake.guardCommit(header.caller(), header.sessionId(), header.runId());
     }
 
     private Stored matching(Header expected) {

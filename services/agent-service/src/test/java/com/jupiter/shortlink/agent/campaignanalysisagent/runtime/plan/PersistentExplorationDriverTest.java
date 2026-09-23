@@ -254,7 +254,7 @@ class PersistentExplorationDriverTest {
             var execute = new PersistentExplorationExecutor((planned, inputs, permit, authorized) -> {
                 assertTrue(authorized.getAsBoolean()); assertEquals(STEP, planned.stepId());
                 assertEquals(permit.runToken(), token); reactPermits.add(permit);
-                var ledger = nativeLedger(base, permit, candidates);
+                var ledger = nativeLedger(base, permit, candidates, model);
                 var adapter = scope == null ? nativeAdapter(base, ledger, model)
                         : new NativeExplorationAdapter(ledger.identity(), ledger, model,
                                 List.of(new DeclineSelectionExplorationSkill(base.adapter()).registration()),

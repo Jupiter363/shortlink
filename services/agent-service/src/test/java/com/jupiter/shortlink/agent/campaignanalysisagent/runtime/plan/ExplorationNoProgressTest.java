@@ -178,7 +178,8 @@ class ExplorationNoProgressTest {
             var tool = DeclineSelectionExplorationSkill.definition();
             var configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIGURATION, null,
                     List.of(new ModelInvocationRegistry.ToolDefinition(tool.name(), tool.description(), JSON.readTree(tool.inputSchema()))),
-                    Map.of("scope", base.runs.inspectArtifact(OWNER, base.scopeArtifact, base.auth)), Instant.ofEpochMilli(EXPIRY));
+                    Map.of("scope", base.runs.inspectArtifact(OWNER, base.scopeArtifact, base.auth)), Instant.ofEpochMilli(EXPIRY),
+                    NativeExplorationAdapter.generationOptions(model.getDefaultOptions()));
             var ledger = new JdbcExplorationLedger(base.base.jdbc, base.base.transactions, CLOCK, base.runs, base.steps, base.calls,
                     permit, base.models, configuration, Map.of(FrozenDeclineSelection.REF.name(), FrozenDeclineSelection.REF), base.auth,
                     ExplorationBudgetPolicy.defaults(), new DeclineSelectionArtifactProjection(base.runs,

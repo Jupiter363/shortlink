@@ -1,6 +1,7 @@
 package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery;
 
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRecoveryStore;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.diagnostics.CampaignFailureDiagnostics;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunDefinition;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.RunStatus;
@@ -12,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * One admitted backend recovery pass: proven takeover, existing-only identity reconciliation,
@@ -19,6 +22,7 @@ import java.util.Objects;
  * The caller must enter through the shared process capacity executor before loading a Run.
  */
 public final class CampaignRecoveryCoordinator {
+    private static final Logger LOG = LoggerFactory.getLogger(CampaignRecoveryCoordinator.class);
     public enum Outcome { SCANNED, BLOCKED, STOPPED }
 
     @FunctionalInterface public interface RunAuthorizer {
@@ -113,6 +117,7 @@ public final class CampaignRecoveryCoordinator {
             if (runtime.releaseAuthorizer() != null && releaser == null)
                 throw new IllegalArgumentException("Statistics result release is unavailable");
         } catch (IllegalArgumentException | SecurityException unavailable) {
+            LOG.warn("Campaign recovery runtime unavailable diagnostic={}", CampaignFailureDiagnostics.describe(unavailable));
             return result(Outcome.BLOCKED, token, "RECOVERY_RUNTIME_UNAVAILABLE", takeover.recoveredCallbacks(), List.of(), null);
         }
         List<StatisticsSubmissionReconciler.Result> reconciled = new ArrayList<>();

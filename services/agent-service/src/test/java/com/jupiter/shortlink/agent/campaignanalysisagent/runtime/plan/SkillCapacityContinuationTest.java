@@ -223,7 +223,8 @@ class SkillCapacityContinuationTest {
                 var definition = DeclineSelectionExplorationSkill.definition();
                 var config = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIGURATION, null,
                         List.of(new ModelInvocationRegistry.ToolDefinition(definition.name(), definition.description(), JSON.readTree(definition.inputSchema()))),
-                        Map.of("scope", base.runs.inspectArtifact(OWNER, base.scopeArtifact, base.auth)), Instant.ofEpochMilli(EXPIRY));
+                        Map.of("scope", base.runs.inspectArtifact(OWNER, base.scopeArtifact, base.auth)), Instant.ofEpochMilli(EXPIRY),
+                        NativeExplorationAdapter.generationOptions(model.getDefaultOptions()));
                 var ledger = new JdbcExplorationLedger(base.base.jdbc, base.base.transactions, clock, base.runs, base.steps, base.calls,
                         permit, base.models, config, Map.of(FrozenDeclineSelection.REF.name(), FrozenDeclineSelection.REF), base.auth,
                         ExplorationBudgetPolicy.defaults(), new DeclineSelectionArtifactProjection(base.runs,

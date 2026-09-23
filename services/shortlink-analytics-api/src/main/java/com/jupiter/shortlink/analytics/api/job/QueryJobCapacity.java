@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
 public record QueryJobCapacity(
         @Value("${analytics.jobs.capacity.tenant-active:2}") int tenantActive,
         @Value("${analytics.jobs.capacity.global-active:8}") int globalActive,
-        @Value("${analytics.jobs.capacity.tenant-results:8}") int tenantResults,
-        @Value("${analytics.jobs.capacity.global-results:128}") int globalResults,
+        @Value("${analytics.jobs.capacity.tenant-results:128}") int tenantResults,
+        @Value("${analytics.jobs.capacity.global-results:512}") int globalResults,
         @Value("${analytics.jobs.capacity.result-bytes:1073741824}") long resultBytes,
         @Value("${analytics.jobs.capacity.tenant-identities:2048}") int tenantIdentities,
         @Value("${analytics.jobs.capacity.global-identities:16384}") int globalIdentities,
@@ -23,7 +23,7 @@ public record QueryJobCapacity(
     }
 
     public static QueryJobCapacity defaults() {
-        return new QueryJobCapacity(2, 8, 8, 128, 1024L * 1024 * 1024,
+        return new QueryJobCapacity(2, 8, 128, 512, 1024L * 1024 * 1024,
                 2048, 16384, 16L * 1024 * 1024, 128L * 1024 * 1024);
     }
 }

@@ -3,7 +3,10 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.report;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.FrozenInputSet;
+import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanBinding;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningAssessment;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope;
@@ -16,6 +19,8 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.JdbcCamp
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -64,7 +69,7 @@ class CampaignReportNarrativeSynthesizerTest {
             assertThat(scope.activeCount()).isPositive();
             assertThat(f.jdbc.queryForObject("SELECT callback_active FROM campaign_report_synthesis", Boolean.class)).isTrue();
             assertThat(prompt.getContents()).contains("artifact-1", "100", "60", "goal-1");
-            return text(RESPONSE);
+            return text("```json\n" + RESPONSE + "\n```");
         });
         var synthesis = f.synthesis(model, allowed);
         Assembled first = synthesis.synthesize(CALLER, f.token, f.source, scope);
@@ -91,6 +96,96 @@ class CampaignReportNarrativeSynthesizerTest {
         assertThatThrownBy(() -> synthesis.synthesize(CALLER, f.token, f.source, new ProcessExecutionScope()))
                 .isInstanceOf(SecurityException.class);
         assertThat(model.calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    void promptDistinguishesCompleteZeroValuedRowsEmptyResultAndPagedPreview() {
+        for (int totalRows : List.of(2, 0, 13)) {
+            Fixture f = fixture();
+            int previewRows = Math.min(totalRows, 12);
+            boolean previewComplete = previewRows == totalRows;
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (int index = 0; index < previewRows; index++)
+                rows.add(Map.of("linkId", index + 1, "pv", 0, "uv", 0, "uip", 0));
+            Map<String, Object> payload = new LinkedHashMap<>(Map.of(
+                    "artifactId", "artifact-1", "columns", List.of(), "rows", rows, "totalRows", totalRows));
+            payload.put("nextCursor", previewComplete ? null : "next-page");
+            List<ReportBlock> blocks = List.of(
+                    new ReportBlock("table-1", ReportBlock.Kind.TABLE, "访问明细", null, payload, List.of("artifact-1"), previewComplete),
+                    new ReportBlock("result-1", ReportBlock.Kind.RESULT_LINK, "完整结果", null,
+                            Map.of("artifactId", "artifact-1", "rowCount", (long) totalRows), List.of("artifact-1"), true));
+            var original = f.source.draft();
+            var source = new Assembled(new ReportDraft(original.reportId(), original.revision(), original.runId(), original.planId(),
+                    original.planRevision(), List.of(new ReportSection("section-1", 0, "访问结果", List.of("goal-1"), blocks)),
+                    original.resultEntries()), f.source.observations(), f.source.evidence());
+            ScriptModel model = new ScriptModel(prompt -> {
+                String input = prompt.getInstructions().stream()
+                        .filter(message -> message instanceof org.springframework.ai.chat.messages.UserMessage)
+                        .findFirst().orElseThrow().getText();
+                try {
+                    var goal = new ObjectMapper().readTree(input.substring(0, input.indexOf('\n'))).path("goals").get(0);
+                    assertThat(goal.has("previewIsFullPopulation")).isFalse();
+                    var facts = goal.path("tableFacts");
+                    assertThat(facts.size()).isEqualTo(1);
+                    var fact = facts.get(0);
+                    assertThat(fact.path("blockId").asText()).isEqualTo("table-1");
+                    assertThat(fact.path("evidenceArtifactIds").get(0).asText()).isEqualTo("artifact-1");
+                    assertThat(fact.path("totalRows").asInt()).isEqualTo(totalRows);
+                    assertThat(fact.path("previewRows").asInt()).isEqualTo(previewRows);
+                    assertThat(fact.path("resultComplete").asBoolean()).isTrue();
+                    assertThat(fact.path("previewComplete").asBoolean()).isEqualTo(previewComplete);
+                    assertThat(fact.path("emptyResult").asBoolean()).isEqualTo(totalRows == 0);
+                    var table = goal.path("reportPreview").get(0);
+                    assertThat(table.path("payload").path("rows").size()).isEqualTo(previewRows);
+                    for (var row : table.path("payload").path("rows"))
+                        assertThat(row.path("pv").asInt()).isZero();
+                } catch (java.io.IOException invalid) { throw new AssertionError(invalid); }
+                return text("{\"schemaVersion\":\"campaign-report-synthesis/v1\",\"blocks\":[]}");
+            });
+            var synthesis = f.synthesis(model, new AtomicBoolean(true));
+            Assembled first = synthesis.synthesize(CALLER, f.token, source, new ProcessExecutionScope());
+            assertThat(first.draft().blocks()).containsAll(blocks);
+            assertThat(synthesis.synthesize(CALLER, f.token, source, new ProcessExecutionScope())).isEqualTo(first);
+            assertThat(model.calls.get()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void querylessGoalReceivesOnlyItsSharedProducerFrozenQueryAndStillRequiresActualEvidence() {
+        Fixture f = fixture(true);
+        ScriptModel model = new ScriptModel(prompt -> {
+            String input = prompt.getInstructions().stream()
+                    .filter(message -> message instanceof org.springframework.ai.chat.messages.UserMessage)
+                    .findFirst().orElseThrow().getText();
+            try {
+                var goals = new ObjectMapper().readTree(input.substring(0, input.indexOf('\n'))).path("goals");
+                assertThat(goals.size()).isEqualTo(1);
+                assertThat(goals.get(0).path("goalId").asText()).isEqualTo("goal-2");
+                var context = goals.get(0).path("frozenQueryContext");
+                assertThat(context.path("goal-1-scope").path("gid").asText()).isEqualTo("group-shared");
+                assertThat(context.path("goal-1-periods").path("startDate").asText()).isEqualTo("2026-09-13");
+                assertThat(context.path("goal-1-periods").path("endDate").asText()).isEqualTo("2026-09-14");
+                assertThat(context.path("goal-1-query").path("queryKind").asText()).isEqualTo("METRICS");
+                assertThat(context.path("goal-1-query").path("filters").get(0).path("values").get(0).asText())
+                        .isEqualTo("Desktop");
+                assertThat(context.path("goal-2-context").path("metric").asText()).isEqualTo("PV");
+                assertThat(input).doesNotContain("UNRELATED_QUERY", "secret-must-not-leak", "unrelated-query", "debug-input");
+            } catch (java.io.IOException invalid) { throw new AssertionError(invalid); }
+            return text(RESPONSE.replace("goal-1", "goal-2"));
+        });
+
+        Assembled result = f.synthesis(model, new AtomicBoolean(true))
+                .synthesize(CALLER, f.token, f.source, new ProcessExecutionScope());
+        assertThat(model.calls.get()).isEqualTo(1);
+        assertThat(result.evidence()).isEqualTo(f.source.evidence());
+        assertThat(result.draft().blocks()).containsAll(f.source.draft().blocks());
+        assertThat(result.observations().get("goal-2-analysis").verdict()).isEqualTo(RequirementAssessment.Verdict.MET);
+        assertThat(result.observations().get("goal-2-causal").verdict()).isEqualTo(RequirementAssessment.Verdict.UNKNOWN);
+        var frozen = FrozenCampaignRun.read(f.token.definition());
+        var assessed = new GoalAssessor().assess(new GoalAssessor.Input(
+                frozen.plan(), frozen.assessment(), result.observations(), result.draft()));
+        assertThat(assessed.goals()).filteredOn(goal -> goal.goalId().equals("goal-2")).singleElement()
+                .satisfies(goal -> assertThat(goal.status()).isNotEqualTo(GoalAssessment.Status.ANSWERED));
     }
 
     @Test
@@ -166,7 +261,75 @@ class CampaignReportNarrativeSynthesizerTest {
         assertThat(f.jdbc.queryForObject("SELECT synthesis_state FROM campaign_report_synthesis", String.class)).isEqualTo("READY");
     }
 
+    @Test
+    void unrequestedSameGoalRecommendationCannotEraseValidAnalysisOrRedispatch() {
+        Fixture f = fixture(false, false);
+        AtomicBoolean allowed = new AtomicBoolean(true);
+        ScriptModel model = new ScriptModel(prompt -> text(RESPONSE));
+        Assembled first = f.synthesis(model, allowed)
+                .synthesize(CALLER, f.token, f.source, new ProcessExecutionScope());
+        Assembled replay = f.synthesis(model, allowed)
+                .synthesize(CALLER, f.token, f.source, new ProcessExecutionScope());
+
+        assertThat(first.observations().get("goal-1-analysis").verdict()).isEqualTo(RequirementAssessment.Verdict.MET);
+        assertThat(first.observations()).doesNotContainKey("goal-1-recommendation");
+        assertThat(first.observations().get("goal-1-causal").verdict()).isEqualTo(RequirementAssessment.Verdict.UNKNOWN);
+        assertThat(first.draft().blocks()).containsAll(f.source.draft().blocks());
+        assertThat(first.draft().blocks()).filteredOn(block -> block.payload().containsKey("synthesisVersion"))
+                .singleElement().satisfies(block -> {
+                    assertThat(block.kind()).isEqualTo(ReportBlock.Kind.ANALYSIS);
+                    assertThat(block.evidenceArtifactIds()).containsExactly("artifact-1");
+                    assertThat(block.text()).contains("目标期访问从 100 次降至 60 次", "不能据此证明渠道或设备导致下降");
+                });
+        assertThat(first.draft().blocks()).noneMatch(block -> block.kind() == ReportBlock.Kind.RECOMMENDATION);
+        assertThat(replay).isEqualTo(first);
+        assertThat(model.calls.get()).isEqualTo(1);
+        assertThat(f.jdbc.queryForObject("SELECT synthesis_state FROM campaign_report_synthesis", String.class)).isEqualTo("READY");
+        allowed.set(false);
+        assertThatThrownBy(() -> f.synthesis(model, allowed)
+                .synthesize(CALLER, f.token, f.source, new ProcessExecutionScope())).isInstanceOf(SecurityException.class);
+        assertThat(model.calls.get()).isEqualTo(1);
+    }
+
+    @Test
+    void unrequestedNarrativeStillRejectsForeignMalformedAndDuplicateBlocks() throws Exception {
+        ObjectMapper json = new ObjectMapper();
+        for (String variant : List.of("foreign-goal", "foreign-evidence", "unknown-field", "duplicate", "blank-text", "unknown-kind")) {
+            Fixture f = fixture(false, false);
+            ObjectNode response = (ObjectNode) json.readTree(RESPONSE);
+            ObjectNode extra = (ObjectNode) response.withArray("blocks").get(1);
+            switch (variant) {
+                case "foreign-goal" -> extra.put("goalId", "foreign-goal");
+                case "foreign-evidence" -> extra.putArray("evidenceArtifactIds").add("foreign-artifact");
+                case "unknown-field" -> extra.put("unrequestedField", true);
+                case "duplicate" -> response.withArray("blocks").add(extra.deepCopy());
+                case "blank-text" -> extra.put("text", " ");
+                case "unknown-kind" -> extra.put("kind", "TABLE");
+                default -> throw new AssertionError(variant);
+            }
+            String encoded = json.writeValueAsString(response);
+            ScriptModel model = new ScriptModel(prompt -> text(encoded));
+            Assembled result = f.synthesis(model, new AtomicBoolean(true))
+                    .synthesize(CALLER, f.token, f.source, new ProcessExecutionScope());
+            assertThat(result.draft()).as(variant).isEqualTo(f.source.draft());
+            assertThat(result.observations().get("goal-1-analysis").verdict()).as(variant)
+                    .isEqualTo(RequirementAssessment.Verdict.UNKNOWN);
+            assertThat(result.observations().get("goal-1-analysis").reasonCode()).as(variant)
+                    .isEqualTo("REPORT_NARRATIVE_INVALID");
+            assertThat(result.observations()).as(variant).doesNotContainKey("goal-1-recommendation");
+            assertThat(model.calls.get()).as(variant).isEqualTo(1);
+        }
+    }
+
     private static Fixture fixture() {
+        return fixture(false);
+    }
+
+    private static Fixture fixture(boolean sharedQuery) {
+        return fixture(sharedQuery, true);
+    }
+
+    private static Fixture fixture(boolean sharedQuery, boolean recommendation) {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:report_synthesis_" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1");
         new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919__campaign_run_ledger.sql"),
@@ -175,14 +338,46 @@ class CampaignReportNarrativeSynthesizerTest {
         TransactionTemplate transactions = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         JdbcCampaignRunStore runs = new JdbcCampaignRunStore(jdbc, transactions, CLOCK);
         PlanSpec plan = new PlanSpec(PlanSpec.SCHEMA_VERSION, "plan-1", 1, "run-1", "inputs-1",
-                List.of(new PlanSpec.Goal("goal-1", "分析访问变化并提出建议", true, "数据、分析与建议")), List.of());
+                List.of(new PlanSpec.Goal("goal-1", recommendation ? "分析访问变化并提出建议" : "分析访问变化",
+                        true, recommendation ? "数据、分析与建议" : "数据与分析")), List.of());
         PlanningAssessment assessment = new PlanningAssessment("plan-1", 1, "catalog-v1", List.of(
                 requirement("goal-1-data", PlanningAssessment.RequirementKind.DATA, "statistics-data"),
                 requirement("goal-1-analysis", PlanningAssessment.RequirementKind.CALCULATION, "analysis-interpretation-dimensions"),
                 requirement("goal-1-recommendation", PlanningAssessment.RequirementKind.CALCULATION, "analysis-recommendation"),
                 requirement("goal-1-causal", PlanningAssessment.RequirementKind.CAUSAL_EVIDENCE, "causal-evidence")), List.of(), List.of());
+        if (!recommendation) assessment = new PlanningAssessment(assessment.planId(), assessment.revision(),
+                assessment.capabilityCatalogVersion(), assessment.requirements().stream()
+                        .filter(value -> !"goal-1-recommendation".equals(value.requirementId())).toList(), List.of(), List.of());
+        Map<String, Object> inputValues = Map.of();
+        if (sharedQuery) {
+            var executor = new PlanSpec.ExecutorRef(PlanSpec.ExecutorKind.TOOL, "statistics", "1");
+            plan = new PlanSpec(plan.schemaVersion(), plan.planId(), plan.revision(), plan.runId(), plan.inputSetRef(),
+                    List.of(new PlanSpec.Goal("goal-1", "查询访问数据", true, "原始数据"),
+                            new PlanSpec.Goal("goal-2", "复用上项数据分析并提出建议", true, "数据、分析与建议")),
+                    List.of(new PlanSpec.Step("step-1", List.of("goal-1", "goal-2"), PlanSpec.ExecutionMode.FIXED,
+                                    executor, null, List.of(), Map.of("scope", PlanBinding.input("goal-1-scope"),
+                                            "periods", PlanBinding.input("goal-1-periods"), "query", PlanBinding.input("goal-1-query"),
+                                            "debug", PlanBinding.input("debug-input")), Map.of(), "statistics-result/v1"),
+                            new PlanSpec.Step("step-unrelated", List.of("goal-2"), PlanSpec.ExecutionMode.FIXED,
+                                    executor, null, List.of(), Map.of("query", PlanBinding.input("unrelated-query")),
+                                    Map.of(), "statistics-result/v1")));
+            var requirements = new ArrayList<PlanningAssessment.Requirement>();
+            requirements.add(requirement("goal-1-data", PlanningAssessment.RequirementKind.DATA, "statistics-data"));
+            for (var original : assessment.requirements())
+                requirements.add(new PlanningAssessment.Requirement(original.requirementId().replace("goal-1", "goal-2"),
+                        "goal-2", original.kind(), original.required(), original.criterionRef(), original.criterionVersion(), original.parameters()));
+            assessment = new PlanningAssessment("plan-1", 1, "catalog-v1", requirements,
+                    requirements.stream().filter(value -> value.kind() != PlanningAssessment.RequirementKind.CAUSAL_EVIDENCE)
+                            .map(value -> new PlanningAssessment.CoverageBinding(value.requirementId(),
+                                    List.of(new PlanningAssessment.EvidenceOutput("step-1", "pages")))).toList(), List.of());
+            inputValues = Map.of("goal-1-scope", Map.of("scopeRef", "scope-1", "gid", "group-shared", "token", "secret-must-not-leak"),
+                    "goal-1-periods", Map.of("periodsRef", "periods-1", "startDate", "2026-09-13", "endDate", "2026-09-14"),
+                    "goal-1-query", Map.of("queryKind", "METRICS", "filters", List.of(Map.of("dimension", "device", "values", List.of("Desktop")))),
+                    "goal-2-context", Map.of("metric", "PV"), "debug-input", "secret-must-not-leak",
+                    "unrelated-query", Map.of("gid", "UNRELATED_QUERY"));
+        }
         RunToken token = runs.createRun(FrozenCampaignRun.freeze(plan,
-                new FrozenInputSet("inputs-1", "run-1", Map.of(), Map.of()), assessment).definition(CALLER, "session-1"));
+                new FrozenInputSet("inputs-1", "run-1", Map.of(), inputValues), assessment).definition(CALLER, "session-1"));
         runs.prepareAction(token, new ActionSpec("action-1", "step-1", "TOOL", "statistics", "1", "{}"));
         runs.prepareChild(token, new ChildSpec("child-1", "action-1", ChildMode.SYNC, "request-1", new WireRequest("GET", "/test", "{}")));
         DispatchPermit permit = runs.beginDispatch(token, "child-1");
@@ -192,14 +387,21 @@ class CampaignReportNarrativeSynthesizerTest {
         } finally { runs.callbackExited(permit); }
         ArtifactMetadata metadata = runs.inspectArtifact(CALLER, "artifact-1", (caller, artifact) -> true);
         ReportDraft draft = new ReportDraft("report-1", 1, "run-1", "plan-1", 1, List.of(new ReportSection("section-1", 0,
-                "访问变化", List.of("goal-1"), List.of(
+                "访问变化", sharedQuery ? List.of("goal-1", "goal-2") : List.of("goal-1"), List.of(
                         new ReportBlock("metric-1", ReportBlock.Kind.METRIC, "访问", null,
                                 Map.of("items", List.of(Map.of("label", "基期", "value", 100), Map.of("label", "目标期", "value", 60))), List.of("artifact-1"), true),
                         new ReportBlock("chart-1", ReportBlock.Kind.CHART, "期间对比", null, Map.of("chartType", "BAR", "labels", List.of("基期", "目标期"),
                                 "series", List.of(Map.of("name", "访问", "values", List.of(100, 60)))), List.of("artifact-1"), false)))), List.of());
-        Map<String, GoalAssessor.RequirementObservation> observations = Map.of(
+        Map<String, GoalAssessor.RequirementObservation> observations = new LinkedHashMap<>(Map.of(
                 "goal-1-data", new GoalAssessor.RequirementObservation(RequirementAssessment.Verdict.MET, null, List.of("artifact-1")),
-                "goal-1-analysis", pending(), "goal-1-recommendation", pending(), "goal-1-causal", pending());
+                "goal-1-analysis", pending(), "goal-1-recommendation", pending(), "goal-1-causal", pending()));
+        if (!recommendation) observations.remove("goal-1-recommendation");
+        if (sharedQuery) {
+            var sharedObservations = new LinkedHashMap<String, GoalAssessor.RequirementObservation>();
+            sharedObservations.put("goal-1-data", observations.get("goal-1-data"));
+            observations.forEach((name, value) -> sharedObservations.put(name.replace("goal-1", "goal-2"), value));
+            observations = sharedObservations;
+        }
         return new Fixture(jdbc, transactions, runs, token, new Assembled(draft, observations, List.of(metadata)));
     }
 

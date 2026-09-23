@@ -3,6 +3,7 @@ package com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan;
 import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient;
 import com.jupiter.shortlink.agent.business.shortlink.ShortLinkBusinessGateway;
+import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.binding.StepBindings;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.recovery.CampaignRecoveryCoordinator;
@@ -15,7 +16,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /** One business profile composes the established fixed and native ReAct adapters under one intake. */
 public final class CampaignBusinessProfile {
@@ -61,35 +64,56 @@ public final class CampaignBusinessProfile {
                     collector, (principal, gid) -> principal.equals(context.principal())
                     && parsed.dependencies().stream().anyMatch(value -> value.request().gid().equals(gid))
                     && context.runAuthorizer().mayExecute(definition.caller(), frozen.inputs()), context.artifactAuthorizer());
-            var selection = new DeclineSelectionSkill(context.token(), context.principal(), approvedSkillsRoot,
-                    runs, steps, scopes, results, selections, gateway, queryGate, context.artifactAuthorizer(), FrozenDeclineSelection.REF_V2);
-            var dimension = new DimensionChangeSkill(context.token(), context.principal(), approvedSkillsRoot,
-                    runs, steps, selections, results, gateway, queryGate, context.artifactAuthorizer(), FrozenDimensionChange.REF_V2);
-            if (!statistics.authorized() || !collection.authorized() || !selection.authorized() || !dimension.authorized())
+            // The business menu offers several independent scenarios. Instantiate fixed Skills only
+            // when this exact frozen plan uses them; their required-step/pin checks remain strict.
+            var selection = uses(frozen, FrozenDeclineSelection.REF_V2)
+                    ? new DeclineSelectionSkill(context.token(), context.principal(), approvedSkillsRoot,
+                        runs, steps, scopes, results, selections, gateway, queryGate, context.artifactAuthorizer(), FrozenDeclineSelection.REF_V2)
+                    : null;
+            var dimension = uses(frozen, FrozenDimensionChange.REF_V2)
+                    ? new DimensionChangeSkill(context.token(), context.principal(), approvedSkillsRoot,
+                        runs, steps, selections, results, gateway, queryGate, context.artifactAuthorizer(), FrozenDimensionChange.REF_V2)
+                    : null;
+            if (!statistics.authorized() || !collection.authorized()
+                    || selection != null && !selection.authorized() || dimension != null && !dimension.authorized())
                 throw new SecurityException("BUSINESS_EXECUTION_ACCESS_DENIED");
-            collection.prepareRecovery(); selection.prepareRecovery(); dimension.prepareRecovery();
+            collection.prepareRecovery();
+            if (selection != null) selection.prepareRecovery();
+            if (dimension != null) dimension.prepareRecovery();
             if (adopted != null) adopted.prepareRecovery();
             var localExploration = exploration.open(context.token(), context.principal(), catalog, contracts,
                     context.inputAuthorizer(), context.artifactAuthorizer(), queryGate, context.scope(), parsed.expiresAt());
+            List<PersistentPlanDriver.FixedExecutor> executors = new ArrayList<>(List.of(
+                    adopted == null ? statistics.registration() : adopted.registration(statistics), collection.registration()));
+            if (selection != null) executors.add(selection.registration());
+            if (dimension != null) executors.add(dimension.registration());
             var registry = new CampaignPlanRuntimeRegistry(new CampaignPlanRuntimeRegistry.Versions(catalog.version(),
                     "business-artifacts/v1", "business-executors/v1", FrozenCampaignRun.RUNNER, FrozenCampaignRun.TOPOLOGY),
-                    catalog, contracts, List.of(adopted == null ? statistics.registration() : adopted.registration(statistics), collection.registration(), selection.registration(), dimension.registration()),
+                    catalog, contracts, executors,
                     localExploration.registrations(), candidates, SAVER);
             var compiled = new CampaignPlanRuntimeFactory(registry).open(new CampaignPlanRuntimeFactory.Request(
                     definition.caller(), definition.sessionId(), context.token(), runs, steps, context.runAuthorizer(),
                     context.artifactAuthorizer(), context.inputAuthorizer(), context.scope()))
                     .compile(new CampaignPlanRuntimeRegistry.SaverBinding(SAVER, saver));
             var targets = new LinkedHashMap<String,StatisticsJobResultReceiver.Target>();
-            for (var source : List.of(statistics.resultTargets(), selection.resultTargets(), dimension.resultTargets(), localExploration.resultTargets()))
+            for (var source : List.of(statistics.resultTargets(),
+                    selection == null ? Map.<String,StatisticsJobResultReceiver.Target>of() : selection.resultTargets(),
+                    dimension == null ? Map.<String,StatisticsJobResultReceiver.Target>of() : dimension.resultTargets(),
+                    localExploration.resultTargets()))
                 source.forEach((id, target) -> {
                     if (targets.putIfAbsent(id, target) != null) throw new IllegalArgumentException("BUSINESS_RESULT_TARGET_CONFLICT");
                 });
             return new CampaignRecoveryCoordinator.Runtime(compiled.driver(), compiled.graph(), targets, context.artifactAuthorizer());
-        });
+        }, plans::validateDefinition, plans::normalizeProposal);
     }
 
     public CampaignRunIntake.Profile profile() { return profile; }
     public CampaignBusinessArtifactAuthorizer artifactAuthorizer() { return artifacts; }
+
+    private static boolean uses(FrozenCampaignRun frozen, PlanSpec.ExecutorRef executor) {
+        return frozen.plan().steps().stream().anyMatch(step -> step.executionMode() == PlanSpec.ExecutionMode.FIXED
+                && executor.equals(step.executor()));
+    }
 
     private static StepBindings.CurrentInputAuthorizer referenceGate(AgentAuthorityClient authority) {
         var statistics = new CampaignStatisticsCurrentInputAuthorizer(authority);

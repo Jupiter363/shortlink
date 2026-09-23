@@ -1,6 +1,8 @@
 package com.jupiter.shortlink.admin.remote.analytics;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -11,6 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import com.jupiter.shortlink.admin.common.biz.user.UserContext;
 import com.jupiter.shortlink.admin.common.biz.user.UserInfoDTO;
 import com.jupiter.shortlink.admin.common.convention.web.GlobalExceptionHandler;
@@ -36,6 +40,8 @@ import org.junit.jupiter.api.Timeout;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 
 /** Real Admin controller/facade/bounded HTTP client; Command alone is an in-process fixture. */
 @Timeout(30)
@@ -87,6 +93,43 @@ class GroupMembersPageTest {
         UserContext.removeUser();
         if (server != null) server.stop(0);
         assertThat(unexpected).as("No query, selected-members or fallback route").hasValue(0);
+    }
+
+    @Test
+    void springJacksonReadsBothAuthorityRecordsAndPreservesStrictHttpRequestValidation() throws Exception {
+        var springJson = Jackson2ObjectMapperBuilder.json().modulesToInstall(new ParameterNamesModule()).build();
+        var request = new GroupMembersPage.Request("g1", null, null);
+        var page = new GroupMembersPage(GroupMembersPage.SCHEMA, "1001", "alice", 7, "g1", VERSION, null, List.of(1L), null);
+        assertAll(
+                () -> assertThat(springJson.readValue(springJson.writeValueAsString(request), GroupMembersPage.Request.class)).isEqualTo(request),
+                () -> assertThat(springJson.readValue(springJson.writeValueAsString(page), GroupMembersPage.class)).isEqualTo(page));
+        String base = "http://127.0.0.1:" + server.getAddress().getPort();
+        var springMvc = MockMvcBuilders.standaloneSetup(new AgentToolInternalController(groups,
+                        mock(ShortLinkActualRemoteService.class), new AgentAnalyticsFacade(new AnalyticsJsonClient(base, base, TOKEN))))
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(springJson))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
+        var response = springMvc.perform(post(ADMIN).contentType("application/json").content(springJson.writeValueAsString(request)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value("0"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(springJson.treeToValue(springJson.readTree(response).path("data"), GroupMembersPage.class)).isEqualTo(page);
+        assertThat(calls).hasSize(1);
+        for (String invalid : List.of("{\"gid\":\"g1\",\"linkIds\":[1]}", "{}",
+                "{\"gid\":\"g1\",\"afterLinkId\":\"500\",\"ownershipVersion\":\"" + VERSION + "\"}",
+                "{\"gid\":\"g1\",\"afterLinkId\":500.0,\"ownershipVersion\":\"" + VERSION + "\"}",
+                "{\"gid\":\"g1\",\"afterLinkId\":500}"))
+            springMvc.perform(post(ADMIN).contentType("application/json").content(invalid)).andExpect(status().isBadRequest());
+        assertThat(calls).hasSize(1);
+        for (String mutation : List.of("unknown", "missing", "decimal", "schema")) {
+            var invalid = new LinkedHashMap<>(page.asMap());
+            switch (mutation) {
+                case "unknown" -> invalid.put("snapshotId", "invented");
+                case "missing" -> invalid.remove("nextCursor");
+                case "decimal" -> invalid.put("linkIds", List.of(1.0));
+                case "schema" -> invalid.put("schemaVersion", "group-members-page/unsupported");
+            }
+            assertThatThrownBy(() -> springJson.readValue(springJson.writeValueAsString(invalid), GroupMembersPage.class))
+                    .isInstanceOf(JsonMappingException.class);
+        }
     }
 
     @Test

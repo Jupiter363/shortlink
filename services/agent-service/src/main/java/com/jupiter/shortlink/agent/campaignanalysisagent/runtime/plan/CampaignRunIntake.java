@@ -52,6 +52,16 @@ public final class CampaignRunIntake implements AutoCloseable {
         CampaignRecoveryCoordinator.Runtime create(RuntimeContext context) throws Exception;
     }
 
+    /** Pure domain validation before accepting/freezing a definition; never constructs a runtime or calls tools. */
+    @FunctionalInterface public interface DefinitionValidator {
+        void validate(RunDefinition definition);
+    }
+
+    /** Optional trusted normalization of a parsed candidate; it cannot replace subsequent contract/domain validation. */
+    @FunctionalInterface public interface ProposalNormalizer {
+        PlanningProposal normalize(Caller caller, PlanningProposal.Request request, PlanningProposal candidate);
+    }
+
     /** The factory must use these exact gates and scope in its Driver and descendant adapters. */
     public record RuntimeContext(RunToken token, AgentPrincipal principal, ProcessExecutionScope scope,
                                  PersistentPlanDriver.RunAuthorizer runAuthorizer,
@@ -60,7 +70,21 @@ public final class CampaignRunIntake implements AutoCloseable {
 
     public record Profile(String ref, String version, CapabilityCatalog catalog, ArtifactContractRegistry contracts,
                           PersistentPlanDriver.RunAuthorizer runAuthorizer, ArtifactAuthorizer artifactAuthorizer,
-                          StepBindings.CurrentInputAuthorizer inputAuthorizer, RuntimeFactory runtimeFactory) {
+                          StepBindings.CurrentInputAuthorizer inputAuthorizer, RuntimeFactory runtimeFactory,
+                          DefinitionValidator definitionValidator, ProposalNormalizer proposalNormalizer) {
+        public Profile(String ref, String version, CapabilityCatalog catalog, ArtifactContractRegistry contracts,
+                PersistentPlanDriver.RunAuthorizer runAuthorizer, ArtifactAuthorizer artifactAuthorizer,
+                StepBindings.CurrentInputAuthorizer inputAuthorizer, RuntimeFactory runtimeFactory) {
+            this(ref, version, catalog, contracts, runAuthorizer, artifactAuthorizer, inputAuthorizer, runtimeFactory,
+                    definition -> {});
+        }
+        public Profile(String ref, String version, CapabilityCatalog catalog, ArtifactContractRegistry contracts,
+                PersistentPlanDriver.RunAuthorizer runAuthorizer, ArtifactAuthorizer artifactAuthorizer,
+                StepBindings.CurrentInputAuthorizer inputAuthorizer, RuntimeFactory runtimeFactory,
+                DefinitionValidator definitionValidator) {
+            this(ref, version, catalog, contracts, runAuthorizer, artifactAuthorizer, inputAuthorizer, runtimeFactory,
+                    definitionValidator, (caller, request, candidate) -> candidate);
+        }
         public Profile {
             if (ref == null || ref.isBlank() || ref.length() > 128
                     || version == null || version.isBlank() || version.length() > 128)
@@ -68,6 +92,8 @@ public final class CampaignRunIntake implements AutoCloseable {
             Objects.requireNonNull(catalog); Objects.requireNonNull(contracts);
             Objects.requireNonNull(runAuthorizer); Objects.requireNonNull(artifactAuthorizer);
             Objects.requireNonNull(inputAuthorizer); Objects.requireNonNull(runtimeFactory);
+            Objects.requireNonNull(definitionValidator);
+            Objects.requireNonNull(proposalNormalizer);
         }
     }
 
@@ -122,11 +148,14 @@ public final class CampaignRunIntake implements AutoCloseable {
         boolean recognizes(WorkRef reference);
         void authorize(AgentPrincipal principal, WorkRef reference);
         AdmittedCampaignAdvance.Operation load(WorkRef reference, ProcessExecutionScope scope);
+        default void lockForCommit(Caller caller, String sessionId, String runId) {}
     }
 
     public synchronized void installPreparation(PreparationHandler handler) {
         if (preparation != null) throw new IllegalStateException("CAMPAIGN_PREPARATION_ALREADY_INSTALLED");
-        preparation = Objects.requireNonNull(handler);
+        Objects.requireNonNull(handler);
+        requests.installCommitGuard(handler::lockForCommit);
+        preparation = handler;
     }
 
     public CampaignRunIntake(JdbcCampaignRunIntakeStore requests, CampaignRunStore runs,
@@ -294,8 +323,10 @@ public final class CampaignRunIntake implements AutoCloseable {
         if (!runGate.mayExecute(header.caller(), initialFrozen.inputs())) throw new SecurityException("CAMPAIGN_INPUT_ACCESS_DENIED");
         var validator = new PlanValidator(profile.catalog(), id -> Optional.of(profile.contracts().typeOf(
                 runs.inspectArtifact(header.caller(), id, artifactGate))));
-        if (header.state() == JdbcCampaignRunIntakeStore.State.PENDING)
+        if (header.state() == JdbcCampaignRunIntakeStore.State.PENDING) {
             validator.validate(initialFrozen.plan(), initialFrozen.inputs(), initialFrozen.assessment());
+            profile.definitionValidator().validate(initial);
+        }
         requests.freeze(header, initial);
         var run = runs.loadRun(header.caller(), header.runId()).orElseThrow(
                 () -> new IllegalStateException("CAMPAIGN_FROZEN_RUN_MISSING"));
@@ -409,8 +440,16 @@ public final class CampaignRunIntake implements AutoCloseable {
             var response = planning.response(ready, planner.models().approve(invocation));
             FrozenCampaignRun frozen;
             try {
-                frozen = PlanningProposal.parse(response.text(), planner.proposalLimits()).materialize(
+                var candidate = PlanningProposal.parse(response.text(), planner.proposalLimits());
+                var normalized = business.proposalNormalizer().normalize(ready.caller(), request, candidate);
+                if (normalized == null) throw new IllegalArgumentException("CAMPAIGN_NORMALIZED_PROPOSAL_REQUIRED");
+                // The provider receipt/hash remains unchanged. Only the separately validated
+                // normalized definition is eligible for acceptance and immutable Run registration.
+                frozen = normalized.materialize(
                         request, ready.planId(), 1, business.catalog(), business.contracts(), planner.proposalLimits());
+                // Generic port/type validation cannot establish business goal dependencies. Reject
+                // a domain-invalid candidate while its durable model response is still unaccepted.
+                business.definitionValidator().validate(frozen.definition(ready.caller(), ready.sessionId()));
             } catch (IllegalArgumentException invalid) {
                 planning.reject(ready);
                 throw new IllegalStateException("PLANNING_UNRESOLVED", invalid);

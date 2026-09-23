@@ -33,11 +33,12 @@ public class CampaignPlanConfiguration {
     }
 
     @Bean
-    public CampaignStatisticsFixedRuntime.ExtensionFactory campaignBusinessExtension(ChatModel model,
+    public CampaignStatisticsFixedRuntime.ExtensionFactory campaignBusinessExtension(ChatModel configuredModel,
             @Qualifier("campaignExplorationCallbacks") ExecutorService callbacks,
             @Value("${short-link.agent.campaign-statistics.dependency-skills-root:}") String skillsRoot) {
         if (skillsRoot.isBlank()) throw new IllegalArgumentException("CAMPAIGN_APPROVED_SKILLS_ROOT_REQUIRED");
         Path root=Path.of(skillsRoot);
+        ChatModel model=campaignModel(configuredModel);
         return context -> {
             var dependencies=new CampaignDependencyAnalysisPlanFactory(root,context.clock());
             var plans=new CampaignBusinessPlanFactory(dependencies,context.clock());
@@ -90,8 +91,9 @@ public class CampaignPlanConfiguration {
     @Bean
     public CampaignReportDeliveryService campaignReports(JdbcTemplate jdbc,
             @Qualifier("campaignStatisticsTransactionTemplate") TransactionTemplate tx,
-            @Qualifier("campaignStatisticsClock") Clock clock,CampaignStatisticsFixedRuntime runtime,ChatModel model,
+            @Qualifier("campaignStatisticsClock") Clock clock,CampaignStatisticsFixedRuntime runtime,ChatModel configuredModel,
             com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient authority) {
+        ChatModel model=campaignModel(configuredModel);
         var artifacts=runtime.extension().profile().artifactAuthorizer();
         CampaignReportDeliveryService.RunAccess access=(caller,definition)-> {
             try {
@@ -132,25 +134,19 @@ public class CampaignPlanConfiguration {
     public CampaignPublicRequestService campaignRequestService(JdbcTemplate jdbc,
             @Qualifier("campaignStatisticsTransactionTemplate") TransactionTemplate tx,
             @Qualifier("campaignStatisticsClock") Clock clock,CampaignStatisticsFixedRuntime runtime,
-            CampaignPublicRequestStore requests,CampaignDueWorkStore due,CampaignReportDeliveryService reports,ChatModel model,
+            CampaignPublicRequestStore requests,CampaignDueWorkStore due,CampaignReportDeliveryService reports,ChatModel configuredModel,
             CampaignBusinessReplanService replans) {
+        ChatModel model=campaignModel(configuredModel);
         var turns=new JdbcCampaignConversationTurnStore(jdbc,tx,new JdbcCampaignConversationSessionOwner(jdbc,tx,clock),clock);
         var service=new CampaignPublicRequestService(requests,turns,runtime.principals(),runtime.intake(),model,
                 runtime.extension().inputs(),CampaignBusinessProfile.REF,CampaignBusinessProfile.VERSION,due::schedule,
-                new CampaignPublicDeliveryAdapter(runtime,reports,requests),clock,Duration.ofHours(24));
+                new CampaignPublicDeliveryAdapter(runtime,reports,requests),clock,Duration.ofHours(24),due);
         service.installWake(due::wake);
         service.installCancellation((principal,session,reference)->{
             var caller=new CampaignRunStore.Caller(principal.tenantId(),principal.username(),principal.authVersion());
-            var request=requests.read(reference);
-            if (!"ACCEPTED".equals(request.state()) || !caller.equals(request.caller()) || !session.equals(request.sessionId()))
-                throw new IllegalStateException("CAMPAIGN_CANCEL_PLAN_NOT_READY");
-            var run=runtime.runs().loadRun(caller,reference.runId())
-                    .orElseThrow(()->new IllegalStateException("CAMPAIGN_CANCEL_PLAN_NOT_READY"));
-            if (!session.equals(run.definition().sessionId()) || !principal.equals(runtime.principals().resolve(caller,session))
-                    || !runtime.extension().profile().runAuthorizer().mayExecute(caller,FrozenCampaignRun.read(run.definition()).inputs()))
+            if (!principal.equals(runtime.principals().resolve(caller,session)))
                 throw new SecurityException("CAMPAIGN_CANCEL_ACCESS_DENIED");
-            if (run.status()==CampaignRunStore.RunStatus.ACTIVE) runtime.runs().cancel(run.token());
-            // Cancelling fences this Run immediately. It does not pretend an in-flight remote job has exited.
+            requests.cancel(caller,session,reference,runtime.runs());
         });
         runtime.intake().installPreparation(service);
         runtime.intake().installRevisionResolver(new CampaignReplanDefinitionResolver(jdbc,tx,clock)::resolve);
@@ -168,6 +164,17 @@ public class CampaignPlanConfiguration {
                     runtime.runs().loadRun(caller,runId).ifPresent(current->reports.publishCurrent(caller,current.token(),scope));
                 }));
         return service;
+    }
+
+    @Bean
+    public CampaignSessionRecoveryService campaignSessionRecoveryService(JdbcTemplate jdbc,
+            CampaignStatisticsFixedRuntime runtime, com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient authority) {
+        return new CampaignSessionRecoveryService(jdbc, authority, runtime.principals());
+    }
+
+    private static ChatModel campaignModel(ChatModel configured) {
+        return configured instanceof com.jupiter.shortlink.agent.infrastructure.llm.DeepSeekSpringAiChatModel deepSeek
+                ? deepSeek.forCampaignPlan() : configured;
     }
 
     @Bean(initMethod="start",destroyMethod="close")

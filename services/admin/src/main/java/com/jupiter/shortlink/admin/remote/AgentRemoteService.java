@@ -41,6 +41,15 @@ public interface AgentRemoteService {
             @PathVariable("runId") String runId, @RequestParam("sessionId") String sessionId,
             @RequestParam("requestId") String requestId);
 
+    @GetMapping("/internal/short-link-agent/v1/campaign/workspace")
+    Result<Object> campaignWorkspace(@RequestHeader Map<String, String> headers,
+            @RequestParam(value="sessionId", required=false) String sessionId,
+            @RequestParam(value="cursor", required=false) String cursor, @RequestParam("size") int size);
+
+    @GetMapping("/internal/short-link-agent/v1/campaign/sessions")
+    Result<Object> campaignSessions(@RequestHeader Map<String, String> headers,
+            @RequestParam(value="cursor", required=false) String cursor, @RequestParam("size") int size);
+
     @GetMapping("/internal/short-link-agent/v1/campaign/reports/{reportId}/revisions/{revision}")
     Result<Object> campaignReport(@RequestHeader Map<String, String> headers,
             @PathVariable("reportId") String reportId, @PathVariable("revision") int revision,

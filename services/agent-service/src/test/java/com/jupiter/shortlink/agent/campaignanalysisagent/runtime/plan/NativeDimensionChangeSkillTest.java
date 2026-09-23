@@ -295,7 +295,8 @@ class NativeDimensionChangeSkillTest {
                 List<ModelInvocationRegistry.ToolDefinition> tools = new ArrayList<>();
                 for (var method : methods) tools.add(new ModelInvocationRegistry.ToolDefinition(method.name(), method.description(), JSON.readTree(method.inputSchema())));
                 var configuration = new JdbcExplorationLedger.ModelConfiguration("scripted-model", "1", CONFIG, null, tools,
-                        Map.of("scope", runs.inspectArtifact(OWNER, scopeArtifact, auth)), Instant.ofEpochMilli(EXPIRY));
+                        Map.of("scope", runs.inspectArtifact(OWNER, scopeArtifact, auth)), Instant.ofEpochMilli(EXPIRY),
+                        NativeExplorationAdapter.generationOptions(model.getDefaultOptions()));
                 var projection = combinedProjection(current);
                 var ledger = new JdbcExplorationLedger(base.jdbc, base.transactions, CLOCK, runs, steps, calls, permit, models, configuration,
                         Map.of(FrozenDeclineSelection.REF.name(), FrozenDeclineSelection.REF, FrozenDimensionChange.REF_V3.name(), FrozenDimensionChange.REF_V3),
