@@ -915,7 +915,7 @@ async function exportReport(entry = currentEntry.value) {
     anchor.download = fileName
     document.body.appendChild(anchor)
     anchor.click()
-    relay.notify('分析报告已导出', 'success')
+    relay.notify('已发起报告下载，请在浏览器下载列表中确认。', 'info')
   } catch (error) {
     if (entry.sessionId) handleHistoryError(error, session.value, entry.sessionId)
     relay.notify(errorMessage(error), 'warning')

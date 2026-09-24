@@ -183,12 +183,22 @@ class StatisticsJobFixedExecutorTest {
         f.allowed.set(true);
         initial.graph().advance();
         assertEquals(1, f.gateway.submits);
+        var submittedChild = f.runs.children(f.token).get(0);
         f.gateway.revokeDuringPage = true;
         var stopped = f.coordinator().resume(f.token, PRINCIPAL);
         assertEquals(CampaignRecoveryCoordinator.Outcome.STOPPED, stopped.outcome());
         assertEquals(0, f.count("campaign_artifact"));
         assertEquals(0, f.downstream.get());
-        assertNotEquals(ChildState.READY, f.runs.children(stopped.token()).get(0).state());
+        var revokedChild = f.runs.children(stopped.token()).get(0);
+        assertNotEquals(ChildState.READY, revokedChild.state());
+        assertEquals("job-original", revokedChild.jobId());
+        assertEquals(submittedChild.spec(), revokedChild.spec());
+        int callsAfterRevocation = f.gateway.calls();
+        assertEquals(CampaignRecoveryCoordinator.Outcome.STOPPED, f.coordinator().resume(stopped.token(), PRINCIPAL).outcome());
+        assertEquals(callsAfterRevocation, f.gateway.calls(), "A known in-flight job cannot be polled or resubmitted after revocation");
+        assertEquals(revokedChild, f.runs.children(stopped.token()).get(0));
+        assertEquals(1, f.gateway.submits);
+        assertEquals(0, f.count("campaign_artifact"));
         f.assertExited();
 
         Fixture cancelled = new Fixture(1);

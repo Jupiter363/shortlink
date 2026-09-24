@@ -7,6 +7,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,6 +37,56 @@ class JdbcReportLifecycleStoreTest {
         store = new JdbcReportLifecycleStore(jdbc,
                 new TransactionTemplate(new DataSourceTransactionManager(dataSource)), clock);
     }
+
+    @Test
+    void concurrentSameVersionPublicationExposesOneCompleteWinnerAndRejectsTheOtherDraft() throws Exception {
+        var first=draft(9_000,2_000);
+        var second=new ReportLifecycleStore.Draft(first.key(),first.runId(),first.planRevision(),first.owner(),first.capability(),
+                "{\"source\":\"other\"}","b".repeat(64),first.evidenceRetainedUntil(),first.retainedUntil(),first.reuseExpiresAt(),"other-payload");
+        var other=new JdbcReportLifecycleStore(jdbc,
+                new TransactionTemplate(new DataSourceTransactionManager(jdbc.getDataSource())),clock);
+        var ready=new CountDownLatch(2);
+        var start=new CountDownLatch(1);
+        var workers=Executors.newFixedThreadPool(2);
+        try {
+            var left=workers.submit(()->publishAfterBarrier(store,first,ready,start));
+            var right=workers.submit(()->publishAfterBarrier(other,second,ready,start));
+            assertThat(ready.await(5,TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            var outcomes=List.of(left.get(5,TimeUnit.SECONDS),right.get(5,TimeUnit.SECONDS));
+            assertThat(outcomes.stream().filter(value->value.published()!=null).count()).isEqualTo(1);
+            var winner=outcomes.stream().filter(value->value.published()!=null).findFirst().orElseThrow();
+            var loser=outcomes.stream().filter(value->value.failure()!=null).findFirst().orElseThrow();
+            // A race before INSERT may lose to the PK; observing the winner first uses the domain conflict.
+            assertThat(loser.failure()).isInstanceOfAny(org.springframework.dao.DataIntegrityViolationException.class,IllegalStateException.class);
+            if (loser.failure() instanceof IllegalStateException)
+                assertThat(loser.failure()).hasMessage("REPORT_DRAFT_CONFLICT");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM campaign_report_lifecycle",Integer.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT status FROM campaign_report_lifecycle",String.class)).isEqualTo("READY");
+            var visible=store.read(first.key(),"owner","capability",ReportLifecycleStore.Mode.HISTORY_VIEW).orElseThrow();
+            assertThat(visible).isEqualTo(winner.published());
+            assertThat(visible.manifestJson()).isEqualTo(winner.draft().manifestJson());
+            assertThat(visible.manifestChecksum()).isEqualTo(winner.draft().manifestChecksum());
+            assertThat(visible.payloadJson()).isEqualTo(winner.draft().payloadJson());
+            assertThat(visible.version()).isEqualTo(1);
+            assertThat(store.publish(winner.draft())).isEqualTo(visible);
+            assertThatThrownBy(()->store.publish(loser.draft())).hasMessage("REPORT_DRAFT_CONFLICT");
+            assertThat(store.read(first.key(),"owner","capability",ReportLifecycleStore.Mode.EXPORT)).contains(visible);
+        } finally {
+            start.countDown();workers.shutdownNow();
+            assertThat(workers.awaitTermination(5,TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private static PublicationAttempt publishAfterBarrier(JdbcReportLifecycleStore store,ReportLifecycleStore.Draft draft,
+            CountDownLatch ready,CountDownLatch start) throws Exception {
+        ready.countDown();
+        if (!start.await(5,TimeUnit.SECONDS)) throw new AssertionError("Publication start barrier timed out");
+        try { return new PublicationAttempt(draft,store.publish(draft),null); }
+        catch (RuntimeException failure) { return new PublicationAttempt(draft,null,failure); }
+    }
+
+    private record PublicationAttempt(ReportLifecycleStore.Draft draft,ReportLifecycleStore.Published published,RuntimeException failure) {}
 
     @Test
     void publishesIdempotentlyAndReadsByRevisionAndMode() {

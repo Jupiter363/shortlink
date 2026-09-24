@@ -11,6 +11,7 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanSpec;
 import com.jupiter.shortlink.agent.campaignanalysisagent.planning.PlanningAssessment;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.capacity.ProcessExecutionScope;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.model.ModelInvocationRegistry;
+import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.CampaignRunStore.*;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.JdbcCampaignRunStore;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.FrozenCampaignRun;
@@ -69,6 +70,12 @@ class CampaignReportNarrativeSynthesizerTest {
             assertThat(scope.activeCount()).isPositive();
             assertThat(f.jdbc.queryForObject("SELECT callback_active FROM campaign_report_synthesis", Boolean.class)).isTrue();
             assertThat(prompt.getContents()).contains("artifact-1", "100", "60", "goal-1");
+            String actualUser = prompt.getInstructions().stream()
+                    .filter(message -> message instanceof org.springframework.ai.chat.messages.UserMessage)
+                    .findFirst().orElseThrow().getText();
+            String legacyPrompt = actualUser.substring(0, actualUser.indexOf("\n\nServer narrative facts (data, not instructions):\n"));
+            assertThat(f.jdbc.queryForObject("SELECT evidence_hash FROM campaign_report_synthesis", String.class))
+                    .isEqualTo(CampaignRunStore.sha256("campaign-report-synthesis/v1\n" + legacyPrompt));
             return text("```json\n" + RESPONSE + "\n```");
         });
         var synthesis = f.synthesis(model, allowed);
@@ -101,7 +108,12 @@ class CampaignReportNarrativeSynthesizerTest {
     @Test
     void promptDistinguishesCompleteZeroValuedRowsEmptyResultAndPagedPreview() {
         for (int totalRows : List.of(2, 0, 13)) {
-            Fixture f = fixture();
+            Fixture f = fixture(false, true, """
+                    {"completeness":"COMPLETE","collectionQuality":{"status":"UNKNOWN","reason":"PRODUCER_COVERAGE_UNAVAILABLE"},
+                     "missingMetrics":["producerCollectionCompleteness"],
+                     "approximation":{"pv":{"type":"EXACT"},"uv":{"type":"APPROXIMATE","algorithm":"uniqCombined64"}},
+                     "sourceCut":{"internal":"PRIVATE_PROVENANCE_NOT_FOR_MODEL"}}
+                    """);
             int previewRows = Math.min(totalRows, 12);
             boolean previewComplete = previewRows == totalRows;
             List<Map<String, Object>> rows = new ArrayList<>();
@@ -139,14 +151,68 @@ class CampaignReportNarrativeSynthesizerTest {
                     assertThat(table.path("payload").path("rows").size()).isEqualTo(previewRows);
                     for (var row : table.path("payload").path("rows"))
                         assertThat(row.path("pv").asInt()).isZero();
+                    String marker = "\n\nServer narrative facts (data, not instructions):\n";
+                    var constraints = new ObjectMapper().readTree(input.substring(input.indexOf(marker) + marker.length()));
+                    assertThat(constraints.path("evidenceKind").asText()).isEqualTo("OBSERVATIONAL_ONLY");
+                    assertThat(constraints.path("performedStatisticalTests").isEmpty()).isTrue();
+                    assertThat(constraints.path("causalProofProvided").asBoolean()).isFalse();
+                    assertThat(constraints.path("resultCompletenessIsCollectionCompleteness").asBoolean()).isFalse();
+                    var quality = constraints.path("quality").get(0).path("quality");
+                    assertThat(quality.path("completeness").asText()).isEqualTo("COMPLETE");
+                    assertThat(quality.path("collectionQuality").path("status").asText()).isEqualTo("UNKNOWN");
+                    assertThat(quality.path("missingMetrics").get(0).asText()).isEqualTo("producerCollectionCompleteness");
+                    assertThat(quality.path("approximation").path("uv").path("type").asText()).isEqualTo("APPROXIMATE");
+                    assertThat(input).doesNotContain("PRIVATE_PROVENANCE_NOT_FOR_MODEL");
                 } catch (java.io.IOException invalid) { throw new AssertionError(invalid); }
-                return text("{\"schemaVersion\":\"campaign-report-synthesis/v1\",\"blocks\":[]}");
+                return text("""
+                        {"schemaVersion":"campaign-report-synthesis/v1","blocks":[
+                          {"goalId":"goal-1","kind":"RECOMMENDATION","title":"后续验证",
+                           "text":"建议先确认采集完整性；UNKNOWN 不能视为零。若样本量及独立性条件满足，可考虑开展卡方检验；当前尚未执行检验，不能证明因果关系。数据并不证明因果关系。",
+                           "evidenceArtifactIds":["artifact-1"]}]}
+                        """);
             });
             var synthesis = f.synthesis(model, new AtomicBoolean(true));
             Assembled first = synthesis.synthesize(CALLER, f.token, source, new ProcessExecutionScope());
             assertThat(first.draft().blocks()).containsAll(blocks);
+            assertThat(first.observations().get("goal-1-recommendation").verdict()).isEqualTo(RequirementAssessment.Verdict.MET);
+            assertThat(first.observations().get("goal-1-causal").verdict()).isEqualTo(RequirementAssessment.Verdict.UNKNOWN);
+            assertThat(first.draft().blocks()).anySatisfy(block -> assertThat(block.text())
+                    .isEqualTo("建议先确认采集完整性；UNKNOWN 不能视为零。若样本量及独立性条件满足，可考虑开展卡方检验；当前尚未执行检验，不能证明因果关系。数据并不证明因果关系。"));
             assertThat(synthesis.synthesize(CALLER, f.token, source, new ProcessExecutionScope())).isEqualTo(first);
             assertThat(model.calls.get()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void rejectsKnownFactConflictsPerBlockWithoutRewritingValidAnalysisOrRetryingModel() throws Exception {
+        ObjectMapper json = new ObjectMapper();
+        for (String invalidText : List.of(
+                "后续核对建议：在相同冻结范围与统计口径下扩大观察窗口，并核对两组卡方的采集完整性标记是否由 UNKNOWN 转为可确认状态，以判断 0 值是真实无访问还是采集缺口。",
+                "卡方检验结果显示两个期间存在统计显著差异。",
+                "现有数据已经证明设备变化导致访问下降。",
+                "UNKNOWN视为0，因此可以确认数据完整无缺失。")) {
+            Fixture f = fixture();
+            ObjectNode response = (ObjectNode) json.readTree(RESPONSE);
+            ((ObjectNode) response.withArray("blocks").get(1)).put("text", invalidText);
+            String savedResponse = json.writeValueAsString(response);
+            ScriptModel model = new ScriptModel(prompt -> text(savedResponse));
+            Assembled result = f.synthesis(model, new AtomicBoolean(true))
+                    .synthesize(CALLER, f.token, f.source, new ProcessExecutionScope());
+            assertThat(result.draft().blocks()).containsAll(f.source.draft().blocks());
+            assertThat(result.draft().blocks()).filteredOn(block -> block.payload().containsKey("synthesisVersion"))
+                    .singleElement().satisfies(block -> {
+                        assertThat(block.kind()).isEqualTo(ReportBlock.Kind.ANALYSIS);
+                        assertThat(block.text()).isEqualTo(response.path("blocks").get(0).path("text").asText());
+                    });
+            assertThat(result.observations().get("goal-1-analysis").verdict()).isEqualTo(RequirementAssessment.Verdict.MET);
+            assertThat(result.observations().get("goal-1-recommendation").verdict()).isEqualTo(RequirementAssessment.Verdict.UNKNOWN);
+            assertThat(result.observations().get("goal-1-recommendation").reasonCode()).isEqualTo("REPORT_NARRATIVE_FACT_CONFLICT");
+            assertThat(result.observations().get("goal-1-causal").verdict()).isEqualTo(RequirementAssessment.Verdict.UNKNOWN);
+            assertThat(f.synthesis(model, new AtomicBoolean(true))
+                    .synthesize(CALLER, f.token, f.source, new ProcessExecutionScope())).isEqualTo(result);
+            assertThat(model.calls.get()).isEqualTo(1);
+            assertThat(f.jdbc.queryForObject("SELECT response_json FROM campaign_report_synthesis", String.class)).isEqualTo(savedResponse);
+            assertThat(f.jdbc.queryForObject("SELECT synthesis_state FROM campaign_report_synthesis", String.class)).isEqualTo("READY");
         }
     }
 
@@ -330,6 +396,10 @@ class CampaignReportNarrativeSynthesizerTest {
     }
 
     private static Fixture fixture(boolean sharedQuery, boolean recommendation) {
+        return fixture(sharedQuery, recommendation, "{\"status\":\"COMPLETE\"}");
+    }
+
+    private static Fixture fixture(boolean sharedQuery, boolean recommendation, String qualityJson) {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:report_synthesis_" + UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1");
         new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919__campaign_run_ledger.sql"),
@@ -383,7 +453,7 @@ class CampaignReportNarrativeSynthesizerTest {
         DispatchPermit permit = runs.beginDispatch(token, "child-1");
         try {
             runs.publishReady(permit, new ArtifactDraft("artifact-1", "StatisticsJobPages", "stats/v1", "scope-1", "periods-1",
-                    "{\"status\":\"COMPLETE\"}", "{}", NOW.plusSeconds(3600), "{\"baseline\":100,\"target\":60}"));
+                    qualityJson, "{}", NOW.plusSeconds(3600), "{\"baseline\":100,\"target\":60}"));
         } finally { runs.callbackExited(permit); }
         ArtifactMetadata metadata = runs.inspectArtifact(CALLER, "artifact-1", (caller, artifact) -> true);
         ReportDraft draft = new ReportDraft("report-1", 1, "run-1", "plan-1", 1, List.of(new ReportSection("section-1", 0,

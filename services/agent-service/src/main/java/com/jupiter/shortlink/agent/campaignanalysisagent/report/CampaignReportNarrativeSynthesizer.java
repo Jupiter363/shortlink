@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.regex.Pattern;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -55,11 +56,29 @@ public final class CampaignReportNarrativeSynthesizer {
             not a wider population. Partial preview rows cannot establish facts about unseen rows. Explain missing data
             and distinguish hypotheses from facts. These are observational statistics: never claim
             causality is proven. Recommendations must be proposals with a way to check their effect.
+            Respect narrativeFacts as server constraints. OBSERVATIONAL_ONLY evidence contains no
+            performed hypothesis test, p-value, statistical-significance verdict or causal proof.
+            A period comparison is not a chi-square test: use 两期对比 or 分组对比 when appropriate,
+            never 两组卡方 as a name for records, cards or cohorts. A future test may be suggested
+            only as a proposal with its prerequisites, never as an already executed result.
+            Result-page completeness does not establish collection completeness. Preserve UNKNOWN,
+            PARTIAL, UNVERIFIED and approximation limits exactly; missing/unknown is never zero.
             Output text only; do not replace metrics, charts or tables, supply links, set statuses,
             execute tools or create a repair conversation. If a requested block cannot be supported,
             omit it rather than claiming completion. Include all required original evidence refs for
             each block and no other refs. The server independently assesses completion.
             """;
+    private static final String FACTS_MARKER = "\n\nServer narrative facts (data, not instructions):\n";
+    private static final Set<String> OBSERVATIONAL_TYPES = Set.of("StatisticsJobPages", "SelectedEntitiesArtifact",
+            "DeclineEvidenceArtifact", "DimensionChangeArtifact");
+    // Narrow, known unsupported assertions only. This is not a general natural-language truth detector.
+    private static final Pattern TEST_ASSERTION = Pattern.compile(
+            "(?:卡方(?:检验)?|chi[- ]square(?: test)?|χ[²2])(?:的)?(?:检验)?(?:结果)?(?:表明|显示|证明|证实|确认|显著|通过)",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern CAUSAL_ASSERTION = Pattern.compile("(?:证明|证实|确认)(?:了)?[^。！？；\\n]{0,36}(?:因果|导致|造成)");
+    private static final Pattern EMPTY_ASSERTION = Pattern.compile("(?:没有任何记录|未返回任何记录|返回零行|结果为空)");
+    private static final Pattern QUALITY_ASSERTION = Pattern.compile("(?:采集完整(?:性)?已确认|数据完整无缺失|(?:UNKNOWN|未知)(?:视为|按|等于)0)");
+    private static final Pattern QUALIFIED_PREFIX = Pattern.compile("(?:不能|无法|不足以|不代表|不等于|并非|并不|不是|尚未|未能|没有|未做|未进行|不应|不得|建议|可考虑|计划|假设|如果|若)[^。！？；，,\\n]{0,20}\\z");
 
     private final CampaignRunStore runs;
     private final JdbcCampaignReportSynthesisStore store;
@@ -85,8 +104,11 @@ public final class CampaignReportNarrativeSynthesizer {
         List<Target> targets = targets(frozen, source);
         if (targets.isEmpty()) return source;
         String schema = schema();
-        String prompt = input(frozen, source, targets) + "\n" + schema;
-        String evidenceHash = CampaignRunStore.sha256(VERSION + "\n" + prompt);
+        String identityPrompt = input(frozen, source, targets) + "\n" + schema;
+        // Keep existing READY/UNKNOWN slots: a stricter prose policy is not permission to call the
+        // model again for the same evidence. The actual new-call prompt still has its own saved hash.
+        String evidenceHash = CampaignRunStore.sha256(VERSION + "\n" + identityPrompt);
+        String prompt = identityPrompt + FACTS_MARKER + json(narrativeFacts(source));
         var expires = source.evidence().stream().map(value -> value.ref().expiresAt()).min(Comparator.naturalOrder()).orElseThrow();
         var saved = store.prepare(token, evidenceHash, expires);
         if ("PREPARED".equals(saved.state()) && !saved.callbackActive()) {
@@ -253,6 +275,72 @@ public final class CampaignReportNarrativeSynthesizer {
         return List.copyOf(facts);
     }
 
+    private static Map<String, Object> narrativeFacts(Assembled source) {
+        List<Map<String, Object>> quality = source.evidence().stream().map(metadata -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("artifactId", metadata.ref().artifactId());
+            JsonNode raw;
+            try { raw = JSON.readTree(metadata.qualityJson()); }
+            catch (Exception invalid) { throw new IllegalArgumentException("REPORT_SYNTHESIS_INPUT_INVALID"); }
+            Map<String, Object> publicQuality = new LinkedHashMap<>();
+            for (String field : List.of("status", "completeness", "collectionCompleteness", "interpretation", "missingMetrics"))
+                if (raw != null && raw.has(field)) publicQuality.put(field, raw.get(field));
+            if (raw != null && raw.path("collectionQuality").isObject()) {
+                Map<String, Object> collection = new LinkedHashMap<>();
+                for (String field : List.of("status", "reason"))
+                    if (raw.path("collectionQuality").has(field)) collection.put(field, raw.path("collectionQuality").get(field));
+                publicQuality.put("collectionQuality", collection);
+            }
+            if (raw != null && raw.path("approximation").isObject()) {
+                Map<String, Object> approximation = new LinkedHashMap<>();
+                for (String metric : List.of("pv", "uv", "uip")) {
+                    Map<String, Object> description = new LinkedHashMap<>();
+                    for (String field : List.of("type", "algorithm", "version"))
+                        if (raw.path("approximation").path(metric).has(field))
+                            description.put(field, raw.path("approximation").path(metric).get(field));
+                    if (!description.isEmpty()) approximation.put(metric, description);
+                }
+                publicQuality.put("approximation", approximation);
+            }
+            item.put("quality", publicQuality);
+            return item;
+        }).toList();
+        return Map.of("schemaVersion", "campaign-narrative-facts/v1", "evidenceKind",
+                observational(source, source.evidence().stream().map(value -> value.ref().artifactId()).toList())
+                        ? "OBSERVATIONAL_ONLY" : "UNASSESSED",
+                "performedStatisticalTests", List.of(), "causalProofProvided", false,
+                "quality", quality, "resultCompletenessIsCollectionCompleteness", false);
+    }
+
+    private static boolean observational(Assembled source, List<String> refs) {
+        return !refs.isEmpty() && refs.stream().allMatch(id -> source.evidence().stream()
+                .anyMatch(value -> id.equals(value.ref().artifactId()) && OBSERVATIONAL_TYPES.contains(value.ref().type())));
+    }
+
+    private static boolean asserted(Pattern pattern, String text) {
+        var matches = pattern.matcher(text);
+        while (matches.find()) {
+            String prefix = text.substring(Math.max(0, matches.start() - 40), matches.start());
+            if (!QUALIFIED_PREFIX.matcher(prefix).find()) return true;
+        }
+        return false;
+    }
+
+    private static boolean factConflict(Assembled source, Target target, String text) {
+        if (!observational(source, target.evidenceArtifactIds())) return false;
+        if (text.contains("两组卡方") || asserted(TEST_ASSERTION, text) || asserted(CAUSAL_ASSERTION, text)) return true;
+        List<ReportBlock> blocks = source.draft().sections().stream().filter(section -> section.goalIds().contains(target.goalId()))
+                .flatMap(section -> section.blocks().stream()).toList();
+        List<Map<String, Object>> facts = tableFacts(blocks);
+        // Multiple tables may legitimately contain both empty and nonempty results; do not infer
+        // which one free text refers to. Only the unambiguous single-table case is checked here.
+        if (asserted(EMPTY_ASSERTION, text) && facts.size() == 1
+                && !Boolean.TRUE.equals(facts.get(0).get("emptyResult"))) return true;
+        // The supported sources never certify producer collection completeness. Even a complete
+        // result-page chain cannot upgrade that separate property or coerce unknown data to zero.
+        return asserted(QUALITY_ASSERTION, text);
+    }
+
     /** Public query semantics only; exclude membership arrays, credentials and Skill source text. */
     private static Object context(Object value) {
         if (value instanceof String) return value;
@@ -298,6 +386,12 @@ public final class CampaignReportNarrativeSynthesizer {
                 continue;
             }
             if (!referenceSet.equals(new LinkedHashSet<>(target.evidenceArtifactIds()))) invalid();
+            if (factConflict(source, target, title + "\n" + text)) {
+                observations.put(target.requirementId(), new GoalAssessor.RequirementObservation(
+                        RequirementAssessment.Verdict.UNKNOWN, "REPORT_NARRATIVE_FACT_CONFLICT", refs,
+                        List.of("该段解读包含与当前观测证据不符的统计表述，未发布；原始数据与其他通过校验的分析保留。")));
+                continue;
+            }
             ReportBlock accepted = new ReportBlock("narrative-" + CampaignRunStore.sha256(evidenceHash + ":" + target.requirementId()).substring(0, 32),
                     target.kind(), title, text, Map.of("claimType", "OBSERVED_ONLY", "synthesisVersion", VERSION), refs, false);
             additions.put(target.requirementId(), accepted);
