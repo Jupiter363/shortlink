@@ -1,0 +1,444 @@
+{
+  "schema": "issue201-real-inflight-acceptance/v1",
+  "verdict": "PASS_WITH_EXPLICIT_SCOPE",
+  "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+  "scope": "One real FIXED ranking job; revoke while RUNNING before first worker authorization; release original Admin ACK after disable; single private writer",
+  "topology": {
+    "adminBackgroundWorkerExcluded": {
+      "class": "com.jupiter.shortlink.admin.account.AccountRecoveryWorker",
+      "singletonAlreadyCreated": false,
+      "bean": "accountRecoveryWorker"
+    },
+    "control": {
+      "manifestCount": 288,
+      "pageCount": 0,
+      "queryJobCount": 0,
+      "sourceSchema": "shortlink_analytics_control_it",
+      "schema": "issue201_real_control_0d959e1f1670eb1162246755de3f49f9",
+      "epoch": "d353ea96-8064-464a-9a29-006ef152289b",
+      "sourceTransactionReadOnly": true
+    },
+    "agentDatabase": {
+      "serverUuid": "444c4d72-af41-11f1-9edb-9682a420b6e1",
+      "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+      "schema": "issue201_real_agent_0d959e1f1670eb1162246755de3f49f9",
+      "sharedCatalogConnection": false
+    }
+  },
+  "submission": {
+    "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "childRequestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "agentRequestStartedAtEpochMillis": 1790234165092,
+    "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+    "deadlineEpochMillis": 1790234169092
+  },
+  "workerHeld": {
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+    "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "phase": "WORKER_AUTHORIZE",
+    "childRequestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "stage": "BEFORE_FIRST_WORKER_AUTHORIZE",
+    "jobState": "RUNNING",
+    "observedAtEpochMillis": 1790234166842,
+    "requestSha256": "fcc37b7f9555045849e96faafe8d4d74c068ac03409babae267e1fd71dcd6828",
+    "deadlineEpochMillis": 1790234169092,
+    "jobId": "f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab"
+  },
+  "accountDisable": {
+    "schema": "issue201-auth-revocation/v1",
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "username": "issue201_pair_0d959e1f1670",
+    "tenantId": "10",
+    "gid": "0092df1835f94926ae4657b959b2f900",
+    "sessionId": "issue201-pair-0d959e1f1670eb1162246755de3f49f9-session",
+    "requestKey": "issue201-pair-0d959e1f1670eb1162246755de3f49f9-request",
+    "authVersion": 1,
+    "reason": "MATCHED_SUBMIT_ACK",
+    "httpStatus": 200,
+    "code": "0",
+    "disableAcknowledged": true,
+    "requestedDisabled": true,
+    "disabled": true,
+    "disabledAssertionSource": "supported-self-disable-api-success",
+    "requestStartedAtEpochMillis": 1790234166883,
+    "responseReceivedAtEpochMillis": 1790234167225,
+    "requestStartedAtEpochMs": 1790234166883,
+    "responseReceivedAtEpochMs": 1790234167225,
+    "elapsedNanos": 328000000,
+    "disabledDbConfirmed": false,
+    "authorizationVersionDbConfirmed": false,
+    "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+    "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "jobId": "f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab",
+    "responseSha256": "6f63f130c0604d6ec9ff6818f08240c7b9cbb14ec67673e8e0b34df869cb714b",
+    "phase": "SUBMIT_ACK",
+    "childRequestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "deadlineEpochMillis": 1790234169092,
+    "deadlineEpochMs": 1790234169092,
+    "gateMode": "DUAL_WORKER_AUTH",
+    "workerRequestSha256": "fcc37b7f9555045849e96faafe8d4d74c068ac03409babae267e1fd71dcd6828",
+    "workerStage": "BEFORE_FIRST_WORKER_AUTHORIZE",
+    "jobState": "RUNNING",
+    "workerObservedAtEpochMillis": 1790234166842,
+    "adminAckObservedAtEpochMillis": 1790234166480,
+    "agentRequestStartedAtEpochMillis": 1790234165092,
+    "withinProxyDeadline": true
+  },
+  "workerRelease": {
+    "jobId": "f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab",
+    "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "at": 1790234167243,
+    "reason": "MATCHED"
+  },
+  "adminAckRelease": {
+    "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "jobId": "f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab",
+    "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "phase": "SUBMIT_ACK",
+    "agentRequestStartedAtEpochMillis": 1790234165092,
+    "gateMode": "DUAL_WORKER_AUTH",
+    "childRequestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "responseSha256": "6f63f130c0604d6ec9ff6818f08240c7b9cbb14ec67673e8e0b34df869cb714b",
+    "observedAtEpochMillis": 1790234166480,
+    "deadlineEpochMillis": 1790234169092,
+    "deadlineEpochMs": 1790234169092,
+    "reason": "MATCHED",
+    "releasedAt": 1790234167269
+  },
+  "commandResponse": {
+    "jobId": "f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab",
+    "responseSha256": "c968d0ee89e196e904ceabfa5e93cbb247cb64d5b0bfa1b8eb59a68b8d46d279",
+    "receivedAtEpochMillis": 1790234167310,
+    "httpStatus": 403,
+    "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+    "requestSha256": "fcc37b7f9555045849e96faafe8d4d74c068ac03409babae267e1fd71dcd6828"
+  },
+  "databaseSnapshot": {
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "observedBeforeEpochMillis": 1790234169331,
+    "observedAfterEpochMillis": 1790234169742,
+    "account": {
+      "tenantId": "10",
+      "username": "issue201_pair_0d959e1f1670",
+      "authVersion": 2,
+      "disabled": true
+    },
+    "rows": [
+      {
+        "kind": "run",
+        "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+        "state": "ACTIVE",
+        "revision": 1,
+        "definitionHash": "cc145fa347a1d9ea55fe3279e96e5c5915b18e9285bc598593b5b698c7d78ac0"
+      },
+      {
+        "kind": "child",
+        "jobId": "f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab",
+        "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+        "state": "UNRESOLVED",
+        "reason": "JOB_RESULT_UNKNOWN",
+        "childId": "stats-child-949ebb4b04f0adfef306de6fb8a45a67d3b97ea6245302fac1887e758c74b2fe",
+        "wireHash": "db9adfae215f7bcd6d4da98e792967c58f7e765116785205107a75c6aa131cc8",
+        "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+        "artifactId": null,
+        "callbackActive": 0
+      },
+      {
+        "kind": "job",
+        "jobId": "f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab",
+        "state": "FAILED",
+        "attempts": 1,
+        "createdAt": 1790234166215,
+        "errorCode": "FORBIDDEN",
+        "pageCount": 0,
+        "requestId": "stat_cbdef06c7da6bc02a4e43979069a8e9d3fbbf4ca9a57d5c8f560e546389000c8",
+        "updatedAt": 1790234167326,
+        "resultState": "UNAVAILABLE"
+      },
+      {
+        "kind": "count",
+        "count": 1,
+        "table": "campaign_run_intake"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_artifact"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_statistics_receipt"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_statistics_page"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_statistics_release"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_report_lifecycle"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_report_reference"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_report_synthesis"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "campaign_model_response"
+      },
+      {
+        "kind": "count",
+        "count": 0,
+        "table": "analytics_query_page"
+      },
+      {
+        "gid": "0092df1835f94926ae4657b959b2f900",
+        "kind": "ownedGroup",
+        "deleted": 0,
+        "jobRefs": 0,
+        "linkCount": 0
+      },
+      {
+        "gid": "70ee7b171ada4a8e808250f93e4551cc",
+        "kind": "ownedGroup",
+        "deleted": 0,
+        "jobRefs": 0,
+        "linkCount": 0
+      }
+    ]
+  },
+  "counters": {
+    "pageReads": 0,
+    "submissions": 1,
+    "modelRequestsDenied": 0,
+    "releaseReads": 0,
+    "statusReads": 0
+  },
+  "originalAdvance": {
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+    "exceptionType": "NONE"
+  },
+  "postRevokeObserverOriginal": {
+    "submissions": 1,
+    "exceptionType": "com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport$HttpStatusFailure",
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "runId": "campaign-run-339f05972abb6b46912d136a537a7f5891e40cda78039e70531f5acd4f59c216",
+    "attempted": true,
+    "securityDenied": false
+  },
+  "postRevokeObserverInterpretation": {
+    "markerBug": "helper root(Throwable) follows the cause chain past SecurityException into HttpStatusFailure; securityDenied=false is not evidence of successful admission",
+    "exactOriginalObserverHttpStatus": null,
+    "actualProductionDispatcherLog": "2026-09-24T07:16:07.866Z  WARN 1 --- [mpaign-due-work] c.j.s.a.c.r.r.CampaignDueWorkDispatcher  : Campaign advance blocked reason=ACCESS_DENIED diagnostic=java.lang.SecurityException at com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.verifyCurrentPrincipal:41 at com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignCurrentPrincipalResolver.resolve:36 at com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignRunIntake.currentPrincipal:516 at com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignRunIntake.loadTyped:312 at com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignRunIntake.loadAdmitted:282 <- com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport$HttpStatusFailure at com.jupiter.shortlink.agent.infrastructure.llm.BoundedHttpTransport.exchange:54 at com.jupiter.shortlink.agent.business.shortlink.AgentAuthorityClient.verifyCurrentPrincipal:38 at com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignCurrentPrincipalResolver.resolve:36 at com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignRunIntake.currentPrincipal:516 at com.jupiter.shortlink.agent.campaignanalysisagent.runtime.plan.CampaignRunIntake.loadTyped:312",
+    "newReadOnlyPrincipalCheck": {
+      "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+      "checkedAtEpochMillis": 1790234513202,
+      "startedAtEpochMillis": 1790234512925,
+      "method": "GET",
+      "path": "/internal/short-link-admin/v1/agent-tools/authorization/current-principal",
+      "httpStatus": 401,
+      "username": "issue201_pair_0d959e1f1670",
+      "tenantId": "10",
+      "presentedAuthVersion": 1,
+      "responseSha256": "e7fb7170c80f536fbfe4b238c605348ea7cd684702a5e5317cc12b58c4e511ae",
+      "scope": "new read-only request after original experiment; does not rewrite original observer status"
+    },
+    "newReadOnlyResponseInterpretation": {
+      "sourceFile": "current-principal-readback.json",
+      "httpStatus": 401,
+      "exactKnownBodyHashMatch": "Account is unavailable",
+      "scope": "disabled-account rejection; observer original status remains unrecorded"
+    }
+  },
+  "earlierProxyTimeout": {
+    "original": {
+      "errorType": "java.net.http.HttpTimeoutException",
+      "attemptId": "0d959e1f1670eb1162246755de3f49f9"
+    },
+    "fileMtimeEpochMillis": 1790234150103,
+    "routeUnknown": true,
+    "beforeJobSubmission": true
+  },
+  "cleanup": {
+    "atEpochMillis": 1790234554201,
+    "sharedServices": [
+      {
+        "name": "shortlink-local-dev-agent-1",
+        "running": true,
+        "health": "healthy",
+        "oomKilled": false,
+        "restartCount": 0,
+        "startedAt": "2026-09-24T05:24:24.540497623Z"
+      },
+      {
+        "name": "shortlink-local-dev-admin-1",
+        "running": true,
+        "health": "healthy",
+        "oomKilled": false,
+        "restartCount": 0,
+        "startedAt": "2026-09-23T20:16:56.245046366Z"
+      },
+      {
+        "name": "shortlink-local-dev-analytics-api-1",
+        "running": true,
+        "health": "healthy",
+        "oomKilled": false,
+        "restartCount": 0,
+        "startedAt": "2026-09-23T20:57:28.789111128Z"
+      },
+      {
+        "name": "shortlink-local-dev-command-1",
+        "running": true,
+        "health": "healthy",
+        "oomKilled": false,
+        "restartCount": 0,
+        "startedAt": "2026-09-23T21:00:45.219457178Z"
+      },
+      {
+        "name": "shortlink-local-dev-mysql-1",
+        "running": true,
+        "health": "healthy",
+        "oomKilled": false,
+        "restartCount": 0,
+        "startedAt": "2026-09-23T16:54:45.422848266Z"
+      }
+    ],
+    "ownedContainersRemaining": false
+  },
+  "runnerEvents": [
+    {
+      "kind": "preflight_passed",
+      "atEpochMillis": 1790234063112,
+      "sharedServices": "healthy",
+      "requestsSubmitted": 0
+    },
+    {
+      "kind": "fixture_ready",
+      "atEpochMillis": 1790234064618,
+      "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+      "username": "issue201_pair_0d959e1f1670",
+      "tenantId": "10",
+      "gid": "0092df1835f94926ae4657b959b2f900"
+    },
+    {
+      "kind": "container_started",
+      "atEpochMillis": 1790234066516,
+      "role": "analytics",
+      "containerId": "3f0b698faabb273f86d71c879e1d811c4d846906b0eb155ff3f90150e51e6995",
+      "jarSha256": "cdd2ee0a6b934a118dcfad80ec4dacaf7c81debde935312e1f71dcc23d632972"
+    },
+    {
+      "kind": "analytics_ready",
+      "atEpochMillis": 1790234079692
+    },
+    {
+      "kind": "container_started",
+      "atEpochMillis": 1790234081187,
+      "role": "admin",
+      "containerId": "654bfbeb2e88afed93c02b4cbc8dee50545a0cc9d16e828e22c84d779c0bf05b",
+      "jarSha256": "f6f27415af48238cebf2a41977aa1ffe96ded71eb302488564c89bfedd99138f"
+    },
+    {
+      "kind": "admin_ready",
+      "atEpochMillis": 1790234109475,
+      "recoveryWorkerExcluded": true
+    },
+    {
+      "kind": "container_started",
+      "atEpochMillis": 1790234110780,
+      "role": "agent",
+      "containerId": "03ef3c91bb49cc1620b679824d48b931e2203b43d4061e11856713fdfefc64f6",
+      "jarSha256": "3afd64e88619777ffc84848dfc33a30d6e470efb4246de091a09e175233d3c73"
+    },
+    {
+      "kind": "all_services_ready",
+      "atEpochMillis": 1790234146066,
+      "requestsSubmitted": 0
+    },
+    {
+      "kind": "one_fixed_run_armed",
+      "atEpochMillis": 1790234146074
+    },
+    {
+      "kind": "evidence_captured",
+      "atEpochMillis": 1790234170116,
+      "accountDisabled": true,
+      "authVersion": 2
+    },
+    {
+      "kind": "owned_container_stopped",
+      "atEpochMillis": 1790234171802,
+      "role": "agent",
+      "containerId": "03ef3c91bb49cc1620b679824d48b931e2203b43d4061e11856713fdfefc64f6",
+      "oomKilled": false
+    },
+    {
+      "kind": "owned_container_stopped",
+      "atEpochMillis": 1790234173783,
+      "role": "admin",
+      "containerId": "654bfbeb2e88afed93c02b4cbc8dee50545a0cc9d16e828e22c84d779c0bf05b",
+      "oomKilled": false
+    },
+    {
+      "kind": "owned_container_stopped",
+      "atEpochMillis": 1790234175726,
+      "role": "analytics",
+      "containerId": "3f0b698faabb273f86d71c879e1d811c4d846906b0eb155ff3f90150e51e6995",
+      "oomKilled": false
+    }
+  ],
+  "runnerFinished": {
+    "attemptId": "0d959e1f1670eb1162246755de3f49f9",
+    "failure": null,
+    "privateSchemasRetained": true,
+    "sharedServicesRestarted": false
+  },
+  "sourceSha256": {
+    "runs/0d959e1f1670eb1162246755de3f49f9/final-db-snapshot.json": "4592fe229a68264810c37917789b3efa63f06e198fd9be96697823075c17a298",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/released.json": "25575f159c3eaca2b416a62a4d04657a01956744cb831f9925254c3261168b88",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/revoked.json": "f46826245d5f878f025cd1095e8d2082dab78637446d06455a2d69437ad3fc5e",
+    "runs/0d959e1f1670eb1162246755de3f49f9/analytics/worker-authorize-held.json": "1da02bf7f5a624b3fde1cbab7d127575943c4f2963f0b9c39e201b46801be6ef",
+    "runs/0d959e1f1670eb1162246755de3f49f9/analytics/worker-gate-release.json": "89e1de401e77c1a4213eb37a89459cd54fb43ae57d54bc46ec229878cd2be3b1",
+    "runs/0d959e1f1670eb1162246755de3f49f9/analytics/command-authorization-returned.json": "e970c01dd9b9e6526eabefb4f4aea01709e40154dcd2d88701fc25302f876e7a",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/post-revoke-advance.json": "0543a85ab8f6f29e45acfeaa771cb7543cae9bfb3dc0064269313f358a4a5c6e",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/counters.json": "14319cf2e92cb732c9bc34143d5ae236f6fa5ab98ed13d99091aeaa64a873a30",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/submission-start.json": "614c5d5f7ac4ad32f682cc01bf19f3279c797a4e9279481edbae4284af143892",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/advance-returned.json": "a479d9cbda6d3dcdb8d7d43f5d10ae2414a4a35b07b89fdf18de04c822666d58",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/proxy-failed.json": "c2efd79361e33baef5ae6c9c8826bfa3ad90a31d6bca4bd97072d40264ca3f15",
+    "runs/0d959e1f1670eb1162246755de3f49f9/runner-events.json": "77e2d350958f21ec2160cd8e997409972bcdfae32648e27f0b04082d78c5b90f",
+    "runs/0d959e1f1670eb1162246755de3f49f9/cleanup-health.json": "207b26ec0f002da60ae7cd5c5ed5fb67e7b9b63be1cb726b6d3ab3d9bd319822",
+    "runs/0d959e1f1670eb1162246755de3f49f9/current-principal-readback.json": "358dc170967f40528b78929f176e87a152b9a781ea17ccfd51a849495c83f5cf",
+    "runs/0d959e1f1670eb1162246755de3f49f9/current-principal-interpretation.json": "94860319a08251bcbe874d5b6098882ba644d9e1a9a9d5ae40aaf7826e39eb66",
+    "runs/0d959e1f1670eb1162246755de3f49f9/runner-finished.json": "17b7e90704dbe2f812055a2cbf53f8ffc8a8a85a0f670666e50acd2344295429",
+    "runs/0d959e1f1670eb1162246755de3f49f9/analytics/control.json": "03c8f860b15bc7c54f69b164eb1e1341f2308b59ceffe67b054f409cc8df0e0a",
+    "runs/0d959e1f1670eb1162246755de3f49f9/admin/worker-excluded.json": "d5134fbfef7fea5eac665876d6d1b97ba2e9ae895a25880cc2323ff855769ee1",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/database.json": "a5a201581dbdc65f5422fd161130ccc55a64cf63599fa3b9460dc06512ef8099",
+    "runs/0d959e1f1670eb1162246755de3f49f9/agent/0d959e1f1670eb1162246755de3f49f9/launcher.jar": "8b23672e8ab135b4988b04e4967c54396f20078124ea5fd6f3e084e53824703d"
+  },
+  "notProven": [
+    "observer's exact original HTTP status",
+    "revocation after ClickHouse query completion",
+    "nonempty result callback",
+    "active-active or load capacity",
+    "new public natural-language/model/report chain",
+    "unadapted fresh MySQL historical CLOB migration"
+  ]
+}

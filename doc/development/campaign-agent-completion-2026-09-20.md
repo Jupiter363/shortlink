@@ -1,8 +1,10 @@
 # 投放分析 Agent 全计划完成矩阵
 
-**最新验收增量（2026-09-24）：公共 Graph、真实 MySQL、Admin→Analytics 与真实模型已完成复合业务和局部 ReAct 真实闭环。** 复合 Run `b9c90398…15ea0` 的 6/6 步骤成功，7 个唯一 query job 无重复，报告 revision 2 为 READY、3/3 目标 ANSWERED；单查询 ReAct Run `dc4fe737…16cf2` 有两轮模型、一次 CALL／一个 job，报告 2/2 ANSWERED。详情与未覆盖范围见 §1.3 和[最终真实验收记录][FINAL-20260924]。前端维度表 JSON 视觉缺陷已修复，并通过真实内置浏览器 1600px 与 390px 复验；其余视口和未测故障场景不能据此宣称全部验收完成。
+**最新 #201 闭合证据（2026-09-24）：#203、#204、#207 已合并，#201 所列范围的验收已完成。** 新增真实同一 job 在途撤权证据，与浏览器下载、UNKNOWN PV、完成报告撤权及完整 Spring 顺序单 writer 接管证据共同见 §1.4、[补充验收][ISSUE201-FOLLOWUP]、[部署后验收][ISSUE201-POSTDEPLOY]和[真实在途撤权验收][ISSUE201-INFLIGHT]。这不关闭仍为 OPEN 的 [#205 新 MySQL 历史 CLOB 迁移](https://github.com/Jupiter363/shortlink/issues/205)与 [#206 真实模型证据引用缺失](https://github.com/Jupiter363/shortlink/issues/206)，也不代表 active-active、压测、任意提示词或所有视觉状态均已通过。
 
-本文保留 E00–E127、§1.2 及后续逐项矩阵的旧批次状态作为当时快照，不逐行覆盖历史证据；其中“真实环境待验”“尚未接入”等描述须结合 §1.3 的最新增量阅读。已补验范围以最新记录为准，其余未覆盖项继续保留，不把组件通过数累计成整体验收。
+**前次验收增量（2026-09-24）：公共 Graph、真实 MySQL、Admin→Analytics 与真实模型已完成复合业务和局部 ReAct 真实闭环。** 复合 Run `b9c90398…15ea0` 的 6/6 步骤成功，7 个唯一 query job 无重复，报告 revision 2 为 READY、3/3 目标 ANSWERED；单查询 ReAct Run `dc4fe737…16cf2` 有两轮模型、一次 CALL／一个 job，报告 2/2 ANSWERED。详情与未覆盖范围见 §1.3 和[最终真实验收记录][FINAL-20260924]。前端维度表 JSON 视觉缺陷已修复，并通过真实内置浏览器 1600px 与 390px 复验；其余视口和未测故障场景不能据此宣称全部验收完成。
+
+本文保留 E00–E127、§1.2、§1.3 及后续逐项矩阵的旧批次状态作为当时快照，不逐行覆盖历史证据；其中“真实环境待验”“尚未接入”等描述须结合 §1.3、§1.4 的后续增量阅读。已补验范围以最新记录为准，其余未覆盖项继续保留，不把组件通过数累计成整体验收。
 
 记录日期：2026-09-20。实现基线：主线程提供的 main `0d9e788`，PR #71–#73 已合并。本次只读核对计划、源码、测试源码及既有验证记录；**没有重新运行测试、启动应用、Docker、浏览器或真实模型，没有执行 Git 操作**。
 
@@ -195,6 +197,22 @@
 | UI 通用结果页 | 维度明细已改为设备／省份标签及基期／目标期 PV、UV、UIP、PV 占比，原始复杂字段可展开，表内可横向滚动；修复后已通过真实内置浏览器 1600px 与 390px 复验。 | 390px 下报告及历史弹窗无页面级横向溢出，维度表局部横滚可查看变化列；未逐一验证所有视口或浏览器下载文件。 |
 
 仍未由本轮证明的范围：所有提示词组合、真实撤权后的完整交互、实际 UNKNOWN 地域样本的呈现、多实例或压力场景，以及浏览器下载文件捕获。上述边界不因 6/6 步骤成功、3/3 目标 ANSWERED 或定向测试通过而自动关闭。
+
+### 1.4 2026-09-24 Issue #201 闭合验收增量
+
+本节记录 §1.3 之后补齐的验收，不改写 E00–E127 或早期实验的实际结果。#201 所列范围的验收已完成；各项证据对应的部署、样本和故障边界如下。
+
+| #201 验收范围 | 最新实际证据 | 验收边界 |
+| --- | --- | --- |
+| 修复与版本 | [#203](https://github.com/Jupiter363/shortlink/pull/203)、[#204](https://github.com/Jupiter363/shortlink/pull/204)、[#207](https://github.com/Jupiter363/shortlink/pull/207) 已合并。#207 毫秒 SQL 修复的 33 项定向用例通过，隔离 Analytics 的新 jar 已用于真实在途实验。 | #207 未部署到共享 Analytics 实例；不把合并或隔离实例验证表述为共享实例已升级。见[真实在途验收][ISSUE201-INFLIGHT]。 |
+| 浏览器报告下载 | 浏览器下载的同版报告为 1332 bytes，与同版授权 API 返回的文件 SHA-256 一致。 | 证明该报告版本的下载内容一致，不代表全部报告或浏览器组合。见[补充验收][ISSUE201-FOLLOWUP]。 |
+| UNKNOWN 统计呈现 | 真实 UNKNOWN 省份样本的 PV 为 11，未把 UNKNOWN PV 补成 0；对应呈现已按记录验收。 | 该样本不证明全部地域、所有视觉状态或提示词组合。见[补充验收][ISSUE201-FOLLOWUP]。 |
+| 已完成报告撤权 | 完成报告所属分组撤销后，报告、分页与导出返回 403；历史列表不再返回该报告。 | 这是完成后的权限验收，独立于下行的在途撤权证据。见[部署后验收][ISSUE201-POSTDEPLOY]。 |
+| 真实 Admin→Analytics 同一 job 在途撤权 | attempt `0d959e1f1670eb1162246755de3f49f9` 使用独立真实 Agent、Admin、Analytics 与共享真实 Command、MySQL。同一 job `f72ca015-1302-40fd-b9d6-6d2e2d1cd0ab` 的顺序为 `RUNNING → 自禁用 HTTP 200 → Command HTTP 403 → FAILED/FORBIDDEN`，`attempts=1`、`page_count=0`。Agent 保持 `ACTIVE/revision=1`，child 为 `UNRESOLVED/JOB_RESULT_UNKNOWN`、`callback_active=0`，没有 Artifact 或报告；新推进返回 `ACCESS_DENIED`，未重新提交 job。 | 撤权早于该 job 终态，旧回调未发布结果；本次没有真实模型调用。证据来自这次隔离实例实验，不将早期无法证明时序的实验改写为通过。见[真实在途验收][ISSUE201-INFLIGHT]。 |
+| 完整 Spring 顺序单 writer 接管 | 完整 Spring 应用与原生 MySQL 下，A 退出后 B 取得单 writer 并沿原 job 继续；真实回调、接管和结果发布的验证通过。 | 统计与授权端使用 HTTP fixture；这不是共享实际 Analytics 的 failover，也不是 active-active、多机网络分区或压力验收。见[部署后验收][ISSUE201-POSTDEPLOY]。 |
+| 模型叙述质量与安全降级 | “两组卡方”误词已修复或拦截，无因果证据、空结果、统计局限的定向评估已补齐；不以目标 `ANSWERED` 证明语言事实正确。真实 UNKNOWN 报告因缺少必需 `evidenceArtifactIds` 被严格拒绝完整叙述并降为 `PARTIAL`。 | #201 的该条修复与定向评估已完成；真实模型完整性问题由仍 OPEN 的 [#206](https://github.com/Jupiter363/shortlink/issues/206) 跟进，不能宣称真实模型语言质量全面通过。见[补充验收][ISSUE201-FOLLOWUP]。 |
+
+仍需保留的开放项与未验边界：[#205](https://github.com/Jupiter363/shortlink/issues/205) 的新 MySQL 历史 `CLOB` 迁移问题、[#206](https://github.com/Jupiter363/shortlink/issues/206) 的真实模型证据引用缺失均为 OPEN；原生 MySQL 接管验证使用了验收夹具的历史类型适配，未证明全新 MySQL 可不经适配执行全部历史迁移。active-active、压力场景、任意提示词组合及所有视觉状态不在本次通过声明内。本次仅更新完成矩阵并作静态差异检查，没有另跑测试、启动服务或调用模型。
 
 ## 2. 全阶段交付矩阵
 
@@ -566,6 +584,9 @@
 [E126]: ../integration/campaign-plan-p4-replan-p5-lifecycle-2026-09-20.md
 [E127]: ../integration/campaign-public-delivery-2026-09-24.md
 [FINAL-20260924]: ../integration/campaign-final-acceptance-2026-09-24.md
+[ISSUE201-FOLLOWUP]: ../integration/campaign-issue201-followup-2026-09-24.md
+[ISSUE201-POSTDEPLOY]: ../integration/campaign-issue201-postdeploy-2026-09-24.md
+[ISSUE201-INFLIGHT]: ../integration/campaign-issue201-inflight-2026-09-24.md
 [CODE-PLAN]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/planning
 [CODE-RUNTIME]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/runtime
 [CODE-SKILLS]: ../../services/agent-service/src/main/java/com/jupiter/shortlink/agent/campaignanalysisagent/skills
