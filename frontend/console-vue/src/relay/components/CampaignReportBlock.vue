@@ -87,6 +87,15 @@ const visibleRows = computed(() =>
     : rows.value
 )
 const embeddedPages = computed(() => Math.max(1, Math.ceil(rows.value.length / embeddedPageSize)))
+const hasUnknownDimensions = computed(() =>
+  visibleRows.value.some((row) =>
+    Object.entries(row).some(([key, value]) =>
+      key === 'dimensions' && isRecord(value)
+        ? Object.values(value).some((cell) => cell?.state === 'UNKNOWN')
+        : isRecord(value) && value.state === 'UNKNOWN' && Object.hasOwn(value, 'value')
+    )
+  )
+)
 const columns = computed(() =>
   Array.isArray(payload.value.columns) && payload.value.columns.length
     ? payload.value.columns
@@ -288,6 +297,9 @@ onBeforeUnmount(() => {
         }}</RButton>
       </div>
       <template v-if="loaded">
+        <p v-if="hasUnknownDimensions" class="cr-muted">
+          未知（UNKNOWN）表示维度信息缺失，不代表访问量为 0。
+        </p>
         <button
           v-if="compactColumns"
           type="button"

@@ -103,6 +103,29 @@ class CampaignDueWorkDispatcherTest {
     }
 
     @Test
+    void callbackStartingAfterInspectionDefersTheRejectedSubmissionButUnknownStillBlocks() {
+        var f=new Fixture();
+        var reference=new WorkRef("run-race","work-race");
+        f.store.schedule(reference);
+        var decision=new java.util.concurrent.atomic.AtomicReference<>(CampaignDueWorkDispatcher.Decision.CONTINUE);
+        var attempts=new AtomicInteger();
+        var dispatcher=new CampaignDueWorkDispatcher(f.store,ref->{
+            attempts.incrementAndGet();
+            decision.set(CampaignDueWorkDispatcher.Decision.WAIT);
+            throw new IllegalStateException("CALLBACK_ALREADY_STARTED");
+        },ref->decision.get(),new CampaignDueWorkDispatcher.Settings(1,1,100,400));
+        assertEquals(0,dispatcher.tick().submitted());
+        assertEquals(CampaignDueWorkStore.State.READY,f.store.entry(reference).state());
+        assertEquals("CALLBACK_IN_PROGRESS",f.store.entry(reference).reason());
+        assertEquals(1,attempts.get());
+        decision.set(CampaignDueWorkDispatcher.Decision.BLOCKED);
+        f.clock.advance(100);
+        assertEquals(0,dispatcher.tick().submitted());
+        assertEquals(CampaignDueWorkStore.State.BLOCKED,f.store.entry(reference).state());
+        assertEquals(1,attempts.get());
+    }
+
+    @Test
     void provenCapacityRejectionRetriesAfterBackoffAndTheNextPassRechecksCurrentAuthority() {
         var f = new Fixture();
         var reference = new WorkRef("run-capacity", "work-capacity"); f.store.schedule(reference);

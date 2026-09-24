@@ -6,7 +6,9 @@ import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.persistence.Cam
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignReportDeliveryService;
 import com.jupiter.shortlink.agent.campaignanalysisagent.runtime.report.CampaignReportDeliveryService.*;
 import com.jupiter.shortlink.agent.common.result.Result;
+import java.util.Map;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 /** Read-only transport: owner, capabilities and report payloads are never accepted from clients. */
@@ -16,6 +18,12 @@ import org.springframework.web.bind.annotation.*;
 public final class CampaignReportController {
     private final CampaignReportDeliveryService reports;
     public CampaignReportController(CampaignReportDeliveryService reports) { this.reports = reports; }
+
+    @ExceptionHandler(SecurityException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Map<String, Object> forbidden() {
+        return Map.of("success", false, "code", "RESOURCE_UNAVAILABLE");
+    }
 
     @GetMapping("/reports/{reportId}/revisions/{revision}")
     public Result<CampaignReportView> read(@PathVariable String reportId, @PathVariable int revision,

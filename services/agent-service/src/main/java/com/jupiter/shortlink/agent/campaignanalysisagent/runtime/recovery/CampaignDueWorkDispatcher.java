@@ -17,7 +17,8 @@ public final class CampaignDueWorkDispatcher {
     private static final Logger LOG = LoggerFactory.getLogger(CampaignDueWorkDispatcher.class);
     @FunctionalInterface public interface Submit { Future<Void> submit(WorkRef reference); }
     @FunctionalInterface public interface WorkState { Decision inspect(WorkRef reference); }
-    public enum Decision { CONTINUE, DONE, BLOCKED }
+    /** WAIT retains the backed-off reference without admitting work or inferring callback death. */
+    public enum Decision { CONTINUE, WAIT, DONE, BLOCKED }
     public record Settings(int batchSize, int maxInFlight, long initialDelayMillis, long maximumDelayMillis) {
         public Settings {
             if (batchSize < 1 || maxInFlight < 1 || (long) batchSize + maxInFlight > 4096
@@ -80,10 +81,11 @@ public final class CampaignDueWorkDispatcher {
 
     private void finish(CampaignDueWorkStore.Claim claim, Decision decision) {
         store.finish(claim, switch (Objects.requireNonNull(decision)) {
-            case CONTINUE -> CampaignDueWorkStore.State.READY;
+            case CONTINUE, WAIT -> CampaignDueWorkStore.State.READY;
             case DONE -> CampaignDueWorkStore.State.DONE;
             case BLOCKED -> CampaignDueWorkStore.State.BLOCKED;
-        }, decision == Decision.BLOCKED ? "DURABLE_WORK_BLOCKED" : null);
+        }, decision == Decision.BLOCKED ? "DURABLE_WORK_BLOCKED"
+                : decision == Decision.WAIT ? "CALLBACK_IN_PROGRESS" : null);
     }
 
     private void fail(CampaignDueWorkStore.Claim claim, Throwable failure) {
@@ -91,6 +93,18 @@ public final class CampaignDueWorkDispatcher {
         if (failure instanceof CapacityRejectedException)
             store.finish(claim, CampaignDueWorkStore.State.READY, "LOCAL_ADMISSION_REJECTED");
         else {
+            // Another scheduler may begin the callback after our pre-admission observation.
+            // Only a current, explicitly in-progress state permits waiting; UNKNOWN never does.
+            if (!(failure instanceof SecurityException)) {
+                try {
+                    if (state.inspect(claim.reference()) == Decision.WAIT) {
+                        finish(claim, Decision.WAIT);
+                        return;
+                    }
+                } catch (RuntimeException unavailable) {
+                    // Missing durable facts cannot justify retrying an unknown execution.
+                }
+            }
             String reason = failure instanceof SecurityException ? "ACCESS_DENIED" : "ADVANCE_REQUIRES_ATTENTION";
             LOG.warn("Campaign advance blocked reason={} diagnostic={}", reason, CampaignFailureDiagnostics.describe(failure));
             store.finish(claim, CampaignDueWorkStore.State.BLOCKED, reason);

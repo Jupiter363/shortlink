@@ -179,7 +179,8 @@ public class CampaignPlanConfiguration {
 
     @Bean(initMethod="start",destroyMethod="close")
     public CampaignPublicWorkScheduler campaignWorkScheduler(JdbcTemplate jdbc,CampaignPublicRequestStore requests,
-            CampaignDueWorkStore due,CampaignStatisticsFixedRuntime runtime,CampaignPublicRequestService initialized) {
-        return new CampaignPublicWorkScheduler(jdbc,requests,due,runtime.intake());
+            CampaignDueWorkStore due,CampaignStatisticsFixedRuntime runtime,CampaignPublicRequestService initialized,
+            @Qualifier("campaignStatisticsClock") Clock clock) {
+        return new CampaignPublicWorkScheduler(jdbc,requests,due,runtime.intake(),clock);
     }
 }

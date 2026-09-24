@@ -164,9 +164,37 @@ class CampaignPublicBusinessRuntimeTest {
             assertThat(f.model.calls).hasValue(2);
             assertThat(f.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_public_request", Integer.class)).isEqualTo(1);
             assertThat(f.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger WHERE callback_active=TRUE", Integer.class)).isZero();
+            int childRows = f.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger", Integer.class);
+            int reportRows = f.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_report_lifecycle", Integer.class);
+            int scheduledBeforeRevocation = f.scheduled.size();
+            f.deniedGroups.add("group-a");
+            assertThat(f.runtime.principals().resolve(OWNER, SESSION)).isEqualTo(PRINCIPAL);
+            assertThatThrownBy(() -> f.reports.read(OWNER, reportReference, view.reportRef()))
+                    .as("An unchanged account identity cannot read a report after one frozen group is revoked")
+                    .isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> f.reports.export(OWNER, reportReference, view.reportRef())).isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> f.reports.rows(OWNER, reportReference, view.reportRef(), dataBlock.blockId(), null, 25))
+                    .isInstanceOf(SecurityException.class);
+            assertThat(f.reports.history(OWNER, SESSION, null, 20).items())
+                    .as("Revoked report versions disclose neither their title nor their assessments").isEmpty();
+            assertThatThrownBy(() -> f.runtime.runs().readArtifact(OWNER, scopeId, gate)).isInstanceOf(SecurityException.class);
+            assertThat(f.gateway.calls()).isEqualTo(io);
+            assertThat(f.model.calls).hasValue(2);
+            assertThat(f.scheduled).hasSize(scheduledBeforeRevocation);
+            assertThat(f.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_public_request", Integer.class)).isEqualTo(1);
+            assertThat(f.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_child_ledger", Integer.class)).isEqualTo(childRows);
+            assertThat(f.jdbc.queryForObject("SELECT COUNT(*) FROM campaign_report_lifecycle", Integer.class)).isEqualTo(reportRows);
+            f.deniedGroups.clear();
+            assertThat(f.reports.read(OWNER, reportReference, view.reportRef()))
+                    .as("Restoring only the isolated fixture ACL reads the same immutable report without re-analysis")
+                    .isEqualTo(view);
             f.live.set(false);
             assertThatThrownBy(() -> f.service.progress(PRINCIPAL, SESSION, reference)).isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> f.reports.export(OWNER, reportReference, view.reportRef())).isInstanceOf(SecurityException.class);
+            assertThat(f.reports.history(OWNER, SESSION, null, 20).items()).isEmpty();
             assertThat(f.gateway.calls()).isEqualTo(io);
+            assertThat(f.model.calls).hasValue(2);
+            assertThat(f.scheduled).hasSize(scheduledBeforeRevocation);
         }
     }
 
@@ -175,6 +203,7 @@ class CampaignPublicBusinessRuntimeTest {
         final TransactionTemplate tx;
         final ScriptedModel model = new ScriptedModel();
         final AtomicBoolean live = new AtomicBoolean(true);
+        final Set<String> deniedGroups = ConcurrentHashMap.newKeySet();
         final Gateway gateway = new Gateway();
         final ExecutorService callbacks = Executors.newSingleThreadExecutor();
         final List<WorkRef> scheduled = new ArrayList<>();
@@ -205,7 +234,7 @@ class CampaignPublicBusinessRuntimeTest {
             jdbc = new JdbcTemplate(source); tx = new TransactionTemplate(new DataSourceTransactionManager(source));
             String root = new ClassPathResource("campaign-skills").getFile().getAbsolutePath();
             var extension = new CampaignPlanConfiguration().campaignBusinessExtension(model, callbacks, root);
-            runtime = new CampaignStatisticsFixedRuntime(jdbc, tx, CLOCK, authority(live), gateway, new MemorySaver(),
+            runtime = new CampaignStatisticsFixedRuntime(jdbc, tx, CLOCK, authority(live, deniedGroups), gateway, new MemorySaver(),
                     "public-business-test-domain", new ProcessCapacityExecutor.Limits(1, 1, 1, 2), java.nio.file.Path.of(root), extension);
             gateway.runtime = runtime;
             requests = new CampaignPublicRequestStore(jdbc, tx, CLOCK);
@@ -281,7 +310,7 @@ class CampaignPublicBusinessRuntimeTest {
     }
 
     // The scripted authority and page fixtures below reuse the E125 two-link cohort contract.
-    private static AgentAuthorityClient authority(AtomicBoolean live) {
+    private static AgentAuthorityClient authority(AtomicBoolean live, Set<String> deniedGroups) {
         var authority = mock(AgentAuthorityClient.class);
         when(authority.verifyCurrentPrincipal(any(AgentPrincipal.class))).thenAnswer(call -> {
             if (!live.get() || !PRINCIPAL.equals(call.getArgument(0))) throw new SecurityException("REVOKED");
@@ -291,7 +320,7 @@ class CampaignPublicBusinessRuntimeTest {
                 .thenAnswer(call -> {
                     assertThat(call.<AgentPrincipal>getArgument(0)).isEqualTo(PRINCIPAL);
                     assertThat(call.<String>getArgument(1)).isIn("group-a", "group-b");
-                    if (!live.get()) throw new SecurityException("REVOKED");
+                    if (!live.get() || deniedGroups.contains(call.<String>getArgument(1))) throw new SecurityException("REVOKED");
                     return new GroupMembersPage(GroupMembersPage.SCHEMA, OWNER.tenantId(), OWNER.subject(),
                             OWNER.authVersion(), call.getArgument(1), VERSION, null,
                             "group-a".equals(call.getArgument(1)) ? List.of(1L, 2L) : List.of(3L, 4L), null);
@@ -301,7 +330,7 @@ class CampaignPublicBusinessRuntimeTest {
                     assertThat(call.<AgentPrincipal>getArgument(0)).isEqualTo(PRINCIPAL);
                     assertThat(call.<String>getArgument(1)).isEqualTo("group-a");
                     assertThat(call.<String>getArgument(5)).isEqualTo(VERSION);
-                    if (!live.get()) throw new SecurityException("REVOKED");
+                    if (!live.get() || deniedGroups.contains(call.<String>getArgument(1))) throw new SecurityException("REVOKED");
                     List<Long> ids = call.getArgument(3);
                     assertThat(ids).isNotEmpty().allMatch(id -> id == 1 || id == 2);
                     return new AgentAuthorityClient.AuthorizedScope(OWNER.tenantId(), VERSION,

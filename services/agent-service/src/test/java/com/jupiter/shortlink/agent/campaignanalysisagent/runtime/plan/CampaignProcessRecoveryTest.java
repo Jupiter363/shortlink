@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.h2.tools.Server;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -53,6 +54,113 @@ class CampaignProcessRecoveryTest {
     private static final CapabilityCatalog.TypeRef EVIDENCE = new CapabilityCatalog.TypeRef("Evidence", 1, CapabilityCatalog.Cardinality.ONE);
     private static final ArtifactAuthorizer ALLOW = (caller, artifact) -> true;
     @TempDir Path temporary;
+
+    @Test
+    void liveOwnerBlocksTakeoverThenControlledExitReusesTheExactAsyncJobAndFencesOldCallbacks() throws Exception {
+        String domain="same-live-test-pid-domain-"+UUID.randomUUID();
+        String database=temporary.resolve("async-ledger").toAbsolutePath().toString().replace('\\','/');
+        String options=";MODE=MySQL;DB_CLOSE_DELAY=-1;WRITE_DELAY=0";
+        Fixture fixture=fixture("jdbc:h2:file:"+database+options);
+        new ResourceDatabasePopulator(new ClassPathResource("sql/migration/V20260919__campaign_run_ledger.sql"),
+                new ClassPathResource("sql/migration/V20260919_2__campaign_step_ledger.sql"),
+                new ClassPathResource("sql/migration/V20260919_3__campaign_run_owner.sql")).execute(fixture.jdbc().getDataSource());
+        // A tiny external-job fixture records actual submissions separately from the production ledgers.
+        fixture.jdbc().execute("CREATE TABLE fixture_job_submission (id BIGINT AUTO_INCREMENT PRIMARY KEY,"
+                +"request_id VARCHAR(96),wire_hash CHAR(64),job_id VARCHAR(96))");
+        Server server=Server.createTcpServer("-tcpPort","0","-tcpDaemon").start();
+        Process child=null;
+        Path ready=temporary.resolve("async-owner-ready"),log=temporary.resolve("async-owner.log");
+        try {
+            // H2 accepts only local clients by default. The server owns only this test's temporary database.
+            String remote="jdbc:h2:tcp://127.0.0.1:"+server.getPort()+"/"+database+options;
+            child=new ProcessBuilder(javaExecutable(),"-Xms32m","-Xmx128m","-cp",classpathJar().toString(),
+                    LiveAsyncOwner.class.getName(),remote,domain,ready.toString())
+                    .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+            long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(20);
+            while (!Files.exists(ready) && System.nanoTime()<deadline) {
+                if (child.waitFor(50,TimeUnit.MILLISECONDS)) fail("Owner exited before the live barrier: "+readLog(log));
+            }
+            assertTrue(Files.exists(ready),()->"Owner did not reach the barrier: "+readLog(log));
+            assertTrue(child.isAlive());
+            var probe=new LocalProcessLiveness(domain);
+            var recovery=new JdbcCampaignRecoveryStore(fixture.jdbc(),fixture.transactions(),CLOCK,probe.currentIdentity(),probe);
+            RunToken original=fixture.runs().loadRun(OWNER,"run-1").orElseThrow().token();
+            ChildRecord waiting=fixture.runs().child(original,"async-a").orElseThrow();
+            var oldStep=fixture.steps().step(original,"a").orElseThrow();
+            long oldStepVersion=fixture.jdbc().queryForObject("SELECT attempt_version FROM campaign_step_ledger WHERE run_id=? AND revision=? AND step_id=?",
+                    Long.class,original.definition().runId(),original.definition().revision(),"a");
+            var oldStepPermit=new CampaignStepStore.StepPermit(original,"a",oldStep.attemptId(),oldStepVersion);
+            var oldPermit=new DispatchPermit(original,waiting.spec().childId(),waiting.attemptId(),waiting.attemptVersion(),waiting.purpose());
+            assertEquals(asyncChild(),waiting.spec());
+            assertEquals(ChildState.WAITING,waiting.state());
+            assertEquals("fixture-job-1",waiting.jobId());
+            assertTrue(waiting.callbackActive());
+
+            var blocked=recovery.recover(original);
+            assertEquals(CampaignRecoveryStore.Outcome.BLOCKED,blocked.outcome());
+            assertEquals("CALLBACK_OWNER_ALIVE",blocked.reason());
+            assertEquals(original,fixture.runs().loadRun(OWNER,"run-1").orElseThrow().token());
+            assertEquals(waiting,fixture.runs().child(original,"async-a").orElseThrow());
+            assertEquals(1,fixture.jdbc().queryForObject("SELECT COUNT(*) FROM fixture_job_submission",Integer.class));
+            assertEquals(0,fixture.jdbc().queryForObject("SELECT COUNT(*) FROM campaign_callback_recovery",Integer.class));
+            assertThrows(IllegalStateException.class,()->fixture.runs().beginDispatch(original,"async-a"));
+
+            // Only the owned child is stopped; halt skips both original callbacks' finally blocks.
+            child.getOutputStream().close();
+            assertTrue(child.waitFor(10,TimeUnit.SECONDS),"Owned callback process must exit on stdin EOF");
+            assertEquals(0,child.exitValue(),()->readLog(log));
+            var acquired=recovery.recover(original);
+            assertEquals(CampaignRecoveryStore.Outcome.ACQUIRED,acquired.outcome(),acquired.reason());
+            assertEquals(2,acquired.recoveredCallbacks());
+            RunToken writer=acquired.token();
+            assertEquals(original.version()+1,writer.version());
+            assertNotEquals(original.advanceToken(),writer.advanceToken());
+            ChildRecord recovered=fixture.runs().child(writer,"async-a").orElseThrow();
+            assertEquals(waiting.spec(),recovered.spec());
+            assertEquals(waiting.jobId(),recovered.jobId());
+            assertEquals(ChildState.WAITING,recovered.state());
+            assertFalse(recovered.callbackActive());
+            assertFalse(fixture.runs().mayDispatch(oldPermit));
+            assertFalse(fixture.steps().mayAdvance(original));
+            assertThrows(IllegalStateException.class,()->fixture.runs().beginDispatch(writer,"async-a"),
+                    "A known job permits reconciliation, never another fresh submission");
+
+            DispatchPermit receipt=fixture.runs().beginReconciliation(writer,"async-a");
+            assertEquals(waiting.attemptVersion()+1,receipt.attemptVersion());
+            assertThrows(IllegalStateException.class,()->fixture.runs().callbackExited(oldPermit));
+            assertTrue(fixture.runs().child(writer,"async-a").orElseThrow().callbackActive(),
+                    "Old finally cannot clear the new receiver's callback");
+            var draft=new ArtifactDraft("artifact-async","Evidence","evidence/v1","scope-1","periods-1",
+                    "{\"completeness\":\"PARTIAL\"}","{\"jobId\":\"fixture-job-1\"}",
+                    CLOCK.instant().plusSeconds(3600),"{\"pv\":23}");
+            assertThrows(IllegalStateException.class,()->fixture.runs().publishReady(oldPermit,draft));
+            fixture.runs().publishReady(receipt,draft);
+            fixture.runs().callbackExited(receipt);
+            assertEquals(CampaignStepStore.StepStatus.READY,fixture.steps().refreshWaiting(writer,"a").status());
+            var newStep=fixture.steps().beginStep(writer,"a");
+            assertThrows(IllegalStateException.class,()->fixture.steps().callbackExited(oldStepPermit));
+            assertThrows(IllegalStateException.class,()->fixture.steps().settle(oldStepPermit,
+                    CampaignStepStore.StepStatus.SUCCEEDED,Map.of("evidence","artifact-async"),null,ALLOW));
+            assertTrue(fixture.steps().step(writer,"a").orElseThrow().callbackActive());
+            fixture.steps().settle(newStep,CampaignStepStore.StepStatus.SUCCEEDED,Map.of("evidence","artifact-async"),null,ALLOW);
+            fixture.steps().callbackExited(newStep);
+            var completed=fixture.runs().child(writer,"async-a").orElseThrow();
+            assertEquals(ChildState.READY,completed.state());
+            assertEquals(waiting.spec(),completed.spec());
+            assertEquals(waiting.jobId(),completed.jobId());
+            assertEquals(1,fixture.jdbc().queryForObject("SELECT COUNT(*) FROM fixture_job_submission WHERE request_id=? AND wire_hash=? AND job_id=?",
+                    Integer.class,waiting.spec().requestId(),waiting.spec().wire().hash(),waiting.jobId()));
+            assertEquals(1,fixture.jdbc().queryForObject("SELECT COUNT(*) FROM fixture_job_submission",Integer.class));
+            assertEquals(1,fixture.jdbc().queryForObject("SELECT COUNT(*) FROM campaign_artifact",Integer.class));
+            assertEquals(1,fixture.jdbc().queryForObject("SELECT COUNT(*) FROM campaign_artifact_payload",Integer.class));
+        } finally {
+            if (child!=null && child.isAlive()) { child.destroyForcibly(); child.waitFor(5,TimeUnit.SECONDS); }
+            server.stop();
+            try (var connection=fixture.jdbc().getDataSource().getConnection();var statement=connection.createStatement()) {
+                statement.execute("SHUTDOWN");
+            }
+        }
+    }
 
     @Test
     void deadJvmReadyReceiptIsReusedAndCompletedStepIsNotRerunAfterNativeGraphRecovery() throws Exception {
@@ -160,6 +268,39 @@ class CampaignProcessRecoveryTest {
             publish(fixture, token, "a");
             Runtime.getRuntime().halt(0);
         }
+    }
+
+    /** A real live writer; only the external job endpoint is represented by the isolated fixture table. */
+    public static final class LiveAsyncOwner {
+        public static void main(String[] arguments) throws Exception {
+            Fixture fixture=fixture(arguments[0]);
+            FrozenCampaignRun frozen=frozen();
+            var probe=new LocalProcessLiveness(arguments[1]);
+            var token=new JdbcCampaignRecoveryStore(fixture.jdbc(),fixture.transactions(),CLOCK,probe.currentIdentity(),probe)
+                    .recover(fixture.runs().createRun(frozen.definition(OWNER,"session-1"))).token();
+            fixture.steps().initialize(token,frozen.plan().steps().stream().map(step->
+                    new CampaignStepStore.StepSpec(step.stepId(),FrozenCampaignRun.encode(step),step.dependsOn(),
+                            Set.of("evidence"),Set.of("evidence"))).toList());
+            fixture.steps().beginStep(token,"a");
+            var step=frozen.plan().steps().stream().filter(value->value.stepId().equals("a")).findFirst().orElseThrow();
+            fixture.runs().prepareAction(token,new ActionSpec("action-a","a",QUERY.kind().name(),QUERY.name(),QUERY.version(),
+                    FrozenCampaignRun.encode(step)));
+            ChildSpec child=asyncChild();
+            fixture.runs().prepareChild(token,child);
+            var permit=fixture.runs().beginDispatch(token,child.childId());
+            if (!fixture.runs().mayDispatch(permit)) throw new IllegalStateException("FIXTURE_DISPATCH_DENIED");
+            fixture.jdbc().update("INSERT INTO fixture_job_submission (request_id,wire_hash,job_id) VALUES (?,?,?)",
+                    child.requestId(),child.wire().hash(),"fixture-job-1");
+            fixture.runs().recordWaiting(permit,"fixture-job-1");
+            Files.writeString(Path.of(arguments[2]),"JOB_ACKNOWLEDGED");
+            while (System.in.read()!=-1) { /* The parent controls only this owned child. */ }
+            Runtime.getRuntime().halt(0);
+        }
+    }
+
+    private static ChildSpec asyncChild() {
+        return new ChildSpec("async-a","action-a",ChildMode.ASYNC,"request-async-a",
+                new WireRequest("POST","/fixture/statistics/jobs","{\"requestId\":\"request-async-a\",\"gid\":\"fixture-group\"}"));
     }
 
     private static DispatchPermit publish(Fixture fixture, RunToken token, String id) {

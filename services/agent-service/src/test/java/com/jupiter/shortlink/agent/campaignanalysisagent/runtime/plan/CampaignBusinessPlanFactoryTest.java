@@ -116,8 +116,12 @@ class CampaignBusinessPlanFactoryTest {
         assertThat(gate.mayUse(PRINCIPAL, query.scopeRef(), query.periodsRef(), wire)).isFalse();
         wire.put("dimensions", query.request().get("dimensions")); wire.put("endDate", "2026-09-10");
         assertThat(gate.mayUse(PRINCIPAL, query.scopeRef(), query.periodsRef(), wire)).isFalse();
+        wire.put("endDate", query.request().get("endDate"));
+        assertThat(gate.mayUse(PRINCIPAL, query.scopeRef(), query.periodsRef(), wire)).isTrue();
+        clearInvocations(authority);
         when(authority.verifyCurrentPrincipal(PRINCIPAL)).thenThrow(new SecurityException("revoked"));
         assertThat(gate.mayUse(PRINCIPAL, query.scopeRef(), query.periodsRef(), wire)).isFalse();
+        verify(authority, atLeastOnce()).verifyCurrentPrincipal(PRINCIPAL);
     }
 
     @Test

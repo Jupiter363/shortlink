@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import echarts from '../../plugins/echarts.js'
 import { displayValue } from '../domain/campaignReport.js'
+import { campaignChartLabel } from '../domain/campaignChartLabels.js'
 
 const props = defineProps({
   payload: { type: Object, required: true },
@@ -9,8 +10,9 @@ const props = defineProps({
 })
 const canvas = ref(null)
 const labels = computed(() =>
-  Array.isArray(props.payload.labels) ? props.payload.labels.map(String) : []
+  Array.isArray(props.payload.labels) ? props.payload.labels.map(campaignChartLabel) : []
 )
+const hasUnknownDimensions = computed(() => labels.value.some((label) => label.hasUnknown))
 const series = computed(() =>
   Array.isArray(props.payload.series)
     ? props.payload.series.filter((item) => Array.isArray(item.values))
@@ -38,7 +40,7 @@ function render() {
       grid: { left: 14, right: 18, top: 30, bottom: 46, containLabel: true },
       xAxis: {
         type: 'category',
-        data: labels.value,
+        data: labels.value.map((label) => label.axisText),
         axisLine: { lineStyle: { color: '#d6e2f3' } },
         axisTick: { show: false },
         axisLabel: { color: '#536884', hideOverlap: true }
@@ -87,6 +89,9 @@ onBeforeUnmount(() => {
       :aria-label="`${title}，完整数值见下方数据表`"
     />
     <p v-if="!supported" class="cr-muted">当前图表类型无法绘制，数值仍保留在下方。</p>
+    <p v-if="hasUnknownDimensions" class="cr-muted">
+      未知（UNKNOWN）表示维度信息缺失，不代表访问量为 0。
+    </p>
     <details class="cr-chart-data">
       <summary>查看图表数值</summary>
       <div class="cr-table-wrap" tabindex="0" role="region" :aria-label="`${title}数据表`">
@@ -99,7 +104,15 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="(label, index) in labels" :key="index">
-              <th scope="row">{{ label }}</th>
+              <th scope="row">
+                {{ label.text }}
+                <details v-if="label.formatted" class="cr-cell-details">
+                  <summary>原始维度字段</summary>
+                  <pre class="cr-raw-content" tabindex="0" aria-label="原始维度字段">{{
+                    label.raw
+                  }}</pre>
+                </details>
+              </th>
               <td v-for="(item, seriesIndex) in series" :key="seriesIndex">
                 {{ displayValue(item.values[index]) }}
               </td>
