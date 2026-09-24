@@ -440,7 +440,7 @@ public class QueryJobServiceTest {
 
                 @Override
                 public <T> T queryForObject(String sql, Class<T> type) {
-                    if (sql.equals("SELECT CURRENT_TIMESTAMP")) return type.cast(databaseNow.get());
+                    if (sql.equals("SELECT CURRENT_TIMESTAMP(3)")) return type.cast(databaseNow.get());
                     return super.queryForObject(sql, type);
                 }
             };
