@@ -868,7 +868,7 @@ public class QueryJobService {
     }
 
     private long now() {
-        return db.queryForObject("SELECT CURRENT_TIMESTAMP", Timestamp.class).getTime();
+        return db.queryForObject("SELECT CURRENT_TIMESTAMP(3)", Timestamp.class).getTime();
     }
 
     private static Number number(Object v) {
